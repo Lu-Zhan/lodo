@@ -1,0 +1,19 @@
+# secrets
+web/.env
+
+# data
+web/data/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# local tooling
+.claude/settings.local.json
+web/.agents/
+web/.claude/
+
+# os
+.DS_Store
