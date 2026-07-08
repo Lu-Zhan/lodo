@@ -17,3 +17,8 @@ web/.claude/
 
 # os
 .DS_Store
+
+# xcode
+ios/build/
+ios/LodoCore/.build/
+*.xcuserdatad/
