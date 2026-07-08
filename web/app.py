@@ -8,7 +8,7 @@ from typing import Optional
 import streamlit as st
 
 from lodo import scheduler
-from lodo.ai import AIParseError, parse_task
+from lodo.ai import AIParseError, edit_task, parse_task
 from lodo.db import Database
 from lodo.models import WEEKDAY_NAMES, Phase, RepeatType, Status, Task
 from lodo.settings import load_settings, mark_digest_shown, save_settings
@@ -29,6 +29,12 @@ if "digest_date" not in st.session_state:
     st.session_state.digest_date = None          # 今日汇总卡片(值为日期字符串)
 if "pending_parse" not in st.session_state:
     st.session_state.pending_parse = None        # AI 解析结果,等待确认创建
+if "editing_id" not in st.session_state:
+    st.session_state.editing_id = None           # 正在编辑的事项 id
+if "edit_defaults" not in st.session_state:
+    st.session_state.edit_defaults = {}          # 编辑面板控件的初始值
+if "edit_ver" not in st.session_state:
+    st.session_state.edit_ver = 0                # 递增使编辑控件重建,AI 修改后生效
 
 
 def fmt(dt: datetime) -> str:
@@ -53,6 +59,19 @@ def norm_time(s: str) -> Optional[str]:
 
 REPEAT_OPTIONS = {"不重复": RepeatType.NONE, "每天": RepeatType.DAILY, "每周": RepeatType.WEEKLY}
 TIME_OPTIONS = [f"{h:02d}:00" for h in range(6, 24)]
+
+
+def task_to_defaults(task: Task) -> dict:
+    """把 Task 转成 task_fields / ai.edit_task 使用的字段 dict。"""
+    return {
+        "title": task.title,
+        "remind_at": task.remind_at,
+        "all_day": task.all_day,
+        "duration_minutes": task.duration_minutes,
+        "repeat_type": task.repeat_type.value,
+        "repeat_days": task.repeat_days,
+        "repeat_times": task.repeat_times,
+    }
 
 
 def task_fields(key: str, d: dict) -> Optional[Task]:
@@ -307,9 +326,17 @@ def reminder_and_lists() -> None:
         if not pending:
             st.caption("暂无待办事项")
         for task in pending:
-            c1, c2, c3 = st.columns([6, 1, 1], vertical_alignment="center")
+            c1, c2, c3, c4 = st.columns([6, 1, 1, 1], vertical_alignment="center")
             c1.markdown(f"**{task.title}**  \n:gray[{task_caption(task)}]")
-            if c2.button("✓", key=f"list_done_{task.id}", help="标记完成"):
+            if c2.button("✏️", key=f"list_edit_{task.id}", help="编辑"):
+                if st.session_state.editing_id == task.id:
+                    st.session_state.editing_id = None
+                else:
+                    st.session_state.editing_id = task.id
+                    st.session_state.edit_defaults = task_to_defaults(task)
+                    st.session_state.edit_ver += 1
+                st.rerun(scope="fragment")
+            if c3.button("✓", key=f"list_done_{task.id}", help="标记完成"):
                 nxt = scheduler.next_occurrence(task, datetime.now())
                 if nxt is not None:
                     db.add_task(Task(
@@ -324,9 +351,45 @@ def reminder_and_lists() -> None:
                     task.done_at = datetime.now()
                 db.update_task(task)
                 st.rerun(scope="fragment")
-            if c3.button("🗑", key=f"list_del_{task.id}", help="删除"):
+            if c4.button("🗑", key=f"list_del_{task.id}", help="删除"):
                 db.delete_task(task.id)
                 st.rerun(scope="fragment")
+
+            # ---- 编辑面板(手动 + AI 指令) ----
+            if st.session_state.editing_id == task.id:
+                with st.container(border=True):
+                    edited = task_fields(
+                        f"e{task.id}v{st.session_state.edit_ver}",
+                        st.session_state.edit_defaults,
+                    )
+                    ai_c1, ai_c2 = st.columns([5, 1], vertical_alignment="bottom")
+                    instr = ai_c1.text_input(
+                        "AI 修改",
+                        placeholder="例如:改到明天晚上8点 / 时长改成30分钟 / 改成每天早晚各提醒一次",
+                        key=f"ai_instr_{task.id}",
+                    )
+                    if ai_c2.button("✨ 应用", key=f"ai_apply_{task.id}", width="stretch") and instr.strip():
+                        current = task_to_defaults(edited) if edited else st.session_state.edit_defaults
+                        try:
+                            with st.spinner("DeepSeek 修改中…"):
+                                st.session_state.edit_defaults = edit_task(current, instr.strip())
+                            st.session_state.edit_ver += 1
+                            st.rerun(scope="fragment")
+                        except AIParseError as exc:
+                            st.error(str(exc))
+                    s_col, x_col = st.columns(2)
+                    if s_col.button("💾 保存", type="primary", key=f"save_{task.id}", width="stretch"):
+                        if edited is None:
+                            st.warning("请补全事项内容和时间设置(重复事项需选周几和时间点)")
+                        else:
+                            edited.id = task.id
+                            db.update_task(edited)
+                            st.session_state.editing_id = None
+                            st.session_state.active_reminders.discard(task.id)
+                            st.rerun(scope="fragment")
+                    if x_col.button("取消", key=f"cancel_{task.id}", width="stretch"):
+                        st.session_state.editing_id = None
+                        st.rerun(scope="fragment")
     with tab_done:
         done = db.done_tasks()
         if not done:
