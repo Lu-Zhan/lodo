@@ -20,13 +20,24 @@ _SYSTEM_PROMPT = """你是提醒事项应用 lodo 的解析助手。用户会用
 
 当前时间:{now}(星期{weekday})
 
-返回格式:
-{{"title": "事项内容(去掉时间词,保留做什么)", "remind_at": "YYYY-MM-DD HH:MM", "duration_minutes": 0}}
+返回格式(不适用的字段用默认值):
+{{"title": "事项内容(去掉时间词,保留做什么)",
+  "remind_at": "YYYY-MM-DD HH:MM",
+  "all_day": false,
+  "duration_minutes": 0,
+  "repeat_type": "none",
+  "repeat_days": [],
+  "repeat_times": []}}
 
 规则:
 - "今天/明天/后天/周X/X月X日" 等相对时间基于当前时间换算成具体日期。
 - 只说了点数没说上下午时,按常理推断(如"9点开会"在当前时间之前则理解为最近的将来时间)。
 - 未提到时长时 duration_minutes 为 0;"开会一小时"之类则换算成分钟数。
+- 只有日期、没有具体时间点的事项(如"明天要交报告"):all_day 设为 true,\
+remind_at 用 "YYYY-MM-DD 00:00"。
+- 重复事项:"每天…"时 repeat_type 为 "daily";"每周一三五…"之类时 repeat_type 为 "weekly",\
+repeat_days 为选中的周几(0=周一 … 6=周日)。repeat_times 为当天的提醒时间点列表,\
+可以有多个(如"每天9点和21点提醒吃药" → ["09:00", "21:00"]);重复事项 remind_at 填第一次提醒的时间。
 - 无法解析出时间时,返回 {{"error": "原因"}}。
 """
 
@@ -73,10 +84,17 @@ def parse_task(text: str, now: Optional[datetime] = None) -> dict:
     if "error" in data:
         raise AIParseError(f"无法解析:{data['error']}")
     try:
+        repeat_times = [str(t) for t in data.get("repeat_times") or []]
+        for t in repeat_times:
+            datetime.strptime(t, "%H:%M")
         return {
             "title": str(data["title"]).strip(),
             "remind_at": datetime.strptime(data["remind_at"], "%Y-%m-%d %H:%M"),
+            "all_day": bool(data.get("all_day", False)),
             "duration_minutes": int(data.get("duration_minutes", 0)),
+            "repeat_type": str(data.get("repeat_type", "none")),
+            "repeat_days": [int(d) for d in data.get("repeat_days") or []],
+            "repeat_times": repeat_times,
         }
     except (KeyError, ValueError) as exc:
         raise AIParseError(f"DeepSeek 返回格式异常:{data}") from exc

@@ -1,14 +1,16 @@
 """lodo — 提醒事项 Web 演示版 (Streamlit)。"""
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time as dtime, timedelta
+from typing import Optional
 
 import streamlit as st
 
 from lodo import scheduler
 from lodo.ai import AIParseError, parse_task
 from lodo.db import Database
-from lodo.models import Phase, Status, Task
+from lodo.models import WEEKDAY_NAMES, Phase, RepeatType, Status, Task
 from lodo.settings import load_settings, mark_digest_shown, save_settings
 
 st.set_page_config(page_title="lodo", page_icon="⏰", layout="centered")
@@ -38,6 +40,103 @@ def fmt(dt: datetime) -> str:
     return f"{dt:%m-%d %H:%M}"
 
 
+def norm_time(s: str) -> Optional[str]:
+    """把用户输入的时间点归一化为 "HH:MM",无效返回 None。"""
+    m = re.fullmatch(r"(\d{1,2})[::](\d{2})", s.strip())
+    if not m:
+        return None
+    hour, minute = int(m.group(1)), int(m.group(2))
+    if hour > 23 or minute > 59:
+        return None
+    return f"{hour:02d}:{minute:02d}"
+
+
+REPEAT_OPTIONS = {"不重复": RepeatType.NONE, "每天": RepeatType.DAILY, "每周": RepeatType.WEEKLY}
+TIME_OPTIONS = [f"{h:02d}:00" for h in range(6, 24)]
+
+
+def task_fields(key: str, d: dict) -> Optional[Task]:
+    """渲染事项编辑控件(手动创建 / AI 解析确认共用),返回按当前输入构造的 Task。
+
+    输入不完整时返回 None(调用方在提交时提示)。d 提供各控件初始值。
+    """
+    title = st.text_input("事项内容", value=d.get("title", ""), key=f"{key}_title")
+    repeat_labels = list(REPEAT_OPTIONS)
+    default_repeat = next(
+        (label for label, r in REPEAT_OPTIONS.items() if r.value == d.get("repeat_type", "none")),
+        "不重复",
+    )
+    repeat_label = st.segmented_control(
+        "重复", repeat_labels, default=default_repeat, key=f"{key}_repeat",
+    ) or "不重复"
+    repeat = REPEAT_OPTIONS[repeat_label]
+
+    settings = load_settings(db)
+    all_day = False
+    repeat_days: list[int] = []
+    times: list[str] = []
+    remind_at: Optional[datetime] = None
+
+    if repeat == RepeatType.NONE:
+        c1, c2, c3 = st.columns([2, 2, 1], vertical_alignment="bottom")
+        remind_d = c1.date_input(
+            "日期", value=d.get("remind_at", datetime.now()).date(), key=f"{key}_date",
+        )
+        all_day = c3.toggle("全天", value=d.get("all_day", False), key=f"{key}_allday",
+                            help=f"只有日期,当天 {settings.all_day_time} 提醒")
+        if all_day:
+            hour, minute = map(int, settings.all_day_time.split(":"))
+            remind_at = datetime.combine(remind_d, dtime(hour, minute))
+        else:
+            default_t = d.get("remind_at") or (datetime.now() + timedelta(minutes=5))
+            remind_t = c2.time_input("时间", value=default_t.time(), key=f"{key}_time", step=300)
+            remind_at = datetime.combine(remind_d, remind_t)
+    else:
+        if repeat == RepeatType.WEEKLY:
+            default_days = [WEEKDAY_NAMES[i] for i in d.get("repeat_days", [])]
+            picked = st.pills(
+                "周几", WEEKDAY_NAMES, selection_mode="multi",
+                default=default_days, key=f"{key}_days",
+            )
+            repeat_days = sorted(WEEKDAY_NAMES.index(p) for p in picked)
+        raw_times = st.multiselect(
+            "提醒时间点(可多个,可直接输入如 08:30)",
+            options=sorted(set(TIME_OPTIONS + d.get("repeat_times", []))),
+            default=d.get("repeat_times", []),
+            accept_new_options=True,
+            key=f"{key}_times",
+        )
+        normed = [norm_time(t) for t in raw_times]
+        if any(n is None for n in normed):
+            st.warning("时间点格式应为 HH:MM,如 08:30")
+            return None
+        times = sorted(set(normed))
+
+    duration = st.number_input(
+        "时长(分钟,0 表示无时长)", min_value=0,
+        value=d.get("duration_minutes", 0), key=f"{key}_dur",
+    )
+
+    if not title.strip():
+        return None
+    task = Task(
+        id=None, title=title.strip(),
+        remind_at=remind_at or datetime.now(),
+        duration_minutes=int(duration),
+        all_day=all_day,
+        repeat_type=repeat,
+        repeat_days=repeat_days,
+        repeat_times=times,
+    )
+    if task.is_recurring:
+        first = scheduler.next_occurrence(task, datetime.now())
+        if first is None:
+            return None  # 缺周几或时间点
+        task.remind_at = first
+        task.next_remind_at = first
+    return task
+
+
 # ---------------- 侧边栏:设置 ----------------
 
 settings = load_settings(db)
@@ -48,6 +147,9 @@ with st.sidebar:
         "稍等间隔(分钟)", min_value=1, max_value=240, value=settings.snooze_minutes,
         help="稍等或忽略提醒后,多久再次提醒",
     )
+    ad_h, ad_m = map(int, settings.all_day_time.split(":"))
+    all_day_t = st.time_input("全天事项提醒时间", value=dtime(ad_h, ad_m), step=300,
+                              help="只有日期、没有时间的事项,当天几点提醒")
     digest_on = st.toggle("每日待办汇总", value=settings.daily_digest_time is not None)
     digest_time_val = None
     if digest_on:
@@ -58,9 +160,15 @@ with st.sidebar:
         digest_time_val = st.time_input("汇总提醒时间", value=default_t, step=300)
 
     new_digest = digest_time_val.strftime("%H:%M") if digest_time_val else None
-    if snooze != settings.snooze_minutes or new_digest != settings.daily_digest_time:
+    new_all_day = all_day_t.strftime("%H:%M")
+    if (
+        snooze != settings.snooze_minutes
+        or new_digest != settings.daily_digest_time
+        or new_all_day != settings.all_day_time
+    ):
         settings.snooze_minutes = int(snooze)
         settings.daily_digest_time = new_digest
+        settings.all_day_time = new_all_day
         save_settings(db, settings)
 
 st.title("⏰ lodo")
@@ -69,9 +177,10 @@ st.title("⏰ lodo")
 
 nl_col, btn_col = st.columns([5, 1], vertical_alignment="bottom")
 nl_text = nl_col.text_input(
-    "自然语言创建", placeholder="例如:今天9点提醒我给妈妈打电话 / 明天下午3点开会一小时",
+    "自然语言创建",
+    placeholder="例如:今天9点提醒我给妈妈打电话 / 每天9点和21点提醒吃药 / 每周一三五8点健身",
 )
-if btn_col.button("✨ 解析", use_container_width=True) and nl_text.strip():
+if btn_col.button("✨ 解析", width="stretch") and nl_text.strip():
     try:
         with st.spinner("DeepSeek 解析中…"):
             st.session_state.pending_parse = parse_task(nl_text.strip())
@@ -80,47 +189,45 @@ if btn_col.button("✨ 解析", use_container_width=True) and nl_text.strip():
         st.error(str(exc))
 
 if st.session_state.pending_parse:
-    p = st.session_state.pending_parse
     with st.container(border=True):
         st.markdown("**解析结果,确认后创建:**")
-        c1, c2, c3 = st.columns(3)
-        title = c1.text_input("事项", value=p["title"], key="parse_title")
-        remind_d = c2.date_input("日期", value=p["remind_at"].date(), key="parse_date")
-        remind_t = c3.time_input("时间", value=p["remind_at"].time(), key="parse_time", step=300)
-        duration = st.number_input(
-            "时长(分钟,0 表示无时长)", min_value=0, value=p["duration_minutes"], key="parse_dur",
-        )
+        task = task_fields("p", st.session_state.pending_parse)
         ok_col, cancel_col = st.columns(2)
-        if ok_col.button("✅ 创建", type="primary", use_container_width=True):
-            db.add_task(Task(
-                id=None, title=title,
-                remind_at=datetime.combine(remind_d, remind_t),
-                duration_minutes=int(duration),
-            ))
-            st.session_state.pending_parse = None
-            st.rerun()
-        if cancel_col.button("取消", use_container_width=True):
+        if ok_col.button("✅ 创建", type="primary", width="stretch"):
+            if task is None:
+                st.warning("请补全事项内容和时间设置")
+            else:
+                db.add_task(task)
+                st.session_state.pending_parse = None
+                st.rerun()
+        if cancel_col.button("取消", width="stretch"):
             st.session_state.pending_parse = None
             st.rerun()
 
 with st.expander("✍️ 手动创建"):
-    with st.form("manual_create", clear_on_submit=True):
-        m_title = st.text_input("事项内容")
-        c1, c2, c3 = st.columns(3)
-        m_date = c1.date_input("日期", value=date.today())
-        default_time = (datetime.now() + timedelta(minutes=5)).time().replace(second=0, microsecond=0)
-        m_time = c2.time_input("时间", value=default_time, step=300)
-        m_dur = c3.number_input("时长(分钟)", min_value=0, value=0)
-        if st.form_submit_button("创建", type="primary") and m_title.strip():
-            db.add_task(Task(
-                id=None, title=m_title.strip(),
-                remind_at=datetime.combine(m_date, m_time),
-                duration_minutes=int(m_dur),
-            ))
+    task = task_fields("m", {})
+    if st.button("创建", type="primary", key="m_submit"):
+        if task is None:
+            st.warning("请补全事项内容和时间设置(重复事项需选周几和时间点)")
+        else:
+            db.add_task(task)
             st.rerun()
 
 
 # ---------------- 轮询 + 提醒 + 列表(每 10 秒自动刷新) ----------------
+
+def task_caption(task: Task) -> str:
+    parts = [fmt(task.next_remind_at)]
+    if task.is_recurring:
+        parts.append(task.repeat_label())
+    elif task.all_day:
+        parts.append("全天")
+    if task.duration_minutes:
+        parts.append(f"{task.duration_minutes} 分钟")
+    if task.phase == Phase.END:
+        parts.append("进行中")
+    return " · ".join(parts)
+
 
 @st.fragment(run_every="10s")
 def reminder_and_lists() -> None:
@@ -152,25 +259,30 @@ def reminder_and_lists() -> None:
     for task in active:
         with st.container(border=True):
             starting = task.phase == Phase.START and task.duration_minutes > 0
+            st.markdown(f"### 🔔 {task.title}")
             if starting:
-                st.markdown(f"### 🔔 {task.title}")
-                st.caption(f"计划 {fmt(task.remind_at)} 开始,时长 {task.duration_minutes} 分钟 — 该开始了!")
+                st.caption(f"{task_caption(task)} — 该开始了!")
                 done_label = "▶️ 开始了"
             elif task.phase == Phase.END:
-                st.markdown(f"### 🔔 {task.title}")
                 st.caption("时间到 — 完成了吗?")
                 done_label = "✅ 完成"
             else:
-                st.markdown(f"### 🔔 {task.title}")
-                st.caption(f"计划时间 {fmt(task.remind_at)}")
+                st.caption(task_caption(task))
                 done_label = "✅ 完成"
             c1, c2 = st.columns(2)
-            if c1.button(done_label, key=f"done_{task.id}", type="primary", use_container_width=True):
-                scheduler.advance(task, datetime.now())
+            if c1.button(done_label, key=f"done_{task.id}", type="primary", width="stretch"):
+                finished = scheduler.advance(task, datetime.now())
                 db.update_task(task)
                 st.session_state.active_reminders.discard(task.id)
+                if finished and task.status == Status.PENDING:
+                    # 重复事项完成一次:记入历史,并提示下次时间
+                    db.add_task(Task(
+                        id=None, title=task.title, remind_at=task.remind_at,
+                        status=Status.DONE, done_at=datetime.now(),
+                    ))
+                    st.toast(f"✅ 已完成,下次提醒 {fmt(task.next_remind_at)}")
                 st.rerun(scope="fragment")
-            if c2.button(f"⏳ 稍等 {settings.snooze_minutes} 分钟", key=f"snooze_{task.id}", use_container_width=True):
+            if c2.button(f"⏳ 稍等 {settings.snooze_minutes} 分钟", key=f"snooze_{task.id}", width="stretch"):
                 scheduler.snooze(task, datetime.now(), settings.snooze_minutes)
                 db.update_task(task)
                 st.session_state.active_reminders.discard(task.id)
@@ -182,8 +294,7 @@ def reminder_and_lists() -> None:
             st.markdown(f"### 📋 每日待办汇总({st.session_state.digest_date})")
             if pending:
                 for t in pending:
-                    dur = f"(时长 {t.duration_minutes} 分钟)" if t.duration_minutes else ""
-                    st.markdown(f"- **{t.title}** — {fmt(t.next_remind_at)}{dur}")
+                    st.markdown(f"- **{t.title}** — {task_caption(t)}")
             else:
                 st.markdown("🎉 今日事项全部完成!")
             if st.button("知道了", key="digest_dismiss"):
@@ -197,12 +308,20 @@ def reminder_and_lists() -> None:
             st.caption("暂无待办事项")
         for task in pending:
             c1, c2, c3 = st.columns([6, 1, 1], vertical_alignment="center")
-            dur = f" · {task.duration_minutes} 分钟" if task.duration_minutes else ""
-            phase_note = " · 进行中" if task.phase == Phase.END else ""
-            c1.markdown(f"**{task.title}**  \n:gray[{fmt(task.next_remind_at)}{dur}{phase_note}]")
+            c1.markdown(f"**{task.title}**  \n:gray[{task_caption(task)}]")
             if c2.button("✓", key=f"list_done_{task.id}", help="标记完成"):
-                task.status = Status.DONE
-                task.done_at = datetime.now()
+                nxt = scheduler.next_occurrence(task, datetime.now())
+                if nxt is not None:
+                    db.add_task(Task(
+                        id=None, title=task.title, remind_at=task.remind_at,
+                        status=Status.DONE, done_at=datetime.now(),
+                    ))
+                    task.phase = Phase.START
+                    task.remind_at = nxt
+                    task.next_remind_at = nxt
+                else:
+                    task.status = Status.DONE
+                    task.done_at = datetime.now()
                 db.update_task(task)
                 st.rerun(scope="fragment")
             if c3.button("🗑", key=f"list_del_{task.id}", help="删除"):

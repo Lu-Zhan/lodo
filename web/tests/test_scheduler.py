@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lodo import scheduler
-from lodo.models import Phase, Status, Task
+from lodo.models import Phase, RepeatType, Status, Task
 from lodo.settings import AppSettings
 
 T0 = datetime(2026, 7, 8, 9, 0)
@@ -71,6 +71,46 @@ def test_digest_fires_once_per_day():
     assert not scheduler.should_show_digest(s, day.replace(hour=22))
     # 第二天再次触发
     assert scheduler.should_show_digest(s, datetime(2026, 7, 9, 21, 0))
+
+
+def test_daily_multiple_times():
+    t = make_task(repeat_type=RepeatType.DAILY, repeat_times=["09:00", "21:00"])
+    # 9:00 当口 → 下一次是当天 21:00
+    assert scheduler.next_occurrence(t, T0) == T0.replace(hour=21)
+    # 21:00 之后 → 次日 9:00
+    assert scheduler.next_occurrence(t, T0.replace(hour=22)) == T0.replace(hour=9) + timedelta(days=1)
+
+
+def test_weekly_selected_days():
+    # 2026-07-08 是周三(weekday=2);选周一、周五 8:00
+    t = make_task(repeat_type=RepeatType.WEEKLY, repeat_days=[0, 4], repeat_times=["08:00"])
+    nxt = scheduler.next_occurrence(t, T0)
+    assert nxt == datetime(2026, 7, 10, 8, 0)  # 本周五
+    nxt2 = scheduler.next_occurrence(t, nxt)
+    assert nxt2 == datetime(2026, 7, 13, 8, 0)  # 下周一
+
+
+def test_weekly_without_days_is_invalid():
+    t = make_task(repeat_type=RepeatType.WEEKLY, repeat_times=["08:00"])
+    assert scheduler.next_occurrence(t, T0) is None
+
+
+def test_recurring_advance_schedules_next():
+    t = make_task(repeat_type=RepeatType.DAILY, repeat_times=["09:00"])
+    finished = scheduler.advance(t, T0 + timedelta(minutes=3))
+    assert finished
+    assert t.status == Status.PENDING  # 重复事项本体不标记 done
+    assert t.next_remind_at == T0 + timedelta(days=1)
+
+
+def test_recurring_with_duration_two_phase():
+    t = make_task(repeat_type=RepeatType.DAILY, repeat_times=["09:00"], duration_minutes=20)
+    assert not scheduler.advance(t, T0)      # 开始了 → 进入 end 阶段
+    assert t.phase == Phase.END
+    assert scheduler.advance(t, T0 + timedelta(minutes=20))  # 完成一次
+    assert t.status == Status.PENDING
+    assert t.phase == Phase.START
+    assert t.next_remind_at == T0 + timedelta(days=1)
 
 
 def test_digest_disabled():

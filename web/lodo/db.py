@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .models import Phase, Status, Task
+from .models import Phase, RepeatType, Status, Task
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DB_PATH = DATA_DIR / "lodo.db"
@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS tasks (
     title TEXT NOT NULL,
     remind_at TEXT NOT NULL,
     duration_minutes INTEGER NOT NULL DEFAULT 0,
+    all_day INTEGER NOT NULL DEFAULT 0,
+    repeat_type TEXT NOT NULL DEFAULT 'none',
+    repeat_days TEXT NOT NULL DEFAULT '',
+    repeat_times TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'pending',
     phase TEXT NOT NULL DEFAULT 'start',
     next_remind_at TEXT NOT NULL,
@@ -37,7 +41,24 @@ def _connect(db_path: Path = DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
+    _migrate(conn)
     return conn
+
+
+_NEW_COLUMNS = {
+    "all_day": "INTEGER NOT NULL DEFAULT 0",
+    "repeat_type": "TEXT NOT NULL DEFAULT 'none'",
+    "repeat_days": "TEXT NOT NULL DEFAULT ''",
+    "repeat_times": "TEXT NOT NULL DEFAULT ''",
+}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(tasks)")}
+    for name, decl in _NEW_COLUMNS.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE tasks ADD COLUMN {name} {decl}")
+    conn.commit()
 
 
 def _dt(value: Optional[str]) -> Optional[datetime]:
@@ -50,6 +71,10 @@ def _row_to_task(row: sqlite3.Row) -> Task:
         title=row["title"],
         remind_at=datetime.fromisoformat(row["remind_at"]),
         duration_minutes=row["duration_minutes"],
+        all_day=bool(row["all_day"]),
+        repeat_type=RepeatType(row["repeat_type"]),
+        repeat_days=[int(d) for d in row["repeat_days"].split(",") if d],
+        repeat_times=[t for t in row["repeat_times"].split(",") if t],
         status=Status(row["status"]),
         phase=Phase(row["phase"]),
         next_remind_at=_dt(row["next_remind_at"]),
@@ -68,16 +93,23 @@ class Database:
     def add_task(self, task: Task) -> Task:
         now = datetime.now()
         cur = self.conn.execute(
-            "INSERT INTO tasks (title, remind_at, duration_minutes, status, phase,"
-            " next_remind_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO tasks (title, remind_at, duration_minutes, all_day,"
+            " repeat_type, repeat_days, repeat_times, status, phase,"
+            " next_remind_at, created_at, done_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 task.title,
                 task.remind_at.isoformat(),
                 task.duration_minutes,
+                int(task.all_day),
+                task.repeat_type.value,
+                ",".join(str(d) for d in task.repeat_days),
+                ",".join(task.repeat_times),
                 task.status.value,
                 task.phase.value,
                 (task.next_remind_at or task.remind_at).isoformat(),
                 now.isoformat(),
+                task.done_at.isoformat() if task.done_at else None,
             ),
         )
         self.conn.commit()
@@ -87,12 +119,17 @@ class Database:
 
     def update_task(self, task: Task) -> None:
         self.conn.execute(
-            "UPDATE tasks SET title=?, remind_at=?, duration_minutes=?, status=?,"
+            "UPDATE tasks SET title=?, remind_at=?, duration_minutes=?, all_day=?,"
+            " repeat_type=?, repeat_days=?, repeat_times=?, status=?,"
             " phase=?, next_remind_at=?, last_notified_at=?, done_at=? WHERE id=?",
             (
                 task.title,
                 task.remind_at.isoformat(),
                 task.duration_minutes,
+                int(task.all_day),
+                task.repeat_type.value,
+                ",".join(str(d) for d in task.repeat_days),
+                ",".join(task.repeat_times),
                 task.status.value,
                 task.phase.value,
                 task.next_remind_at.isoformat(),
