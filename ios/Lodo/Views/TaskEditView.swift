@@ -132,11 +132,17 @@ struct TaskEditView: View {
             .navigationTitle(existing == nil ? "新建事项" : "编辑事项")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("取消", role: .cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .disabled(!isValid)
+                    // iOS/macOS 26 起用 confirm 角色表达确认动作语义,样式交给系统
+                    if #available(iOS 26.0, macOS 26.0, *) {
+                        Button("保存", role: .confirm) { save() }
+                            .disabled(!isValid)
+                    } else {
+                        Button("保存") { save() }
+                            .disabled(!isValid)
+                    }
                 }
             }
         }

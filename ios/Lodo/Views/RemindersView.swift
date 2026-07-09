@@ -33,7 +33,7 @@ struct RemindersView: View {
                             Button("连接提醒事项") {
                                 Task { await bridge.requestAccess() }
                             }
-                            .buttonStyle(.borderedProminent)
+                            .glassProminentButton()
                         }
                     }
                 }
