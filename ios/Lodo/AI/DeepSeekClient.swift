@@ -12,6 +12,21 @@ struct ParsedTask {
     var repeatTimes: [String]
 }
 
+extension ParsedTask {
+    /// 从现有事项取当前字段值(编辑表单预填、AI 修改的"现有事项"上下文共用)。
+    init(from task: TaskItem) {
+        self.init(title: task.title, remindAt: task.remindAt, allDay: task.allDay,
+                  durationMinutes: task.durationMinutes, repeatType: task.repeatType,
+                  repeatDays: task.repeatDays, repeatTimes: task.repeatTimes)
+    }
+}
+
+/// AI 总入口的路由结果:新建事项,或修改列表中的某个现有事项。
+enum AICommand {
+    case create(ParsedTask)
+    case update(uuid: String, task: ParsedTask)
+}
+
 enum DeepSeekError: LocalizedError {
     case noKey
     case api(String)
@@ -31,8 +46,7 @@ enum DeepSeekClient {
     private static let endpoint = URL(string: "https://api.deepseek.com/chat/completions")!
     private static let model = "deepseek-chat"
 
-    private static let formatAndRules = """
-    返回格式(不适用的字段用默认值):
+    private static let taskSchema = """
     {"title": "事项内容(去掉时间词,保留做什么)",
       "remind_at": "YYYY-MM-DD HH:MM",
       "all_day": false,
@@ -40,7 +54,9 @@ enum DeepSeekClient {
       "repeat_type": "none",
       "repeat_days": [],
       "repeat_times": []}
+    """
 
+    private static let taskRules = """
     规则:
     - "今天/明天/后天/周X/X月X日" 等相对时间基于当前时间换算成具体日期。
     - 只说了点数没说上下午时,按常理推断(如"9点开会"在当前时间之前则理解为最近的将来时间)。
@@ -48,6 +64,13 @@ enum DeepSeekClient {
     - 只有日期、没有具体时间点的事项(如"明天要交报告"):all_day 设为 true,remind_at 用 "YYYY-MM-DD 00:00"。
     - 重复事项:"每天…"时 repeat_type 为 "daily";"每周一三五…"之类时 repeat_type 为 "weekly",repeat_days 为选中的周几(0=周一 … 6=周日)。repeat_times 为当天的提醒时间点列表,可以有多个(如"每天9点和21点提醒吃药" → ["09:00", "21:00"]);重复事项 remind_at 填第一次提醒的时间。
     - 无法解析出时间时,返回 {"error": "原因"}。
+    """
+
+    private static let formatAndRules = """
+    返回格式(不适用的字段用默认值):
+    \(taskSchema)
+
+    \(taskRules)
     """
 
     private static var timeContext: String {
@@ -70,25 +93,11 @@ enum DeepSeekClient {
 
         \(formatAndRules)
         """
-        return try await complete(system: system, user: text)
+        return try parseTask(await payload(system: system, user: text))
     }
 
     /// 按自然语言指令修改现有事项;未提到的字段保持原值。
     static func edit(_ current: ParsedTask, instruction: String) async throws -> ParsedTask {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        let currentJSON: [String: Any] = [
-            "title": current.title,
-            "remind_at": formatter.string(from: current.remindAt),
-            "all_day": current.allDay,
-            "duration_minutes": current.durationMinutes,
-            "repeat_type": current.repeatType.rawValue,
-            "repeat_days": current.repeatDays,
-            "repeat_times": current.repeatTimes,
-        ]
-        let taskJSON = String(
-            data: try JSONSerialization.data(withJSONObject: currentJSON),
-            encoding: .utf8) ?? "{}"
         let system = """
         你是提醒事项应用 lodo 的编辑助手。给定一个现有事项和用户的修改指令,\
         输出修改后的完整事项,只返回 JSON,不要任何其他文字。\
@@ -97,14 +106,86 @@ enum DeepSeekClient {
         \(timeContext)
 
         现有事项:
-        \(taskJSON)
+        \(json(taskFields(of: current)))
 
         \(formatAndRules)
         """
-        return try await complete(system: system, user: instruction)
+        return try parseTask(await payload(system: system, user: instruction))
     }
 
-    private static func complete(system: String, user: String) async throws -> ParsedTask {
+    /// AI 总入口:给定当前待办列表,判断用户想新建事项还是修改某个现有事项。
+    static func command(
+        _ text: String, tasks: [(uuid: String, task: ParsedTask)]
+    ) async throws -> AICommand {
+        let list = tasks.map { entry -> [String: Any] in
+            var fields = taskFields(of: entry.task)
+            fields["uuid"] = entry.uuid
+            return fields
+        }
+        let system = """
+        你是提醒事项应用 lodo 的智能入口。给定当前待办事项列表和用户的一句话,\
+        判断用户是想【新建】一个事项,还是【修改】列表中的某个现有事项,\
+        只返回 JSON,不要任何其他文字。
+
+        判断规则:
+        - 用户在描述一件新的事情 → 按"新建"格式返回。
+        - 用户提到了列表中已有的事项并要求调整(按标题语义匹配,如"把开会改到晚上8点")→ \
+        按"修改"格式返回,输出修改后的完整字段值,用户没有提到的字段一律保持原值。
+        - 要修改但匹配不到事项、或无法判断/无法解析时,返回 {"error": "原因"}。
+
+        \(timeContext)
+
+        当前待办列表:
+        \(json(list))
+
+        返回格式(二选一,必须包含 "action" 字段;事项字段不适用的用默认值):
+        新建:{"action": "create", ...事项字段}
+        修改:{"action": "update", "uuid": "原样取自当前待办列表,不要自己生成", ...事项字段}
+
+        事项字段:
+        \(taskSchema)
+
+        \(taskRules)
+        """
+        let payload = try await payload(system: system, user: text)
+        let task = try parseTask(payload)
+        switch payload["action"] as? String {
+        case "create":
+            return .create(task)
+        case "update":
+            guard let uuid = payload["uuid"] as? String,
+                  tasks.contains(where: { $0.uuid == uuid }) else {
+                throw DeepSeekError.parse("找不到要修改的事项")
+            }
+            return .update(uuid: uuid, task: task)
+        default:
+            throw DeepSeekError.parse("返回格式异常:缺少 action")
+        }
+    }
+
+    // MARK: - 请求与序列化
+
+    private static func taskFields(of task: ParsedTask) -> [String: Any] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return [
+            "title": task.title,
+            "remind_at": formatter.string(from: task.remindAt),
+            "all_day": task.allDay,
+            "duration_minutes": task.durationMinutes,
+            "repeat_type": task.repeatType.rawValue,
+            "repeat_days": task.repeatDays,
+            "repeat_times": task.repeatTimes,
+        ]
+    }
+
+    private static func json(_ object: Any) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return "{}" }
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    /// 发起请求并取回模型返回的 JSON payload(含 error 检查)。
+    private static func payload(system: String, user: String) async throws -> [String: Any] {
         guard let apiKey = KeychainHelper.apiKey else { throw DeepSeekError.noKey }
 
         var request = URLRequest(url: endpoint)
@@ -143,7 +224,11 @@ enum DeepSeekClient {
         if let error = payload["error"] as? String {
             throw DeepSeekError.parse(error)
         }
+        return payload
+    }
 
+    /// 从 payload 里解析并校验事项字段。
+    private static func parseTask(_ payload: [String: Any]) throws -> ParsedTask {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         guard let title = payload["title"] as? String,

@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lodo.app.LodoApp
+import com.lodo.app.ai.AICommand
 import com.lodo.app.ai.DeepSeekClient
 import com.lodo.app.ai.ParsedTask
 import com.lodo.app.core.TaskStatus
@@ -19,10 +20,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 
-/** 底部弹层模式:新建(可带 AI 解析结果预填)或编辑现有事项。 */
+/** 底部弹层模式:新建(可带 AI 解析结果预填)或编辑现有事项(AI 总入口路由到修改时带预填)。 */
 sealed interface SheetMode {
     data class Create(val parsed: ParsedTask?) : SheetMode
-    data class Edit(val task: TaskEntity) : SheetMode
+    data class Edit(val task: TaskEntity, val parsed: ParsedTask? = null) : SheetMode
 }
 
 data class TodoUiState(
@@ -65,7 +66,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     var aiError by mutableStateOf<String?>(null)
         private set
 
-    /** 自然语言 → AI 解析 → 打开预填好的新建弹层供确认。 */
+    /** AI 总入口:带上当前待办列表,让模型判断是新建还是修改某个事项,路由到对应弹层。 */
     fun parseNL() {
         val text = nlText.trim()
         if (text.isEmpty() || aiBusy) return
@@ -73,9 +74,23 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             aiBusy = true
             aiError = null
             try {
-                val parsed = DeepSeekClient.parse(app.settings.apiKey(), text)
-                nlText = ""
-                sheet = SheetMode.Create(parsed)
+                val context = uiState.value.pending.map { it.uuid to it.toParsedTask() }
+                when (val cmd = DeepSeekClient.command(app.settings.apiKey(), text, context)) {
+                    is AICommand.Create -> {
+                        nlText = ""
+                        sheet = SheetMode.Create(cmd.task)
+                    }
+                    is AICommand.Update -> {
+                        // 请求期间事项可能被完成/删除,用返回时的最新列表再匹配一次
+                        val entity = uiState.value.pending.firstOrNull { it.uuid == cmd.uuid }
+                        if (entity == null) {
+                            aiError = "要修改的事项已不存在或已完成"
+                        } else {
+                            nlText = ""
+                            sheet = SheetMode.Edit(entity, cmd.task)
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 aiError = e.message
             } finally {

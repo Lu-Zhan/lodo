@@ -63,6 +63,7 @@ import com.lodo.app.core.TaskPhase
 import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.TaskEntity
 import com.lodo.app.ui.EmptyState
+import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.SectionHeader
 
 /** 待办标签页:自然语言创建、到期提醒卡、待办/已完成列表。对应 iOS TodoListView。 */
@@ -162,7 +163,7 @@ fun TodoListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
         )
         is SheetMode.Edit -> TaskEditSheet(
             existing = sheet.task,
-            parsed = null,
+            parsed = sheet.parsed,
             allDayTime = state.allDayTime,
             onAiEdit = vm::aiEdit,
             onSave = {
@@ -179,12 +180,12 @@ fun TodoListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
 @Composable
 private fun NaturalLanguageField(vm: TodoViewModel) {
     Column {
-        SectionHeader("自然语言创建")
+        SectionHeader("AI 助手")
         OutlinedTextField(
             value = vm.nlText,
             onValueChange = { vm.nlText = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("例如:明天下午3点开会一小时") },
+            placeholder = { Text("例如:明天3点开会一小时 / 把开会改到晚上8点") },
             singleLine = true,
             trailingIcon = {
                 if (vm.aiBusy) {
@@ -196,6 +197,7 @@ private fun NaturalLanguageField(vm: TodoViewModel) {
                 }
             },
         )
+        FooterText("一句话新建事项,或直接说要改哪个事项;输入内容和当前待办列表会发送给 DeepSeek 解析。")
         vm.aiError?.let {
             Text(
                 it,

@@ -71,9 +71,10 @@ class TaskRepository(
         alarms.scheduleReminder(entity.uuid, entity.nextRemindAt)
     }
 
-    /** 编辑保存:重置进行阶段,下次提醒回到新的提醒时间。 */
+    /** 编辑保存:重置进行阶段,下次提醒回到新的提醒时间。仅对未完成事项生效。 */
     suspend fun applyEdit(uuid: String, parsed: ParsedTask) {
         val entity = dao.byUuid(uuid) ?: return
+        if (entity.statusEnum != TaskStatus.PENDING) return
         val updated = entity.copy(
             title = parsed.title,
             remindAtMillis = parsed.remindAt.toEpochMillis(),

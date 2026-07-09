@@ -24,11 +24,7 @@ struct TaskEditView: View {
     init(existing: TaskItem?, parsed: ParsedTask?, onSave: @escaping (ParsedTask) -> Void) {
         self.existing = existing
         self.onSave = onSave
-        let source: ParsedTask? = parsed ?? existing.map { task in
-            ParsedTask(title: task.title, remindAt: task.remindAt, allDay: task.allDay,
-                       durationMinutes: task.durationMinutes, repeatType: task.repeatType,
-                       repeatDays: task.repeatDays, repeatTimes: task.repeatTimes)
-        }
+        let source: ParsedTask? = parsed ?? existing.map { ParsedTask(from: $0) }
         let base = source?.remindAt ?? Date().addingTimeInterval(300)
         _title = State(initialValue: source?.title ?? "")
         _repeatType = State(initialValue: source?.repeatType ?? .none)

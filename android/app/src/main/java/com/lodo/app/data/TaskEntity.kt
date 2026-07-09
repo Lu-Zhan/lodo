@@ -2,6 +2,7 @@ package com.lodo.app.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.lodo.app.ai.ParsedTask
 import com.lodo.app.core.RepeatType
 import com.lodo.app.core.TaskData
 import com.lodo.app.core.TaskPhase
@@ -54,6 +55,13 @@ data class TaskEntity(
     val remindAt: LocalDateTime get() = remindAtMillis.toLocalDateTime()
     val nextRemindAt: LocalDateTime get() = nextRemindAtMillis.toLocalDateTime()
     val doneAt: LocalDateTime? get() = doneAtMillis?.toLocalDateTime()
+
+    /** 取当前字段值(编辑表单预填、AI 修改的"现有事项"上下文共用)。 */
+    fun toParsedTask() = ParsedTask(
+        title = title, remindAt = remindAt, allDay = allDay,
+        durationMinutes = durationMinutes, repeatType = repeatTypeEnum,
+        repeatDays = repeatDaysList, repeatTimes = repeatTimesList,
+    )
 
     /** 转成 core 层的纯数据结构做调度计算。 */
     fun toData() = TaskData(

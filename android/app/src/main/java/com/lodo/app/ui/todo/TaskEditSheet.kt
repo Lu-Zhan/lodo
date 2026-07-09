@@ -80,15 +80,7 @@ fun TaskEditSheet(
     onSave: (ParsedTask) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val source: ParsedTask? = remember {
-        parsed ?: existing?.let {
-            ParsedTask(
-                title = it.title, remindAt = it.remindAt, allDay = it.allDay,
-                durationMinutes = it.durationMinutes, repeatType = it.repeatTypeEnum,
-                repeatDays = it.repeatDaysList, repeatTimes = it.repeatTimesList,
-            )
-        }
-    }
+    val source: ParsedTask? = remember { parsed ?: existing?.toParsedTask() }
     val base = remember { source?.remindAt ?: LocalDateTime.now().plusMinutes(5) }
 
     var title by remember { mutableStateOf(source?.title ?: "") }

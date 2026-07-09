@@ -23,12 +23,13 @@ struct TodoListView: View {
 
     enum SheetMode: Identifiable {
         case create(ParsedTask?)
-        case edit(TaskItem)
+        /// 编辑事项;AI 总入口路由到修改时带上解析出的新字段预填表单。
+        case edit(TaskItem, ParsedTask?)
 
         var id: String {
             switch self {
             case .create: return "create"
-            case .edit(let task): return task.uuid.uuidString
+            case .edit(let task, _): return task.uuid.uuidString
             }
         }
     }
@@ -63,8 +64,8 @@ struct TodoListView: View {
                 switch mode {
                 case .create(let parsed):
                     TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
-                case .edit(let task):
-                    TaskEditView(existing: task, parsed: nil) { apply($0, to: task) }
+                case .edit(let task, let parsed):
+                    TaskEditView(existing: task, parsed: parsed) { apply($0, to: task) }
                 }
             }
             .onReceive(clock) { now = $0 }
@@ -76,7 +77,7 @@ struct TodoListView: View {
     private var nlSection: some View {
         Section {
             HStack {
-                TextField("例如:明天下午3点开会一小时", text: $nlText)
+                TextField("例如:明天3点开会一小时 / 把开会改到晚上8点", text: $nlText)
                     .textFieldStyle(.plain)
                     .onSubmit { parseNL() }
                 if aiBusy {
@@ -94,7 +95,9 @@ struct TodoListView: View {
                 Text(aiError).font(.footnote).foregroundStyle(.red)
             }
         } header: {
-            Text("自然语言创建")
+            Text("AI 助手")
+        } footer: {
+            Text("一句话新建事项,或直接说要改哪个事项;输入内容和当前待办列表会发送给 DeepSeek 解析。")
         }
     }
 
@@ -151,7 +154,7 @@ struct TodoListView: View {
                 }
                 ForEach(pending) { task in
                     Button {
-                        sheet = .edit(task)
+                        sheet = .edit(task, nil)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(task.title)
@@ -202,17 +205,28 @@ struct TodoListView: View {
 
     // MARK: - 动作
 
+    /// AI 总入口:带上当前待办列表,让模型判断是新建还是修改某个事项。
     private func parseNL() {
         let text = nlText.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty, !aiBusy else { return }
         aiBusy = true
         aiError = nil
+        let context = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         Task {
             defer { aiBusy = false }
             do {
-                let parsed = try await DeepSeekClient.parse(text)
-                nlText = ""
-                sheet = .create(parsed)
+                switch try await DeepSeekClient.command(text, tasks: context) {
+                case .create(let parsed):
+                    nlText = ""
+                    sheet = .create(parsed)
+                case .update(let uuid, let parsed):
+                    guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
+                        aiError = DeepSeekError.parse("找不到要修改的事项").localizedDescription
+                        return
+                    }
+                    nlText = ""
+                    sheet = .edit(task, parsed)
+                }
             } catch {
                 aiError = error.localizedDescription
             }
