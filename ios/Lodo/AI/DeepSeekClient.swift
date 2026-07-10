@@ -49,10 +49,10 @@ enum DeepSeekError: LocalizedError {
     }
 }
 
-/// DeepSeek 自然语言创建/编辑,prompt 与 web/lodo/ai.py 保持一致。
+/// AI 自然语言创建/编辑,prompt 与 web/lodo/ai.py 保持一致。
+/// 名称沿用 DeepSeekClient(三端同名),实际服务商/模型由设置决定
+/// (均为 OpenAI 兼容接口),默认 DeepSeek。
 enum DeepSeekClient {
-    private static let endpoint = URL(string: "https://api.deepseek.com/chat/completions")!
-    private static let model = "deepseek-chat"
 
     private static let taskSchema = """
     {"title": "事项内容(去掉时间词,保留做什么)",
@@ -337,6 +337,9 @@ enum DeepSeekClient {
     /// 发起请求并取回模型返回的 JSON payload(含 error 检查)。
     private static func payload(system: String, user: String) async throws -> [String: Any] {
         guard let apiKey = KeychainHelper.apiKey else { throw DeepSeekError.noKey }
+        guard let endpoint = AppSettings.aiEndpoint else {
+            throw DeepSeekError.api("无效的服务地址,请到「设置」里检查 AI 服务商配置。")
+        }
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
@@ -344,7 +347,7 @@ enum DeepSeekClient {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 60
         request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": model,
+            "model": AppSettings.aiModel,
             "messages": [
                 ["role": "system", "content": system],
                 ["role": "user", "content": user],

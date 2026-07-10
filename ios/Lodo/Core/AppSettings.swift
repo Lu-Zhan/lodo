@@ -13,6 +13,9 @@ enum AppSettings {
     static let insightEnabledKey = "insightEnabled"
     static let agentPersonaStyleKey = "agentPersonaStyle"
     static let agentPersonaCustomKey = "agentPersonaCustom"
+    static let aiProviderKey = "aiProvider"
+    static let aiModelKey = "aiModel"
+    static let aiCustomEndpointKey = "aiCustomEndpoint"
 
     static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -63,6 +66,39 @@ enum AppSettings {
         UserDefaults.standard.object(forKey: insightEnabledKey) == nil
             ? true
             : UserDefaults.standard.bool(forKey: insightEnabledKey)
+    }
+
+    /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 DeepSeek;
+    /// "自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
+    static let aiProviders: [(name: String, endpoint: String, model: String)] = [
+        ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-chat"),
+        ("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
+        ("通义千问", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
+        ("Kimi", "https://api.moonshot.cn/v1/chat/completions", "moonshot-v1-8k"),
+        ("智谱", "https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-4-flash"),
+    ]
+
+    static var aiProvider: String {
+        UserDefaults.standard.string(forKey: aiProviderKey) ?? "DeepSeek"
+    }
+
+    /// 当前服务商的接口地址;自定义地址无效时返回 nil。
+    static var aiEndpoint: URL? {
+        if aiProvider == "自定义" {
+            let custom = (UserDefaults.standard.string(forKey: aiCustomEndpointKey) ?? "")
+                .trimmingCharacters(in: .whitespaces)
+            return URL(string: custom)
+        }
+        let preset = aiProviders.first { $0.name == aiProvider } ?? aiProviders[0]
+        return URL(string: preset.endpoint)
+    }
+
+    /// 当前使用的模型:用户覆盖值优先,否则用服务商默认。
+    static var aiModel: String {
+        let override = (UserDefaults.standard.string(forKey: aiModelKey) ?? "")
+            .trimmingCharacters(in: .whitespaces)
+        if !override.isEmpty { return override }
+        return aiProviders.first { $0.name == aiProvider }?.model ?? aiProviders[0].model
     }
 
     /// AI 个性预设:名称 → 说话风格描述。"默认"为无个性,"自定义"用用户文本。

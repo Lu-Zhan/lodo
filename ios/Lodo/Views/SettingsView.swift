@@ -15,6 +15,9 @@ struct SettingsView: View {
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
     @AppStorage(AppSettings.agentPersonaStyleKey) private var personaStyle = "默认"
     @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
+    @AppStorage(AppSettings.aiProviderKey) private var aiProvider = "DeepSeek"
+    @AppStorage(AppSettings.aiModelKey) private var aiModel = ""
+    @AppStorage(AppSettings.aiCustomEndpointKey) private var aiCustomEndpoint = ""
 
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
@@ -82,16 +85,34 @@ struct SettingsView: View {
                 #endif
 
                 Section {
-                    SecureField("DeepSeek API Key(sk-…)", text: $apiKey)
+                    Picker("服务商", selection: $aiProvider) {
+                        ForEach(AppSettings.aiProviders, id: \.name) { provider in
+                            Text(provider.name).tag(provider.name)
+                        }
+                        Text("自定义").tag("自定义")
+                    }
+                    if aiProvider == "自定义" {
+                        TextField("接口地址(…/chat/completions)", text: $aiCustomEndpoint)
+                            .plainKeyboard()
+                        TextField("模型名称", text: $aiModel)
+                            .plainKeyboard()
+                    } else {
+                        TextField(
+                            "模型(默认 \(AppSettings.aiProviders.first { $0.name == aiProvider }?.model ?? ""))",
+                            text: $aiModel
+                        )
+                        .plainKeyboard()
+                    }
+                    SecureField("API Key", text: $apiKey)
                     Button(keySaved ? "已保存" : "保存 API Key") {
-                        KeychainHelper.save(apiKey)
+                        KeychainHelper.save(apiKey, for: aiProvider)
                         keySaved = true
                     }
                     .disabled(keySaved)
                 } header: {
-                    Text("AI(DeepSeek)")
+                    Text("AI 服务")
                 } footer: {
-                    Text("用于自然语言创建和编辑事项,保存在钥匙串中。")
+                    Text("默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中。")
                 }
 
                 Section {
@@ -147,6 +168,12 @@ struct SettingsView: View {
                 }
             }
             .onChange(of: apiKey) { keySaved = false }
+            .onChange(of: aiProvider) { _, provider in
+                // 切换服务商:载入该服务商已存的 key,清掉模型覆盖值
+                apiKey = KeychainHelper.apiKey(for: provider) ?? ""
+                keySaved = !apiKey.isEmpty
+                aiModel = ""
+            }
             .onChange(of: digestEnabled) { refreshDigest() }
             .onChange(of: digestTimesRaw) { refreshDigest() }
             .onChange(of: digestRepeatType) { refreshDigest() }
@@ -208,5 +235,17 @@ struct SettingsView: View {
             get: { AppSettings.time(storage.wrappedValue, on: Date()) },
             set: { storage.wrappedValue = AppSettings.hhmm(from: $0) }
         )
+    }
+}
+
+private extension View {
+    /// 关闭自动大写与纠错(macOS 无 textInputAutocapitalization)。
+    @ViewBuilder
+    func plainKeyboard() -> some View {
+        #if os(iOS)
+        self.textInputAutocapitalization(.never).autocorrectionDisabled()
+        #else
+        self.autocorrectionDisabled()
+        #endif
     }
 }
