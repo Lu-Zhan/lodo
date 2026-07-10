@@ -3,11 +3,10 @@ import SwiftUI
 import LodoCore
 
 /// tab 栏"添加"按钮弹出的添加页,纵向两个模块:
-/// 上方 AI 输入(自然语言 + 语音,走总入口路由),下方手动输入完整表单。
+/// 上方 AI 输入(自然语言 + 语音),解析结果直接回填下方手动输入表单;
+/// 没说时长时再按记忆文件建议时长,并以颜色 + 图标标注 AI 建议。
 struct AddTaskView: View {
-    /// AI 路径:解析并路由输入文本;抛错时在本页显示错误。
-    let submit: (String) async throws -> Void
-    /// 手动路径:直接保存新事项。
+    /// 保存新事项(AI 回填和手动填写共用同一个保存出口)。
     let onSaveManual: (ParsedTask) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -20,12 +19,18 @@ struct AddTaskView: View {
     @State private var typedPrefix = ""
 
     @State private var form = TaskFormModel()
+    /// AI 解析回填过表单。
+    @State private var aiFilled = false
+    /// AI 按记忆建议的时长值;用户手动改动后清除高亮。
+    @State private var suggestedDuration: Int?
 
     var body: some View {
         NavigationStack {
             Form {
                 aiSection
-                TaskFormSections(form: $form, header: "手动输入")
+                TaskFormSections(form: $form, header: "手动输入",
+                                 aiFilled: aiFilled,
+                                 suggestedDuration: suggestedDuration != nil)
                 Section {
                     Button {
                         saveManual()
@@ -49,7 +54,28 @@ struct AddTaskView: View {
             .onChange(of: speech.transcript) { _, transcript in
                 if !transcript.isEmpty { text = typedPrefix + transcript }
             }
+            .onChange(of: form.duration) { _, duration in
+                // 用户手动改动时长后,不再是 AI 建议值,清除高亮
+                if let suggested = suggestedDuration, duration != suggested {
+                    suggestedDuration = nil
+                }
+            }
             .onDisappear { speech.stop() }
+            .onAppear {
+                #if DEBUG
+                // 截图验证用:--demo-ai-filled 模拟 AI 回填 + 时长建议的展示状态
+                if ProcessInfo.processInfo.arguments.contains("--demo-ai-filled") {
+                    var parsed = ParsedTask(
+                        title: "项目评审", remindAt: Date().addingTimeInterval(3600),
+                        allDay: false, durationMinutes: 60, repeatType: .none,
+                        repeatDays: [], repeatTimes: [])
+                    parsed.durationMinutes = 60
+                    form = TaskFormModel(from: parsed)
+                    aiFilled = true
+                    suggestedDuration = 60
+                }
+                #endif
+            }
         }
     }
 
@@ -93,10 +119,11 @@ struct AddTaskView: View {
         } header: {
             Text("AI 助手")
         } footer: {
-            Text("一句话新建事项,或直接说要改哪个事项;输入内容和当前待办列表会发送给 DeepSeek 解析。")
+            Text("一句话描述事项,解析结果会填入下方表单;没说时长时 AI 会按历史记忆建议。")
         }
     }
 
+    /// AI 解析(仅新建)→ 回填手动表单;无时长且有记忆时追加一次时长建议小请求。
     private func parse() {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !busy else { return }
@@ -106,7 +133,19 @@ struct AddTaskView: View {
         Task {
             defer { busy = false }
             do {
-                try await submit(trimmed)
+                var parsed = try await DeepSeekClient.parse(trimmed)
+                var suggested: Int?
+                if parsed.durationMinutes == 0, let memory = DurationMemory.content,
+                   let minutes = try? await DeepSeekClient.suggestDuration(
+                       text: trimmed, title: parsed.title, memory: memory),
+                   minutes > 0 {
+                    parsed.durationMinutes = minutes
+                    suggested = minutes
+                }
+                form = TaskFormModel(from: parsed)
+                aiFilled = true
+                suggestedDuration = suggested
+                text = ""
             } catch {
                 errorText = error.localizedDescription
             }

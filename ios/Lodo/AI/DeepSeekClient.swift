@@ -163,6 +163,46 @@ enum DeepSeekClient {
         }
     }
 
+    /// 按记忆文件为"没说时长"的新事项建议时长(分钟);
+    /// 用户明确表示不需要时长、或记忆无相近类型时返回 0。
+    static func suggestDuration(text: String, title: String,
+                                memory: String) async throws -> Int {
+        let system = """
+        你是提醒事项应用 lodo 的时长建议助手。下面是"事项类型 → 典型时长"的记忆文件、\
+        用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。
+
+        判断规则:
+        - 用户原话明确表示不需要时长,或记忆中没有类型相近的条目 → {"duration_minutes": 0}
+        - 否则参考记忆中相近类型的典型时长 → {"duration_minutes": 分钟数}
+
+        记忆文件:
+        \(memory)
+        """
+        let payload = try await payload(system: system, user: "原话:\(text)\n标题:\(title)")
+        return payload["duration_minutes"] as? Int ?? 0
+    }
+
+    /// 用一条新样本让模型归纳更新"事项类型 → 典型时长"记忆文件,返回新文件全文。
+    static func updateMemory(current: String?, title: String,
+                             durationMinutes: Int) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的记忆管理助手,维护一份"事项类型 → 典型时长"的记忆文件。\
+        给定现有记忆文件和一条新样本,输出更新后的完整记忆文件:按大致类型归纳,\
+        相近类型合并为一条,每条含典型时长(分钟)和 1-3 个例子,最多 15 条,\
+        markdown 列表格式,首行标题为"# 事项时长记忆"。\
+        只返回 JSON:{"memory": "更新后的文件全文"},不要任何其他文字。
+
+        现有记忆文件:
+        \(current ?? "(空)")
+        """
+        let payload = try await payload(
+            system: system, user: "新样本:\(title),\(durationMinutes) 分钟")
+        guard let memory = payload["memory"] as? String else {
+            throw DeepSeekError.parse("返回格式异常:缺少 memory")
+        }
+        return memory
+    }
+
     // MARK: - 请求与序列化
 
     private static func taskFields(of task: ParsedTask) -> [String: Any] {

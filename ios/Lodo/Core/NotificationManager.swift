@@ -124,6 +124,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         var d = task.data
         let finished = Scheduler.advance(&d, now: Date())
         task.apply(d)
+        if finished {
+            // 完成一次(含重复事项)即作为时长记忆样本
+            DurationMemory.learn(title: d.title, durationMinutes: d.durationMinutes)
+        }
         if finished && d.status == .pending {
             // 重复事项完成一次:插入一条已完成历史
             context.insert(TaskItem(title: d.title, remindAt: Date(),

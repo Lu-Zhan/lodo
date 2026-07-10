@@ -83,6 +83,10 @@ struct TaskFormSections: View {
     @Binding var form: TaskFormModel
     /// 第一个区块的标题(如"手动输入"),nil 则不显示。
     var header: String?
+    /// AI 解析回填后为 true,首区块标题旁显示"AI 已填写"徽标。
+    var aiFilled = false
+    /// 时长来自 AI 记忆建议时为 true,时长行高亮提示。
+    var suggestedDuration = false
 
     var body: some View {
         Section {
@@ -94,7 +98,13 @@ struct TaskFormSections: View {
             }
             .pickerStyle(.segmented)
         } header: {
-            if let header { Text(header) }
+            HStack {
+                if let header { Text(header) }
+                if aiFilled {
+                    Label("AI 已填写", systemImage: "sparkles")
+                        .foregroundStyle(.tint)
+                }
+            }
         }
         .onChange(of: form.repeatType) { _, type in
             // 切到重复模式时补一个默认时间点,避免保存按钮无提示地不可用
@@ -151,10 +161,22 @@ struct TaskFormSections: View {
         }
 
         Section {
-            Stepper("时长:\(form.duration == 0 ? "无" : "\(form.duration) 分钟")",
-                    value: $form.duration, in: 0...480, step: 5)
+            Stepper(value: $form.duration, in: 0...480, step: 5) {
+                let text = "时长:\(form.duration == 0 ? "无" : "\(form.duration) 分钟")"
+                if suggestedDuration {
+                    Label(text, systemImage: "sparkles")
+                        .foregroundStyle(.tint)
+                } else {
+                    Text(text)
+                }
+            }
         } footer: {
-            Text("有时长的事项会在开始和结束各提醒一次")
+            VStack(alignment: .leading, spacing: 2) {
+                if suggestedDuration {
+                    Text("时长为 AI 参考历史类似事项的建议")
+                }
+                Text("有时长的事项会在开始和结束各提醒一次")
+            }
         }
     }
 }

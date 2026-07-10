@@ -75,8 +75,7 @@ struct TodoListView: View {
                 switch mode {
                 case .add:
                     #if os(iOS)
-                    AddTaskView(submit: { try await route($0) },
-                                onSaveManual: { saveNew($0) })
+                    AddTaskView(onSaveManual: { saveNew($0) })
                     #endif
                 case .create(let parsed):
                     TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
@@ -256,21 +255,6 @@ struct TodoListView: View {
 
     // MARK: - 动作
 
-    /// AI 总入口:带上当前待办列表,让模型判断是新建还是修改某个事项,
-    /// 路由到对应表单。返回后用最新 pending 列表重新匹配 uuid。
-    private func route(_ text: String) async throws {
-        let context = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
-        switch try await DeepSeekClient.command(text, tasks: context) {
-        case .create(let parsed):
-            sheet = .create(parsed)
-        case .update(let uuid, let parsed):
-            guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
-                throw DeepSeekError.parse("找不到要修改的事项")
-            }
-            sheet = .edit(task, parsed)
-        }
-    }
-
     private func saveNew(_ parsed: ParsedTask) {
         let task = TaskItem(
             title: parsed.title, remindAt: parsed.remindAt,
@@ -280,6 +264,7 @@ struct TodoListView: View {
         context.insert(task)
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
+        DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
     }
 
     private func apply(_ parsed: ParsedTask, to task: TaskItem) {
@@ -294,5 +279,6 @@ struct TodoListView: View {
         task.nextRemindAt = parsed.remindAt
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
+        DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
     }
 }

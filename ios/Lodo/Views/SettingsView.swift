@@ -10,6 +10,7 @@ struct SettingsView: View {
 
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
+    @State private var confirmMemoryReset = false
 
     var body: some View {
         NavigationStack {
@@ -49,6 +50,21 @@ struct SettingsView: View {
                     Text("AI(DeepSeek)")
                 } footer: {
                     Text("用于自然语言创建和编辑事项,保存在钥匙串中。")
+                }
+
+                Section {
+                    NavigationLink("编辑记忆") { MemoryEditView() }
+                    Button("重置记忆", role: .destructive) {
+                        confirmMemoryReset = true
+                    }
+                    .confirmationDialog("确定清空 AI 记忆吗?", isPresented: $confirmMemoryReset,
+                                        titleVisibility: .visible) {
+                        Button("重置记忆", role: .destructive) { DurationMemory.reset() }
+                    }
+                } header: {
+                    Text("AI 记忆")
+                } footer: {
+                    Text("AI 会在事项完成后归纳\"类型 → 典型时长\",新建没说时长的事项时据此建议。")
                 }
             }
             .formStyle(.grouped)
