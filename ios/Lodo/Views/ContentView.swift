@@ -7,7 +7,7 @@ struct ContentView: View {
     @State private var addRequested = false
 
     enum AppTab: Hashable {
-        case todo, reminders, settings, add
+        case todo, reminders, add
     }
 
     var body: some View {
@@ -56,9 +56,6 @@ struct ContentView: View {
             Tab("提醒事项", systemImage: "list.bullet.rectangle", value: AppTab.reminders) {
                 RemindersView()
             }
-            Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsView()
-            }
             #if os(iOS)
             Tab("添加", systemImage: "plus", value: AppTab.add, role: .search) {
                 Color.clear
@@ -85,9 +82,6 @@ struct ContentView: View {
             RemindersView()
                 .tabItem { Label("提醒事项", systemImage: "list.bullet.rectangle") }
                 .tag(AppTab.reminders)
-            SettingsView()
-                .tabItem { Label("设置", systemImage: "gearshape") }
-                .tag(AppTab.settings)
         }
     }
 }

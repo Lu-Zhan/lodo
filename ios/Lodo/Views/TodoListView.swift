@@ -2,7 +2,8 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// 待办页:自然语言创建、到期卡片(完成/稍等)、待办与已完成列表。
+/// 待办页:横滑日期条(默认今天)、到期卡片(完成/稍等)、
+/// 选中日待办与未来待办分组、已完成列表。
 struct TodoListView: View {
     /// tab 栏"添加"按钮置 true 后弹出快速添加页(见 ContentView)。
     @Binding var addRequested: Bool
@@ -11,13 +12,13 @@ struct TodoListView: View {
     @Query(sort: \TaskItem.nextRemindAt) private var allTasks: [TaskItem]
 
     @State private var now = Date()
-    @State private var nlText = ""
-    @State private var aiBusy = false
-    @State private var aiError: String?
+    @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var sheet: SheetMode?
     @State private var listMode: ListMode = .pending
 
     private let clock = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
+    /// 日期条展示的天数(从今天起)。
+    private static let stripDays = 30
 
     enum ListMode: String, CaseIterable {
         case pending = "待办"
@@ -25,23 +26,35 @@ struct TodoListView: View {
     }
 
     enum SheetMode: Identifiable {
-        /// 快速添加页(自然语言 + 语音,仅 iOS)。
+        /// 快速添加页(自然语言 + 语音 + 手动,仅 iOS)。
         case add
         case create(ParsedTask?)
         /// 编辑事项;AI 总入口路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
+        case settings
 
         var id: String {
             switch self {
             case .add: return "add"
             case .create: return "create"
             case .edit(let task, _): return task.uuid.uuidString
+            case .settings: return "settings"
             }
         }
     }
 
     private var pending: [TaskItem] { allTasks.filter { $0.status == .pending } }
     private var due: [TaskItem] { pending.filter { $0.nextRemindAt <= now } }
+    /// 尚未到期的待办(已到期的在到期卡片区)。
+    private var upcoming: [TaskItem] { pending.filter { $0.nextRemindAt > now } }
+    private var dayTasks: [TaskItem] {
+        upcoming.filter { Calendar.current.isDate($0.nextRemindAt, inSameDayAs: selectedDate) }
+    }
+    private var futureTasks: [TaskItem] {
+        guard let nextDay = Calendar.current.date(byAdding: .day, value: 1,
+                                                  to: selectedDate) else { return [] }
+        return upcoming.filter { $0.nextRemindAt >= nextDay }
+    }
     private var done: [TaskItem] {
         allTasks.filter { $0.status == .done }
             .sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
@@ -50,19 +63,36 @@ struct TodoListView: View {
     var body: some View {
         NavigationStack {
             List {
-                nlSection
+                if listMode == .pending {
+                    dateStrip
+                }
                 if !due.isEmpty {
                     dueSection
                 }
-                listSection
+                Section {
+                    Picker("列表", selection: $listMode) {
+                        ForEach(ListMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+                switch listMode {
+                case .pending:
+                    daySection
+                    if !futureTasks.isEmpty {
+                        futureSection
+                    }
+                case .done:
+                    doneSection
+                }
             }
             .navigationTitle("lodo")
             .toolbar {
                 ToolbarItem {
                     Button {
-                        sheet = .create(nil)
+                        sheet = .settings
                     } label: {
-                        Label("新建", systemImage: "plus")
+                        Label("设置", systemImage: "gearshape")
                     }
                 }
             }
@@ -70,12 +100,15 @@ struct TodoListView: View {
                 switch mode {
                 case .add:
                     #if os(iOS)
-                    AddTaskView { try await route($0) }
+                    AddTaskView(submit: { try await route($0) },
+                                onSaveManual: { saveNew($0) })
                     #endif
                 case .create(let parsed):
                     TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
                 case .edit(let task, let parsed):
                     TaskEditView(existing: task, parsed: parsed) { apply($0, to: task) }
+                case .settings:
+                    SettingsView()
                 }
             }
             .onReceive(clock) { now = $0 }
@@ -101,37 +134,51 @@ struct TodoListView: View {
         }
     }
 
-    // MARK: - 区块
+    // MARK: - 日期条
 
-    private var nlSection: some View {
+    /// 从今天起横向滑动选择日期,默认选中今天。
+    private var dateStrip: some View {
         Section {
-            HStack(alignment: .firstTextBaseline) {
-                // axis: .vertical 让长占位文字与长输入换行显示,不再截断
-                TextField("例如:明天3点开会一小时",
-                          text: $nlText, axis: .vertical)
-                    .lineLimit(1...3)
-                    .textFieldStyle(.plain)
-                    .onSubmit { parseNL() }
-                if aiBusy {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Button {
-                        parseNL()
-                    } label: {
-                        Image(systemName: "sparkles")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(0..<Self.stripDays, id: \.self) { offset in
+                        if let date = Calendar.current.date(
+                            byAdding: .day, value: offset,
+                            to: Calendar.current.startOfDay(for: now)) {
+                            dayCell(date)
+                        }
                     }
-                    .disabled(nlText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+                .padding(.vertical, 4)
             }
-            if let aiError {
-                Text(aiError).font(.footnote).foregroundStyle(.red)
-            }
-        } header: {
-            Text("AI 助手")
-        } footer: {
-            Text("一句话新建事项,或直接说要改哪个事项;输入内容和当前待办列表会发送给 DeepSeek 解析。")
         }
+        .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+        .listRowBackground(Color.clear)
     }
+
+    private func dayCell(_ date: Date) -> some View {
+        let calendar = Calendar.current
+        let selected = calendar.isDate(date, inSameDayAs: selectedDate)
+        let weekdayIndex = (calendar.component(.weekday, from: date) + 5) % 7
+        return Button {
+            selectedDate = date
+        } label: {
+            VStack(spacing: 2) {
+                Text(calendar.isDateInToday(date) ? "今天" : weekdayNames[weekdayIndex])
+                    .font(.caption2)
+                Text("\(calendar.component(.day, from: date))")
+                    .font(.headline)
+            }
+            .frame(width: 46, height: 54)
+            .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    // MARK: - 区块
 
     private var dueSection: some View {
         // 与 web/android 的 "🔔 到期提醒" 对应;iOS 26 区块标题渲染不了 emoji
@@ -174,66 +221,84 @@ struct TodoListView: View {
         return task.caption
     }
 
-    @ViewBuilder
-    private var listSection: some View {
+    /// 选中日期的待办;与未来待办分开成组。
+    private var daySection: some View {
         Section {
-            Picker("列表", selection: $listMode) {
-                ForEach(ListMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            if upcoming.isEmpty && due.isEmpty {
+                ContentUnavailableView("暂无待办事项", systemImage: "checkmark.circle")
+            } else if dayTasks.isEmpty {
+                Text("当天暂无待办").foregroundStyle(.secondary)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            ForEach(dayTasks) { task in
+                pendingRow(task)
+            }
+        } header: {
+            Text(dayHeaderTitle)
+        }
+    }
 
-            switch listMode {
-            case .pending:
-                if pending.isEmpty {
-                    ContentUnavailableView("暂无待办事项", systemImage: "checkmark.circle")
+    private var dayHeaderTitle: String {
+        Calendar.current.isDateInToday(selectedDate)
+            ? "今天待办"
+            : "\(selectedDate.formatted(.dateTime.month().day()))待办"
+    }
+
+    private var futureSection: some View {
+        Section("未来待办") {
+            ForEach(futureTasks) { task in
+                pendingRow(task)
+            }
+        }
+    }
+
+    private func pendingRow(_ task: TaskItem) -> some View {
+        Button {
+            sheet = .edit(task, nil)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                Text(task.caption).font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                NotificationManager.shared.cancelChain(for: task.uuid)
+                context.delete(task)
+                try? context.save()
+                WidgetBridge.sync(context: context)
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
+            Button {
+                NotificationManager.shared.complete(task, context: context)
+            } label: {
+                Label("完成", systemImage: "checkmark")
+            }
+            .tint(.green)
+        }
+    }
+
+    @ViewBuilder
+    private var doneSection: some View {
+        Section {
+            if done.isEmpty {
+                ContentUnavailableView("还没有完成的事项", systemImage: "tray")
+            }
+            ForEach(done) { task in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.title).strikethrough()
+                    if let doneAt = task.doneAt {
+                        Text("完成于 \(TaskItem.format(doneAt))")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
-                ForEach(pending) { task in
-                    Button {
-                        sheet = .edit(task, nil)
+                .swipeActions {
+                    Button(role: .destructive) {
+                        context.delete(task)
+                        try? context.save()
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(task.title)
-                            Text(task.caption).font(.footnote).foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            NotificationManager.shared.cancelChain(for: task.uuid)
-                            context.delete(task)
-                            try? context.save()
-                            WidgetBridge.sync(context: context)
-                        } label: {
-                            Label("删除", systemImage: "trash")
-                        }
-                        Button {
-                            NotificationManager.shared.complete(task, context: context)
-                        } label: {
-                            Label("完成", systemImage: "checkmark")
-                        }
-                        .tint(.green)
-                    }
-                }
-            case .done:
-                if done.isEmpty {
-                    ContentUnavailableView("还没有完成的事项", systemImage: "tray")
-                }
-                ForEach(done) { task in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(task.title).strikethrough()
-                        if let doneAt = task.doneAt {
-                            Text("完成于 \(TaskItem.format(doneAt))")
-                                .font(.footnote).foregroundStyle(.secondary)
-                        }
-                    }
-                    .swipeActions {
-                        Button(role: .destructive) {
-                            context.delete(task)
-                            try? context.save()
-                        } label: {
-                            Label("删除", systemImage: "trash")
-                        }
+                        Label("删除", systemImage: "trash")
                     }
                 }
             }
@@ -254,22 +319,6 @@ struct TodoListView: View {
                 throw DeepSeekError.parse("找不到要修改的事项")
             }
             sheet = .edit(task, parsed)
-        }
-    }
-
-    private func parseNL() {
-        let text = nlText.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty, !aiBusy else { return }
-        aiBusy = true
-        aiError = nil
-        Task {
-            defer { aiBusy = false }
-            do {
-                try await route(text)
-                nlText = ""
-            } catch {
-                aiError = error.localizedDescription
-            }
         }
     }
 

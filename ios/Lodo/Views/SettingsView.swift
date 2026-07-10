@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+
     @AppStorage(AppSettings.snoozeMinutesKey) private var snoozeMinutes = 15
     @AppStorage(AppSettings.allDayTimeKey) private var allDayTime = "09:00"
     @AppStorage(AppSettings.digestEnabledKey) private var digestEnabled = false
@@ -51,10 +53,18 @@ struct SettingsView: View {
             }
             .formStyle(.grouped)
             .navigationTitle("设置")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
             .onChange(of: apiKey) { keySaved = false }
             .onChange(of: digestEnabled) { refreshDigest() }
             .onChange(of: digestTime) { refreshDigest() }
         }
+        #if os(macOS)
+        .frame(minWidth: 440, minHeight: 480)
+        #endif
     }
 
     private func refreshDigest() {
