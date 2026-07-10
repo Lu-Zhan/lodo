@@ -22,12 +22,15 @@ struct TodoListView: View {
     }
 
     enum SheetMode: Identifiable {
+        /// 快速添加页(自然语言 + 语音,仅 iOS)。
+        case add
         case create(ParsedTask?)
         /// 编辑事项;AI 总入口路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
 
         var id: String {
             switch self {
+            case .add: return "add"
             case .create: return "create"
             case .edit(let task, _): return task.uuid.uuidString
             }
@@ -59,9 +62,26 @@ struct TodoListView: View {
                         Label("新建", systemImage: "plus")
                     }
                 }
+                #if os(iOS)
+                // 右下角主操作:快速添加(自然语言 + 语音)
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Spacer()
+                    Button {
+                        sheet = .add
+                    } label: {
+                        Label("添加", systemImage: "plus")
+                            .labelStyle(.titleAndIcon)
+                    }
+                    .glassProminentButton()
+                }
+                #endif
             }
             .sheet(item: $sheet) { mode in
                 switch mode {
+                case .add:
+                    #if os(iOS)
+                    AddTaskView { try await route($0) }
+                    #endif
                 case .create(let parsed):
                     TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
                 case .edit(let task, let parsed):
@@ -69,6 +89,14 @@ struct TodoListView: View {
                 }
             }
             .onReceive(clock) { now = $0 }
+            .onAppear {
+                #if DEBUG
+                // 截图验证用:--demo-add 启动参数直接弹出快速添加页
+                if ProcessInfo.processInfo.arguments.contains("--demo-add") {
+                    sheet = .add
+                }
+                #endif
+            }
         }
     }
 
@@ -212,28 +240,31 @@ struct TodoListView: View {
 
     // MARK: - 动作
 
-    /// AI 总入口:带上当前待办列表,让模型判断是新建还是修改某个事项。
+    /// AI 总入口:带上当前待办列表,让模型判断是新建还是修改某个事项,
+    /// 路由到对应表单。返回后用最新 pending 列表重新匹配 uuid。
+    private func route(_ text: String) async throws {
+        let context = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
+        switch try await DeepSeekClient.command(text, tasks: context) {
+        case .create(let parsed):
+            sheet = .create(parsed)
+        case .update(let uuid, let parsed):
+            guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
+                throw DeepSeekError.parse("找不到要修改的事项")
+            }
+            sheet = .edit(task, parsed)
+        }
+    }
+
     private func parseNL() {
         let text = nlText.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty, !aiBusy else { return }
         aiBusy = true
         aiError = nil
-        let context = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         Task {
             defer { aiBusy = false }
             do {
-                switch try await DeepSeekClient.command(text, tasks: context) {
-                case .create(let parsed):
-                    nlText = ""
-                    sheet = .create(parsed)
-                case .update(let uuid, let parsed):
-                    guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
-                        aiError = DeepSeekError.parse("找不到要修改的事项").localizedDescription
-                        return
-                    }
-                    nlText = ""
-                    sheet = .edit(task, parsed)
-                }
+                try await route(text)
+                nlText = ""
             } catch {
                 aiError = error.localizedDescription
             }

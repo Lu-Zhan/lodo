@@ -184,8 +184,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "lodo 需要使用麦克风,以便语音输入待办事项。";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "lodo 需要语音识别,把你说的话转成待办事项文字。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -221,8 +223,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "lodo 需要使用麦克风,以便语音输入待办事项。";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "lodo 需要语音识别,把你说的话转成待办事项文字。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
