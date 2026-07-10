@@ -2,6 +2,16 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
+/// 全局 agent 一次解析后的回应形态(AgentView 据此展示)。
+enum AgentReply {
+    /// 已直达表单(单条新建/修改),agent 页无事可做。
+    case routed
+    /// 需要确认的操作清单(批量或含完成/删除),元素为中文描述。
+    case confirm([String])
+    /// 关键信息缺失,反问 + 候选补充。
+    case clarify(question: String, options: [String])
+}
+
 /// 待办页:横滑日期条(默认今天)、到期卡片(完成/稍等)、
 /// 选中日待办与未来待办分组、已完成列表。
 struct TodoListView: View {
@@ -14,6 +24,8 @@ struct TodoListView: View {
     @State private var now = Date()
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var sheet: SheetMode?
+    /// agent 解析出、等待用户确认的批量操作。
+    @State private var pendingActions: [AIAction] = []
 
     private let clock = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
     /// 日期条展示的天数(从今天起)。
@@ -82,7 +94,8 @@ struct TodoListView: View {
                     #endif
                 case .agent:
                     #if os(iOS)
-                    AgentView { try await route($0) }
+                    AgentView(submit: { try await route($0) },
+                              onConfirm: { performPendingActions() })
                     #endif
                 case .create(let parsed):
                     TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
@@ -280,19 +293,77 @@ struct TodoListView: View {
 
     // MARK: - 动作
 
-    /// 全局 agent:带上当前待办列表,让模型判断是新建还是修改某个事项,
-    /// 路由到对应表单。返回后用最新 pending 列表重新匹配 uuid。
-    private func route(_ text: String) async throws {
+    /// 全局 agent:带上当前待办列表,把一句话解析成操作。
+    /// 单条新建/修改直达表单(表单即确认);批量或含完成/删除的进确认清单;
+    /// 关键信息缺失时透传反问。uuid 用最新 pending 列表重新匹配。
+    private func route(_ text: String) async throws -> AgentReply {
         let context = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         switch try await DeepSeekClient.command(text, tasks: context) {
-        case .create(let parsed):
-            sheet = .create(parsed)
-        case .update(let uuid, let parsed):
-            guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
-                throw DeepSeekError.parse("找不到要修改的事项")
+        case .clarify(let question, let options):
+            return .clarify(question: question, options: options)
+        case .actions(let actions):
+            if actions.count == 1 {
+                if case .create(let parsed) = actions[0] {
+                    sheet = .create(parsed)
+                    return .routed
+                }
+                if case .update(let uuid, let parsed) = actions[0] {
+                    guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
+                        throw DeepSeekError.parse("找不到要修改的事项")
+                    }
+                    sheet = .edit(task, parsed)
+                    return .routed
+                }
             }
-            sheet = .edit(task, parsed)
+            pendingActions = actions
+            return .confirm(actions.map(describe))
         }
+    }
+
+    private func describe(_ action: AIAction) -> String {
+        switch action {
+        case .create(let parsed):
+            var caption = TaskItem.format(parsed.remindAt)
+            if parsed.durationMinutes > 0 { caption += " · \(parsed.durationMinutes) 分钟" }
+            return "新建:\(parsed.title)(\(caption))"
+        case .update(_, let parsed):
+            return "修改:\(parsed.title)(\(TaskItem.format(parsed.remindAt)))"
+        case .complete(let uuid):
+            return "完成:\(title(of: uuid) ?? "未知事项")"
+        case .delete(let uuid):
+            return "删除:\(title(of: uuid) ?? "未知事项")"
+        }
+    }
+
+    private func title(of uuid: String) -> String? {
+        pending.first { $0.uuid.uuidString == uuid }?.title
+    }
+
+    /// 执行确认后的批量操作,完毕关闭 agent。
+    private func performPendingActions() {
+        for action in pendingActions {
+            switch action {
+            case .create(let parsed):
+                saveNew(parsed)
+            case .update(let uuid, let parsed):
+                if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
+                    apply(parsed, to: task)
+                }
+            case .complete(let uuid):
+                if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
+                    NotificationManager.shared.complete(task, context: context)
+                }
+            case .delete(let uuid):
+                if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
+                    NotificationManager.shared.cancelChain(for: task.uuid)
+                    context.delete(task)
+                }
+            }
+        }
+        pendingActions = []
+        try? context.save()
+        WidgetBridge.sync(context: context)
+        sheet = nil
     }
 
     private func saveNew(_ parsed: ParsedTask) {

@@ -54,7 +54,9 @@ cd android
 - **重复事项完成一次**:保持 pending 并顺延到下一次发生,同时插入一条 done 历史记录
 - **设置默认值**:稍等 15 分钟、全天提醒 09:00、每日汇总 21:00
 
-**DeepSeek prompt 三端逐字一致**:`web/lodo/ai.py`、`ios/Lodo/AI/DeepSeekClient.swift`、`android/.../ai/DeepSeekClient.kt`。接口:`parse`(新建)、`edit`(改单个事项)、`command`(AI 总入口,目前仅 iOS/Android 有——携带全部待办列表,模型返回 `action: create/update` + uuid 路由;客户端必须校验 uuid 在列表内,且返回后用**最新**列表重新匹配)。iOS/Android 把 prompt 拆为 taskSchema + taskRules 拼装(command 有专属带 action 的返回格式),web 仍是整段 `_FORMAT_AND_RULES`,文字内容一致。错误文案("未配置 DeepSeek API key…"/"调用 DeepSeek 失败:…"/"无法解析:…")三端一致。改 prompt 时同步三端。
+**DeepSeek prompt 三端逐字一致**:`web/lodo/ai.py`、`ios/Lodo/AI/DeepSeekClient.swift`、`android/.../ai/DeepSeekClient.kt`。接口:`parse`(新建)、`edit`(改单个事项)、`command`(AI 总入口,目前仅 iOS/Android 有——携带全部待办列表;客户端必须校验 uuid 在列表内,且返回后用**最新**列表重新匹配)。iOS/Android 把 prompt 拆为 taskSchema + taskRules 拼装,web 仍是整段 `_FORMAT_AND_RULES`,文字内容一致。错误文案("未配置 DeepSeek API key…"/"调用 DeepSeek 失败:…"/"无法解析:…")三端一致。改 prompt 时同步三端。
+
+**⚠️ iOS 的 AI 已领先于 web/Android,待回同步**:iOS `command` 已升级为 `{"actions": [create/update/complete/delete, ...]}` 数组协议(支持批量、完成、删除),关键信息缺失时返回 `{"question", "options"}` 反问;批量/完成/删除在 AgentView 过确认页,单条新建/修改直达表单。Android 仍是旧的单 `action: create/update` 协议。此外 iOS 独有:时长记忆(`DurationMemory`,suggestDuration/updateMemory 两个请求)、汇总正文 AI 一句话概括(`summarizeToday`)。
 
 ## 各端架构差异(有意为之,勿"统一")
 

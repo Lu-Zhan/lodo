@@ -21,10 +21,18 @@ extension ParsedTask {
     }
 }
 
-/// AI 总入口的路由结果:新建事项,或修改列表中的某个现有事项。
-enum AICommand {
+/// AI 总入口解析出的单个操作。
+enum AIAction {
     case create(ParsedTask)
     case update(uuid: String, task: ParsedTask)
+    case complete(uuid: String)
+    case delete(uuid: String)
+}
+
+/// AI 总入口的返回:操作列表,或关键信息缺失时的反问(附候选补充)。
+enum AICommandResult {
+    case actions([AIAction])
+    case clarify(question: String, options: [String])
 }
 
 enum DeepSeekError: LocalizedError {
@@ -113,10 +121,11 @@ enum DeepSeekClient {
         return try parseTask(await payload(system: system, user: instruction))
     }
 
-    /// AI 总入口:给定当前待办列表,判断用户想新建事项还是修改某个现有事项。
+    /// AI 总入口:给定当前待办列表,把用户的一句话解析成一组操作
+    /// (新建/修改/完成/删除,可多条),或在关键信息缺失时反问。
     static func command(
         _ text: String, tasks: [(uuid: String, task: ParsedTask)]
-    ) async throws -> AICommand {
+    ) async throws -> AICommandResult {
         let list = tasks.map { entry -> [String: Any] in
             var fields = taskFields(of: entry.task)
             fields["uuid"] = entry.uuid
@@ -124,23 +133,32 @@ enum DeepSeekClient {
         }
         let system = """
         你是提醒事项应用 lodo 的智能入口。给定当前待办事项列表和用户的一句话,\
-        判断用户是想【新建】一个事项,还是【修改】列表中的某个现有事项,\
-        只返回 JSON,不要任何其他文字。
+        解析出要执行的操作列表,只返回 JSON,不要任何其他文字。
+
+        支持的操作(action):
+        - 新建:{"action": "create", ...事项字段}
+        - 修改:{"action": "update", "uuid": "原样取自当前待办列表,不要自己生成", ...事项字段}\
+        (输出修改后的完整字段值,用户没有提到的字段一律保持原值)
+        - 完成:{"action": "complete", "uuid": "原样取自当前待办列表"}
+        - 删除:{"action": "delete", "uuid": "原样取自当前待办列表"}
 
         判断规则:
-        - 用户在描述一件新的事情 → 按"新建"格式返回。
-        - 用户提到了列表中已有的事项并要求调整(按标题语义匹配,如"把开会改到晚上8点")→ \
-        按"修改"格式返回,输出修改后的完整字段值,用户没有提到的字段一律保持原值。
-        - 要修改但匹配不到事项、或无法判断/无法解析时,返回 {"error": "原因"}。
+        - 一句话里包含多件事时返回多个操作,如"明天上午开会,周五交报告"→ 两条 create。
+        - 修改/完成/删除按标题语义匹配列表中的事项("开会完成了"→ complete,\
+        "把取快递删了"→ delete);匹配不到时返回 {"error": "原因"}。
+        - 新建缺少关键时间信息且无法按常理推断时(如只说"提醒我交材料"),不要猜,\
+        改为反问:{"question": "要问用户的问题", "options": ["候选补充1", "候选补充2", "候选补充3"]},\
+        options 给 2-3 个具体可直接采用的补充(如"明天 09:00")。
+        - 无法解析时返回 {"error": "原因"}。
 
         \(timeContext)
 
         当前待办列表:
         \(json(list))
 
-        返回格式(二选一,必须包含 "action" 字段;事项字段不适用的用默认值):
-        新建:{"action": "create", ...事项字段}
-        修改:{"action": "update", "uuid": "原样取自当前待办列表,不要自己生成", ...事项字段}
+        返回格式(二选一):
+        {"actions": [操作, ...]}
+        {"question": "...", "options": ["...", "..."]}
 
         事项字段:
         \(taskSchema)
@@ -148,19 +166,38 @@ enum DeepSeekClient {
         \(taskRules)
         """
         let payload = try await payload(system: system, user: text)
-        let task = try parseTask(payload)
-        switch payload["action"] as? String {
-        case "create":
-            return .create(task)
-        case "update":
-            guard let uuid = payload["uuid"] as? String,
-                  tasks.contains(where: { $0.uuid == uuid }) else {
-                throw DeepSeekError.parse("找不到要修改的事项")
-            }
-            return .update(uuid: uuid, task: task)
-        default:
-            throw DeepSeekError.parse("返回格式异常:缺少 action")
+
+        if let question = payload["question"] as? String, !question.isEmpty {
+            let options = (payload["options"] as? [Any])?.compactMap { $0 as? String } ?? []
+            return .clarify(question: question, options: options)
         }
+        guard let rawActions = payload["actions"] as? [[String: Any]],
+              !rawActions.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 actions")
+        }
+        var actions: [AIAction] = []
+        for raw in rawActions {
+            func validUUID() throws -> String {
+                guard let uuid = raw["uuid"] as? String,
+                      tasks.contains(where: { $0.uuid == uuid }) else {
+                    throw DeepSeekError.parse("找不到要操作的事项")
+                }
+                return uuid
+            }
+            switch raw["action"] as? String {
+            case "create":
+                actions.append(.create(try parseTask(raw)))
+            case "update":
+                actions.append(.update(uuid: try validUUID(), task: try parseTask(raw)))
+            case "complete":
+                actions.append(.complete(uuid: try validUUID()))
+            case "delete":
+                actions.append(.delete(uuid: try validUUID()))
+            default:
+                throw DeepSeekError.parse("返回格式异常:未知 action")
+            }
+        }
+        return .actions(actions)
     }
 
     /// 按记忆文件为"没说时长"的新事项建议时长(分钟);
