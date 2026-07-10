@@ -127,8 +127,8 @@ struct TodoListView: View {
                 .padding(.vertical, 4)
             }
         }
-        .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
-        .listRowBackground(Color.clear)
+        // 用默认列表行背景铺白色卡片,圆角与下方模块一致
+        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
     }
 
     private func dayCell(_ date: Date) -> some View {
