@@ -43,7 +43,7 @@ enum DurationMemory {
     /// 用一条新样本(标题 + 时长)让 AI 归纳更新记忆文件,fire-and-forget。
     /// force 绕过节流(实际耗时回答紧跟完成时的常规 learn,不该被节流吞掉)。
     static func learn(title: String, durationMinutes: Int, force: Bool = false) {
-        guard durationMinutes > 0, KeychainHelper.apiKey != nil else { return }
+        guard durationMinutes > 0, DeepSeekClient.isConfigured else { return }
         guard force || Date().timeIntervalSince(lastLearned) >= throttleSeconds else { return }
         lastLearned = Date()
         let current = content

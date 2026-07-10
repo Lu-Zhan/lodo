@@ -74,7 +74,7 @@ struct DoneListView: View {
             return
         }
         #endif
-        guard insightEnabled, KeychainHelper.apiKey != nil else { return }
+        guard insightEnabled, DeepSeekClient.isConfigured else { return }
         let calendar = Calendar.current
         let stamp = "\(calendar.component(.yearForWeekOfYear, from: Date()))-" +
             "\(calendar.component(.weekOfYear, from: Date()))"

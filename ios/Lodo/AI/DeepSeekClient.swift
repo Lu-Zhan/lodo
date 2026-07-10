@@ -335,7 +335,30 @@ enum DeepSeekClient {
     }
 
     /// 发起请求并取回模型返回的 JSON payload(含 error 检查)。
+    /// 当前 AI 是否已配置可用:云服务商=已存 key;苹果智能=设备端可用。
+    static var isConfigured: Bool {
+        if AppSettings.usesAppleIntelligence {
+            #if canImport(FoundationModels)
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return FoundationModelsClient.isAvailable
+            }
+            #endif
+            return false
+        }
+        return KeychainHelper.apiKey != nil
+    }
+
     private static func payload(system: String, user: String) async throws -> [String: Any] {
+        // 苹果智能:端侧推理,免 key,payload 形态与云端一致
+        if AppSettings.usesAppleIntelligence {
+            #if canImport(FoundationModels)
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return try await FoundationModelsClient.payload(system: system, user: user)
+            }
+            #endif
+            throw DeepSeekError.api("苹果智能需要 iOS 26 及以上系统。")
+        }
+
         guard let apiKey = KeychainHelper.apiKey else { throw DeepSeekError.noKey }
         guard let endpoint = AppSettings.aiEndpoint else {
             throw DeepSeekError.api("无效的服务地址,请到「设置」里检查 AI 服务商配置。")

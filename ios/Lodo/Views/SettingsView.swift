@@ -89,9 +89,21 @@ struct SettingsView: View {
                         ForEach(AppSettings.aiProviders, id: \.name) { provider in
                             Text(provider.name).tag(provider.name)
                         }
+                        Text(AppSettings.appleIntelligenceProvider)
+                            .tag(AppSettings.appleIntelligenceProvider)
                         Text("自定义").tag("自定义")
                     }
-                    if aiProvider == "自定义" {
+                    if aiProvider == AppSettings.appleIntelligenceProvider {
+                        Group {
+                            if #available(iOS 26.0, macOS 26.0, *) {
+                                Text(FoundationModelsClient.availabilityHint)
+                            } else {
+                                Text("苹果智能需要 iOS 26 及以上系统。")
+                            }
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    } else if aiProvider == "自定义" {
                         TextField("接口地址(…/chat/completions)", text: $aiCustomEndpoint)
                             .plainKeyboard()
                         TextField("模型名称", text: $aiModel)
@@ -103,16 +115,18 @@ struct SettingsView: View {
                         )
                         .plainKeyboard()
                     }
-                    SecureField("API Key", text: $apiKey)
-                    Button(keySaved ? "已保存" : "保存 API Key") {
-                        KeychainHelper.save(apiKey, for: aiProvider)
-                        keySaved = true
+                    if aiProvider != AppSettings.appleIntelligenceProvider {
+                        SecureField("API Key", text: $apiKey)
+                        Button(keySaved ? "已保存" : "保存 API Key") {
+                            KeychainHelper.save(apiKey, for: aiProvider)
+                            keySaved = true
+                        }
+                        .disabled(keySaved)
                     }
-                    .disabled(keySaved)
                 } header: {
                     Text("AI 服务")
                 } footer: {
-                    Text("默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中。")
+                    Text("默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。")
                 }
 
                 Section {

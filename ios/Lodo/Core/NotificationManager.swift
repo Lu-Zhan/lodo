@@ -129,7 +129,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
         updateDigest(todayTitles: titles)
         guard AppSettings.digestEnabled, !titles.isEmpty,
-              KeychainHelper.apiKey != nil else { return }
+              DeepSeekClient.isConfigured else { return }
         Task {
             guard let summary = try? await DeepSeekClient.summarizeToday(items) else { return }
             defaults.set(input, forKey: Self.digestSummaryInputKey)

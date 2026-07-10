@@ -78,8 +78,15 @@ enum AppSettings {
         ("智谱", "https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-4-flash"),
     ]
 
+    /// 苹果智能(端侧 Foundation Models)的服务商名。
+    static let appleIntelligenceProvider = "苹果智能"
+
     static var aiProvider: String {
         UserDefaults.standard.string(forKey: aiProviderKey) ?? "DeepSeek"
+    }
+
+    static var usesAppleIntelligence: Bool {
+        aiProvider == appleIntelligenceProvider
     }
 
     /// 当前服务商的接口地址;自定义地址无效时返回 nil。
