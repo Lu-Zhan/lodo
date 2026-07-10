@@ -365,7 +365,7 @@ def reminder_and_lists() -> None:
                     ai_c1, ai_c2 = st.columns([5, 1], vertical_alignment="bottom")
                     instr = ai_c1.text_input(
                         "AI 修改",
-                        placeholder="例如:改到明天晚上8点 / 时长改成30分钟 / 改成每天早晚各提醒一次",
+                        placeholder="例如:改到明天晚上8点",
                         key=f"ai_instr_{task.id}",
                     )
                     if ai_c2.button("✨ 应用", key=f"ai_apply_{task.id}", width="stretch") and instr.strip():

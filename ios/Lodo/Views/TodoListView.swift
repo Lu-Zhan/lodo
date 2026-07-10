@@ -78,7 +78,7 @@ struct TodoListView: View {
         Section {
             HStack(alignment: .firstTextBaseline) {
                 // axis: .vertical 让长占位文字与长输入换行显示,不再截断
-                TextField("例如:明天3点开会一小时 / 把开会改到晚上8点",
+                TextField("例如:明天3点开会一小时",
                           text: $nlText, axis: .vertical)
                     .lineLimit(1...3)
                     .textFieldStyle(.plain)

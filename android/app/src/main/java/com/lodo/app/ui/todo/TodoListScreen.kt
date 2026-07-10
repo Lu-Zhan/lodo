@@ -185,7 +185,7 @@ private fun NaturalLanguageField(vm: TodoViewModel) {
             value = vm.nlText,
             onValueChange = { vm.nlText = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("例如:明天3点开会一小时 / 把开会改到晚上8点") },
+            placeholder = { Text("例如:明天3点开会一小时") },
             singleLine = true,
             trailingIcon = {
                 if (vm.aiBusy) {

@@ -102,8 +102,7 @@ struct TaskEditView: View {
 
                 if existing != nil {
                     Section("AI 修改") {
-                        TextField("例如:改到明天晚上8点 / 改成每天早晚各提醒一次",
-                                  text: $aiInstruction)
+                        TextField("例如:改到明天晚上8点", text: $aiInstruction)
                             .onSubmit { applyAI() }
                         Button {
                             applyAI()

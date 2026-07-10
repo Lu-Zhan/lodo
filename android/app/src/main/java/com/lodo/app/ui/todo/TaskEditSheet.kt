@@ -290,7 +290,7 @@ fun TaskEditSheet(
                 OutlinedTextField(
                     value = aiInstruction,
                     onValueChange = { aiInstruction = it },
-                    placeholder = { Text("例如:改到明天晚上8点 / 改成每天早晚各提醒一次") },
+                    placeholder = { Text("例如:改到明天晚上8点") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
