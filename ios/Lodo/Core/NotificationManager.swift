@@ -92,28 +92,68 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             predicate: #Predicate { $0.statusRaw == "pending" })
         let tasks = (try? context.fetch(pending)) ?? []
         for task in tasks { rebuild(for: task) }
-        updateDigest(pendingCount: tasks.count)
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)
+            ?? startOfDay.addingTimeInterval(86400)
+        let todayTitles = tasks
+            .filter { $0.nextRemindAt < endOfToday }
+            .sorted { $0.nextRemindAt < $1.nextRemindAt }
+            .map(\.title)
+        updateDigest(todayTitles: todayTitles)
         WidgetBridge.sync(context: context)
     }
 
-    /// 每日待办汇总:固定时间的系统重复通知,文案随当前未完成数刷新。
-    func updateDigest(pendingCount: Int) {
+    /// 待办汇总:按设置的时间点与重复方式(每天/每周选中周几)排系统重复通知,
+    /// 内容为今天开始或到期的事项(含已过期;app 进前台时刷新快照)。
+    func updateDigest(todayTitles: [String]) {
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: [Self.digestID])
-        guard AppSettings.digestEnabled else { return }
-        let parts = AppSettings.digestTime.split(separator: ":").compactMap { Int($0) }
-        guard parts.count == 2 else { return }
-        let content = UNMutableNotificationContent()
-        content.title = "每日待办汇总"
-        content.body = pendingCount > 0 ? "还有 \(pendingCount) 件事未完成,打开 lodo 查看"
-                                        : "今日事项全部完成 🎉"
-        content.sound = .default
-        var comps = DateComponents()
-        comps.hour = parts[0]
-        comps.minute = parts[1]
-        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-        center.add(UNNotificationRequest(identifier: Self.digestID,
-                                         content: content, trigger: trigger))
+        center.getPendingNotificationRequests { requests in
+            // 时间点/周几数量会变,按前缀清掉旧的(含老版本的单条 id)
+            let old = requests.map(\.identifier).filter { $0.hasPrefix(Self.digestID) }
+            center.removePendingNotificationRequests(withIdentifiers: old)
+            guard AppSettings.digestEnabled else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = "每日待办汇总"
+            if todayTitles.isEmpty {
+                content.body = "今日暂无待办事项 🎉"
+            } else {
+                let shown = todayTitles.prefix(3).joined(separator: "、")
+                content.body = todayTitles.count > 3
+                    ? "今天:\(shown) 等 \(todayTitles.count) 件"
+                    : "今天:\(shown)(共 \(todayTitles.count) 件)"
+            }
+            content.sound = .default
+
+            let weekly = AppSettings.digestRepeatType == "weekly"
+            for (ti, hhmm) in AppSettings.digestTimes.enumerated() {
+                let parts = hhmm.split(separator: ":").compactMap { Int($0) }
+                guard parts.count == 2 else { continue }
+                if weekly {
+                    for day in AppSettings.digestDays {
+                        var comps = DateComponents()
+                        // 项目约定 0=周一…6=周日 → Calendar 的 1=周日…7=周六
+                        comps.weekday = day == 6 ? 1 : day + 2
+                        comps.hour = parts[0]
+                        comps.minute = parts[1]
+                        center.add(UNNotificationRequest(
+                            identifier: "\(Self.digestID)-t\(ti)-d\(day)",
+                            content: content,
+                            trigger: UNCalendarNotificationTrigger(dateMatching: comps,
+                                                                   repeats: true)))
+                    }
+                } else {
+                    var comps = DateComponents()
+                    comps.hour = parts[0]
+                    comps.minute = parts[1]
+                    center.add(UNNotificationRequest(
+                        identifier: "\(Self.digestID)-t\(ti)",
+                        content: content,
+                        trigger: UNCalendarNotificationTrigger(dateMatching: comps,
+                                                               repeats: true)))
+                }
+            }
+        }
     }
 
     // MARK: - 响应处理(通知按钮与 app 内按钮共用)

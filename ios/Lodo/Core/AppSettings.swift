@@ -6,6 +6,9 @@ enum AppSettings {
     static let allDayTimeKey = "allDayTime"
     static let digestEnabledKey = "digestEnabled"
     static let digestTimeKey = "digestTime"
+    static let digestTimesKey = "digestTimes"
+    static let digestRepeatTypeKey = "digestRepeatType"
+    static let digestDaysKey = "digestDays"
     static let hapticsEnabledKey = "hapticsEnabled"
 
     static var snoozeMinutes: Int {
@@ -24,6 +27,25 @@ enum AppSettings {
 
     static var digestTime: String {
         UserDefaults.standard.string(forKey: digestTimeKey) ?? "21:00"
+    }
+
+    /// 汇总提醒时间点列表("HH:MM");无新值时迁移旧的单一 digestTime。
+    static var digestTimes: [String] {
+        let raw = UserDefaults.standard.string(forKey: digestTimesKey) ?? ""
+        let times = raw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+        return times.isEmpty ? [digestTime] : times
+    }
+
+    /// 汇总重复方式:"daily" 或 "weekly"。
+    static var digestRepeatType: String {
+        UserDefaults.standard.string(forKey: digestRepeatTypeKey) ?? "daily"
+    }
+
+    /// weekly 时选中的周几(0=周一 … 6=周日),默认工作日。
+    static var digestDays: [Int] {
+        let raw = UserDefaults.standard.string(forKey: digestDaysKey) ?? "0,1,2,3,4"
+        return raw.split(separator: ",").compactMap { Int($0) }
+            .filter { (0...6).contains($0) }.sorted()
     }
 
     /// 滑动操作振动反馈,默认开。

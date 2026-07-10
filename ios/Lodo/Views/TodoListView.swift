@@ -119,6 +119,9 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent") {
                     sheet = .agent
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-settings") {
+                    sheet = .settings
+                }
                 #endif
             }
         }
