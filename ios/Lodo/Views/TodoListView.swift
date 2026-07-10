@@ -4,6 +4,9 @@ import LodoCore
 
 /// 待办页:自然语言创建、到期卡片(完成/稍等)、待办与已完成列表。
 struct TodoListView: View {
+    /// tab 栏"添加"按钮置 true 后弹出快速添加页(见 ContentView)。
+    @Binding var addRequested: Bool
+
     @Environment(\.modelContext) private var context
     @Query(sort: \TaskItem.nextRemindAt) private var allTasks: [TaskItem]
 
@@ -62,19 +65,6 @@ struct TodoListView: View {
                         Label("新建", systemImage: "plus")
                     }
                 }
-                #if os(iOS)
-                // 右下角主操作:快速添加(自然语言 + 语音)
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Spacer()
-                    Button {
-                        sheet = .add
-                    } label: {
-                        Label("添加", systemImage: "plus")
-                            .labelStyle(.titleAndIcon)
-                    }
-                    .glassProminentButton()
-                }
-                #endif
             }
             .sheet(item: $sheet) { mode in
                 switch mode {
@@ -89,6 +79,12 @@ struct TodoListView: View {
                 }
             }
             .onReceive(clock) { now = $0 }
+            .onChange(of: addRequested) { _, requested in
+                if requested {
+                    addRequested = false
+                    sheet = .add
+                }
+            }
             .onAppear {
                 #if DEBUG
                 // 截图验证用:--demo-add 启动参数直接弹出快速添加页
