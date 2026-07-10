@@ -17,6 +17,13 @@ struct ContentView: View {
                     Task { @MainActor in NotificationManager.shared.refreshAll() }
                 }
             }
+            // 小组件"+"按钮深链:lodo://add → 切到待办页弹出快速添加
+            .onOpenURL { url in
+                if url.scheme == "lodo", url.host == "add" {
+                    selection = .todo
+                    addRequested = true
+                }
+            }
     }
 
     @ViewBuilder
@@ -71,13 +78,16 @@ struct ContentView: View {
     }
 
     private var legacyTabs: some View {
-        TabView {
+        TabView(selection: $selection) {
             TodoListView(addRequested: $addRequested)
                 .tabItem { Label("待办", systemImage: "checklist") }
+                .tag(AppTab.todo)
             RemindersView()
                 .tabItem { Label("提醒事项", systemImage: "list.bullet.rectangle") }
+                .tag(AppTab.reminders)
             SettingsView()
                 .tabItem { Label("设置", systemImage: "gearshape") }
+                .tag(AppTab.settings)
         }
     }
 }

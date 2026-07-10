@@ -86,6 +86,11 @@ struct TodoListView: View {
                 }
             }
             .onAppear {
+                // 冷启动时深链可能先于本视图出现,补一次检查
+                if addRequested {
+                    addRequested = false
+                    sheet = .add
+                }
                 #if DEBUG
                 // 截图验证用:--demo-add 启动参数直接弹出快速添加页
                 if ProcessInfo.processInfo.arguments.contains("--demo-add") {
@@ -198,6 +203,7 @@ struct TodoListView: View {
                             NotificationManager.shared.cancelChain(for: task.uuid)
                             context.delete(task)
                             try? context.save()
+                            WidgetBridge.sync(context: context)
                         } label: {
                             Label("删除", systemImage: "trash")
                         }

@@ -36,8 +36,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - 通知链
 
-    /// 取消并重排某事项的通知链。
+    /// 取消并重排某事项的通知链,并同步小组件快照。
+    @MainActor
     func rebuild(for task: TaskItem) {
+        if let context = container?.mainContext {
+            WidgetBridge.sync(context: context)
+        }
         let center = UNUserNotificationCenter.current()
         cancelChain(for: task.uuid)
         guard task.status == .pending else { return }
@@ -89,6 +93,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let tasks = (try? context.fetch(pending)) ?? []
         for task in tasks { rebuild(for: task) }
         updateDigest(pendingCount: tasks.count)
+        WidgetBridge.sync(context: context)
     }
 
     /// 每日待办汇总:固定时间的系统重复通知,文案随当前未完成数刷新。
@@ -127,6 +132,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         try? context.save()
         if task.status == .done {
             cancelChain(for: task.uuid)
+            WidgetBridge.sync(context: context)
         } else {
             rebuild(for: task)
         }

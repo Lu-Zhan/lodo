@@ -63,4 +63,5 @@ cd android
 - **API key 存储**:web 用 `web/.env`;iOS 用钥匙串(`KeychainHelper`);Android 用 AndroidKeyStore AES/GCM 加密后存 DataStore(`KeystoreCipher`)。
 - **iOS 26 接入模式**:部署目标保持 iOS 17/macOS 14,新 API 一律 `#available(iOS 26.0, macOS 26.0, *)` 运行时门控 + 旧写法回退(见 `ios/Lodo/Views/LiquidGlass.swift`、`ContentView.swift` 的三级门控)。Liquid Glass 只用于独立主操作和系统 chrome,List 行内按钮保持 bordered。
 - **编辑保存**都会重置 phase=start、nextRemindAt=remindAt;Android 的 `applyEdit` 有 PENDING 守卫。
-- **Xcode 工程用文件夹同步组**(objectVersion 77):`ios/Lodo/` 下新增文件自动纳入 target,无需改 pbxproj。
+- **Xcode 工程用文件夹同步组**:`ios/Lodo/` 下新增文件自动纳入 app target,`ios/LodoWidget/` 归小组件 target,无需改 pbxproj。`ios/Support/` 放两个 target 的 Info.plist 与 entitlements(不在同步组内)。
+- **iOS 小组件(LodoWidgetExtension,仅 iOS)**:SwiftData 库放 App Group `group.com.lodo.app`(`AppGroup.storeURL`,首启从默认位置迁移);app 侧 `WidgetBridge.sync` 在每次数据变更后把"即将到来"快照写进 App Group 并刷新小组件;小组件右侧"+"通过 `lodo://add` 深链弹出快速添加页。app 的 entitlements 只挂 iPhone SDK,macOS 无签名要求也能访问 Group Container。
