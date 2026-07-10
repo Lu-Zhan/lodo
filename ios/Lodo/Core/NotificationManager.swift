@@ -95,17 +95,53 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let startOfDay = Calendar.current.startOfDay(for: Date())
         let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)
             ?? startOfDay.addingTimeInterval(86400)
-        let todayTitles = tasks
+        let todayTasks = tasks
             .filter { $0.nextRemindAt < endOfToday }
             .sorted { $0.nextRemindAt < $1.nextRemindAt }
-            .map(\.title)
-        updateDigest(todayTitles: todayTitles)
+        refreshDigest(for: todayTasks)
         WidgetBridge.sync(context: context)
     }
 
+    // MARK: - 汇总正文的 AI 改写
+
+    private static let digestSummaryInputKey = "digestSummaryInput"
+    private static let digestSummaryTextKey = "digestSummaryText"
+
+    /// 排汇总通知:优先用 AI 一句话概括(同一天同一批事项只调用一次,缓存),
+    /// 无 key/未返回前先用机械文案兜底,AI 成功后重排。
+    private func refreshDigest(for todayTasks: [TaskItem]) {
+        let titles = todayTasks.map(\.title)
+        // 事项带时间与时长,供模型判断重点
+        let items = todayTasks.map { task in
+            var line = "\(task.title)(\(TaskItem.format(task.nextRemindAt))"
+            if task.durationMinutes > 0 { line += ",\(task.durationMinutes) 分钟" }
+            return line + ")"
+        }
+        let day = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+        let input = "\(day)|" + items.joined(separator: ";")
+        let defaults = UserDefaults.standard
+
+        if !titles.isEmpty,
+           defaults.string(forKey: Self.digestSummaryInputKey) == input,
+           let cached = defaults.string(forKey: Self.digestSummaryTextKey) {
+            updateDigest(todayTitles: titles, aiSummary: cached)
+            return
+        }
+        updateDigest(todayTitles: titles)
+        guard AppSettings.digestEnabled, !titles.isEmpty,
+              KeychainHelper.apiKey != nil else { return }
+        Task {
+            guard let summary = try? await DeepSeekClient.summarizeToday(items) else { return }
+            defaults.set(input, forKey: Self.digestSummaryInputKey)
+            defaults.set(summary, forKey: Self.digestSummaryTextKey)
+            self.updateDigest(todayTitles: titles, aiSummary: summary)
+        }
+    }
+
     /// 待办汇总:按设置的时间点与重复方式(每天/每周选中周几)排系统重复通知,
-    /// 内容为今天开始或到期的事项(含已过期;app 进前台时刷新快照)。
-    func updateDigest(todayTitles: [String]) {
+    /// 内容为今天开始或到期的事项(含已过期;app 进前台时刷新快照);
+    /// aiSummary 非空时用 AI 的一句话概括作为正文。
+    func updateDigest(todayTitles: [String], aiSummary: String? = nil) {
         let center = UNUserNotificationCenter.current()
         center.getPendingNotificationRequests { requests in
             // 时间点/周几数量会变,按前缀清掉旧的(含老版本的单条 id)
@@ -115,7 +151,9 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
             let content = UNMutableNotificationContent()
             content.title = "每日待办汇总"
-            if todayTitles.isEmpty {
+            if let aiSummary, !todayTitles.isEmpty {
+                content.body = aiSummary
+            } else if todayTitles.isEmpty {
                 content.body = "今日暂无待办事项 🎉"
             } else {
                 let shown = todayTitles.prefix(3).joined(separator: "、")

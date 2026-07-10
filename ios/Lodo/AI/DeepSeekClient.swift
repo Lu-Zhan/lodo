@@ -182,6 +182,22 @@ enum DeepSeekClient {
         return payload["duration_minutes"] as? Int ?? 0
     }
 
+    /// 把今天的事项列表改写成一句话汇总,突出重点事件(用于每日汇总通知正文)。
+    static func summarizeToday(_ items: [String]) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表\
+        (含时间与时长),用一句话概括今天的安排,突出重点事件\
+        (如时间临近、耗时长或听起来重要的),不超过 40 个字,\
+        只返回 JSON:{"summary": "一句话"},不要任何其他文字。
+        """
+        let payload = try await payload(system: system, user: json(items))
+        guard let summary = payload["summary"] as? String,
+              !summary.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 summary")
+        }
+        return summary
+    }
+
     /// 用一条新样本让模型归纳更新"事项类型 → 典型时长"记忆文件,返回新文件全文。
     static func updateMemory(current: String?, title: String,
                              durationMinutes: Int) async throws -> String {
