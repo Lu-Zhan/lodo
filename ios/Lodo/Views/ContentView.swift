@@ -5,6 +5,8 @@ struct ContentView: View {
     @State private var selection: AppTab = .todo
     /// 置 true 时由待办页弹出快速添加页(tab 栏"添加"按钮触发)。
     @State private var addRequested = false
+    /// 非 nil 时由待办页弹出全局 agent 并预填文本(lodo://agent 深链触发,空串=无预填)。
+    @State private var agentRequest: String?
 
     enum AppTab: Hashable {
         case todo, done, add
@@ -15,13 +17,36 @@ struct ContentView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task { @MainActor in NotificationManager.shared.refreshAll() }
+                    #if os(iOS)
+                    consumeAgentHandoff()
+                    #endif
                 }
             }
-            // 小组件"+"按钮深链:lodo://add → 切到待办页弹出快速添加
+            #if os(iOS)
+            // Siri Intent 交接的快路径(app 已在运行时即时弹出)
+            .onReceive(NotificationCenter.default.publisher(
+                for: LodoIntentSupport.agentHandoff)) { note in
+                UserDefaults.standard.removeObject(
+                    forKey: LodoIntentSupport.pendingAgentTextKey)
+                selection = .todo
+                agentRequest = note.userInfo?["text"] as? String ?? ""
+            }
+            #endif
+            // 深链:lodo://add(小组件"+")弹快速添加;lodo://agent?text=…
+            // (Siri Intent 回退)弹全局 agent 并预填
             .onOpenURL { url in
-                if url.scheme == "lodo", url.host == "add" {
+                guard url.scheme == "lodo" else { return }
+                switch url.host {
+                case "add":
                     selection = .todo
                     addRequested = true
+                case "agent":
+                    let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                        .queryItems?.first { $0.name == "text" }?.value
+                    selection = .todo
+                    agentRequest = text ?? ""
+                default:
+                    break
                 }
             }
     }
@@ -51,7 +76,7 @@ struct ContentView: View {
     private var modernTabs: some View {
         TabView(selection: $selection) {
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
-                TodoListView(addRequested: $addRequested)
+                TodoListView(addRequested: $addRequested, agentRequest: $agentRequest)
             }
             Tab("已完成", systemImage: "checkmark.circle", value: AppTab.done) {
                 DoneListView()
@@ -74,9 +99,20 @@ struct ContentView: View {
         #endif
     }
 
+    #if os(iOS)
+    /// Siri Intent 留下的交接文本(app 冷启动/回前台时消费):弹 agent 并预填。
+    private func consumeAgentHandoff() {
+        guard let pending = UserDefaults.standard.string(
+            forKey: LodoIntentSupport.pendingAgentTextKey) else { return }
+        UserDefaults.standard.removeObject(forKey: LodoIntentSupport.pendingAgentTextKey)
+        selection = .todo
+        agentRequest = pending
+    }
+    #endif
+
     private var legacyTabs: some View {
         TabView(selection: $selection) {
-            TodoListView(addRequested: $addRequested)
+            TodoListView(addRequested: $addRequested, agentRequest: $agentRequest)
                 .tabItem { Label("待办", systemImage: "checklist") }
                 .tag(AppTab.todo)
             DoneListView()

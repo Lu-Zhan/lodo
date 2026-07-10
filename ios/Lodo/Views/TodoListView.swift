@@ -17,6 +17,8 @@ enum AgentReply {
 struct TodoListView: View {
     /// tab 栏"添加"按钮置 true 后弹出快速添加页(见 ContentView)。
     @Binding var addRequested: Bool
+    /// 非 nil 时弹出全局 agent 并预填文本(lodo://agent 深链,见 ContentView)。
+    @Binding var agentRequest: String?
 
     @Environment(\.modelContext) private var context
     @Query(sort: \TaskItem.nextRemindAt) private var allTasks: [TaskItem]
@@ -34,8 +36,8 @@ struct TodoListView: View {
     enum SheetMode: Identifiable {
         /// 快速添加页(自然语言 + 语音 + 手动,仅 iOS)。
         case add
-        /// 主页下拉唤出的全局 agent(一句话新增/修改,仅 iOS)。
-        case agent
+        /// 主页下拉唤出的全局 agent(一句话新增/修改,仅 iOS);深链可带预填文本。
+        case agent(prefill: String?)
         case create(ParsedTask?)
         /// 编辑事项;agent 路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
@@ -92,9 +94,10 @@ struct TodoListView: View {
                     #if os(iOS)
                     AddTaskView(onSaveManual: { saveNew($0) })
                     #endif
-                case .agent:
+                case .agent(let prefill):
                     #if os(iOS)
-                    AgentView(submit: { try await route($0) },
+                    AgentView(prefill: prefill,
+                              submit: { try await route($0) },
                               onConfirm: { performPendingActions() })
                     #endif
                 case .create(let parsed):
@@ -108,7 +111,7 @@ struct TodoListView: View {
             #if os(iOS)
             // 下拉唤出全局 agent(一句话新增/修改待办)
             .refreshable {
-                sheet = .agent
+                sheet = .agent(prefill: nil)
             }
             #endif
             .onReceive(clock) { now = $0 }
@@ -118,11 +121,21 @@ struct TodoListView: View {
                     sheet = .add
                 }
             }
+            .onChange(of: agentRequest) { _, request in
+                if let request {
+                    agentRequest = nil
+                    sheet = .agent(prefill: request.isEmpty ? nil : request)
+                }
+            }
             .onAppear {
                 // 冷启动时深链可能先于本视图出现,补一次检查
                 if addRequested {
                     addRequested = false
                     sheet = .add
+                }
+                if let request = agentRequest {
+                    agentRequest = nil
+                    sheet = .agent(prefill: request.isEmpty ? nil : request)
                 }
                 #if DEBUG
                 // 截图验证用:--demo-add 启动参数直接弹出快速添加页
@@ -130,7 +143,7 @@ struct TodoListView: View {
                     sheet = .add
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent") {
-                    sheet = .agent
+                    sheet = .agent(prefill: nil)
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-settings") {
                     sheet = .settings

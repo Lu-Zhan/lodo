@@ -12,7 +12,15 @@ struct AgentView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var text = ""
+    @State private var text: String
+
+    init(prefill: String? = nil,
+         submit: @escaping (String) async throws -> AgentReply,
+         onConfirm: @escaping () -> Void) {
+        self.submit = submit
+        self.onConfirm = onConfirm
+        _text = State(initialValue: prefill ?? "")
+    }
     @State private var busy = false
     @State private var errorText: String?
     @State private var speech = SpeechInput()
