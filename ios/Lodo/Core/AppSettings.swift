@@ -6,6 +6,7 @@ enum AppSettings {
     static let allDayTimeKey = "allDayTime"
     static let digestEnabledKey = "digestEnabled"
     static let digestTimeKey = "digestTime"
+    static let hapticsEnabledKey = "hapticsEnabled"
 
     static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -23,6 +24,13 @@ enum AppSettings {
 
     static var digestTime: String {
         UserDefaults.standard.string(forKey: digestTimeKey) ?? "21:00"
+    }
+
+    /// 滑动操作振动反馈,默认开。
+    static var hapticsEnabled: Bool {
+        UserDefaults.standard.object(forKey: hapticsEnabledKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: hapticsEnabledKey)
     }
 
     /// 把 "HH:MM" 应用到某一天,得到具体提醒时间。

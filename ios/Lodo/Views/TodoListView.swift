@@ -22,14 +22,17 @@ struct TodoListView: View {
     enum SheetMode: Identifiable {
         /// 快速添加页(自然语言 + 语音 + 手动,仅 iOS)。
         case add
+        /// 主页下拉唤出的全局 agent(一句话新增/修改,仅 iOS)。
+        case agent
         case create(ParsedTask?)
-        /// 编辑事项;AI 总入口路由到修改时带上解析出的新字段预填表单。
+        /// 编辑事项;agent 路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
         case settings
 
         var id: String {
             switch self {
             case .add: return "add"
+            case .agent: return "agent"
             case .create: return "create"
             case .edit(let task, _): return task.uuid.uuidString
             case .settings: return "settings"
@@ -77,6 +80,10 @@ struct TodoListView: View {
                     #if os(iOS)
                     AddTaskView(onSaveManual: { saveNew($0) })
                     #endif
+                case .agent:
+                    #if os(iOS)
+                    AgentView { try await route($0) }
+                    #endif
                 case .create(let parsed):
                     TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
                 case .edit(let task, let parsed):
@@ -85,6 +92,12 @@ struct TodoListView: View {
                     SettingsView()
                 }
             }
+            #if os(iOS)
+            // 下拉唤出全局 agent(一句话新增/修改待办)
+            .refreshable {
+                sheet = .agent
+            }
+            #endif
             .onReceive(clock) { now = $0 }
             .onChange(of: addRequested) { _, requested in
                 if requested {
@@ -102,6 +115,9 @@ struct TodoListView: View {
                 // 截图验证用:--demo-add 启动参数直接弹出快速添加页
                 if ProcessInfo.processInfo.arguments.contains("--demo-add") {
                     sheet = .add
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent") {
+                    sheet = .agent
                 }
                 #endif
             }
@@ -235,8 +251,20 @@ struct TodoListView: View {
             }
         }
         .buttonStyle(.plain)
+        // 右滑(满滑)完成
+        .swipeActions(edge: .leading) {
+            Button {
+                Haptics.success()
+                NotificationManager.shared.complete(task, context: context)
+            } label: {
+                Label("完成", systemImage: "checkmark")
+            }
+            .tint(.green)
+        }
+        // 左滑(满滑)删除
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
+                Haptics.impact()
                 NotificationManager.shared.cancelChain(for: task.uuid)
                 context.delete(task)
                 try? context.save()
@@ -244,16 +272,25 @@ struct TodoListView: View {
             } label: {
                 Label("删除", systemImage: "trash")
             }
-            Button {
-                NotificationManager.shared.complete(task, context: context)
-            } label: {
-                Label("完成", systemImage: "checkmark")
-            }
-            .tint(.green)
         }
     }
 
     // MARK: - 动作
+
+    /// 全局 agent:带上当前待办列表,让模型判断是新建还是修改某个事项,
+    /// 路由到对应表单。返回后用最新 pending 列表重新匹配 uuid。
+    private func route(_ text: String) async throws {
+        let context = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
+        switch try await DeepSeekClient.command(text, tasks: context) {
+        case .create(let parsed):
+            sheet = .create(parsed)
+        case .update(let uuid, let parsed):
+            guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
+                throw DeepSeekError.parse("找不到要修改的事项")
+            }
+            sheet = .edit(task, parsed)
+        }
+    }
 
     private func saveNew(_ parsed: ParsedTask) {
         let task = TaskItem(

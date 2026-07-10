@@ -8,6 +8,8 @@ struct SettingsView: View {
     @AppStorage(AppSettings.digestEnabledKey) private var digestEnabled = false
     @AppStorage(AppSettings.digestTimeKey) private var digestTime = "21:00"
 
+    @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
+
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
     @State private var confirmMemoryReset = false
@@ -38,6 +40,14 @@ struct SettingsView: View {
                 } footer: {
                     Text("每天固定时间提醒当前未完成的事项数量。")
                 }
+
+                #if os(iOS)
+                Section {
+                    Toggle("振动反馈", isOn: $hapticsEnabled)
+                } footer: {
+                    Text("滑动完成、删除等操作时轻微振动。")
+                }
+                #endif
 
                 Section {
                     SecureField("DeepSeek API Key(sk-…)", text: $apiKey)
