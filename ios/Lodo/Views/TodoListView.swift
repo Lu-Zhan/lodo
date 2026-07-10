@@ -225,7 +225,24 @@ struct TodoListView: View {
         Section {
             ForEach(due) { task in
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(task.title).font(.headline)
+                    // 标题行:改期作为次级操作放右上角,主操作行不再拥挤换行
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(task.title).font(.headline)
+                        Spacer()
+                        Button {
+                            requestReschedule(task)
+                        } label: {
+                            if rescheduleLoading == task.uuid.uuidString {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Label("改期", systemImage: "calendar.badge.clock")
+                                    .font(.footnote)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(rescheduleLoading != nil)
+                    }
                     Text(dueCaption(task)).font(.footnote).foregroundStyle(.secondary)
                     HStack {
                         Button {
@@ -235,25 +252,16 @@ struct TodoListView: View {
                                   ? "开始了" : "完成",
                                   systemImage: task.phase == .start && task.durationMinutes > 0
                                   ? "play.fill" : "checkmark")
+                                .lineLimit(1)
                         }
                         .buttonStyle(.borderedProminent)
                         Button {
                             NotificationManager.shared.snooze(task, context: context)
                         } label: {
                             Label("稍等 \(AppSettings.snoozeMinutes) 分钟", systemImage: "hourglass")
+                                .lineLimit(1)
                         }
                         .buttonStyle(.bordered)
-                        Button {
-                            requestReschedule(task)
-                        } label: {
-                            if rescheduleLoading == task.uuid.uuidString {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Label("改期", systemImage: "calendar.badge.clock")
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(rescheduleLoading != nil)
                     }
                     if let reschedule, reschedule.uuid == task.uuid.uuidString {
                         HStack {
