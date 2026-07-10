@@ -7,7 +7,7 @@ struct ContentView: View {
     @State private var addRequested = false
 
     enum AppTab: Hashable {
-        case todo, reminders, add
+        case todo, done, add
     }
 
     var body: some View {
@@ -53,8 +53,8 @@ struct ContentView: View {
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
                 TodoListView(addRequested: $addRequested)
             }
-            Tab("提醒事项", systemImage: "list.bullet.rectangle", value: AppTab.reminders) {
-                RemindersView()
+            Tab("已完成", systemImage: "checkmark.circle", value: AppTab.done) {
+                DoneListView()
             }
             #if os(iOS)
             Tab("添加", systemImage: "plus", value: AppTab.add, role: .search) {
@@ -79,9 +79,9 @@ struct ContentView: View {
             TodoListView(addRequested: $addRequested)
                 .tabItem { Label("待办", systemImage: "checklist") }
                 .tag(AppTab.todo)
-            RemindersView()
-                .tabItem { Label("提醒事项", systemImage: "list.bullet.rectangle") }
-                .tag(AppTab.reminders)
+            DoneListView()
+                .tabItem { Label("已完成", systemImage: "checkmark.circle") }
+                .tag(AppTab.done)
         }
     }
 }

@@ -14,16 +14,10 @@ struct TodoListView: View {
     @State private var now = Date()
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var sheet: SheetMode?
-    @State private var listMode: ListMode = .pending
 
     private let clock = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
     /// 日期条展示的天数(从今天起)。
     private static let stripDays = 30
-
-    enum ListMode: String, CaseIterable {
-        case pending = "待办"
-        case done = "已完成"
-    }
 
     enum SheetMode: Identifiable {
         /// 快速添加页(自然语言 + 语音 + 手动,仅 iOS)。
@@ -55,35 +49,16 @@ struct TodoListView: View {
                                                   to: selectedDate) else { return [] }
         return upcoming.filter { $0.nextRemindAt >= nextDay }
     }
-    private var done: [TaskItem] {
-        allTasks.filter { $0.status == .done }
-            .sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
-    }
-
     var body: some View {
         NavigationStack {
             List {
-                if listMode == .pending {
-                    dateStrip
-                }
+                dateStrip
                 if !due.isEmpty {
                     dueSection
                 }
-                Section {
-                    Picker("列表", selection: $listMode) {
-                        ForEach(ListMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                }
-                switch listMode {
-                case .pending:
-                    daySection
-                    if !futureTasks.isEmpty {
-                        futureSection
-                    }
-                case .done:
-                    doneSection
+                daySection
+                if !futureTasks.isEmpty {
+                    futureSection
                 }
             }
             .navigationTitle("lodo")
@@ -276,32 +251,6 @@ struct TodoListView: View {
                 Label("完成", systemImage: "checkmark")
             }
             .tint(.green)
-        }
-    }
-
-    @ViewBuilder
-    private var doneSection: some View {
-        Section {
-            if done.isEmpty {
-                ContentUnavailableView("还没有完成的事项", systemImage: "tray")
-            }
-            ForEach(done) { task in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(task.title).strikethrough()
-                    if let doneAt = task.doneAt {
-                        Text("完成于 \(TaskItem.format(doneAt))")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-                .swipeActions {
-                    Button(role: .destructive) {
-                        context.delete(task)
-                        try? context.save()
-                    } label: {
-                        Label("删除", systemImage: "trash")
-                    }
-                }
-            }
         }
     }
 
