@@ -11,6 +11,8 @@ enum AppSettings {
     static let digestDaysKey = "digestDays"
     static let hapticsEnabledKey = "hapticsEnabled"
     static let insightEnabledKey = "insightEnabled"
+    static let agentPersonaStyleKey = "agentPersonaStyle"
+    static let agentPersonaCustomKey = "agentPersonaCustom"
 
     static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -61,6 +63,32 @@ enum AppSettings {
         UserDefaults.standard.object(forKey: insightEnabledKey) == nil
             ? true
             : UserDefaults.standard.bool(forKey: insightEnabledKey)
+    }
+
+    /// AI 个性预设:名称 → 说话风格描述。"默认"为无个性,"自定义"用用户文本。
+    static let personaPresets: [(name: String, text: String)] = [
+        ("高效秘书", "像一位干练的行政秘书:简洁、专业、直接,不说废话。"),
+        ("温柔陪伴", "语气温柔体贴,像关心你的朋友,多一点鼓励。"),
+        ("严格教练", "像自律教练:直接有推动力,催促按时完成,语气可以严厉但保持尊重。"),
+        ("幽默轻松", "轻松幽默,偶尔调皮,让提醒不那么无聊。"),
+    ]
+
+    static var agentPersonaStyle: String {
+        UserDefaults.standard.string(forKey: agentPersonaStyleKey) ?? "默认"
+    }
+
+    /// 生效的个性描述;默认(无个性)返回 nil。
+    static var agentPersona: String? {
+        switch agentPersonaStyle {
+        case "默认":
+            return nil
+        case "自定义":
+            let custom = (UserDefaults.standard.string(forKey: agentPersonaCustomKey) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return custom.isEmpty ? nil : custom
+        default:
+            return personaPresets.first { $0.name == agentPersonaStyle }?.text
+        }
     }
 
     /// 把 "HH:MM" 应用到某一天,得到具体提醒时间。

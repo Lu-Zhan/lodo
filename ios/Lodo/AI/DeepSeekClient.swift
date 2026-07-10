@@ -81,6 +81,12 @@ enum DeepSeekClient {
     \(taskRules)
     """
 
+    /// AI 个性块:只影响面向用户的文字(反问/汇总/洞察),不影响 JSON 结构。
+    private static var personaBlock: String {
+        guard let persona = AppSettings.agentPersona else { return "" }
+        return "\n\n说话风格(仅影响面向用户的文字,不得改变 JSON 结构与字段值):\(persona)"
+    }
+
     private static var timeContext: String {
         let now = Date()
         let formatter = DateFormatter()
@@ -163,7 +169,7 @@ enum DeepSeekClient {
         事项字段:
         \(taskSchema)
 
-        \(taskRules)
+        \(taskRules)\(personaBlock)
         """
         let payload = try await payload(system: system, user: text)
 
@@ -260,7 +266,7 @@ enum DeepSeekClient {
         let system = """
         你是提醒事项应用 lodo 的回顾助手。根据一周完成统计,输出一句不超过 60 个字的\
         正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述,\
-        禁止出现"拖延""失败"等词。只返回 JSON:{"insight": "一句话"},不要任何其他文字。
+        禁止出现"拖延""失败"等词。只返回 JSON:{"insight": "一句话"},不要任何其他文字。\(personaBlock)
         """
         let payload = try await payload(system: system, user: stats)
         guard let insight = payload["insight"] as? String,
@@ -276,7 +282,7 @@ enum DeepSeekClient {
         你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表\
         (含时间与时长),用一句话概括今天的安排,突出重点事件\
         (如时间临近、耗时长或听起来重要的),不超过 40 个字,\
-        只返回 JSON:{"summary": "一句话"},不要任何其他文字。
+        只返回 JSON:{"summary": "一句话"},不要任何其他文字。\(personaBlock)
         """
         let payload = try await payload(system: system, user: json(items))
         guard let summary = payload["summary"] as? String,

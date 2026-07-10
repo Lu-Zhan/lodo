@@ -13,6 +13,8 @@ struct SettingsView: View {
 
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
+    @AppStorage(AppSettings.agentPersonaStyleKey) private var personaStyle = "默认"
+    @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
 
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
@@ -96,6 +98,30 @@ struct SettingsView: View {
                     Toggle("完成洞察", isOn: $insightEnabled)
                 } footer: {
                     Text("每周在已完成页生成一句正向回顾,不会推送通知。")
+                }
+
+                Section {
+                    Picker("AI 个性", selection: $personaStyle) {
+                        Text("默认").tag("默认")
+                        ForEach(AppSettings.personaPresets, id: \.name) { preset in
+                            Text(preset.name).tag(preset.name)
+                        }
+                        Text("自定义").tag("自定义")
+                    }
+                    if personaStyle == "自定义" {
+                        TextField("描述 AI 的说话风格,例如:像武侠小说里的师父",
+                                  text: $personaCustom, axis: .vertical)
+                            .lineLimit(1...4)
+                    } else if let preset = AppSettings.personaPresets
+                        .first(where: { $0.name == personaStyle }) {
+                        Text(preset.text)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("AI 个性")
+                } footer: {
+                    Text("影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。")
                 }
 
                 Section {
