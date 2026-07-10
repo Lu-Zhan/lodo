@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.digestDaysKey) private var digestDaysRaw = "0,1,2,3,4"
 
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
+    @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
@@ -89,6 +90,12 @@ struct SettingsView: View {
                     Text("AI(DeepSeek)")
                 } footer: {
                     Text("用于自然语言创建和编辑事项,保存在钥匙串中。")
+                }
+
+                Section {
+                    Toggle("完成洞察", isOn: $insightEnabled)
+                } footer: {
+                    Text("每周在已完成页生成一句正向回顾,不会推送通知。")
                 }
 
                 Section {

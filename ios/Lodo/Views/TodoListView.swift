@@ -28,6 +28,12 @@ struct TodoListView: View {
     @State private var sheet: SheetMode?
     /// agent 解析出、等待用户确认的批量操作。
     @State private var pendingActions: [AIAction] = []
+    /// 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误。
+    @State private var rescheduleLoading: String?
+    @State private var reschedule: (uuid: String, candidates: [(label: String, date: Date)])?
+    @State private var rescheduleError: String?
+    /// 完成后询问实际耗时的轻量条。
+    @State private var askDuration: (title: String, planned: Int)?
 
     private let clock = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
     /// 日期条展示的天数(从今天起)。
@@ -70,6 +76,9 @@ struct TodoListView: View {
         NavigationStack {
             List {
                 dateStrip
+                if askDuration != nil {
+                    askDurationSection
+                }
                 if !due.isEmpty {
                     dueSection
                 }
@@ -148,6 +157,17 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-settings") {
                     sheet = .settings
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-reschedule"),
+                   let first = due.first {
+                    reschedule = (first.uuid.uuidString, [
+                        (label: "今晚 20:00", date: Date().addingTimeInterval(6 * 3600)),
+                        (label: "明早 9:00", date: Date().addingTimeInterval(19 * 3600)),
+                        (label: "周六上午", date: Date().addingTimeInterval(48 * 3600)),
+                    ])
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-ask-duration") {
+                    askDuration = (title: "开周会", planned: 60)
+                }
                 #endif
             }
         }
@@ -209,7 +229,7 @@ struct TodoListView: View {
                     Text(dueCaption(task)).font(.footnote).foregroundStyle(.secondary)
                     HStack {
                         Button {
-                            NotificationManager.shared.complete(task, context: context)
+                            completeWithSampling(task)
                         } label: {
                             Label(task.phase == .start && task.durationMinutes > 0
                                   ? "开始了" : "完成",
@@ -223,13 +243,85 @@ struct TodoListView: View {
                             Label("稍等 \(AppSettings.snoozeMinutes) 分钟", systemImage: "hourglass")
                         }
                         .buttonStyle(.bordered)
+                        Button {
+                            requestReschedule(task)
+                        } label: {
+                            if rescheduleLoading == task.uuid.uuidString {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Label("改期", systemImage: "calendar.badge.clock")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(rescheduleLoading != nil)
+                    }
+                    if let reschedule, reschedule.uuid == task.uuid.uuidString {
+                        HStack {
+                            ForEach(reschedule.candidates, id: \.label) { candidate in
+                                Button(candidate.label) {
+                                    applyReschedule(task, to: candidate.date)
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.footnote)
+                                .tint(.accentColor)
+                            }
+                            Button {
+                                self.reschedule = nil
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("收起改期候选")
+                        }
                     }
                 }
                 .padding(.vertical, 4)
             }
+            if let rescheduleError {
+                Text(rescheduleError).font(.footnote).foregroundStyle(.red)
+            }
         } header: {
             Label("到期提醒", systemImage: "bell.fill")
         }
+    }
+
+    /// 完成后的实际耗时轻量条(智能采样,选择/跳过即消失)。
+    private var askDurationSection: some View {
+        Section {
+            if let ask = askDuration {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("「\(ask.title)」实际用了多久?").font(.subheadline)
+                    HStack {
+                        ForEach(durationChips(planned: ask.planned), id: \.self) { minutes in
+                            Button("\(minutes) 分钟") {
+                                Haptics.success()
+                                DurationMemory.recordActual(
+                                    title: ask.title, planned: ask.planned, minutes: minutes)
+                                askDuration = nil
+                            }
+                            .buttonStyle(.bordered)
+                            .font(.footnote)
+                        }
+                        Button("跳过") { askDuration = nil }
+                            .buttonStyle(.plain)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
+    private func durationChips(planned: Int) -> [Int] {
+        let lower = max(5, (planned / 2 + 2) / 5 * 5)
+        let upper = (planned * 3 / 2 + 2) / 5 * 5
+        var chips: [Int] = []
+        for value in [lower, planned, upper] where !chips.contains(value) {
+            chips.append(value)
+        }
+        return chips
     }
 
     private func dueCaption(_ task: TaskItem) -> String {
@@ -284,7 +376,7 @@ struct TodoListView: View {
         .swipeActions(edge: .leading) {
             Button {
                 Haptics.success()
-                NotificationManager.shared.complete(task, context: context)
+                completeWithSampling(task)
             } label: {
                 Label("完成", systemImage: "checkmark")
             }
@@ -377,6 +469,53 @@ struct TodoListView: View {
         try? context.save()
         WidgetBridge.sync(context: context)
         sheet = nil
+    }
+
+    /// 完成 + 实际耗时采样:仅真正"完成一次"(非两阶段的"开始了")且命中采样时,
+    /// 顶部出轻量条询问实际用时。
+    private func completeWithSampling(_ task: TaskItem) {
+        let title = task.title
+        let planned = task.durationMinutes
+        // phase==start 且有时长的这次点按是"开始了",不算完成
+        let isFinishing = !(task.phase == .start && task.durationMinutes > 0)
+        NotificationManager.shared.complete(task, context: context)
+        if isFinishing, planned > 0,
+           DurationMemory.shouldAskActual(title: title, planned: planned) {
+            askDuration = (title, planned)
+        }
+    }
+
+    /// 请求逾期事项的 AI 改期候选(按需调用)。
+    private func requestReschedule(_ task: TaskItem) {
+        let uuid = task.uuid.uuidString
+        rescheduleLoading = uuid
+        reschedule = nil
+        rescheduleError = nil
+        let title = task.title
+        let remindAt = task.remindAt
+        let duration = task.durationMinutes
+        let recurring = task.isRecurring
+        Task {
+            defer { rescheduleLoading = nil }
+            do {
+                let candidates = try await DeepSeekClient.suggestReschedule(
+                    title: title, remindAt: remindAt,
+                    durationMinutes: duration, isRecurring: recurring)
+                reschedule = (uuid, candidates)
+            } catch {
+                rescheduleError = error.localizedDescription
+            }
+        }
+    }
+
+    /// 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。
+    private func applyReschedule(_ task: TaskItem, to date: Date) {
+        Haptics.success()
+        if !task.isRecurring { task.remindAt = date }
+        task.nextRemindAt = date
+        reschedule = nil
+        try? context.save()
+        NotificationManager.shared.rebuild(for: task)
     }
 
     private func saveNew(_ parsed: ParsedTask) {

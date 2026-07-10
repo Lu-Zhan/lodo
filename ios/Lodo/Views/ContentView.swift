@@ -14,6 +14,14 @@ struct ContentView: View {
 
     var body: some View {
         tabs
+            .onAppear {
+                #if DEBUG
+                // 截图验证用:直接切到已完成 tab
+                if ProcessInfo.processInfo.arguments.contains("--demo-done-tab") {
+                    selection = .done
+                }
+                #endif
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task { @MainActor in NotificationManager.shared.refreshAll() }

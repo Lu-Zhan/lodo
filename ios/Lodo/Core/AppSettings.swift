@@ -10,6 +10,7 @@ enum AppSettings {
     static let digestRepeatTypeKey = "digestRepeatType"
     static let digestDaysKey = "digestDays"
     static let hapticsEnabledKey = "hapticsEnabled"
+    static let insightEnabledKey = "insightEnabled"
 
     static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -53,6 +54,13 @@ enum AppSettings {
         UserDefaults.standard.object(forKey: hapticsEnabledKey) == nil
             ? true
             : UserDefaults.standard.bool(forKey: hapticsEnabledKey)
+    }
+
+    /// 已完成页的每周完成洞察,默认开。
+    static var insightEnabled: Bool {
+        UserDefaults.standard.object(forKey: insightEnabledKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: insightEnabledKey)
     }
 
     /// 把 "HH:MM" 应用到某一天,得到具体提醒时间。

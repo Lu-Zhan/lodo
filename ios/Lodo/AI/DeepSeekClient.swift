@@ -219,6 +219,57 @@ enum DeepSeekClient {
         return payload["duration_minutes"] as? Int ?? 0
     }
 
+    /// 逾期事项的改期候选:2-3 个(口语化标签, 时间),时间必须晚于当前。
+    static func suggestReschedule(
+        title: String, remindAt: Date, durationMinutes: Int, isRecurring: Bool
+    ) async throws -> [(label: String, date: Date)] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        var info = "事项:\(title)\n原提醒时间:\(formatter.string(from: remindAt))"
+        if durationMinutes > 0 { info += ",时长 \(durationMinutes) 分钟" }
+        if isRecurring { info += ",重复事项(只顺延本次)" }
+        let system = """
+        你是提醒事项应用 lodo 的改期助手。一个事项已到期未完成,给出 2-3 个合理的\
+        新提醒时间候选:按常理选时段(工作事项选工作时间,生活事项可选晚上或周末),\
+        时间必须晚于当前时间。只返回 JSON,不要任何其他文字:
+        {"candidates": [{"label": "口语化标签,如 今晚 20:00", "time": "YYYY-MM-DD HH:MM"}, ...]}
+
+        \(timeContext)
+
+        \(info)
+        """
+        let payload = try await payload(system: system, user: "给出改期候选")
+        guard let raw = payload["candidates"] as? [[String: Any]] else {
+            throw DeepSeekError.parse("返回格式异常:缺少 candidates")
+        }
+        let now = Date()
+        let candidates = raw.compactMap { item -> (label: String, date: Date)? in
+            guard let label = item["label"] as? String,
+                  let timeString = item["time"] as? String,
+                  let date = formatter.date(from: timeString), date > now else { return nil }
+            return (label, date)
+        }
+        guard !candidates.isEmpty else {
+            throw DeepSeekError.parse("没有可用的改期候选")
+        }
+        return candidates
+    }
+
+    /// 每周完成洞察:把本地统计说成一句正向鼓励的话(不打分、不指责)。
+    static func weeklyInsight(stats: String) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的回顾助手。根据一周完成统计,输出一句不超过 60 个字的\
+        正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述,\
+        禁止出现"拖延""失败"等词。只返回 JSON:{"insight": "一句话"},不要任何其他文字。
+        """
+        let payload = try await payload(system: system, user: stats)
+        guard let insight = payload["insight"] as? String,
+              !insight.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 insight")
+        }
+        return insight
+    }
+
     /// 把今天的事项列表改写成一句话汇总,突出重点事件(用于每日汇总通知正文)。
     static func summarizeToday(_ items: [String]) async throws -> String {
         let system = """

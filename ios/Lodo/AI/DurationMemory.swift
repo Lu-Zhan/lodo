@@ -41,9 +41,10 @@ enum DurationMemory {
     }
 
     /// 用一条新样本(标题 + 时长)让 AI 归纳更新记忆文件,fire-and-forget。
-    static func learn(title: String, durationMinutes: Int) {
+    /// force 绕过节流(实际耗时回答紧跟完成时的常规 learn,不该被节流吞掉)。
+    static func learn(title: String, durationMinutes: Int, force: Bool = false) {
         guard durationMinutes > 0, KeychainHelper.apiKey != nil else { return }
-        guard Date().timeIntervalSince(lastLearned) >= throttleSeconds else { return }
+        guard force || Date().timeIntervalSince(lastLearned) >= throttleSeconds else { return }
         lastLearned = Date()
         let current = content
         Task.detached(priority: .background) {
@@ -56,5 +57,69 @@ enum DurationMemory {
                 at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? Data(updated.utf8).write(to: fileURL, options: .atomic)
         }
+    }
+
+    // MARK: - 实际耗时采样(智能 + 随机,时间稳定后不再问)
+
+    private struct Sample: Codable {
+        var actuals: [Int] = []
+        var lastAsked: Date = .distantPast
+        var stable = false
+    }
+
+    private static var samplesURL: URL {
+        URL.applicationSupportDirectory.appending(path: "duration-samples.json")
+    }
+    private static let askDayKey = "durationAskDay"
+
+    private static func loadSamples() -> [String: Sample] {
+        guard let data = try? Data(contentsOf: samplesURL),
+              let samples = try? JSONDecoder().decode([String: Sample].self, from: data) else {
+            return [:]
+        }
+        return samples
+    }
+
+    private static func saveSamples(_ samples: [String: Sample]) {
+        try? FileManager.default.createDirectory(
+            at: samplesURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(samples) {
+            try? data.write(to: samplesURL, options: .atomic)
+        }
+    }
+
+    /// 这次完成要不要问实际耗时:计划>0、该事项未稳定、今天没问过任何事项、
+    /// 该事项 7 天内没问过,满足后再掷 50% 随机。返回 true 即视为"已问"
+    /// (跳过也算),避免连环追问。
+    static func shouldAskActual(title: String, planned: Int) -> Bool {
+        guard planned > 0 else { return false }
+        var samples = loadSamples()
+        var sample = samples[title] ?? Sample()
+        guard !sample.stable else { return false }
+        let defaults = UserDefaults.standard
+        if let lastDay = defaults.object(forKey: askDayKey) as? Date,
+           Calendar.current.isDateInToday(lastDay) { return false }
+        guard Date().timeIntervalSince(sample.lastAsked) > 7 * 86400 else { return false }
+        guard Bool.random() else { return false }
+        sample.lastAsked = Date()
+        samples[title] = sample
+        saveSamples(samples)
+        defaults.set(Date(), forKey: askDayKey)
+        return true
+    }
+
+    /// 记录用户回答的实际耗时:入样本 + 喂记忆;
+    /// 最近 3 次实际值都与计划偏差 ≤20% 则标记稳定,以后不再问。
+    static func recordActual(title: String, planned: Int, minutes: Int) {
+        var samples = loadSamples()
+        var sample = samples[title] ?? Sample()
+        sample.actuals = Array((sample.actuals + [minutes]).suffix(3))
+        if sample.actuals.count >= 3, planned > 0,
+           sample.actuals.allSatisfy({ abs($0 - planned) <= max(5, planned / 5) }) {
+            sample.stable = true
+        }
+        samples[title] = sample
+        saveSamples(samples)
+        learn(title: title, durationMinutes: minutes, force: true)
     }
 }
