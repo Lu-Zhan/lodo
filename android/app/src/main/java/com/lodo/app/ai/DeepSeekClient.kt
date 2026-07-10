@@ -29,10 +29,18 @@ data class ParsedTask(
 /** 错误文案与 iOS DeepSeekError 一致,直接展示给用户。 */
 class DeepSeekException(message: String) : Exception(message)
 
-/** AI 总入口的路由结果:新建事项,或修改列表中的某个现有事项。 */
-sealed interface AICommand {
-    data class Create(val task: ParsedTask) : AICommand
-    data class Update(val uuid: String, val task: ParsedTask) : AICommand
+/** AI 总入口解析出的单个操作。 */
+sealed interface AIAction {
+    data class Create(val task: ParsedTask) : AIAction
+    data class Update(val uuid: String, val task: ParsedTask) : AIAction
+    data class Complete(val uuid: String) : AIAction
+    data class Delete(val uuid: String) : AIAction
+}
+
+/** AI 总入口的返回:操作列表,或关键信息缺失时的反问(附候选补充)。 */
+sealed interface AICommandResult {
+    data class Actions(val actions: List<AIAction>) : AICommandResult
+    data class Clarify(val question: String, val options: List<String>) : AICommandResult
 }
 
 /** DeepSeek 自然语言创建/编辑,prompt 与 ios/Lodo/AI/DeepSeekClient.swift、web/lodo/ai.py 保持一致。 */
@@ -93,40 +101,151 @@ object DeepSeekClient {
         return parsePayload(complete(apiKey, system, instruction))
     }
 
-    /** AI 总入口:给定当前待办列表,判断用户想新建事项还是修改某个现有事项。 */
+    /**
+     * AI 总入口:给定当前待办列表,把用户的一句话解析成一组操作
+     * (新建/修改/完成/删除,可多条),或在关键信息缺失时反问。
+     * prompt 与 iOS DeepSeekClient.command 逐字一致。
+     */
     suspend fun command(
         apiKey: String?,
         text: String,
         tasks: List<Pair<String, ParsedTask>>,
-    ): AICommand {
+    ): AICommandResult {
         val list = JSONArray()
         tasks.forEach { (uuid, task) -> list.put(taskJson(task).put("uuid", uuid)) }
         val system = "你是提醒事项应用 lodo 的智能入口。给定当前待办事项列表和用户的一句话," +
-            "判断用户是想【新建】一个事项,还是【修改】列表中的某个现有事项," +
-            "只返回 JSON,不要任何其他文字。\n\n" +
+            "解析出要执行的操作列表,只返回 JSON,不要任何其他文字。\n\n" +
+            "支持的操作(action):\n" +
+            "- 新建:{\"action\": \"create\", ...事项字段}\n" +
+            "- 修改:{\"action\": \"update\", \"uuid\": \"原样取自当前待办列表,不要自己生成\", ...事项字段}" +
+            "(输出修改后的完整字段值,用户没有提到的字段一律保持原值)\n" +
+            "- 完成:{\"action\": \"complete\", \"uuid\": \"原样取自当前待办列表\"}\n" +
+            "- 删除:{\"action\": \"delete\", \"uuid\": \"原样取自当前待办列表\"}\n\n" +
             "判断规则:\n" +
-            "- 用户在描述一件新的事情 → 按\"新建\"格式返回。\n" +
-            "- 用户提到了列表中已有的事项并要求调整(按标题语义匹配,如\"把开会改到晚上8点\")→ " +
-            "按\"修改\"格式返回,输出修改后的完整字段值,用户没有提到的字段一律保持原值。\n" +
-            "- 要修改但匹配不到事项、或无法判断/无法解析时,返回 {\"error\": \"原因\"}。\n\n" +
+            "- 一句话里包含多件事时返回多个操作,如\"明天上午开会,周五交报告\"→ 两条 create。\n" +
+            "- 修改/完成/删除按标题语义匹配列表中的事项(\"开会完成了\"→ complete," +
+            "\"把取快递删了\"→ delete);匹配不到时返回 {\"error\": \"原因\"}。\n" +
+            "- 新建缺少关键时间信息且无法按常理推断时(如只说\"提醒我交材料\"),不要猜," +
+            "改为反问:{\"question\": \"要问用户的问题\", \"options\": [\"候选补充1\", \"候选补充2\", \"候选补充3\"]}," +
+            "options 给 2-3 个具体可直接采用的补充(如\"明天 09:00\")。\n" +
+            "- 无法解析时返回 {\"error\": \"原因\"}。\n\n" +
             "${timeContext()}\n\n当前待办列表:\n$list\n\n" +
-            "返回格式(二选一,必须包含 \"action\" 字段;事项字段不适用的用默认值):\n" +
-            "新建:{\"action\": \"create\", ...事项字段}\n" +
-            "修改:{\"action\": \"update\", \"uuid\": \"原样取自当前待办列表,不要自己生成\", ...事项字段}\n\n" +
+            "返回格式(二选一):\n" +
+            "{\"actions\": [操作, ...]}\n" +
+            "{\"question\": \"...\", \"options\": [\"...\", \"...\"]}\n\n" +
             "事项字段:\n$taskSchema\n\n$taskRules"
         val payload = complete(apiKey, system, text)
-        val task = parsePayload(payload)
-        return when (payload.optString("action")) {
-            "create" -> AICommand.Create(task)
-            "update" -> {
-                val uuid = payload.optString("uuid")
-                if (tasks.none { it.first == uuid }) {
-                    throw DeepSeekException("无法解析:找不到要修改的事项")
-                }
-                AICommand.Update(uuid, task)
-            }
-            else -> throw DeepSeekException("无法解析:返回格式异常:缺少 action")
+
+        payload.optString("question").takeIf { it.isNotEmpty() }?.let { question ->
+            val options = payload.optJSONArray("options")?.let { arr ->
+                (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotEmpty) }
+            } ?: emptyList()
+            return AICommandResult.Clarify(question, options)
         }
+        val rawActions = payload.optJSONArray("actions")
+            ?: throw DeepSeekException("无法解析:返回格式异常:缺少 actions")
+        if (rawActions.length() == 0) throw DeepSeekException("无法解析:返回格式异常:缺少 actions")
+        val actions = (0 until rawActions.length()).map { i ->
+            val raw = rawActions.getJSONObject(i)
+            fun validUuid(): String {
+                val uuid = raw.optString("uuid")
+                if (tasks.none { it.first == uuid }) {
+                    throw DeepSeekException("无法解析:找不到要操作的事项")
+                }
+                return uuid
+            }
+            when (raw.optString("action")) {
+                "create" -> AIAction.Create(parsePayload(raw))
+                "update" -> AIAction.Update(validUuid(), parsePayload(raw))
+                "complete" -> AIAction.Complete(validUuid())
+                "delete" -> AIAction.Delete(validUuid())
+                else -> throw DeepSeekException("无法解析:返回格式异常:未知 action")
+            }
+        }
+        return AICommandResult.Actions(actions)
+    }
+
+    /** 按记忆文件为"没说时长"的新事项建议时长(分钟);无相近类型或明确不需要时返回 0。 */
+    suspend fun suggestDuration(
+        apiKey: String?, text: String, title: String, memory: String,
+    ): Int {
+        val system = "你是提醒事项应用 lodo 的时长建议助手。下面是\"事项类型 → 典型时长\"的记忆文件、" +
+            "用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。\n\n" +
+            "判断规则:\n" +
+            "- 用户原话明确表示不需要时长,或记忆中没有类型相近的条目 → {\"duration_minutes\": 0}\n" +
+            "- 否则参考记忆中相近类型的典型时长 → {\"duration_minutes\": 分钟数}\n\n" +
+            "记忆文件:\n$memory"
+        return complete(apiKey, system, "原话:$text\n标题:$title").optInt("duration_minutes", 0)
+    }
+
+    /** 用一条新样本让模型归纳更新"事项类型 → 典型时长"记忆文件,返回新文件全文。 */
+    suspend fun updateMemory(
+        apiKey: String?, current: String?, title: String, durationMinutes: Int,
+    ): String {
+        val system = "你是提醒事项应用 lodo 的记忆管理助手,维护一份\"事项类型 → 典型时长\"的记忆文件。" +
+            "给定现有记忆文件和一条新样本,输出更新后的完整记忆文件:按大致类型归纳," +
+            "相近类型合并为一条,每条含典型时长(分钟)和 1-3 个例子,最多 15 条," +
+            "markdown 列表格式,首行标题为\"# 事项时长记忆\"。" +
+            "只返回 JSON:{\"memory\": \"更新后的文件全文\"},不要任何其他文字。\n\n" +
+            "现有记忆文件:\n${current ?: "(空)"}"
+        val memory = complete(apiKey, system, "新样本:$title,$durationMinutes 分钟").optString("memory")
+        if (memory.isEmpty()) throw DeepSeekException("无法解析:返回格式异常:缺少 memory")
+        return memory
+    }
+
+    /** 把今天的事项列表改写成一句话汇总,突出重点事件(每日汇总通知正文)。 */
+    suspend fun summarizeToday(apiKey: String?, items: List<String>): String {
+        val system = "你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表" +
+            "(含时间与时长),用一句话概括今天的安排,突出重点事件" +
+            "(如时间临近、耗时长或听起来重要的),不超过 40 个字," +
+            "只返回 JSON:{\"summary\": \"一句话\"},不要任何其他文字。"
+        val summary = complete(apiKey, system, JSONArray(items).toString()).optString("summary")
+        if (summary.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 summary")
+        return summary
+    }
+
+    /** 逾期事项的改期候选:2-3 个(口语化标签, 时间),时间必须晚于当前。 */
+    suspend fun suggestReschedule(
+        apiKey: String?,
+        title: String,
+        remindAt: LocalDateTime,
+        durationMinutes: Int,
+        isRecurring: Boolean,
+    ): List<Pair<String, LocalDateTime>> {
+        var info = "事项:$title\n原提醒时间:${remindAt.format(dateFormatter)}"
+        if (durationMinutes > 0) info += ",时长 $durationMinutes 分钟"
+        if (isRecurring) info += ",重复事项(只顺延本次)"
+        val system = "你是提醒事项应用 lodo 的改期助手。一个事项已到期未完成,给出 2-3 个合理的" +
+            "新提醒时间候选:按常理选时段(工作事项选工作时间,生活事项可选晚上或周末)," +
+            "时间必须晚于当前时间。只返回 JSON,不要任何其他文字:\n" +
+            "{\"candidates\": [{\"label\": \"口语化标签,如 今晚 20:00\", \"time\": \"YYYY-MM-DD HH:MM\"}, ...]}\n\n" +
+            "${timeContext()}\n\n$info"
+        val payload = complete(apiKey, system, "给出改期候选")
+        val raw = payload.optJSONArray("candidates")
+            ?: throw DeepSeekException("无法解析:返回格式异常:缺少 candidates")
+        val now = LocalDateTime.now()
+        val candidates = (0 until raw.length()).mapNotNull { i ->
+            val item = raw.optJSONObject(i) ?: return@mapNotNull null
+            val label = item.optString("label").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val date = try {
+                LocalDateTime.parse(item.optString("time"), dateFormatter)
+            } catch (_: DateTimeParseException) {
+                return@mapNotNull null
+            }
+            if (date.isAfter(now)) label to date else null
+        }
+        if (candidates.isEmpty()) throw DeepSeekException("无法解析:没有可用的改期候选")
+        return candidates
+    }
+
+    /** 每周完成洞察:把本地统计说成一句正向鼓励的话(不打分、不指责)。 */
+    suspend fun weeklyInsight(apiKey: String?, stats: String): String {
+        val system = "你是提醒事项应用 lodo 的回顾助手。根据一周完成统计,输出一句不超过 60 个字的" +
+            "正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述," +
+            "禁止出现\"拖延\"\"失败\"等词。只返回 JSON:{\"insight\": \"一句话\"},不要任何其他文字。"
+        val insight = complete(apiKey, system, stats).optString("insight")
+        if (insight.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 insight")
+        return insight
     }
 
     private fun taskJson(task: ParsedTask): JSONObject = JSONObject()

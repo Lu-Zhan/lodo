@@ -1,6 +1,7 @@
 package com.lodo.app.data
 
 import android.content.Context
+import com.lodo.app.ai.DurationMemory
 import com.lodo.app.ai.ParsedTask
 import com.lodo.app.core.Scheduler
 import com.lodo.app.core.TaskPhase
@@ -42,6 +43,10 @@ class TaskRepository(
             alarms.scheduleReminder(uuid, d.nextRemindAt)
         }
         Notifications.dismiss(context, uuid)
+        if (finished) {
+            // 完成一次(含重复事项)即作为时长记忆样本
+            DurationMemory.learn(context, settings.apiKey(), d.title, d.durationMinutes)
+        }
     }
 
     /** 用户点"稍等"。 */
@@ -69,6 +74,7 @@ class TaskRepository(
         )
         dao.upsert(entity)
         alarms.scheduleReminder(entity.uuid, entity.nextRemindAt)
+        DurationMemory.learn(context, settings.apiKey(), parsed.title, parsed.durationMinutes)
     }
 
     /** 编辑保存:重置进行阶段,下次提醒回到新的提醒时间。仅对未完成事项生效。 */
@@ -89,12 +95,40 @@ class TaskRepository(
         dao.upsert(updated)
         alarms.scheduleReminder(uuid, updated.nextRemindAt)
         Notifications.dismiss(context, uuid)
+        DurationMemory.learn(context, settings.apiKey(), parsed.title, parsed.durationMinutes)
+    }
+
+    /** 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。 */
+    suspend fun reschedule(uuid: String, at: LocalDateTime) {
+        val entity = dao.byUuid(uuid) ?: return
+        if (entity.statusEnum != TaskStatus.PENDING) return
+        val updated = entity.copy(
+            remindAtMillis = if (entity.isRecurring) entity.remindAtMillis else at.toEpochMillis(),
+            nextRemindAtMillis = at.toEpochMillis(),
+        )
+        dao.upsert(updated)
+        alarms.scheduleReminder(uuid, updated.nextRemindAt)
+        Notifications.dismiss(context, uuid)
+    }
+
+    /** 恢复为待办:回到 start 阶段,提醒时间取原定时间(已过期会直接进到期卡)。 */
+    suspend fun restore(uuid: String) {
+        val entity = dao.byUuid(uuid) ?: return
+        if (entity.statusEnum != TaskStatus.DONE) return
+        val updated = entity.copy(
+            status = TaskStatus.PENDING.raw,
+            phase = TaskPhase.START.raw,
+            doneAtMillis = null,
+            nextRemindAtMillis = entity.remindAtMillis,
+        )
+        dao.upsert(updated)
+        alarms.scheduleReminder(uuid, updated.nextRemindAt)
     }
 
     /** 重排全部待办的闹钟和每日汇总(app 回到前台、开机、设置变更时调用)。 */
     suspend fun syncAlarms() {
         dao.pending().forEach { alarms.scheduleReminder(it.uuid, it.nextRemindAt) }
         val s = settings.snapshot()
-        if (s.digestEnabled) alarms.scheduleDigest(s.digestTime) else alarms.cancelDigest()
+        if (s.digestEnabled) alarms.scheduleDigest(s) else alarms.cancelDigest()
     }
 }

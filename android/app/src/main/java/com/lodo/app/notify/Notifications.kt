@@ -80,8 +80,8 @@ object Notifications {
         NotificationManagerCompat.from(context).notify(notificationId(task.uuid), notification)
     }
 
-    /** 每日待办汇总,数量在触发时现算。 */
-    fun showDigest(context: Context, pendingCount: Int) {
+    /** 待办汇总:正文在触发时现算(今天事项的 AI 一句话概括或机械列表)。 */
+    fun showDigest(context: Context, body: String) {
         if (!canNotify(context)) return
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val contentIntent = PendingIntent.getActivity(
@@ -90,10 +90,8 @@ object Notifications {
         val notification = NotificationCompat.Builder(context, CHANNEL_DIGEST)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("每日待办汇总")
-            .setContentText(
-                if (pendingCount > 0) "还有 $pendingCount 件事未完成,打开 lodo 查看"
-                else "今日事项全部完成 🎉"
-            )
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build()

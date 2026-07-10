@@ -15,16 +15,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -37,48 +41,69 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lodo.app.core.TaskPhase
-import com.lodo.app.core.TimeFormat
+import com.lodo.app.core.weekdayNames
 import com.lodo.app.data.TaskEntity
 import com.lodo.app.ui.EmptyState
-import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.SectionHeader
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
-/** 待办标签页:自然语言创建、到期提醒卡、待办/已完成列表。对应 iOS TodoListView。 */
+private val monthDayFormatter = DateTimeFormatter.ofPattern("M月d日")
+
+/**
+ * 待办标签页,对应 iOS TodoListView:日期横滑条(默认今天)、到期提醒卡
+ * (完成/稍等 + 右上角改期)、今天/未来待办分组、实际耗时轻量条。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TodoListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel()) {
+fun TodoListScreen(
+    modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {},
+    vm: TodoViewModel = viewModel(),
+) {
     val state by vm.uiState.collectAsStateWithLifecycle()
-    var listTab by rememberSaveable { mutableIntStateOf(0) }
+
+    val dueUuids = state.due.map { it.uuid }.toSet()
+    val upcoming = state.pending.filter { it.uuid !in dueUuids }
+    val dayTasks = upcoming.filter { it.nextRemindAt.toLocalDate() == vm.selectedDate }
+    val futureTasks = upcoming.filter { it.nextRemindAt.toLocalDate() > vm.selectedDate }
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("lodo") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("lodo") },
+                actions = {
+                    IconButton(onClick = { vm.sheet = SheetMode.Agent() }) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = "AI 助手")
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "设置")
+                    }
+                },
+            )
+        },
         floatingActionButton = {
-            FloatingActionButton(onClick = { vm.sheet = SheetMode.Create(null) }) {
-                Icon(Icons.Filled.Add, contentDescription = "新建事项")
+            FloatingActionButton(onClick = { vm.sheet = SheetMode.Add }) {
+                Icon(Icons.Filled.Add, contentDescription = "添加")
             }
         },
     ) { padding ->
@@ -88,60 +113,75 @@ fun TodoListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
                 .padding(padding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            item(key = "nl") { NaturalLanguageField(vm) }
+            item(key = "date-strip") { DateStrip(vm.selectedDate) { vm.selectedDate = it } }
 
-            if (state.due.isNotEmpty()) {
-                item(key = "due-header") { SectionHeader("🔔 到期提醒") }
-                items(state.due, key = { "due-${it.uuid}" }) { task ->
-                    DueCard(
-                        task = task,
-                        snoozeMinutes = state.snoozeMinutes,
-                        onComplete = { vm.complete(task.uuid) },
-                        onSnooze = { vm.snooze(task.uuid) },
+            vm.askDuration?.let { (title, planned) ->
+                item(key = "ask-duration") {
+                    AskDurationCard(
+                        title = title,
+                        planned = planned,
+                        onAnswer = vm::answerActualDuration,
+                        onSkip = vm::skipActualDuration,
                     )
                 }
             }
 
-            item(key = "segmented") {
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 8.dp),
-                ) {
-                    listOf("待办", "已完成").forEachIndexed { index, label ->
-                        SegmentedButton(
-                            selected = listTab == index,
-                            onClick = { listTab = index },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
-                        ) { Text(label) }
+            if (state.due.isNotEmpty()) {
+                item(key = "due-header") { SectionHeader("🔔 到期提醒") }
+                items(state.due, key = { "due-${it.uuid}" }) { task ->
+                    DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes)
+                }
+                vm.rescheduleError?.let { error ->
+                    item(key = "reschedule-error") {
+                        Text(
+                            error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 }
             }
 
-            if (listTab == 0) {
-                if (state.pending.isEmpty()) {
-                    item(key = "empty-pending") {
-                        EmptyState(Icons.Outlined.CheckCircle, "暂无待办事项")
-                    }
-                } else {
-                    items(state.pending, key = { it.uuid }) { task ->
-                        PendingRow(
-                            task = task,
-                            onComplete = { vm.complete(task.uuid) },
-                            onDelete = { vm.delete(task.uuid) },
-                            onClick = { vm.sheet = SheetMode.Edit(task) },
-                        )
-                    }
+            item(key = "day-header") {
+                SectionHeader(
+                    if (vm.selectedDate == LocalDate.now()) "今天待办"
+                    else "${vm.selectedDate.format(monthDayFormatter)}待办"
+                )
+            }
+            if (upcoming.isEmpty() && state.due.isEmpty()) {
+                item(key = "empty-pending") {
+                    EmptyState(Icons.Outlined.CheckCircle, "暂无待办事项")
                 }
-            } else {
-                if (state.done.isEmpty()) {
-                    item(key = "empty-done") {
-                        EmptyState(Icons.Outlined.Inbox, "还没有完成的事项")
-                    }
-                } else {
-                    items(state.done, key = { it.uuid }) { task ->
-                        DoneRow(task = task, onDelete = { vm.delete(task.uuid) })
-                    }
+            } else if (dayTasks.isEmpty()) {
+                item(key = "empty-day") {
+                    Text(
+                        "当天暂无待办",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                }
+            }
+            items(dayTasks, key = { it.uuid }) { task ->
+                PendingRow(
+                    task = task,
+                    hapticsEnabled = state.hapticsEnabled,
+                    onComplete = { vm.completeWithSampling(task) },
+                    onDelete = { vm.delete(task.uuid) },
+                    onClick = { vm.sheet = SheetMode.Edit(task) },
+                )
+            }
+
+            if (futureTasks.isNotEmpty()) {
+                item(key = "future-header") { SectionHeader("未来待办") }
+                items(futureTasks, key = { "future-${it.uuid}" }) { task ->
+                    PendingRow(
+                        task = task,
+                        hapticsEnabled = state.hapticsEnabled,
+                        onComplete = { vm.completeWithSampling(task) },
+                        onDelete = { vm.delete(task.uuid) },
+                        onClick = { vm.sheet = SheetMode.Edit(task) },
+                    )
                 }
             }
 
@@ -150,6 +190,21 @@ fun TodoListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
     }
 
     when (val sheet = vm.sheet) {
+        is SheetMode.Add -> AddTaskSheet(
+            allDayTime = state.allDayTime,
+            onAiParse = vm::addParse,
+            onSave = {
+                vm.saveNew(it)
+                vm.sheet = null
+            },
+            onDismiss = { vm.sheet = null },
+        )
+        is SheetMode.Agent -> AgentSheet(
+            prefill = sheet.prefill,
+            onSubmit = vm::agentRoute,
+            onConfirm = { vm.performPendingActions() },
+            onDismiss = { vm.sheet = null },
+        )
         is SheetMode.Create -> TaskEditSheet(
             existing = null,
             parsed = sheet.parsed,
@@ -176,47 +231,84 @@ fun TodoListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
     }
 }
 
-/** 自然语言输入框 + AI 解析按钮。 */
+/** 日期横滑条:今天起 30 天,选中项主色高亮。 */
 @Composable
-private fun NaturalLanguageField(vm: TodoViewModel) {
-    Column {
-        SectionHeader("AI 助手")
-        OutlinedTextField(
-            value = vm.nlText,
-            onValueChange = { vm.nlText = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("例如:明天3点开会一小时") },
-            singleLine = true,
-            trailingIcon = {
-                if (vm.aiBusy) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                } else {
-                    IconButton(onClick = vm::parseNL, enabled = vm.nlText.isNotBlank()) {
-                        Icon(Icons.Filled.AutoAwesome, contentDescription = "AI 解析")
-                    }
+private fun DateStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
+    val today = LocalDate.now()
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items((0..29).toList()) { offset ->
+                val date = today.plusDays(offset.toLong())
+                val isSelected = date == selected
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surface,
+                            RoundedCornerShape(12.dp),
+                        )
+                        .clickable { onSelect(date) }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        if (date == today) "今天" else weekdayNames[date.dayOfWeek.value - 1],
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "${date.dayOfMonth}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurface,
+                    )
                 }
-            },
-        )
-        FooterText("一句话新建事项,或直接说要改哪个事项;输入内容和当前待办列表会发送给 DeepSeek 解析。")
-        vm.aiError?.let {
-            Text(
-                it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp),
-            )
+            }
         }
     }
 }
 
-/** 到期提醒卡:完成/开始了 + 稍等按钮,文案对应 iOS dueCaption。 */
+/** 完成后的实际耗时轻量条(智能采样,选择/跳过即消失)。 */
 @Composable
-private fun DueCard(
-    task: TaskEntity,
-    snoozeMinutes: Int,
-    onComplete: () -> Unit,
-    onSnooze: () -> Unit,
+private fun AskDurationCard(
+    title: String,
+    planned: Int,
+    onAnswer: (Int) -> Unit,
+    onSkip: () -> Unit,
 ) {
+    val chips = buildList {
+        val lower = maxOf(5, (planned / 2 + 2) / 5 * 5)
+        val upper = (planned * 3 / 2 + 2) / 5 * 5
+        for (value in listOf(lower, planned, upper)) {
+            if (value !in this) add(value)
+        }
+    }
+    ElevatedCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("「$title」实际用了多久?", style = MaterialTheme.typography.bodyMedium)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                chips.forEach { minutes ->
+                    OutlinedButton(onClick = { onAnswer(minutes) }) { Text("$minutes 分钟") }
+                }
+                TextButton(onClick = onSkip) { Text("跳过") }
+            }
+        }
+    }
+}
+
+/** 到期提醒卡:标题行右侧「改期」,主操作行 完成/开始了 + 稍等,候选 chips 在下方。 */
+@Composable
+private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
     val starting = task.phaseEnum == TaskPhase.START && task.durationMinutes > 0
     val caption = when {
         task.phaseEnum == TaskPhase.END -> "时间到 — 完成了吗?"
@@ -232,14 +324,32 @@ private fun DueCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(task.title, style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    task.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = { vm.requestReschedule(task) },
+                    enabled = vm.rescheduleLoadingUuid == null,
+                ) {
+                    if (vm.rescheduleLoadingUuid == task.uuid) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Filled.EditCalendar, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("改期")
+                    }
+                }
+            }
             Text(
                 caption,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onComplete) {
+                Button(onClick = { vm.completeWithSampling(task) }) {
                     Icon(
                         if (starting) Icons.Filled.PlayArrow else Icons.Filled.Check,
                         contentDescription = null,
@@ -248,7 +358,7 @@ private fun DueCard(
                     Spacer(Modifier.width(4.dp))
                     Text(if (starting) "开始了" else "完成")
                 }
-                OutlinedButton(onClick = onSnooze) {
+                OutlinedButton(onClick = { vm.snooze(task.uuid) }) {
                     Icon(
                         Icons.Filled.HourglassEmpty,
                         contentDescription = null,
@@ -258,28 +368,48 @@ private fun DueCard(
                     Text("稍等 $snoozeMinutes 分钟")
                 }
             }
+            vm.reschedule?.takeIf { it.first == task.uuid }?.let { (_, candidates) ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    candidates.forEach { (label, date) ->
+                        OutlinedButton(onClick = { vm.applyReschedule(task.uuid, date) }) {
+                            Text(label)
+                        }
+                    }
+                    IconButton(onClick = vm::dismissReschedule) {
+                        Icon(Icons.Filled.Close, contentDescription = "收起改期候选")
+                    }
+                }
+            }
         }
     }
 }
 
-/** 待办行:右滑完成(重复事项完成后留在列表,回弹)、左滑删除,点击编辑。 */
+/** 待办行:右滑完成、左滑删除(带振动),点击编辑。 */
 @Composable
-private fun PendingRow(
+internal fun PendingRow(
     task: TaskEntity,
+    hapticsEnabled: Boolean,
     onComplete: () -> Unit,
     onDelete: () -> Unit,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     val currentOnComplete by rememberUpdatedState(onComplete)
     val currentOnDelete by rememberUpdatedState(onDelete)
+    val currentHaptics by rememberUpdatedState(hapticsEnabled)
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
                 SwipeToDismissBoxValue.EndToStart -> {
+                    if (currentHaptics) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     currentOnDelete()
                     true
                 }
                 SwipeToDismissBoxValue.StartToEnd -> {
+                    if (currentHaptics) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     currentOnComplete()
                     false
                 }
@@ -303,43 +433,9 @@ private fun PendingRow(
     }
 }
 
-/** 已完成行:删除线 + 完成时间,仅可左滑删除。 */
-@Composable
-private fun DoneRow(task: TaskEntity, onDelete: () -> Unit) {
-    val currentOnDelete by rememberUpdatedState(onDelete)
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                currentOnDelete()
-                true
-            } else {
-                false
-            }
-        },
-    )
-    Column {
-        SwipeToDismissBox(
-            state = dismissState,
-            enableDismissFromStartToEnd = false,
-            backgroundContent = { SwipeBackground(dismissState.dismissDirection) },
-        ) {
-            ListItem(
-                headlineContent = {
-                    Text(task.title, textDecoration = TextDecoration.LineThrough)
-                },
-                supportingContent = {
-                    task.doneAt?.let { Text("完成于 ${TimeFormat.format(it)}") }
-                },
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-            )
-        }
-        HorizontalDivider()
-    }
-}
-
 /** 滑动背景:右滑完成为主色 + 对勾,左滑删除为错误色 + 垃圾桶。 */
 @Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
+internal fun SwipeBackground(direction: SwipeToDismissBoxValue) {
     val (color, icon, alignment) = when (direction) {
         SwipeToDismissBoxValue.StartToEnd ->
             Triple(MaterialTheme.colorScheme.primary, Icons.Filled.Check, Alignment.CenterStart)

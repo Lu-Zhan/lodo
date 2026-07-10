@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.lodo.app.core.TimeFormat
+import com.lodo.app.data.Settings
 import com.lodo.app.data.toEpochMillis
 import java.time.LocalDateTime
 
@@ -33,12 +34,28 @@ class AlarmScheduler(private val context: Context) {
         alarmManager.cancel(reminderIntent(uuid))
     }
 
-    /** 排下一次每日汇总;触发后由 ReminderReceiver 再排一天。 */
-    fun scheduleDigest(hhmm: String) {
+    /**
+     * 排下一次汇总:在 时间点 ×(每天 / 每周选中周几)里找最近的未来时刻;
+     * 触发后由 ReminderReceiver 再排下一次(自我延续)。
+     */
+    fun scheduleDigest(settings: Settings) {
         val now = LocalDateTime.now()
-        var next = now.toLocalDate().atTime(TimeFormat.localTime(hhmm))
-        if (!next.isAfter(now)) next = next.plusDays(1)
-        scheduleAt(digestIntent(), next.toEpochMillis())
+        val times = settings.digestTimes.map(TimeFormat::localTime)
+        if (times.isEmpty()) {
+            cancelDigest()
+            return
+        }
+        val weekly = settings.digestRepeatType == "weekly"
+        // 项目约定 0=周一 … 6=周日 → DayOfWeek 1=周一 … 7=周日
+        val days = settings.digestDays.map { it + 1 }.toSet()
+        for (offset in 0..7L) {
+            val date = now.toLocalDate().plusDays(offset)
+            if (weekly && date.dayOfWeek.value !in days) continue
+            val next = times.map(date::atTime).filter { it.isAfter(now) }.minOrNull() ?: continue
+            scheduleAt(digestIntent(), next.toEpochMillis())
+            return
+        }
+        cancelDigest()
     }
 
     fun cancelDigest() {

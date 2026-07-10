@@ -4,11 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.lodo.app.LodoApp
+import com.lodo.app.ai.DeepSeekClient
 import com.lodo.app.core.Scheduler
 import com.lodo.app.core.TaskStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 
 /** 闹钟触发:发提醒通知并把提醒链向后顺延一格;每日汇总触发时现算未完成数。 */
@@ -48,10 +50,35 @@ class ReminderReceiver : BroadcastReceiver() {
         }
     }
 
+    /** 汇总触发:现算今天开始/到期的事项,AI 一句话概括(限时,失败退回机械文案)。 */
     private suspend fun handleDigest(app: LodoApp) {
         val settings = app.settings.snapshot()
         if (!settings.digestEnabled) return
-        Notifications.showDigest(app, app.database.taskDao().pending().size)
-        app.alarms.scheduleDigest(settings.digestTime)
+        val tomorrow = LocalDateTime.now().toLocalDate().plusDays(1).atStartOfDay()
+        val today = app.database.taskDao().pending()
+            .filter { it.nextRemindAt.isBefore(tomorrow) }
+            .sortedBy { it.nextRemindAtMillis }
+        val body = if (today.isEmpty()) {
+            "今日暂无待办事项 🎉"
+        } else {
+            val items = today.map { task ->
+                buildString {
+                    append("${task.title}(${com.lodo.app.core.TimeFormat.format(task.nextRemindAt)}")
+                    if (task.durationMinutes > 0) append(",${task.durationMinutes} 分钟")
+                    append(")")
+                }
+            }
+            withTimeoutOrNull(8_000) {
+                runCatching {
+                    DeepSeekClient.summarizeToday(app.settings.apiKey(), items)
+                }.getOrNull()
+            } ?: run {
+                val shown = today.take(3).joinToString("、") { it.title }
+                if (today.size > 3) "今天:$shown 等 ${today.size} 件"
+                else "今天:$shown(共 ${today.size} 件)"
+            }
+        }
+        Notifications.showDigest(app, body)
+        app.alarms.scheduleDigest(settings)
     }
 }
