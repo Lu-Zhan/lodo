@@ -29,6 +29,8 @@ struct ContentView: View {
     }
 
     /// iOS 18 / macOS 15 起的新 Tab 写法。
+    /// sidebarAdaptable:iPhone 仍是标签栏,iPad 可展开成侧边栏,macOS 呈现为
+    /// 系统「提醒事项」式的侧边栏,是待办类 app 在大屏上的标准形态。
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
         TabView {
@@ -42,6 +44,7 @@ struct ContentView: View {
                 SettingsView()
             }
         }
+        .tabViewStyle(.sidebarAdaptable)
     }
 
     private var legacyTabs: some View {

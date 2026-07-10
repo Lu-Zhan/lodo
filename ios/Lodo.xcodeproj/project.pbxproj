@@ -3,19 +3,19 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		AA00000012 /* LodoCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA00000011 /* LodoCore */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXFileReference section */
+		AA00000006 /* Lodo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lodo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AA00000002 /* Lodo */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Lodo;
-			sourceTree = "<group>";
-		};
+		AA00000002 /* Lodo */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Lodo; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,10 +74,6 @@
 		};
 /* End PBXNativeTarget section */
 
-/* Begin PBXFileReference section */
-		AA00000006 /* Lodo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lodo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
-
 /* Begin PBXProject section */
 		AA00000007 /* Project object */ = {
 			isa = PBXProject;
@@ -104,7 +100,6 @@
 			packageReferences = (
 				AA00000010 /* XCLocalSwiftPackageReference "LodoCore" */,
 			);
-			preferredProjectObjectVersion = 77;
 			productRefGroup = AA00000005 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";

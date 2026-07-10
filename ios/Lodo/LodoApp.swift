@@ -12,6 +12,9 @@ struct LodoApp: App {
             fatalError("无法初始化数据库:\(error)")
         }
         NotificationManager.shared.configure(container: container)
+        #if DEBUG
+        DemoSeed.populateIfRequested(container)
+        #endif
     }
 
     var body: some Scene {

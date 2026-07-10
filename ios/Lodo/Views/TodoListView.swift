@@ -76,8 +76,11 @@ struct TodoListView: View {
 
     private var nlSection: some View {
         Section {
-            HStack {
-                TextField("例如:明天3点开会一小时 / 把开会改到晚上8点", text: $nlText)
+            HStack(alignment: .firstTextBaseline) {
+                // axis: .vertical 让长占位文字与长输入换行显示,不再截断
+                TextField("例如:明天3点开会一小时 / 把开会改到晚上8点",
+                          text: $nlText, axis: .vertical)
+                    .lineLimit(1...3)
                     .textFieldStyle(.plain)
                     .onSubmit { parseNL() }
                 if aiBusy {
@@ -102,7 +105,9 @@ struct TodoListView: View {
     }
 
     private var dueSection: some View {
-        Section("🔔 到期提醒") {
+        // 与 web/android 的 "🔔 到期提醒" 对应;iOS 26 区块标题渲染不了 emoji
+        // (显示为问号方块),改用同语义的 SF Symbol 铃铛。
+        Section {
             ForEach(due) { task in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(task.title).font(.headline)
@@ -127,6 +132,8 @@ struct TodoListView: View {
                 }
                 .padding(.vertical, 4)
             }
+        } header: {
+            Label("到期提醒", systemImage: "bell.fill")
         }
     }
 

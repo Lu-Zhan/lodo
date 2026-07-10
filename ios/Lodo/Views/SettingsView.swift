@@ -7,7 +7,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.digestTimeKey) private var digestTime = "21:00"
 
     @State private var apiKey = KeychainHelper.apiKey ?? ""
-    @State private var keySaved = false
+    @State private var keySaved = KeychainHelper.apiKey != nil
 
     var body: some View {
         NavigationStack {
@@ -49,6 +49,7 @@ struct SettingsView: View {
                     Text("用于自然语言创建和编辑事项,保存在钥匙串中。")
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("设置")
             .onChange(of: apiKey) { keySaved = false }
             .onChange(of: digestEnabled) { refreshDigest() }

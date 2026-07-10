@@ -44,9 +44,16 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
         let interval = TimeInterval(AppSettings.snoozeMinutes * 60)
         let now = Date()
+        // 已过期的事项把链锚定到下一个未来的稍等槽位,否则 8 条全落在过去,
+        // 纠缠提醒会静默断链(数据库 nextRemindAt 保持过去值,app 内到期卡片不受影响)。
+        var anchor = task.nextRemindAt
+        if anchor <= now {
+            let missed = (now.timeIntervalSince(anchor) / interval).rounded(.down) + 1
+            anchor = anchor.addingTimeInterval(missed * interval)
+        }
         let starting = task.phase == .start && task.durationMinutes > 0
         for i in 0..<Self.chainLength {
-            let fire = task.nextRemindAt.addingTimeInterval(interval * Double(i))
+            let fire = anchor.addingTimeInterval(interval * Double(i))
             guard fire > now else { continue }
             let content = UNMutableNotificationContent()
             content.title = task.title

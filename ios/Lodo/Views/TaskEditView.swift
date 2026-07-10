@@ -125,6 +125,13 @@ struct TaskEditView: View {
                     }
                 }
             }
+            .formStyle(.grouped)
+            .onChange(of: repeatType) { _, type in
+                // 切到重复模式时补一个默认时间点,避免保存按钮无提示地不可用
+                if type != .none && times.isEmpty {
+                    times.append(AppSettings.time("09:00", on: Date()))
+                }
+            }
             .navigationTitle(existing == nil ? "新建事项" : "编辑事项")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
