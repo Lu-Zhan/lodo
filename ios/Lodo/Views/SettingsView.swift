@@ -26,18 +26,19 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // ---- 提醒 ----
                 Section {
                     Stepper("稍等间隔:\(snoozeMinutes) 分钟",
                             value: $snoozeMinutes, in: 1...240, step: 5)
-                } footer: {
-                    Text("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
-                }
-
-                Section {
                     DatePicker("全天事项提醒时间", selection: timeBinding($allDayTime),
                                displayedComponents: .hourAndMinute)
+                } header: {
+                    Text("提醒")
                 } footer: {
-                    Text("只有日期、没有时间的事项,当天几点提醒。")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
+                        Text("只有日期、没有时间的事项,当天几点提醒。")
+                    }
                 }
 
                 Section {
@@ -76,6 +77,7 @@ struct SettingsView: View {
                     Text("在设定时间提醒今天开始或到期的事项。")
                 }
 
+                // ---- 通用 ----
                 #if os(iOS)
                 Section {
                     Toggle("振动反馈", isOn: $hapticsEnabled)
@@ -84,6 +86,7 @@ struct SettingsView: View {
                 }
                 #endif
 
+                // ---- AI:服务 → 个性 → 洞察 → 记忆 ----
                 Section {
                     Picker("服务商", selection: $aiProvider) {
                         ForEach(AppSettings.aiProviders, id: \.name) { provider in
@@ -130,12 +133,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle("完成洞察", isOn: $insightEnabled)
-                } footer: {
-                    Text("每周在已完成页生成一句正向回顾,不会推送通知。")
-                }
-
-                Section {
                     Picker("AI 个性", selection: $personaStyle) {
                         Text("默认").tag("默认")
                         ForEach(AppSettings.personaPresets, id: \.name) { preset in
@@ -157,6 +154,12 @@ struct SettingsView: View {
                     Text("AI 个性")
                 } footer: {
                     Text("影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。")
+                }
+
+                Section {
+                    Toggle("完成洞察", isOn: $insightEnabled)
+                } footer: {
+                    Text("每周在已完成页生成一句正向回顾,不会推送通知。")
                 }
 
                 Section {
