@@ -29,6 +29,15 @@ data class ParsedTask(
 /** 错误文案与 iOS DeepSeekError 一致,直接展示给用户。 */
 class DeepSeekException(message: String) : Exception(message)
 
+/** 一次 AI 请求所需的服务配置(服务商端点/模型/key/个性),由 SettingsRepository.aiConfig() 提供。 */
+data class AIConfig(
+    val apiKey: String?,
+    val endpoint: String,
+    val model: String,
+    /** AI 个性描述;null 为无个性。 */
+    val persona: String? = null,
+)
+
 /** AI 总入口解析出的单个操作。 */
 sealed interface AIAction {
     data class Create(val task: ParsedTask) : AIAction
@@ -45,8 +54,6 @@ sealed interface AICommandResult {
 
 /** DeepSeek 自然语言创建/编辑,prompt 与 ios/Lodo/AI/DeepSeekClient.swift、web/lodo/ai.py 保持一致。 */
 object DeepSeekClient {
-    private const val ENDPOINT = "https://api.deepseek.com/chat/completions"
-    private const val MODEL = "deepseek-chat"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
@@ -78,6 +85,10 @@ object DeepSeekClient {
 
     private val formatAndRules = "返回格式(不适用的字段用默认值):\n$taskSchema\n\n$taskRules"
 
+    /** AI 个性块:只影响面向用户的文字(反问/汇总/洞察),不影响 JSON 结构。 */
+    private fun personaBlock(config: AIConfig): String =
+        config.persona?.let { "\n\n说话风格(仅影响面向用户的文字,不得改变 JSON 结构与字段值):$it" } ?: ""
+
     private fun timeContext(): String {
         val now = LocalDateTime.now()
         val weekdays = "一二三四五六日"
@@ -85,20 +96,20 @@ object DeepSeekClient {
     }
 
     /** 自然语言 → 新事项字段。 */
-    suspend fun parse(apiKey: String?, text: String): ParsedTask {
+    suspend fun parse(config: AIConfig, text: String): ParsedTask {
         val system = "你是提醒事项应用 lodo 的解析助手。用户会用自然语言描述一个提醒事项," +
             "你需要解析出结构化信息,只返回 JSON,不要任何其他文字。\n\n" +
             "${timeContext()}\n\n$formatAndRules"
-        return parsePayload(complete(apiKey, system, text))
+        return parsePayload(complete(config, system, text))
     }
 
     /** 按自然语言指令修改现有事项;未提到的字段保持原值。 */
-    suspend fun edit(apiKey: String?, current: ParsedTask, instruction: String): ParsedTask {
+    suspend fun edit(config: AIConfig, current: ParsedTask, instruction: String): ParsedTask {
         val system = "你是提醒事项应用 lodo 的编辑助手。给定一个现有事项和用户的修改指令," +
             "输出修改后的完整事项,只返回 JSON,不要任何其他文字。" +
             "用户没有提到的字段一律保持原值;无法理解指令时返回 {\"error\": \"原因\"}。\n\n" +
             "${timeContext()}\n\n现有事项:\n${taskJson(current)}\n\n$formatAndRules"
-        return parsePayload(complete(apiKey, system, instruction))
+        return parsePayload(complete(config, system, instruction))
     }
 
     /**
@@ -107,7 +118,7 @@ object DeepSeekClient {
      * prompt 与 iOS DeepSeekClient.command 逐字一致。
      */
     suspend fun command(
-        apiKey: String?,
+        config: AIConfig,
         text: String,
         tasks: List<Pair<String, ParsedTask>>,
     ): AICommandResult {
@@ -133,8 +144,8 @@ object DeepSeekClient {
             "返回格式(二选一):\n" +
             "{\"actions\": [操作, ...]}\n" +
             "{\"question\": \"...\", \"options\": [\"...\", \"...\"]}\n\n" +
-            "事项字段:\n$taskSchema\n\n$taskRules"
-        val payload = complete(apiKey, system, text)
+            "事项字段:\n$taskSchema\n\n$taskRules" + personaBlock(config)
+        val payload = complete(config, system, text)
 
         payload.optString("question").takeIf { it.isNotEmpty() }?.let { question ->
             val options = payload.optJSONArray("options")?.let { arr ->
@@ -167,7 +178,7 @@ object DeepSeekClient {
 
     /** 按记忆文件为"没说时长"的新事项建议时长(分钟);无相近类型或明确不需要时返回 0。 */
     suspend fun suggestDuration(
-        apiKey: String?, text: String, title: String, memory: String,
+        config: AIConfig, text: String, title: String, memory: String,
     ): Int {
         val system = "你是提醒事项应用 lodo 的时长建议助手。下面是\"事项类型 → 典型时长\"的记忆文件、" +
             "用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。\n\n" +
@@ -175,12 +186,12 @@ object DeepSeekClient {
             "- 用户原话明确表示不需要时长,或记忆中没有类型相近的条目 → {\"duration_minutes\": 0}\n" +
             "- 否则参考记忆中相近类型的典型时长 → {\"duration_minutes\": 分钟数}\n\n" +
             "记忆文件:\n$memory"
-        return complete(apiKey, system, "原话:$text\n标题:$title").optInt("duration_minutes", 0)
+        return complete(config, system, "原话:$text\n标题:$title").optInt("duration_minutes", 0)
     }
 
     /** 用一条新样本让模型归纳更新"事项类型 → 典型时长"记忆文件,返回新文件全文。 */
     suspend fun updateMemory(
-        apiKey: String?, current: String?, title: String, durationMinutes: Int,
+        config: AIConfig, current: String?, title: String, durationMinutes: Int,
     ): String {
         val system = "你是提醒事项应用 lodo 的记忆管理助手,维护一份\"事项类型 → 典型时长\"的记忆文件。" +
             "给定现有记忆文件和一条新样本,输出更新后的完整记忆文件:按大致类型归纳," +
@@ -188,25 +199,25 @@ object DeepSeekClient {
             "markdown 列表格式,首行标题为\"# 事项时长记忆\"。" +
             "只返回 JSON:{\"memory\": \"更新后的文件全文\"},不要任何其他文字。\n\n" +
             "现有记忆文件:\n${current ?: "(空)"}"
-        val memory = complete(apiKey, system, "新样本:$title,$durationMinutes 分钟").optString("memory")
+        val memory = complete(config, system, "新样本:$title,$durationMinutes 分钟").optString("memory")
         if (memory.isEmpty()) throw DeepSeekException("无法解析:返回格式异常:缺少 memory")
         return memory
     }
 
     /** 把今天的事项列表改写成一句话汇总,突出重点事件(每日汇总通知正文)。 */
-    suspend fun summarizeToday(apiKey: String?, items: List<String>): String {
+    suspend fun summarizeToday(config: AIConfig, items: List<String>): String {
         val system = "你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表" +
             "(含时间与时长),用一句话概括今天的安排,突出重点事件" +
             "(如时间临近、耗时长或听起来重要的),不超过 40 个字," +
-            "只返回 JSON:{\"summary\": \"一句话\"},不要任何其他文字。"
-        val summary = complete(apiKey, system, JSONArray(items).toString()).optString("summary")
+            "只返回 JSON:{\"summary\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
+        val summary = complete(config, system, JSONArray(items).toString()).optString("summary")
         if (summary.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 summary")
         return summary
     }
 
     /** 逾期事项的改期候选:2-3 个(口语化标签, 时间),时间必须晚于当前。 */
     suspend fun suggestReschedule(
-        apiKey: String?,
+        config: AIConfig,
         title: String,
         remindAt: LocalDateTime,
         durationMinutes: Int,
@@ -220,7 +231,7 @@ object DeepSeekClient {
             "时间必须晚于当前时间。只返回 JSON,不要任何其他文字:\n" +
             "{\"candidates\": [{\"label\": \"口语化标签,如 今晚 20:00\", \"time\": \"YYYY-MM-DD HH:MM\"}, ...]}\n\n" +
             "${timeContext()}\n\n$info"
-        val payload = complete(apiKey, system, "给出改期候选")
+        val payload = complete(config, system, "给出改期候选")
         val raw = payload.optJSONArray("candidates")
             ?: throw DeepSeekException("无法解析:返回格式异常:缺少 candidates")
         val now = LocalDateTime.now()
@@ -239,11 +250,11 @@ object DeepSeekClient {
     }
 
     /** 每周完成洞察:把本地统计说成一句正向鼓励的话(不打分、不指责)。 */
-    suspend fun weeklyInsight(apiKey: String?, stats: String): String {
+    suspend fun weeklyInsight(config: AIConfig, stats: String): String {
         val system = "你是提醒事项应用 lodo 的回顾助手。根据一周完成统计,输出一句不超过 60 个字的" +
             "正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述," +
-            "禁止出现\"拖延\"\"失败\"等词。只返回 JSON:{\"insight\": \"一句话\"},不要任何其他文字。"
-        val insight = complete(apiKey, system, stats).optString("insight")
+            "禁止出现\"拖延\"\"失败\"等词。只返回 JSON:{\"insight\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
+        val insight = complete(config, system, stats).optString("insight")
         if (insight.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 insight")
         return insight
     }
@@ -258,13 +269,16 @@ object DeepSeekClient {
         .put("repeat_times", JSONArray(task.repeatTimes))
 
     /** 发起请求并取回模型返回的 JSON payload(含 error 检查)。 */
-    private suspend fun complete(apiKey: String?, system: String, user: String): JSONObject =
+    private suspend fun complete(config: AIConfig, system: String, user: String): JSONObject =
         withContext(Dispatchers.IO) {
-            if (apiKey.isNullOrBlank()) {
+            if (config.apiKey.isNullOrBlank()) {
                 throw DeepSeekException("未配置 DeepSeek API key,请到「设置」里填写。")
             }
+            if (config.endpoint.isBlank()) {
+                throw DeepSeekException("调用 DeepSeek 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。")
+            }
             val body = JSONObject()
-                .put("model", MODEL)
+                .put("model", config.model)
                 .put(
                     "messages",
                     JSONArray()
@@ -274,8 +288,8 @@ object DeepSeekClient {
                 .put("response_format", JSONObject().put("type", "json_object"))
                 .put("temperature", 0)
             val request = Request.Builder()
-                .url(ENDPOINT)
-                .header("Authorization", "Bearer $apiKey")
+                .url(config.endpoint)
+                .header("Authorization", "Bearer ${config.apiKey}")
                 .post(body.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 

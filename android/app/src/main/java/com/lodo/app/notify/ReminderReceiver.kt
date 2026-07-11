@@ -70,7 +70,7 @@ class ReminderReceiver : BroadcastReceiver() {
             }
             withTimeoutOrNull(8_000) {
                 runCatching {
-                    DeepSeekClient.summarizeToday(app.settings.apiKey(), items)
+                    DeepSeekClient.summarizeToday(app.settings.aiConfig(), items)
                 }.getOrNull()
             } ?: run {
                 val shown = today.take(3).joinToString("、") { it.title }

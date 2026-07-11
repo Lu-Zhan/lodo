@@ -45,7 +45,7 @@ class TaskRepository(
         Notifications.dismiss(context, uuid)
         if (finished) {
             // 完成一次(含重复事项)即作为时长记忆样本
-            DurationMemory.learn(context, settings.apiKey(), d.title, d.durationMinutes)
+            DurationMemory.learn(context, settings.aiConfig(), d.title, d.durationMinutes)
         }
     }
 
@@ -74,7 +74,7 @@ class TaskRepository(
         )
         dao.upsert(entity)
         alarms.scheduleReminder(entity.uuid, entity.nextRemindAt)
-        DurationMemory.learn(context, settings.apiKey(), parsed.title, parsed.durationMinutes)
+        DurationMemory.learn(context, settings.aiConfig(), parsed.title, parsed.durationMinutes)
     }
 
     /** 编辑保存:重置进行阶段,下次提醒回到新的提醒时间。仅对未完成事项生效。 */
@@ -95,7 +95,7 @@ class TaskRepository(
         dao.upsert(updated)
         alarms.scheduleReminder(uuid, updated.nextRemindAt)
         Notifications.dismiss(context, uuid)
-        DurationMemory.learn(context, settings.apiKey(), parsed.title, parsed.durationMinutes)
+        DurationMemory.learn(context, settings.aiConfig(), parsed.title, parsed.durationMinutes)
     }
 
     /** 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。 */

@@ -34,6 +34,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         memoryText = DurationMemory.content(app) ?: ""
     }
 
+    /** 切换服务商:载入该服务商已存的 key,清掉模型覆盖值。 */
+    fun setAiProvider(provider: String) = viewModelScope.launch {
+        app.settings.setAiProvider(provider)
+        app.settings.setAiModel("")
+        apiKey = app.settings.apiKey(provider) ?: ""
+        keySaved = apiKey.isNotEmpty()
+    }
+
+    fun setAiModel(model: String) = viewModelScope.launch {
+        app.settings.setAiModel(model)
+    }
+
+    fun setAiCustomEndpoint(endpoint: String) = viewModelScope.launch {
+        app.settings.setAiCustomEndpoint(endpoint)
+    }
+
+    fun setPersonaStyle(style: String) = viewModelScope.launch {
+        app.settings.setPersonaStyle(style)
+    }
+
+    fun setPersonaCustom(text: String) = viewModelScope.launch {
+        app.settings.setPersonaCustom(text)
+    }
+
     fun setSnoozeMinutes(value: Int) = viewModelScope.launch {
         app.settings.setSnoozeMinutes(value.coerceIn(1, 240))
     }
@@ -90,7 +114,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun saveApiKey() = viewModelScope.launch {
-        app.settings.saveApiKey(apiKey)
+        app.settings.saveApiKey(apiKey, settings.value.aiProvider)
         keySaved = true
     }
 }

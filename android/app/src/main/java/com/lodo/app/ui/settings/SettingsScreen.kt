@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lodo.app.core.TimeFormat
+import com.lodo.app.data.aiProviderPresets
+import com.lodo.app.data.personaPresets
 import com.lodo.app.core.weekdayNames
 import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.LodoTimePickerDialog
@@ -102,10 +104,8 @@ fun SettingsScreen(
                 onDecrement = { vm.setSnoozeMinutes(settings.snoozeMinutes - 5) },
                 onIncrement = { vm.setSnoozeMinutes(settings.snoozeMinutes + 5) },
             )
-            FooterText("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
-
-            SectionHeader("全天事项")
             TimeRow("全天事项提醒时间", settings.allDayTime) { showAllDayPicker = true }
+            FooterText("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
             FooterText("只有日期、没有时间的事项,当天几点提醒。")
 
             SectionHeader("每日汇总")
@@ -196,6 +196,81 @@ fun SettingsScreen(
             }
             FooterText("滑动完成、删除等操作时轻微振动。")
 
+            // ---- AI:服务 → 个性 → 洞察 → 记忆 ----
+            SectionHeader("AI 服务")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                (aiProviderPresets.map { it.name } + "自定义").forEach { name ->
+                    FilterChip(
+                        selected = settings.aiProvider == name,
+                        onClick = { vm.setAiProvider(name) },
+                        label = { Text(name) },
+                    )
+                }
+            }
+            if (settings.aiProvider == "自定义") {
+                OutlinedTextField(
+                    value = settings.aiCustomEndpoint,
+                    onValueChange = vm::setAiCustomEndpoint,
+                    placeholder = { Text("接口地址(…/chat/completions)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+            }
+            OutlinedTextField(
+                value = settings.aiModel,
+                onValueChange = vm::setAiModel,
+                placeholder = {
+                    Text(
+                        if (settings.aiProvider == "自定义") "模型名称"
+                        else "模型(默认 ${aiProviderPresets.firstOrNull { it.name == settings.aiProvider }?.model ?: ""})"
+                    )
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = vm.apiKey,
+                onValueChange = vm::onApiKeyChange,
+                placeholder = { Text("API Key") },
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            Button(
+                onClick = vm::saveApiKey,
+                enabled = !vm.keySaved,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(if (vm.keySaved) "已保存" else "保存 API Key")
+            }
+            FooterText("默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。")
+
+            SectionHeader("AI 个性")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                (listOf("默认") + personaPresets.map { it.first } + "自定义").forEach { name ->
+                    FilterChip(
+                        selected = settings.personaStyle == name,
+                        onClick = { vm.setPersonaStyle(name) },
+                        label = { Text(name) },
+                    )
+                }
+            }
+            if (settings.personaStyle == "自定义") {
+                OutlinedTextField(
+                    value = settings.personaCustom,
+                    onValueChange = vm::setPersonaCustom,
+                    placeholder = { Text("描述 AI 的说话风格,例如:像武侠小说里的师父") },
+                    minLines = 1,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+            } else {
+                personaPresets.firstOrNull { it.first == settings.personaStyle }?.let { preset ->
+                    FooterText(preset.second)
+                }
+            }
+            FooterText("影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。")
+
             SectionHeader("完成洞察")
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -210,23 +285,6 @@ fun SettingsScreen(
             }
             FooterText("每周在已完成页生成一句正向回顾,不会推送通知。")
 
-            SectionHeader("AI(DeepSeek)")
-            OutlinedTextField(
-                value = vm.apiKey,
-                onValueChange = vm::onApiKeyChange,
-                placeholder = { Text("DeepSeek API Key(sk-…)") },
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(
-                onClick = vm::saveApiKey,
-                enabled = !vm.keySaved,
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                Text(if (vm.keySaved) "已保存" else "保存 API Key")
-            }
-            FooterText("用于自然语言创建和编辑事项,加密存储在本机。")
 
             SectionHeader("AI 记忆")
             Text(

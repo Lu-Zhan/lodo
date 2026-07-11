@@ -108,7 +108,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
      */
     suspend fun agentRoute(text: String): AgentReply {
         val context = uiState.value.pending.map { it.uuid to it.toParsedTask() }
-        return when (val result = DeepSeekClient.command(app.settings.apiKey(), text, context)) {
+        return when (val result = DeepSeekClient.command(app.settings.aiConfig(), text, context)) {
             is AICommandResult.Clarify -> AgentReply.Clarify(result.question, result.options)
             is AICommandResult.Actions -> {
                 val actions = result.actions
@@ -164,13 +164,13 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 解析一句话;无时长且有记忆时追加一次时长建议小请求,返回(字段, AI 建议的时长)。 */
     suspend fun addParse(text: String): Pair<ParsedTask, Int?> {
-        val apiKey = app.settings.apiKey()
-        var parsed = DeepSeekClient.parse(apiKey, text)
+        val config = app.settings.aiConfig()
+        var parsed = DeepSeekClient.parse(config, text)
         var suggested: Int? = null
         if (parsed.durationMinutes == 0) {
             DurationMemory.content(app)?.let { memory ->
                 val minutes = runCatching {
-                    DeepSeekClient.suggestDuration(apiKey, text, parsed.title, memory)
+                    DeepSeekClient.suggestDuration(config, text, parsed.title, memory)
                 }.getOrDefault(0)
                 if (minutes > 0) {
                     parsed = parsed.copy(durationMinutes = minutes)
@@ -198,7 +198,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         val (title, planned) = askDuration ?: return
         askDuration = null
         viewModelScope.launch {
-            DurationMemory.recordActual(app, app.settings.apiKey(), title, planned, minutes)
+            DurationMemory.recordActual(app, app.settings.aiConfig(), title, planned, minutes)
         }
     }
 
@@ -216,7 +216,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val candidates = DeepSeekClient.suggestReschedule(
-                    app.settings.apiKey(), task.title, task.remindAt,
+                    app.settings.aiConfig(), task.title, task.remindAt,
                     task.durationMinutes, task.isRecurring,
                 )
                 reschedule = task.uuid to candidates
@@ -252,7 +252,8 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             insight = null
             return@launch
         }
-        val apiKey = app.settings.apiKey() ?: return@launch
+        val config = app.settings.aiConfig()
+        if (config.apiKey.isNullOrBlank()) return@launch
         val prefs = app.getSharedPreferences("insight", 0)
         val weekFields = java.time.temporal.WeekFields.ISO
         val today = LocalDate.now()
@@ -278,7 +279,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             .maxByOrNull { it.value }?.key
             ?.let { stats += ";最常完成时段:$it 点左右" }
         stats += ";最近完成:" + recent.take(5).joinToString("、") { it.title }
-        runCatching { DeepSeekClient.weeklyInsight(apiKey, stats) }.getOrNull()?.let { text ->
+        runCatching { DeepSeekClient.weeklyInsight(config, stats) }.getOrNull()?.let { text ->
             prefs.edit().putString("week", stamp).putString("text", text).apply()
             insight = text
         }
@@ -286,7 +287,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 编辑弹层里的"AI 修改",由弹层自行管理忙碌/错误状态。 */
     suspend fun aiEdit(current: ParsedTask, instruction: String): ParsedTask =
-        DeepSeekClient.edit(app.settings.apiKey(), current, instruction)
+        DeepSeekClient.edit(app.settings.aiConfig(), current, instruction)
 
     fun delete(uuid: String) = viewModelScope.launch { app.repository.delete(uuid) }
     fun snooze(uuid: String) = viewModelScope.launch { app.repository.snooze(uuid) }

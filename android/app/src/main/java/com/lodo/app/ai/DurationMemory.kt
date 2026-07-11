@@ -44,15 +44,15 @@ object DurationMemory {
      * force 绕过节流(实际耗时回答紧跟完成时的常规 learn,不该被节流吞掉)。
      */
     suspend fun learn(
-        context: Context, apiKey: String?, title: String, durationMinutes: Int,
+        context: Context, config: AIConfig, title: String, durationMinutes: Int,
         force: Boolean = false,
     ) {
-        if (durationMinutes <= 0 || apiKey.isNullOrBlank()) return
+        if (durationMinutes <= 0 || config.apiKey.isNullOrBlank()) return
         val now = LocalDateTime.now()
         if (!force && java.time.Duration.between(lastLearnedAt, now).seconds < THROTTLE_SECONDS) return
         lastLearnedAt = now
         try {
-            val updated = DeepSeekClient.updateMemory(apiKey, content(context), title, durationMinutes)
+            val updated = DeepSeekClient.updateMemory(config, content(context), title, durationMinutes)
             if (updated.isNotBlank()) memoryFile(context).writeText(updated)
         } catch (_: Exception) {
             // 尽力而为:断网/解析失败不影响主流程
@@ -105,7 +105,7 @@ object DurationMemory {
      * 最近 3 次实际值都与计划偏差 ≤20% 则标记稳定,以后不再问。
      */
     suspend fun recordActual(
-        context: Context, apiKey: String?, title: String, planned: Int, minutes: Int,
+        context: Context, config: AIConfig, title: String, planned: Int, minutes: Int,
     ) {
         val root = loadSamples(context)
         val samples = root.optJSONObject("samples") ?: JSONObject().also { root.put("samples", it) }
@@ -121,6 +121,6 @@ object DurationMemory {
         }
         samples.put(title, sample)
         saveSamples(context, root)
-        learn(context, apiKey, title, minutes, force = true)
+        learn(context, config, title, minutes, force = true)
     }
 }

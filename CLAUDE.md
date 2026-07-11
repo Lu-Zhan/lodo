@@ -56,7 +56,7 @@ cd android
 
 **DeepSeek prompt 三端逐字一致**:`web/lodo/ai.py`、`ios/Lodo/AI/DeepSeekClient.swift`、`android/.../ai/DeepSeekClient.kt`。接口:`parse`(新建)、`edit`(改单个事项)、`command`(AI 总入口,目前仅 iOS/Android 有——携带全部待办列表;客户端必须校验 uuid 在列表内,且返回后用**最新**列表重新匹配)。iOS/Android 把 prompt 拆为 taskSchema + taskRules 拼装,web 仍是整段 `_FORMAT_AND_RULES`,文字内容一致。错误文案("未配置 DeepSeek API key…"/"调用 DeepSeek 失败:…"/"无法解析:…")三端一致。改 prompt 时同步三端。
 
-**iOS/Android 已对齐的 AI 协议**(web 演示版仍是旧的 parse/edit):`command` 为 `{"actions": [create/update/complete/delete, ...]}` 数组协议(批量、完成、删除),关键信息缺失时返回 `{"question", "options"}` 反问,批量/完成/删除过确认页、单条新建/修改直达表单;`suggestDuration`/`updateMemory`(时长记忆)、`summarizeToday`(汇总正文)、`weeklyInsight`(完成洞察)、`suggestReschedule`(改期候选)双端同语义同 prompt。时长记忆文件:iOS 在 Application Support,Android 在 filesDir(`DurationMemory`)。仍为 iOS 独有:桌面小组件、Siri App Intents、应用内实时语音听写(Android 用系统 RecognizerIntent 对话框代替;agent 入口 iOS 是主页下拉、Android 是顶栏 ✨ 按钮;Android 汇总正文在触发时现算,iOS 是前台排定时的快照)。
+**iOS/Android 已对齐的 AI 协议**(web 演示版仍是旧的 parse/edit):`command` 为 `{"actions": [create/update/complete/delete, ...]}` 数组协议(批量、完成、删除),关键信息缺失时返回 `{"question", "options"}` 反问,批量/完成/删除过确认页、单条新建/修改直达表单;`suggestDuration`/`updateMemory`(时长记忆)、`summarizeToday`(汇总正文)、`weeklyInsight`(完成洞察)、`suggestReschedule`(改期候选)双端同语义同 prompt。时长记忆文件:iOS 在 Application Support,Android 在 filesDir(`DurationMemory`)。多 AI 服务商(DeepSeek 默认/OpenAI/通义/Kimi/智谱/自定义,key 按服务商分存)与 AI 个性(默认无/四预设/自定义,仅注入反问/汇总/洞察)双端一致。仍为 iOS 独有:苹果智能(Foundation Models 端侧,`FoundationModelsClient`)、桌面小组件、Siri App Intents、应用内实时语音听写(Android 用系统 RecognizerIntent 对话框代替;agent 入口 iOS 是主页下拉、Android 是顶栏 ✨ 按钮;Android 汇总正文在触发时现算,iOS 是前台排定时的快照)。
 
 ## 各端架构差异(有意为之,勿"统一")
 
