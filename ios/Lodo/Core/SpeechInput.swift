@@ -1,10 +1,9 @@
-#if os(iOS)
 import Foundation
 import Speech
 import AVFoundation
 
-/// 中文语音听写:AVAudioEngine 采集 + SFSpeechRecognizer 实时转写。
-/// 转写结果通过 `transcript` 增量更新,停止后保留最终文本。
+/// 中文语音听写:AVAudioEngine 采集 + SFSpeechRecognizer 实时转写(iOS/macOS 通用,
+/// 音频会话配置仅 iOS 需要)。转写结果通过 `transcript` 增量更新,停止后保留最终文本。
 @MainActor
 @Observable
 final class SpeechInput {
@@ -46,9 +45,11 @@ final class SpeechInput {
         }
 
         do {
+            #if os(iOS)
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.record, mode: .measurement, options: .duckOthers)
             try session.setActive(true, options: .notifyOthersOnDeactivation)
+            #endif
 
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
@@ -89,8 +90,9 @@ final class SpeechInput {
         audioEngine.inputNode.removeTap(onBus: 0)
         request?.endAudio()
         isRecording = false
+        #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(
             false, options: .notifyOthersOnDeactivation)
+        #endif
     }
 }
-#endif

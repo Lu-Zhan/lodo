@@ -1,4 +1,3 @@
-#if os(iOS)
 import SwiftUI
 
 /// 主页下拉唤出的全局 agent:大对话框,一句话新增/修改/完成/删除待办(可批量);
@@ -85,7 +84,9 @@ struct AgentView: View {
             }
             .padding()
             .navigationTitle("AI 助手")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消", role: .cancel) {
@@ -136,7 +137,11 @@ struct AgentView: View {
                 #endif
             }
         }
+        #if os(iOS)
         .presentationDetents([.medium, .large])
+        #else
+        .frame(minWidth: 460, minHeight: 420)
+        #endif
     }
 
     // MARK: - 回应区块
@@ -226,4 +231,3 @@ struct AgentView: View {
         }
     }
 }
-#endif

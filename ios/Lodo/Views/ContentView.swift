@@ -89,14 +89,11 @@ struct ContentView: View {
             Tab("已完成", systemImage: "checkmark.circle", value: AppTab.done) {
                 DoneListView()
             }
-            #if os(iOS)
             Tab("添加", systemImage: "plus", value: AppTab.add, role: .search) {
                 Color.clear
             }
-            #endif
         }
         .tabViewStyle(.sidebarAdaptable)
-        #if os(iOS)
         .onChange(of: selection) { _, new in
             if new == .add {
                 // "添加"不是真正的页面:切到待办页并弹出快速添加
@@ -104,7 +101,6 @@ struct ContentView: View {
                 addRequested = true
             }
         }
-        #endif
     }
 
     #if os(iOS)

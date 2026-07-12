@@ -1,4 +1,3 @@
-#if os(iOS)
 import SwiftUI
 import LodoCore
 
@@ -42,7 +41,9 @@ struct AddTaskView: View {
             }
             .formStyle(.grouped)
             .navigationTitle("添加")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消", role: .cancel) {
@@ -77,6 +78,9 @@ struct AddTaskView: View {
                 #endif
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 460, minHeight: 560)
+        #endif
     }
 
     private var aiSection: some View {
@@ -161,4 +165,3 @@ struct AddTaskView: View {
         dismiss()
     }
 }
-#endif

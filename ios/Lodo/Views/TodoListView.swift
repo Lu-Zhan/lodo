@@ -89,6 +89,16 @@ struct TodoListView: View {
             }
             .navigationTitle("lodo")
             .toolbar {
+                #if os(macOS)
+                // macOS 没有下拉手势,agent 入口放工具栏
+                ToolbarItem {
+                    Button {
+                        sheet = .agent(prefill: nil)
+                    } label: {
+                        Label("AI 助手", systemImage: "sparkles")
+                    }
+                }
+                #endif
                 ToolbarItem {
                     Button {
                         sheet = .settings
@@ -100,15 +110,11 @@ struct TodoListView: View {
             .sheet(item: $sheet) { mode in
                 switch mode {
                 case .add:
-                    #if os(iOS)
                     AddTaskView(onSaveManual: { saveNew($0) })
-                    #endif
                 case .agent(let prefill):
-                    #if os(iOS)
                     AgentView(prefill: prefill,
                               submit: { try await route($0) },
                               onConfirm: { performPendingActions() })
-                    #endif
                 case .create(let parsed):
                     TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
                 case .edit(let task, let parsed):
