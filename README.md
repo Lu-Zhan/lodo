@@ -10,6 +10,16 @@ lodo 是一个"不完成就不放过你"的待办 app:事项到期后可以**完
 | `android/` | Kotlin + Jetpack Compose(Android 8.0+),功能对齐 iOS |
 | `web/` | Streamlit 演示版,仅作参考 |
 
+## 界面一览
+
+| 主页:日期条 · 到期卡 · 分组 | 添加:AI 解析回填表单 | 全局助手:批量操作确认 |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/home.png" width="240"> | <img src="docs/screenshots/add-ai-filled.png" width="240"> | <img src="docs/screenshots/agent-confirm.png" width="240"> |
+
+| 信息不全时反问补全 | 已完成页:本周洞察 | 设置:AI 服务与个性 |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/agent-clarify.png" width="240"> | <img src="docs/screenshots/insight.png" width="240"> | <img src="docs/screenshots/settings.png" width="240"> |
+
 ---
 
 ## 快速上手
@@ -65,6 +75,8 @@ lodo 是一个"不完成就不放过你"的待办 app:事项到期后可以**完
 
 - **默认 DeepSeek**,也支持 OpenAI、通义千问、Kimi、智谱,或自定义任何 OpenAI 兼容接口(如 OpenRouter、本地 Ollama);填对应服务商的 API key 即可,key 加密保存在本机(iOS 钥匙串 / Android Keystore),按服务商分开记
 - **苹果智能**(iOS 26+,iPhone 15 Pro 及以上):免 key、离线、数据不出设备,选中即用
+
+<img src="docs/screenshots/apple-intelligence.png" width="240">
 
 > 隐私说明:使用云服务商时,你输入的自然语言和当前待办列表会发送给所选 AI 服务解析;
 > 选苹果智能则全部在设备端完成。
