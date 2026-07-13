@@ -36,10 +36,15 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: - 通知链
 
+    /// 系统 pending 通知上限 64,给纠缠链留的全局预算(汇总等另计)。
+    private static let chainBudget = 48
+
     /// 取消并重排某事项的通知链,并同步小组件快照。
+    /// chainLength:本次预排的链长(refreshAll 按预算分配;单任务变更用满 8 条)。
     @MainActor
-    func rebuild(for task: TaskItem) {
-        if let context = container?.mainContext {
+    func rebuild(for task: TaskItem, chainLength: Int = NotificationManager.chainLength,
+                 syncWidget: Bool = true) {
+        if syncWidget, let context = container?.mainContext {
             WidgetBridge.sync(context: context)
         }
         let center = UNUserNotificationCenter.current()
@@ -56,7 +61,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             anchor = anchor.addingTimeInterval(missed * interval)
         }
         let starting = task.phase == .start && task.durationMinutes > 0
-        for i in 0..<Self.chainLength {
+        for i in 0..<min(chainLength, Self.chainLength) {
             let fire = anchor.addingTimeInterval(interval * Double(i))
             guard fire > now else { continue }
             let content = UNMutableNotificationContent()
@@ -85,13 +90,21 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// 重排全部待办的通知链和每日汇总(app 启动/回到前台时调用)。
+    /// 通知链按全局预算分配:每任务先保底 1 条,剩余额度按到期先后补满,
+    /// 避免 8 条 × N 任务撞系统 64 条上限导致后续提醒静默丢失。
     @MainActor
     func refreshAll() {
         guard let context = container?.mainContext else { return }
-        let pending = FetchDescriptor<TaskItem>(
+        var pending = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" })
+        pending.sortBy = [SortDescriptor(\.nextRemindAt)]
         let tasks = (try? context.fetch(pending)) ?? []
-        for task in tasks { rebuild(for: task) }
+        var budget = Self.chainBudget - tasks.count  // 每任务保底 1 条之外的余量
+        for task in tasks {
+            let extra = max(0, min(Self.chainLength - 1, budget))
+            budget -= extra
+            rebuild(for: task, chainLength: 1 + extra, syncWidget: false)
+        }
         let startOfDay = Calendar.current.startOfDay(for: Date())
         let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)
             ?? startOfDay.addingTimeInterval(86400)

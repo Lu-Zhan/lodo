@@ -130,8 +130,10 @@ enum DeepSeekClient {
     /// AI 总入口:给定当前待办列表,把用户的一句话解析成一组操作
     /// (新建/修改/完成/删除,可多条),或在关键信息缺失时反问。
     static func command(
-        _ text: String, tasks: [(uuid: String, task: ParsedTask)]
+        _ text: String, tasks allTasks: [(uuid: String, task: ParsedTask)]
     ) async throws -> AICommandResult {
+        // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
+        let tasks = Array(allTasks.prefix(50))
         let list = tasks.map { entry -> [String: Any] in
             var fields = taskFields(of: entry.task)
             fields["uuid"] = entry.uuid
@@ -268,7 +270,7 @@ enum DeepSeekClient {
         正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述,\
         禁止出现"拖延""失败"等词。只返回 JSON:{"insight": "一句话"},不要任何其他文字。\(personaBlock)
         """
-        let payload = try await payload(system: system, user: stats)
+        let payload = try await payload(system: system, user: stats, timeout: 60)
         guard let insight = payload["insight"] as? String,
               !insight.trimmingCharacters(in: .whitespaces).isEmpty else {
             throw DeepSeekError.parse("返回格式异常:缺少 insight")
@@ -284,7 +286,7 @@ enum DeepSeekClient {
         (如时间临近、耗时长或听起来重要的),不超过 40 个字,\
         只返回 JSON:{"summary": "一句话"},不要任何其他文字。\(personaBlock)
         """
-        let payload = try await payload(system: system, user: json(items))
+        let payload = try await payload(system: system, user: json(items), timeout: 60)
         guard let summary = payload["summary"] as? String,
               !summary.trimmingCharacters(in: .whitespaces).isEmpty else {
             throw DeepSeekError.parse("返回格式异常:缺少 summary")
@@ -306,7 +308,7 @@ enum DeepSeekClient {
         \(current ?? "(空)")
         """
         let payload = try await payload(
-            system: system, user: "新样本:\(title),\(durationMinutes) 分钟")
+            system: system, user: "新样本:\(title),\(durationMinutes) 分钟", timeout: 60)
         guard let memory = payload["memory"] as? String else {
             throw DeepSeekError.parse("返回格式异常:缺少 memory")
         }
@@ -348,7 +350,33 @@ enum DeepSeekClient {
         return KeychainHelper.apiKey != nil
     }
 
-    private static func payload(system: String, user: String) async throws -> [String: Any] {
+    /// 模型输出文本 → JSON payload:剥 markdown 围栏、从首个 { 截到末个 },
+    /// 兼容部分服务/端侧模型不严格遵守纯 JSON 的情况。云端与苹果智能共用。
+    static func decodePayload(from text: String) throws -> [String: Any] {
+        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.hasPrefix("```") {
+            cleaned = cleaned
+                .replacingOccurrences(of: "```json", with: "")
+                .replacingOccurrences(of: "```", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let start = cleaned.firstIndex(of: "{"),
+           let end = cleaned.lastIndex(of: "}"), start < end {
+            cleaned = String(cleaned[start...end])
+        }
+        guard let payload = try? JSONSerialization.jsonObject(
+            with: Data(cleaned.utf8)) as? [String: Any] else {
+            throw DeepSeekError.parse("返回格式异常")
+        }
+        if let error = payload["error"] as? String {
+            throw DeepSeekError.parse(error)
+        }
+        return payload
+    }
+
+    /// timeout:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。
+    private static func payload(system: String, user: String,
+                                timeout: TimeInterval = 20) async throws -> [String: Any] {
         // 苹果智能:端侧推理,免 key,payload 形态与云端一致
         if AppSettings.usesAppleIntelligence {
             #if canImport(FoundationModels)
@@ -368,7 +396,7 @@ enum DeepSeekClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 60
+        request.timeoutInterval = timeout
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "model": AppSettings.aiModel,
             "messages": [
@@ -382,6 +410,11 @@ enum DeepSeekClient {
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await URLSession.shared.data(for: request)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            // 请求被主动取消:不当作"调用失败"展示
+            throw CancellationError()
         } catch {
             throw DeepSeekError.api(error.localizedDescription)
         }
@@ -392,15 +425,10 @@ enum DeepSeekClient {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = root["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
-              let content = message["content"] as? String,
-              let payload = try? JSONSerialization.jsonObject(
-                  with: Data(content.utf8)) as? [String: Any] else {
+              let content = message["content"] as? String else {
             throw DeepSeekError.parse("返回格式异常")
         }
-        if let error = payload["error"] as? String {
-            throw DeepSeekError.parse(error)
-        }
-        return payload
+        return try decodePayload(from: content)
     }
 
     /// 从 payload 里解析并校验事项字段。

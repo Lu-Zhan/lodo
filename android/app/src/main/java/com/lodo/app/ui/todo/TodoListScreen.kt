@@ -1,9 +1,14 @@
 package com.lodo.app.ui.todo
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -72,7 +77,7 @@ private val monthDayFormatter = DateTimeFormatter.ofPattern("M月d日")
  * 待办标签页,对应 iOS TodoListView:日期横滑条(默认今天)、到期提醒卡
  * (完成/稍等 + 右上角改期)、今天/未来待办分组、实际耗时轻量条。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TodoListScreen(
     modifier: Modifier = Modifier,
@@ -115,9 +120,10 @@ fun TodoListScreen(
         ) {
             item(key = "date-strip") { DateStrip(vm.selectedDate) { vm.selectedDate = it } }
 
-            vm.askDuration?.let { (title, planned) ->
+            vm.askDurationQueue.firstOrNull()?.let { (title, planned) ->
                 item(key = "ask-duration") {
                     AskDurationCard(
+                        modifier = Modifier.animateItem(),
                         title = title,
                         planned = planned,
                         onAnswer = vm::answerActualDuration,
@@ -129,7 +135,9 @@ fun TodoListScreen(
             if (state.due.isNotEmpty()) {
                 item(key = "due-header") { SectionHeader("🔔 到期提醒") }
                 items(state.due, key = { "due-${it.uuid}" }) { task ->
-                    DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes)
+                    Box(Modifier.animateItem()) {
+                        DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes)
+                    }
                 }
                 vm.rescheduleError?.let { error ->
                     item(key = "reschedule-error") {
@@ -164,6 +172,7 @@ fun TodoListScreen(
             }
             items(dayTasks, key = { it.uuid }) { task ->
                 PendingRow(
+                    modifier = Modifier.animateItem(),
                     task = task,
                     hapticsEnabled = state.hapticsEnabled,
                     onComplete = { vm.completeWithSampling(task) },
@@ -176,6 +185,7 @@ fun TodoListScreen(
                 item(key = "future-header") { SectionHeader("未来待办") }
                 items(futureTasks, key = { "future-${it.uuid}" }) { task ->
                     PendingRow(
+                        modifier = Modifier.animateItem(),
                         task = task,
                         hapticsEnabled = state.hapticsEnabled,
                         onComplete = { vm.completeWithSampling(task) },
@@ -203,7 +213,11 @@ fun TodoListScreen(
             prefill = sheet.prefill,
             onSubmit = vm::agentRoute,
             onConfirm = { vm.performPendingActions() },
-            onDismiss = { vm.sheet = null },
+            onDismiss = {
+                // 清掉未确认的批量操作,避免残留
+                vm.clearPendingActions()
+                vm.sheet = null
+            },
         )
         is SheetMode.Create -> TaskEditSheet(
             existing = null,
@@ -243,14 +257,16 @@ private fun DateStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
             items((0..29).toList()) { offset ->
                 val date = today.plusDays(offset.toLong())
                 val isSelected = date == selected
+                val cellColor by animateColorAsState(
+                    if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surface,
+                    label = "dateCell",
+                )
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surface,
-                            RoundedCornerShape(12.dp),
-                        )
+                        .defaultMinSize(minWidth = 44.dp, minHeight = 52.dp)
+                        .background(cellColor, RoundedCornerShape(12.dp))
                         .clickable { onSelect(date) }
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {
@@ -279,6 +295,7 @@ private fun AskDurationCard(
     planned: Int,
     onAnswer: (Int) -> Unit,
     onSkip: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val chips = buildList {
         val lower = maxOf(5, (planned / 2 + 2) / 5 * 5)
@@ -287,7 +304,7 @@ private fun AskDurationCard(
             if (value !in this) add(value)
         }
     }
-    ElevatedCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    ElevatedCard(modifier = modifier.fillMaxWidth().padding(top = 8.dp)) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -307,6 +324,7 @@ private fun AskDurationCard(
 }
 
 /** 到期提醒卡:标题行右侧「改期」,主操作行 完成/开始了 + 稍等,候选 chips 在下方。 */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
     val starting = task.phaseEnum == TaskPhase.START && task.durationMinutes > 0
@@ -321,7 +339,7 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
             .padding(vertical = 4.dp),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(16.dp).animateContentSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -369,9 +387,8 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
                 }
             }
             vm.reschedule?.takeIf { it.first == task.uuid }?.let { (_, candidates) ->
-                Row(
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     candidates.forEach { (label, date) ->
                         OutlinedButton(onClick = { vm.applyReschedule(task.uuid, date) }) {
@@ -395,6 +412,7 @@ internal fun PendingRow(
     onComplete: () -> Unit,
     onDelete: () -> Unit,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
     val currentOnComplete by rememberUpdatedState(onComplete)
@@ -417,7 +435,7 @@ internal fun PendingRow(
             }
         },
     )
-    Column {
+    Column(modifier) {
         SwipeToDismissBox(
             state = dismissState,
             backgroundContent = { SwipeBackground(dismissState.dismissDirection) },

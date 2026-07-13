@@ -35,6 +35,10 @@ enum WidgetBridge {
         let at: Date
     }
 
+    /// 上次写入的快照,内容未变时不写盘、不 reload(去抖)。
+    @MainActor
+    private static var lastSnapshot: Data?
+
     @MainActor
     static func sync(context: ModelContext) {
         guard let url = AppGroup.snapshotURL else { return }
@@ -44,9 +48,10 @@ enum WidgetBridge {
         descriptor.fetchLimit = 6
         let items = ((try? context.fetch(descriptor)) ?? [])
             .map { Item(title: $0.title, at: $0.nextRemindAt) }
-        if let data = try? JSONEncoder().encode(items) {
-            try? data.write(to: url, options: .atomic)
-        }
+        guard let data = try? JSONEncoder().encode(items) else { return }
+        if data == lastSnapshot { return }
+        lastSnapshot = data
+        try? data.write(to: url, options: .atomic)
         WidgetCenter.shared.reloadAllTimelines()
     }
 }

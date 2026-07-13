@@ -21,21 +21,24 @@ struct TodoListView: View {
     @Binding var agentRequest: String?
 
     @Environment(\.modelContext) private var context
-    @Query(sort: \TaskItem.nextRemindAt) private var allTasks: [TaskItem]
+    /// 只查未完成事项(已完成列表在 DoneListView 单独查询)。
+    @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "pending" },
+           sort: \TaskItem.nextRemindAt)
+    private var pending: [TaskItem]
 
     @State private var now = Date()
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var sheet: SheetMode?
     /// agent 解析出、等待用户确认的批量操作。
     @State private var pendingActions: [AIAction] = []
-    /// 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误。
+    /// 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误 / 进行中的请求。
     @State private var rescheduleLoading: String?
     @State private var reschedule: (uuid: String, candidates: [(label: String, date: Date)])?
     @State private var rescheduleError: String?
-    /// 完成后询问实际耗时的轻量条。
-    @State private var askDuration: (title: String, planned: Int)?
+    @State private var rescheduleTask: Task<Void, Never>?
+    /// 完成后询问实际耗时的轻量条(队列,连续完成不互相覆盖)。
+    @State private var askDurationQueue: [(title: String, planned: Int)] = []
 
-    private let clock = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
     /// 日期条展示的天数(从今天起)。
     private static let stripDays = 30
 
@@ -60,7 +63,6 @@ struct TodoListView: View {
         }
     }
 
-    private var pending: [TaskItem] { allTasks.filter { $0.status == .pending } }
     private var due: [TaskItem] { pending.filter { $0.nextRemindAt <= now } }
     /// 尚未到期的待办(已到期的在到期卡片区)。
     private var upcoming: [TaskItem] { pending.filter { $0.nextRemindAt > now } }
@@ -72,12 +74,20 @@ struct TodoListView: View {
                                                   to: selectedDate) else { return [] }
         return upcoming.filter { $0.nextRemindAt >= nextDay }
     }
+    /// 下一次需要唤醒刷新 `now` 的时刻:最近一个未到期事项或明天零点,取早者。
+    private var nextWakeDate: Date {
+        let midnight = Calendar.current.startOfDay(for: now).addingTimeInterval(86400)
+        let nextDue = pending.map(\.nextRemindAt).filter { $0 > now }.min()
+        return min(nextDue ?? midnight, midnight)
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 dateStrip
-                if askDuration != nil {
-                    askDurationSection
+                if let ask = askDurationQueue.first {
+                    askDurationSection(ask)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 if !due.isEmpty {
                     dueSection
@@ -87,6 +97,9 @@ struct TodoListView: View {
                     futureSection
                 }
             }
+            .animation(.snappy, value: due.map(\.uuid))
+            .animation(.snappy, value: askDurationQueue.map(\.title))
+            .animation(.snappy, value: selectedDate)
             .navigationTitle("lodo")
             .toolbar {
                 #if os(macOS)
@@ -107,7 +120,12 @@ struct TodoListView: View {
                     }
                 }
             }
-            .sheet(item: $sheet) { mode in
+            .sheet(item: $sheet, onDismiss: {
+                // 清掉 agent 会话残留,避免旧的批量操作被后续"确认执行";
+                // 并消费 sheet 打开期间积压的深链路由
+                pendingActions = []
+                DispatchQueue.main.async { consumeRoutes() }
+            }) { mode in
                 switch mode {
                 case .add:
                     AddTaskView(onSaveManual: { saveNew($0) })
@@ -129,29 +147,24 @@ struct TodoListView: View {
                 sheet = .agent(prefill: nil)
             }
             #endif
-            .onReceive(clock) { now = $0 }
-            .onChange(of: addRequested) { _, requested in
-                if requested {
-                    addRequested = false
-                    sheet = .add
+            // 按需唤醒:睡到下一个到期时刻/明天零点再刷新 now,替代固定 10 秒轮询
+            .task(id: nextWakeDate) {
+                let interval = nextWakeDate.timeIntervalSinceNow + 1
+                if interval > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 }
+                guard !Task.isCancelled else { return }
+                now = Date()
+            }
+            .onChange(of: addRequested) { _, requested in
+                if requested { consumeRoutes() }
             }
             .onChange(of: agentRequest) { _, request in
-                if let request {
-                    agentRequest = nil
-                    sheet = .agent(prefill: request.isEmpty ? nil : request)
-                }
+                if request != nil { consumeRoutes() }
             }
             .onAppear {
                 // 冷启动时深链可能先于本视图出现,补一次检查
-                if addRequested {
-                    addRequested = false
-                    sheet = .add
-                }
-                if let request = agentRequest {
-                    agentRequest = nil
-                    sheet = .agent(prefill: request.isEmpty ? nil : request)
-                }
+                consumeRoutes()
                 #if DEBUG
                 // 截图验证用:--demo-add 启动参数直接弹出快速添加页
                 if ProcessInfo.processInfo.arguments.contains("--demo-add") {
@@ -172,7 +185,7 @@ struct TodoListView: View {
                     ])
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-ask-duration") {
-                    askDuration = (title: "开周会", planned: 60)
+                    askDurationQueue.append((title: "开周会", planned: 60))
                 }
                 #endif
             }
@@ -206,7 +219,7 @@ struct TodoListView: View {
         let selected = calendar.isDate(date, inSameDayAs: selectedDate)
         let weekdayIndex = (calendar.component(.weekday, from: date) + 5) % 7
         return Button {
-            selectedDate = date
+            withAnimation(.snappy) { selectedDate = date }
         } label: {
             VStack(spacing: 2) {
                 Text(calendar.isDateInToday(date) ? "今天" : weekdayNames[weekdayIndex])
@@ -214,12 +227,14 @@ struct TodoListView: View {
                 Text("\(calendar.component(.day, from: date))")
                     .font(.headline)
             }
-            .frame(width: 46, height: 54)
+            .lineLimit(1)
+            .frame(minWidth: 46, minHeight: 54)
             .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
                         in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(date.formatted(.dateTime.month().day().weekday()))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -270,24 +285,27 @@ struct TodoListView: View {
                         .buttonStyle(.bordered)
                     }
                     if let reschedule, reschedule.uuid == task.uuid.uuidString {
-                        HStack {
-                            ForEach(reschedule.candidates, id: \.label) { candidate in
-                                Button(candidate.label) {
-                                    applyReschedule(task, to: candidate.date)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack {
+                                ForEach(reschedule.candidates, id: \.label) { candidate in
+                                    Button(candidate.label) {
+                                        applyReschedule(task, to: candidate.date)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.footnote)
+                                    .tint(.accentColor)
                                 }
-                                .buttonStyle(.bordered)
-                                .font(.footnote)
-                                .tint(.accentColor)
+                                Button {
+                                    withAnimation(.snappy) { self.reschedule = nil }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("收起改期候选")
                             }
-                            Button {
-                                self.reschedule = nil
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("收起改期候选")
                         }
+                        .transition(.scale(scale: 0.96).combined(with: .opacity))
                     }
                 }
                 .padding(.vertical, 4)
@@ -300,31 +318,37 @@ struct TodoListView: View {
         }
     }
 
-    /// 完成后的实际耗时轻量条(智能采样,选择/跳过即消失)。
-    private var askDurationSection: some View {
+    /// 完成后的实际耗时轻量条(智能采样,队列化;选择/跳过后出下一条)。
+    private func askDurationSection(_ ask: (title: String, planned: Int)) -> some View {
         Section {
-            if let ask = askDuration {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("「\(ask.title)」实际用了多久?").font(.subheadline)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("「\(ask.title)」实际用了多久?").font(.subheadline)
+                ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
                         ForEach(durationChips(planned: ask.planned), id: \.self) { minutes in
                             Button("\(minutes) 分钟") {
                                 Haptics.success()
                                 DurationMemory.recordActual(
                                     title: ask.title, planned: ask.planned, minutes: minutes)
-                                askDuration = nil
+                                popAskDuration()
                             }
                             .buttonStyle(.bordered)
                             .font(.footnote)
                         }
-                        Button("跳过") { askDuration = nil }
+                        Button("跳过") { popAskDuration() }
                             .buttonStyle(.plain)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.vertical, 2)
             }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func popAskDuration() {
+        withAnimation(.snappy) {
+            if !askDurationQueue.isEmpty { askDurationQueue.removeFirst() }
         }
     }
 
@@ -401,7 +425,9 @@ struct TodoListView: View {
             Button(role: .destructive) {
                 Haptics.impact()
                 NotificationManager.shared.cancelChain(for: task.uuid)
-                context.delete(task)
+                withAnimation(.snappy) {
+                    context.delete(task)
+                }
                 try? context.save()
                 WidgetBridge.sync(context: context)
             } label: {
@@ -485,22 +511,42 @@ struct TodoListView: View {
         sheet = nil
     }
 
+    /// 消费深链/tab 按钮的路由请求;有 sheet 打开时不打断(如 agent 正在确认),
+    /// 由 sheet onDismiss 再补一次消费。
+    private func consumeRoutes() {
+        guard sheet == nil else { return }
+        if addRequested {
+            addRequested = false
+            sheet = .add
+            return
+        }
+        if let request = agentRequest {
+            agentRequest = nil
+            sheet = .agent(prefill: request.isEmpty ? nil : request)
+        }
+    }
+
     /// 完成 + 实际耗时采样:仅真正"完成一次"(非两阶段的"开始了")且命中采样时,
-    /// 顶部出轻量条询问实际用时。
+    /// 顶部出轻量条询问实际用时(排队,连续完成不覆盖)。
     private func completeWithSampling(_ task: TaskItem) {
         let title = task.title
         let planned = task.durationMinutes
         // phase==start 且有时长的这次点按是"开始了",不算完成
         let isFinishing = !(task.phase == .start && task.durationMinutes > 0)
-        NotificationManager.shared.complete(task, context: context)
+        withAnimation(.snappy) {
+            NotificationManager.shared.complete(task, context: context)
+        }
         if isFinishing, planned > 0,
            DurationMemory.shouldAskActual(title: title, planned: planned) {
-            askDuration = (title, planned)
+            withAnimation(.snappy) {
+                askDurationQueue.append((title, planned))
+            }
         }
     }
 
-    /// 请求逾期事项的 AI 改期候选(按需调用)。
+    /// 请求逾期事项的 AI 改期候选(按需调用;新请求取消旧请求,返回时校验仍是当前卡)。
     private func requestReschedule(_ task: TaskItem) {
+        rescheduleTask?.cancel()
         let uuid = task.uuid.uuidString
         rescheduleLoading = uuid
         reschedule = nil
@@ -509,25 +555,36 @@ struct TodoListView: View {
         let remindAt = task.remindAt
         let duration = task.durationMinutes
         let recurring = task.isRecurring
-        Task {
-            defer { rescheduleLoading = nil }
+        rescheduleTask = Task {
             do {
                 let candidates = try await DeepSeekClient.suggestReschedule(
                     title: title, remindAt: remindAt,
                     durationMinutes: duration, isRecurring: recurring)
-                reschedule = (uuid, candidates)
+                guard !Task.isCancelled, rescheduleLoading == uuid else { return }
+                withAnimation(.snappy) {
+                    reschedule = (uuid, candidates)
+                }
             } catch {
+                guard !Task.isCancelled, rescheduleLoading == uuid,
+                      !(error is CancellationError) else { return }
                 rescheduleError = error.localizedDescription
             }
+            if rescheduleLoading == uuid { rescheduleLoading = nil }
         }
     }
 
     /// 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。
     private func applyReschedule(_ task: TaskItem, to date: Date) {
         Haptics.success()
+        guard task.status == .pending else {
+            reschedule = nil
+            return
+        }
         if !task.isRecurring { task.remindAt = date }
         task.nextRemindAt = date
-        reschedule = nil
+        withAnimation(.snappy) {
+            reschedule = nil
+        }
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
     }

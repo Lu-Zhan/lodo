@@ -5,7 +5,10 @@ import LodoCore
 /// 已完成列表页(第二个 tab):按完成时间倒序;右滑恢复未完成,左滑删除。
 struct DoneListView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \TaskItem.nextRemindAt) private var allTasks: [TaskItem]
+    /// 只查已完成事项(待办列表在 TodoListView 单独查询)。
+    @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "done" },
+           sort: \TaskItem.nextRemindAt)
+    private var allTasks: [TaskItem]
 
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
     @State private var insight: String?
@@ -14,8 +17,7 @@ struct DoneListView: View {
     private static let insightTextKey = "insightText"
 
     private var done: [TaskItem] {
-        allTasks.filter { $0.status == .done }
-            .sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
+        allTasks.sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
     }
 
     var body: some View {

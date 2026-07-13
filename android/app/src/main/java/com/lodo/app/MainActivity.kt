@@ -13,6 +13,9 @@ import com.lodo.app.ui.theme.LodoTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    /** 上次全量重排时间,30 秒内重复 resume 不再触发(对应 iOS 的前台节流)。 */
+    private var lastSyncMillis = 0L
+
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -31,7 +34,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 对应 iOS 回前台 refreshAll:重排全部待办闹钟与每日汇总
+        // 对应 iOS 回前台 refreshAll:重排全部待办闹钟与每日汇总(30 秒节流)
+        val now = System.currentTimeMillis()
+        if (now - lastSyncMillis < 30_000) return
+        lastSyncMillis = now
         val app = application as LodoApp
         lifecycleScope.launch { app.repository.syncAlarms() }
     }

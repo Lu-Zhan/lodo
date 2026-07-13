@@ -54,9 +54,11 @@ struct AgentView: View {
 
                 if let clarify {
                     clarifySection(clarify)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 if let confirmLines {
                     confirmSection(confirmLines)
+                        .transition(.scale(scale: 0.96).combined(with: .opacity))
                 }
 
                 Spacer(minLength: 0)
@@ -83,6 +85,8 @@ struct AgentView: View {
                 }
             }
             .padding()
+            .animation(.snappy, value: confirmLines)
+            .animation(.snappy, value: clarify?.question)
             .navigationTitle("AI 助手")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -150,13 +154,15 @@ struct AgentView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label(clarify.question, systemImage: "questionmark.circle")
                 .font(.subheadline)
-            HStack {
-                ForEach(clarify.options, id: \.self) { option in
-                    Button(option) {
-                        resolveClarify(with: option)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    ForEach(clarify.options, id: \.self) { option in
+                        Button(option) {
+                            resolveClarify(with: option)
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.footnote)
                     }
-                    .buttonStyle(.bordered)
-                    .font(.footnote)
                 }
             }
         }

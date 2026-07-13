@@ -120,8 +120,10 @@ object DeepSeekClient {
     suspend fun command(
         config: AIConfig,
         text: String,
-        tasks: List<Pair<String, ParsedTask>>,
+        allTasks: List<Pair<String, ParsedTask>>,
     ): AICommandResult {
+        // token 预算:按提醒时间取最近 50 条进 prompt
+        val tasks = allTasks.sortedBy { it.second.remindAt }.take(50)
         val list = JSONArray()
         tasks.forEach { (uuid, task) -> list.put(taskJson(task).put("uuid", uuid)) }
         val system = "你是提醒事项应用 lodo 的智能入口。给定当前待办事项列表和用户的一句话," +
@@ -199,7 +201,7 @@ object DeepSeekClient {
             "markdown 列表格式,首行标题为\"# 事项时长记忆\"。" +
             "只返回 JSON:{\"memory\": \"更新后的文件全文\"},不要任何其他文字。\n\n" +
             "现有记忆文件:\n${current ?: "(空)"}"
-        val memory = complete(config, system, "新样本:$title,$durationMinutes 分钟").optString("memory")
+        val memory = complete(config, system, "新样本:$title,$durationMinutes 分钟", timeoutSeconds = 60).optString("memory")
         if (memory.isEmpty()) throw DeepSeekException("无法解析:返回格式异常:缺少 memory")
         return memory
     }
@@ -210,7 +212,7 @@ object DeepSeekClient {
             "(含时间与时长),用一句话概括今天的安排,突出重点事件" +
             "(如时间临近、耗时长或听起来重要的),不超过 40 个字," +
             "只返回 JSON:{\"summary\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
-        val summary = complete(config, system, JSONArray(items).toString()).optString("summary")
+        val summary = complete(config, system, JSONArray(items).toString(), timeoutSeconds = 60).optString("summary")
         if (summary.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 summary")
         return summary
     }
@@ -254,7 +256,7 @@ object DeepSeekClient {
         val system = "你是提醒事项应用 lodo 的回顾助手。根据一周完成统计,输出一句不超过 60 个字的" +
             "正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述," +
             "禁止出现\"拖延\"\"失败\"等词。只返回 JSON:{\"insight\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
-        val insight = complete(config, system, stats).optString("insight")
+        val insight = complete(config, system, stats, timeoutSeconds = 60).optString("insight")
         if (insight.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 insight")
         return insight
     }
@@ -268,8 +270,30 @@ object DeepSeekClient {
         .put("repeat_days", JSONArray(task.repeatDays))
         .put("repeat_times", JSONArray(task.repeatTimes))
 
-    /** 发起请求并取回模型返回的 JSON payload(含 error 检查)。 */
-    private suspend fun complete(config: AIConfig, system: String, user: String): JSONObject =
+    /**
+     * 模型输出文本 → JSON:剥 markdown 围栏、从首个 { 截到末个 },
+     * 兼容部分服务不严格遵守纯 JSON 的情况(与 iOS decodePayload 一致)。
+     */
+    private fun decodePayload(text: String): JSONObject {
+        var cleaned = text.trim()
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replace("```json", "").replace("```", "").trim()
+        }
+        val start = cleaned.indexOf('{')
+        val end = cleaned.lastIndexOf('}')
+        if (start in 0 until end) cleaned = cleaned.substring(start, end + 1)
+        return try {
+            JSONObject(cleaned)
+        } catch (_: Exception) {
+            throw DeepSeekException("无法解析:返回格式异常")
+        }
+    }
+
+    /** 发起请求并取回模型返回的 JSON payload(含 error 检查)。
+     * timeoutSeconds:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。 */
+    private suspend fun complete(
+        config: AIConfig, system: String, user: String, timeoutSeconds: Long = 20,
+    ): JSONObject =
         withContext(Dispatchers.IO) {
             if (config.apiKey.isNullOrBlank()) {
                 throw DeepSeekException("未配置 DeepSeek API key,请到「设置」里填写。")
@@ -293,8 +317,12 @@ object DeepSeekClient {
                 .post(body.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
+            val call = client.newBuilder()
+                .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .callTimeout(timeoutSeconds + 5, TimeUnit.SECONDS)
+                .build()
             val response = try {
-                client.newCall(request).execute()
+                call.newCall(request).execute()
             } catch (e: IOException) {
                 throw DeepSeekException("调用 DeepSeek 失败:${e.message}")
             }
@@ -303,14 +331,14 @@ object DeepSeekClient {
                 if (resp.code != 200) {
                     throw DeepSeekException("调用 DeepSeek 失败:HTTP ${resp.code} ${text.take(200)}")
                 }
-                val payload = try {
-                    val content = JSONObject(text)
+                val content = try {
+                    JSONObject(text)
                         .getJSONArray("choices").getJSONObject(0)
                         .getJSONObject("message").getString("content")
-                    JSONObject(content)
                 } catch (_: Exception) {
                     throw DeepSeekException("无法解析:返回格式异常")
                 }
+                val payload = decodePayload(content)
                 payload.optString("error").takeIf { it.isNotEmpty() }?.let {
                     throw DeepSeekException("无法解析:$it")
                 }

@@ -41,22 +41,8 @@ enum FoundationModelsClient {
         } catch {
             throw DeepSeekError.api(error.localizedDescription)
         }
-        // 端侧模型偶尔会包 ```json 围栏,剥掉后再解析
-        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if cleaned.hasPrefix("```") {
-            cleaned = cleaned
-                .replacingOccurrences(of: "```json", with: "")
-                .replacingOccurrences(of: "```", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        guard let data = cleaned.data(using: .utf8),
-              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw DeepSeekError.parse("返回格式异常")
-        }
-        if let error = payload["error"] as? String {
-            throw DeepSeekError.parse(error)
-        }
-        return payload
+        // 与云端共用的 JSON 容错解析(剥围栏、截取花括号区间)
+        return try DeepSeekClient.decodePayload(from: text)
     }
 }
 #endif

@@ -12,6 +12,9 @@ struct ContentView: View {
         case todo, done, add
     }
 
+    /// 上次前台全量重排的时间,30 秒内重复 active 不再触发(避免频繁切换的重排风暴)。
+    @State private var lastActiveRefresh = Date.distantPast
+
     var body: some View {
         tabs
             .onAppear {
@@ -24,7 +27,10 @@ struct ContentView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
-                    Task { @MainActor in NotificationManager.shared.refreshAll() }
+                    if Date().timeIntervalSince(lastActiveRefresh) > 30 {
+                        lastActiveRefresh = Date()
+                        Task { @MainActor in NotificationManager.shared.refreshAll() }
+                    }
                     #if os(iOS)
                     consumeAgentHandoff()
                     #endif

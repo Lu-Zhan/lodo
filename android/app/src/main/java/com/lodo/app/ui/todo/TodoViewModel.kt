@@ -57,11 +57,15 @@ data class TodoUiState(
 class TodoViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as LodoApp
 
-    /** 10 秒心跳,让"到期提醒"分组不依赖数据库变更也能及时出现。 */
+    /** 下一次需要唤醒的间隔(毫秒),由 combine 按最近到期时间更新;上限 10 分钟。 */
+    @Volatile
+    private var nextWakeDelayMillis = 10_000L
+
+    /** 按需心跳:睡到最近一个到期时刻再刷新,替代固定 10 秒轮询。 */
     private val ticker = flow {
         while (true) {
             emit(Unit)
-            delay(10_000)
+            delay(nextWakeDelayMillis)
         }
     }
 
@@ -69,6 +73,12 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         app.database.taskDao().observeAll(), ticker, app.settings.settings,
     ) { tasks, _, settings ->
         val now = LocalDateTime.now()
+        // 计算下一次唤醒:最近一个未到期事项,否则 10 分钟兜底
+        val nowMillis = System.currentTimeMillis()
+        nextWakeDelayMillis = tasks
+            .filter { it.statusEnum == TaskStatus.PENDING && it.nextRemindAtMillis > nowMillis }
+            .minOfOrNull { it.nextRemindAtMillis - nowMillis + 1_000 }
+            ?.coerceIn(1_000L, 600_000L) ?: 600_000L
         TodoUiState(
             due = tasks.filter { it.statusEnum == TaskStatus.PENDING && it.toData().isDue(now) },
             pending = tasks.filter { it.statusEnum == TaskStatus.PENDING },
@@ -85,8 +95,8 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     /** 日期条选中的日期,默认今天。 */
     var selectedDate by mutableStateOf(LocalDate.now())
 
-    /** 完成后询问实际耗时的轻量条:(标题, 计划分钟)。 */
-    var askDuration by mutableStateOf<Pair<String, Int>?>(null)
+    /** 完成后询问实际耗时的轻量条(队列,连续完成不互相覆盖):(标题, 计划分钟)。 */
+    var askDurationQueue by mutableStateOf<List<Pair<String, Int>>>(emptyList())
         private set
 
     /** 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误。 */
@@ -96,6 +106,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var rescheduleError by mutableStateOf<String?>(null)
         private set
+    private var rescheduleJob: kotlinx.coroutines.Job? = null
 
     /** agent 解析出、等待用户确认的批量操作。 */
     private var pendingActions: List<AIAction> = emptyList()
@@ -108,7 +119,8 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
      */
     suspend fun agentRoute(text: String): AgentReply {
         val context = uiState.value.pending.map { it.uuid to it.toParsedTask() }
-        return when (val result = DeepSeekClient.command(app.settings.aiConfig(), text, context)) {
+        return when (val result = DeepSeekClient.command(app.settings.aiConfig(), text,
+            context.sortedBy { it.second.remindAt })) {
             is AICommandResult.Clarify -> AgentReply.Clarify(result.question, result.options)
             is AICommandResult.Actions -> {
                 val actions = result.actions
@@ -160,6 +172,11 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         sheet = null
     }
 
+    /** agent 关闭时清掉未确认的操作,避免残留被后续误执行。 */
+    fun clearPendingActions() {
+        pendingActions = emptyList()
+    }
+
     // ---- 快速添加页的 AI 解析(仅新建,回填手动表单) ----
 
     /** 解析一句话;无时长且有记忆时追加一次时长建议小请求,返回(字段, AI 建议的时长)。 */
@@ -190,40 +207,45 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         if (isFinishing && task.durationMinutes > 0 &&
             DurationMemory.shouldAskActual(app, task.title, task.durationMinutes)
         ) {
-            askDuration = task.title to task.durationMinutes
+            askDurationQueue = askDurationQueue + (task.title to task.durationMinutes)
         }
     }
 
     fun answerActualDuration(minutes: Int) {
-        val (title, planned) = askDuration ?: return
-        askDuration = null
+        val (title, planned) = askDurationQueue.firstOrNull() ?: return
+        askDurationQueue = askDurationQueue.drop(1)
         viewModelScope.launch {
             DurationMemory.recordActual(app, app.settings.aiConfig(), title, planned, minutes)
         }
     }
 
     fun skipActualDuration() {
-        askDuration = null
+        askDurationQueue = askDurationQueue.drop(1)
     }
 
     // ---- 到期卡改期 ----
 
+    /** 请求改期候选:新请求取消旧请求,返回时校验仍是当前卡片。 */
     fun requestReschedule(task: TaskEntity) {
-        if (rescheduleLoadingUuid != null) return
+        rescheduleJob?.cancel()
         rescheduleLoadingUuid = task.uuid
         reschedule = null
         rescheduleError = null
-        viewModelScope.launch {
+        rescheduleJob = viewModelScope.launch {
             try {
                 val candidates = DeepSeekClient.suggestReschedule(
                     app.settings.aiConfig(), task.title, task.remindAt,
                     task.durationMinutes, task.isRecurring,
                 )
-                reschedule = task.uuid to candidates
+                if (rescheduleLoadingUuid == task.uuid) {
+                    reschedule = task.uuid to candidates
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                rescheduleError = e.message
+                if (rescheduleLoadingUuid == task.uuid) rescheduleError = e.message
             } finally {
-                rescheduleLoadingUuid = null
+                if (rescheduleLoadingUuid == task.uuid) rescheduleLoadingUuid = null
             }
         }
     }
