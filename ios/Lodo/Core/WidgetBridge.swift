@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import WidgetKit
+import LodoCore
 
 /// App Group 共享容器:数据库与小组件快照都放这里,app 和小组件两侧共用。
 enum AppGroup {
@@ -12,6 +13,17 @@ enum AppGroup {
 
     static var storeURL: URL? { containerURL?.appending(path: "lodo.store") }
     static var snapshotURL: URL? { containerURL?.appending(path: "widget-upcoming.json") }
+
+    /// AI 收藏的原始文件目录(按需创建);Inbox 是 Share Extension 的收件箱,
+    /// 扩展只往里落文件,主 app 回前台时消费。
+    static var memoryDirURL: URL? { directory("Memory") }
+    static var inboxDirURL: URL? { directory("Memory/Inbox") }
+
+    private static func directory(_ path: String) -> URL? {
+        guard let url = containerURL?.appending(path: path) else { return nil }
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
 
     /// 老版本数据库在默认位置(Application Support/default.store),
     /// 迁到 App Group 前先整套拷过去,避免升级丢数据。

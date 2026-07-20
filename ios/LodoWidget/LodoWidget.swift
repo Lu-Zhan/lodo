@@ -44,8 +44,20 @@ struct UpcomingProvider: TimelineProvider {
 
 struct LodoWidgetView: View {
     var entry: UpcomingEntry
+    @Environment(\.widgetFamily) private var family
 
+    /// 中尺寸是横向卡片(标题+3 条+右侧添加按钮);大尺寸(常见于 iPad)
+    /// 改用竖向列表把额外空间用起来,多显示到 6 条。
     var body: some View {
+        switch family {
+        case .systemLarge:
+            largeBody
+        default:
+            mediumBody
+        }
+    }
+
+    private var mediumBody: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("即将到来")
@@ -73,13 +85,53 @@ struct LodoWidgetView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // 右侧:快速添加,深链到 app 的快速添加页
+            // 右侧:深链到 app 弹出 AI 助手
             Link(destination: URL(string: "lodo://add")!) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 40))
                     .foregroundStyle(.tint)
             }
             .accessibilityLabel("添加")
+        }
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+
+    private var largeBody: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("即将到来")
+                    .font(.headline)
+                    .foregroundStyle(.tint)
+                Spacer()
+                Link(destination: URL(string: "lodo://add")!) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.tint)
+                }
+                .accessibilityLabel("添加")
+            }
+            if entry.items.isEmpty {
+                Spacer(minLength: 0)
+                Text("暂无待办事项")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            } else {
+                ForEach(Array(entry.items.prefix(6).enumerated()), id: \.offset) { index, item in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(item.title)
+                            .font(.subheadline)
+                            .lineLimit(1)
+                        Text(Self.format(item.at))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if index < min(entry.items.count, 6) - 1 {
+                        Divider()
+                    }
+                }
+                Spacer(minLength: 0)
+            }
         }
         .containerBackground(.fill.tertiary, for: .widget)
     }
@@ -101,7 +153,7 @@ struct LodoWidget: Widget {
         }
         .configurationDisplayName("即将到来")
         .description("查看即将到来的事项,一键快速添加。")
-        .supportedFamilies([.systemMedium])
+        .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
 

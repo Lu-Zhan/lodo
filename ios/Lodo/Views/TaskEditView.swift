@@ -35,6 +35,7 @@ struct TaskEditView: View {
                         } label: {
                             if aiBusy {
                                 ProgressView().controlSize(.small)
+                                    .accessibilityLabel("处理中")
                             } else {
                                 Label("应用修改", systemImage: "sparkles")
                             }
@@ -55,16 +56,12 @@ struct TaskEditView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消", role: .cancel) { dismiss() }
+                        .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    // iOS/macOS 26 起用 confirm 角色表达确认动作语义,样式交给系统
-                    if #available(iOS 26.0, macOS 26.0, *) {
-                        Button("保存", role: .confirm) { save() }
-                            .disabled(!form.isValid)
-                    } else {
-                        Button("保存") { save() }
-                            .disabled(!form.isValid)
-                    }
+                    confirmButton("保存") { save() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!form.isValid)
                 }
             }
         }

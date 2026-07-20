@@ -1,4 +1,5 @@
 import Foundation
+import LodoCore
 
 /// AI 时长记忆:一个类 skill 的 markdown 文件,记录"事项类型 → 典型时长"。
 ///

@@ -1,20 +1,30 @@
 import Foundation
-import LodoCore
 
 /// AI 解析/编辑得到的事项字段,创建与编辑表单共用的值包。
-struct ParsedTask {
-    var title: String
-    var remindAt: Date
-    var allDay: Bool
-    var durationMinutes: Int
-    var repeatType: RepeatType
-    var repeatDays: [Int]
-    var repeatTimes: [String]
+public struct ParsedTask {
+    public var title: String
+    public var remindAt: Date
+    public var allDay: Bool
+    public var durationMinutes: Int
+    public var repeatType: RepeatType
+    public var repeatDays: [Int]
+    public var repeatTimes: [String]
+
+    public init(title: String, remindAt: Date, allDay: Bool, durationMinutes: Int,
+                repeatType: RepeatType, repeatDays: [Int], repeatTimes: [String]) {
+        self.title = title
+        self.remindAt = remindAt
+        self.allDay = allDay
+        self.durationMinutes = durationMinutes
+        self.repeatType = repeatType
+        self.repeatDays = repeatDays
+        self.repeatTimes = repeatTimes
+    }
 }
 
 extension ParsedTask {
     /// 从现有事项取当前字段值(编辑表单预填、AI 修改的"现有事项"上下文共用)。
-    init(from task: TaskItem) {
+    public init(from task: TaskItem) {
         self.init(title: task.title, remindAt: task.remindAt, allDay: task.allDay,
                   durationMinutes: task.durationMinutes, repeatType: task.repeatType,
                   repeatDays: task.repeatDays, repeatTimes: task.repeatTimes)
@@ -22,25 +32,29 @@ extension ParsedTask {
 }
 
 /// AI 总入口解析出的单个操作。
-enum AIAction {
+/// memorize/askMemory 仅在 command(memoryEnabled: true) 时会出现
+/// (iOS/macOS 主 app;Watch 无记忆数据层,不开启)。
+public enum AIAction {
     case create(ParsedTask)
     case update(uuid: String, task: ParsedTask)
     case complete(uuid: String)
     case delete(uuid: String)
+    case memorize(text: String)
+    case askMemory(question: String)
 }
 
 /// AI 总入口的返回:操作列表,或关键信息缺失时的反问(附候选补充)。
-enum AICommandResult {
+public enum AICommandResult {
     case actions([AIAction])
     case clarify(question: String, options: [String])
 }
 
-enum DeepSeekError: LocalizedError {
+public enum DeepSeekError: LocalizedError {
     case noKey
     case api(String)
     case parse(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .noKey: return "未配置 DeepSeek API key,请到「设置」里填写。"
         case .api(let m): return "调用 DeepSeek 失败:\(m)"
@@ -52,7 +66,16 @@ enum DeepSeekError: LocalizedError {
 /// AI 自然语言创建/编辑,prompt 与 web/lodo/ai.py 保持一致。
 /// 名称沿用 DeepSeekClient(三端同名),实际服务商/模型由设置决定
 /// (均为 OpenAI 兼容接口),默认 DeepSeek。
-enum DeepSeekClient {
+/// 放进 LodoCore 是为了让 iPhone/Mac 主 App 和 Watch App 共用同一份实现与 prompt,
+/// 不需要手动维护两份保持文字一致。
+public enum DeepSeekClient {
+
+    /// 与模型往返的时间字段统一格式,四处解析/格式化共用。
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }()
 
     private static let taskSchema = """
     {"title": "事项内容(去掉时间词,保留做什么)",
@@ -89,16 +112,14 @@ enum DeepSeekClient {
 
     private static var timeContext: String {
         let now = Date()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
         let weekdays = "一二三四五六日"
         let pyWeekday = (Calendar.current.component(.weekday, from: now) + 5) % 7
         let index = weekdays.index(weekdays.startIndex, offsetBy: pyWeekday)
-        return "当前时间:\(formatter.string(from: now))(星期\(weekdays[index]))"
+        return "当前时间:\(dateFormatter.string(from: now))(星期\(weekdays[index]))"
     }
 
     /// 自然语言 → 新事项字段。
-    static func parse(_ text: String) async throws -> ParsedTask {
+    public static func parse(_ text: String) async throws -> ParsedTask {
         let system = """
         你是提醒事项应用 lodo 的解析助手。用户会用自然语言描述一个提醒事项,\
         你需要解析出结构化信息,只返回 JSON,不要任何其他文字。
@@ -111,7 +132,7 @@ enum DeepSeekClient {
     }
 
     /// 按自然语言指令修改现有事项;未提到的字段保持原值。
-    static func edit(_ current: ParsedTask, instruction: String) async throws -> ParsedTask {
+    public static func edit(_ current: ParsedTask, instruction: String) async throws -> ParsedTask {
         let system = """
         你是提醒事项应用 lodo 的编辑助手。给定一个现有事项和用户的修改指令,\
         输出修改后的完整事项,只返回 JSON,不要任何其他文字。\
@@ -127,10 +148,32 @@ enum DeepSeekClient {
         return try parseTask(await payload(system: system, user: instruction))
     }
 
+    /// memoryEnabled 时追加进"支持的操作"的两种记忆操作。
+    private static let memoryActionsBlock = """
+
+    - 收藏:{"action": "memorize", "text": "要收藏的内容原文"}
+    - 查记忆:{"action": "ask_memory", "question": "用户想查询收藏的问题"}
+    """
+
+    /// memoryEnabled 时追加进"判断规则"的记忆判定。
+    private static let memoryRulesBlock = """
+
+    - 用户明确要求"记住/收藏/存一下"一段内容本身(而不是要提醒做某事)→ memorize,\
+    text 原样保留内容部分,只去掉"帮我记住"这类指令词,不要改写、不要总结;\
+    可与其他操作并存(如"明天9点开会,再记住门禁码1234"→ 一条 create + 一条 memorize)。
+    - "记得提醒我…""帮我记住明天要交报告"这类带时间、语义是提醒做某事的,仍按 create 处理,不算收藏。
+    - 用户在询问以前收藏/记过的内容(如"我之前存的 wifi 密码是多少""收藏里有没有关于爬山的")\
+    → ask_memory,此时整个 actions 只放这一条,不与其他操作混用;\
+    询问待办安排(如"我明天有什么事")不算查记忆。
+    """
+
     /// AI 总入口:给定当前待办列表,把用户的一句话解析成一组操作
     /// (新建/修改/完成/删除,可多条),或在关键信息缺失时反问。
-    static func command(
-        _ text: String, tasks allTasks: [(uuid: String, task: ParsedTask)]
+    /// memoryEnabled 开启后额外支持收藏(memorize)与记忆问答(ask_memory);
+    /// 默认关闭,Watch 等无记忆数据层的调用方 prompt 与行为逐字不变。
+    public static func command(
+        _ text: String, tasks allTasks: [(uuid: String, task: ParsedTask)],
+        memoryEnabled: Bool = false
     ) async throws -> AICommandResult {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
         let tasks = Array(allTasks.prefix(50))
@@ -148,7 +191,7 @@ enum DeepSeekClient {
         - 修改:{"action": "update", "uuid": "原样取自当前待办列表,不要自己生成", ...事项字段}\
         (输出修改后的完整字段值,用户没有提到的字段一律保持原值)
         - 完成:{"action": "complete", "uuid": "原样取自当前待办列表"}
-        - 删除:{"action": "delete", "uuid": "原样取自当前待办列表"}
+        - 删除:{"action": "delete", "uuid": "原样取自当前待办列表"}\(memoryEnabled ? memoryActionsBlock : "")
 
         判断规则:
         - 一句话里包含多件事时返回多个操作,如"明天上午开会,周五交报告"→ 两条 create。
@@ -157,7 +200,7 @@ enum DeepSeekClient {
         - 新建缺少关键时间信息且无法按常理推断时(如只说"提醒我交材料"),不要猜,\
         改为反问:{"question": "要问用户的问题", "options": ["候选补充1", "候选补充2", "候选补充3"]},\
         options 给 2-3 个具体可直接采用的补充(如"明天 09:00")。
-        - 无法解析时返回 {"error": "原因"}。
+        - 无法解析时返回 {"error": "原因"}。\(memoryEnabled ? memoryRulesBlock : "")
 
         \(timeContext)
 
@@ -173,8 +216,18 @@ enum DeepSeekClient {
 
         \(taskRules)\(personaBlock)
         """
-        let payload = try await payload(system: system, user: text)
+        return try parseCommand(
+            await payload(system: system, user: text),
+            validUUIDs: tasks.map(\.uuid),
+            memoryEnabled: memoryEnabled)
+    }
 
+    /// 从 payload 里解析总入口结果(单测入口)。
+    /// memoryEnabled == false 时 memorize/ask_memory 按未知 action 处理
+    /// (即使模型幻觉出这两种操作,Watch 等调用方也保持旧行为)。
+    static func parseCommand(
+        _ payload: [String: Any], validUUIDs: [String], memoryEnabled: Bool
+    ) throws -> AICommandResult {
         if let question = payload["question"] as? String, !question.isEmpty {
             let options = (payload["options"] as? [Any])?.compactMap { $0 as? String } ?? []
             return .clarify(question: question, options: options)
@@ -187,7 +240,7 @@ enum DeepSeekClient {
         for raw in rawActions {
             func validUUID() throws -> String {
                 guard let uuid = raw["uuid"] as? String,
-                      tasks.contains(where: { $0.uuid == uuid }) else {
+                      validUUIDs.contains(uuid) else {
                     throw DeepSeekError.parse("找不到要操作的事项")
                 }
                 return uuid
@@ -201,8 +254,38 @@ enum DeepSeekClient {
                 actions.append(.complete(uuid: try validUUID()))
             case "delete":
                 actions.append(.delete(uuid: try validUUID()))
+            case "memorize" where memoryEnabled:
+                let text = (raw["text"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !text.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:收藏内容为空")
+                }
+                actions.append(.memorize(text: text))
+            case "ask_memory" where memoryEnabled:
+                let question = (raw["question"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !question.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:查询问题为空")
+                }
+                actions.append(.askMemory(question: question))
             default:
                 throw DeepSeekError.parse("返回格式异常:未知 action")
+            }
+        }
+        // 归一化:prompt 已要求 ask_memory 单独出现,这里是模型不守规矩时的
+        // 确定性兜底——问答与写操作混合时丢弃问答只留写操作(写操作是用户要
+        // 落地的事不能丢,查询可以重问);全是问答时只留第一条。
+        let askQuestions = actions.compactMap { action -> String? in
+            if case .askMemory(let question) = action { return question }
+            return nil
+        }
+        if !askQuestions.isEmpty {
+            if askQuestions.count == actions.count {
+                return .actions([.askMemory(question: askQuestions[0])])
+            }
+            actions = actions.filter {
+                if case .askMemory = $0 { return false }
+                return true
             }
         }
         return .actions(actions)
@@ -210,8 +293,8 @@ enum DeepSeekClient {
 
     /// 按记忆文件为"没说时长"的新事项建议时长(分钟);
     /// 用户明确表示不需要时长、或记忆无相近类型时返回 0。
-    static func suggestDuration(text: String, title: String,
-                                memory: String) async throws -> Int {
+    public static func suggestDuration(text: String, title: String,
+                                       memory: String) async throws -> Int {
         let system = """
         你是提醒事项应用 lodo 的时长建议助手。下面是"事项类型 → 典型时长"的记忆文件、\
         用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。
@@ -228,12 +311,10 @@ enum DeepSeekClient {
     }
 
     /// 逾期事项的改期候选:2-3 个(口语化标签, 时间),时间必须晚于当前。
-    static func suggestReschedule(
+    public static func suggestReschedule(
         title: String, remindAt: Date, durationMinutes: Int, isRecurring: Bool
     ) async throws -> [(label: String, date: Date)] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        var info = "事项:\(title)\n原提醒时间:\(formatter.string(from: remindAt))"
+        var info = "事项:\(title)\n原提醒时间:\(dateFormatter.string(from: remindAt))"
         if durationMinutes > 0 { info += ",时长 \(durationMinutes) 分钟" }
         if isRecurring { info += ",重复事项(只顺延本次)" }
         let system = """
@@ -254,7 +335,7 @@ enum DeepSeekClient {
         let candidates = raw.compactMap { item -> (label: String, date: Date)? in
             guard let label = item["label"] as? String,
                   let timeString = item["time"] as? String,
-                  let date = formatter.date(from: timeString), date > now else { return nil }
+                  let date = dateFormatter.date(from: timeString), date > now else { return nil }
             return (label, date)
         }
         guard !candidates.isEmpty else {
@@ -264,7 +345,7 @@ enum DeepSeekClient {
     }
 
     /// 每周完成洞察:把本地统计说成一句正向鼓励的话(不打分、不指责)。
-    static func weeklyInsight(stats: String) async throws -> String {
+    public static func weeklyInsight(stats: String) async throws -> String {
         let system = """
         你是提醒事项应用 lodo 的回顾助手。根据一周完成统计,输出一句不超过 60 个字的\
         正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述,\
@@ -279,7 +360,7 @@ enum DeepSeekClient {
     }
 
     /// 把今天的事项列表改写成一句话汇总,突出重点事件(用于每日汇总通知正文)。
-    static func summarizeToday(_ items: [String]) async throws -> String {
+    public static func summarizeToday(_ items: [String]) async throws -> String {
         let system = """
         你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表\
         (含时间与时长),用一句话概括今天的安排,突出重点事件\
@@ -294,9 +375,120 @@ enum DeepSeekClient {
         return summary
     }
 
+    /// AI 收藏整理的结果:标题/摘要/标签。
+    public struct MemorizedEntry {
+        public var title: String
+        public var summary: String
+        public var tags: [String]
+
+        public init(title: String, summary: String, tags: [String]) {
+            self.title = title
+            self.summary = summary
+            self.tags = tags
+        }
+    }
+
+    /// 把收藏的内容(提取文本,或只有文件名)整理成记忆条目。
+    /// existingTags:当前已有的标签全集,AI 优先复用相近的已有标签,
+    /// 保持标签体系收敛不发散。
+    /// 不拼 personaBlock:摘要要客观中性,个性只用于面向用户的对话文字。
+    public static func memorize(
+        text: String, filename: String?, kind: String, existingTags: [String] = []
+    ) async throws -> MemorizedEntry {
+        var context = "内容类型:\(kind)"
+        if let filename, !filename.isEmpty { context += "\n文件名:\(filename)" }
+        // token 预算:标签全集只带前 50 个进 prompt
+        var tagRule = ""
+        if !existingTags.isEmpty {
+            tagRule = """
+
+            - 已有标签:\(existingTags.prefix(50).joined(separator: "、"))。\
+            tags 优先从已有标签中选用语义相近的,都不合适时才创建新标签。
+            """
+        }
+        let system = """
+        你是提醒事项应用 lodo 的收藏整理助手。用户收藏了一段内容\
+        (可能是网页正文、PDF/图片提取的文字、纯文本,或只有文件名),\
+        把它整理成一条记忆条目,只返回 JSON,不要任何其他文字:
+        {"title": "不超过 20 字的标题", "summary": "不超过 100 字的客观摘要", "tags": ["2-4 个中文标签"]}
+
+        规则:
+        - 标题概括内容主旨,不要照抄第一句。
+        - 内容为空、只有文件名时,基于文件名与类型推断,summary 注明"(基于文件名整理)"。
+        - 完全无法整理时返回 {"error": "原因"}。\(tagRule)
+
+        \(context)
+        """
+        let user = text.isEmpty ? "(无内容,仅文件名)" : text
+        return try parseMemorizedEntry(await payload(system: system, user: user, timeout: 60))
+    }
+
+    /// 从 payload 里解析收藏整理结果(单测入口)。
+    static func parseMemorizedEntry(_ payload: [String: Any]) throws -> MemorizedEntry {
+        guard let title = payload["title"] as? String,
+              !title.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 title")
+        }
+        return MemorizedEntry(
+            title: title.trimmingCharacters(in: .whitespaces),
+            summary: (payload["summary"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            tags: (payload["tags"] as? [Any])?.compactMap { $0 as? String } ?? []
+        )
+    }
+
+    /// 记忆问答:给定问题与本地粗排出的相关条目(含 uuid),返回自然语言回答
+    /// 与相关条目 uuid 列表。调用方负责先粗排、控制条目数与摘录长度。
+    public static func askMemory(
+        question: String,
+        items: [(uuid: String, title: String, summary: String, tags: [String], excerpt: String)]
+    ) async throws -> (answer: String, relatedUUIDs: [String]) {
+        let list = items.map { item -> [String: Any] in
+            [
+                "uuid": item.uuid,
+                "title": item.title,
+                "summary": item.summary,
+                "tags": item.tags,
+                "excerpt": item.excerpt,
+            ]
+        }
+        let system = """
+        你是提醒事项应用 lodo 的收藏问答助手。下面是用户收藏的记忆条目列表,\
+        根据它们回答用户的问题(搜索、询问、归纳整理都可以),只返回 JSON,\
+        不要任何其他文字:
+        {"answer": "回答", "related_uuids": ["相关条目的 uuid,原样取自列表,不要自己生成"]}
+
+        规则:
+        - 回答基于条目内容,不要编造条目里没有的信息;不超过 120 个字。
+        - 找不到相关条目时,answer 说明没有找到相关收藏,related_uuids 为空数组。
+
+        \(timeContext)
+
+        记忆条目列表:
+        \(json(list))\(personaBlock)
+        """
+        return try parseMemoryAnswer(
+            await payload(system: system, user: question),
+            validUUIDs: items.map(\.uuid))
+    }
+
+    /// 从 payload 里解析问答结果;uuid 必须在传入列表内(单测入口)。
+    static func parseMemoryAnswer(
+        _ payload: [String: Any], validUUIDs: [String]
+    ) throws -> (answer: String, relatedUUIDs: [String]) {
+        guard let answer = payload["answer"] as? String,
+              !answer.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 answer")
+        }
+        let related = (payload["related_uuids"] as? [Any])?
+            .compactMap { $0 as? String }
+            .filter { validUUIDs.contains($0) } ?? []
+        return (answer.trimmingCharacters(in: .whitespacesAndNewlines), related)
+    }
+
     /// 用一条新样本让模型归纳更新"事项类型 → 典型时长"记忆文件,返回新文件全文。
-    static func updateMemory(current: String?, title: String,
-                             durationMinutes: Int) async throws -> String {
+    public static func updateMemory(current: String?, title: String,
+                                    durationMinutes: Int) async throws -> String {
         let system = """
         你是提醒事项应用 lodo 的记忆管理助手,维护一份"事项类型 → 典型时长"的记忆文件。\
         给定现有记忆文件和一条新样本,输出更新后的完整记忆文件:按大致类型归纳,\
@@ -318,11 +510,9 @@ enum DeepSeekClient {
     // MARK: - 请求与序列化
 
     private static func taskFields(of task: ParsedTask) -> [String: Any] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
         return [
             "title": task.title,
-            "remind_at": formatter.string(from: task.remindAt),
+            "remind_at": dateFormatter.string(from: task.remindAt),
             "all_day": task.allDay,
             "duration_minutes": task.durationMinutes,
             "repeat_type": task.repeatType.rawValue,
@@ -338,7 +528,7 @@ enum DeepSeekClient {
 
     /// 发起请求并取回模型返回的 JSON payload(含 error 检查)。
     /// 当前 AI 是否已配置可用:云服务商=已存 key;苹果智能=设备端可用。
-    static var isConfigured: Bool {
+    public static var isConfigured: Bool {
         if AppSettings.usesAppleIntelligence {
             #if canImport(FoundationModels)
             if #available(iOS 26.0, macOS 26.0, *) {
@@ -352,7 +542,7 @@ enum DeepSeekClient {
 
     /// 模型输出文本 → JSON payload:剥 markdown 围栏、从首个 { 截到末个 },
     /// 兼容部分服务/端侧模型不严格遵守纯 JSON 的情况。云端与苹果智能共用。
-    static func decodePayload(from text: String) throws -> [String: Any] {
+    public static func decodePayload(from text: String) throws -> [String: Any] {
         var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleaned.hasPrefix("```") {
             cleaned = cleaned
@@ -381,7 +571,19 @@ enum DeepSeekClient {
         if AppSettings.usesAppleIntelligence {
             #if canImport(FoundationModels)
             if #available(iOS 26.0, macOS 26.0, *) {
-                return try await FoundationModelsClient.payload(system: system, user: user)
+                if FoundationModelsClient.isAvailable {
+                    return try await FoundationModelsClient.payload(system: system, user: user)
+                }
+                // 设备不支持/未开启/模型未就绪:有 DeepSeek key 就自动退回云端
+                // 完成这一次请求(不改用户在设置里选的服务商),没有才报不可用原因。
+                if let key = KeychainHelper.apiKey(for: "DeepSeek"),
+                   let preset = AppSettings.aiProviders.first(where: { $0.name == "DeepSeek" }),
+                   let endpoint = URL(string: preset.endpoint) {
+                    return try await cloudRequest(endpoint: endpoint, apiKey: key,
+                                                  model: preset.model, system: system,
+                                                  user: user, timeout: timeout)
+                }
+                throw DeepSeekError.api(FoundationModelsClient.availabilityHint)
             }
             #endif
             throw DeepSeekError.api("苹果智能需要 iOS 26 及以上系统。")
@@ -391,14 +593,24 @@ enum DeepSeekClient {
         guard let endpoint = AppSettings.aiEndpoint else {
             throw DeepSeekError.api("无效的服务地址,请到「设置」里检查 AI 服务商配置。")
         }
+        return try await cloudRequest(endpoint: endpoint, apiKey: apiKey,
+                                      model: AppSettings.aiModel, system: system,
+                                      user: user, timeout: timeout)
+    }
 
+    /// 云端 OpenAI 兼容接口的请求构造 + 响应解析,供当前选中服务商和苹果智能
+    /// 不可用时的 DeepSeek 退回共用。
+    private static func cloudRequest(
+        endpoint: URL, apiKey: String, model: String,
+        system: String, user: String, timeout: TimeInterval
+    ) async throws -> [String: Any] {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = timeout
         request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": AppSettings.aiModel,
+            "model": model,
             "messages": [
                 ["role": "system", "content": system],
                 ["role": "user", "content": user],
@@ -407,17 +619,7 @@ enum DeepSeekClient {
             "temperature": 0,
         ] as [String: Any])
 
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await URLSession.shared.data(for: request)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch let error as URLError where error.code == .cancelled {
-            // 请求被主动取消:不当作"调用失败"展示
-            throw CancellationError()
-        } catch {
-            throw DeepSeekError.api(error.localizedDescription)
-        }
+        let (data, response) = try await send(request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let body = String(data: data, encoding: .utf8) ?? ""
             throw DeepSeekError.api("HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0) \(body.prefix(200))")
@@ -431,17 +633,39 @@ enum DeepSeekClient {
         return try decodePayload(from: content)
     }
 
+    /// 传输层错误(超时/连接问题)延时后重试一次;取消/HTTP 状态码错误不重试。
+    private static func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await URLSession.shared.data(for: request)
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch is URLError {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            do {
+                return try await URLSession.shared.data(for: request)
+            } catch let error as URLError where error.code == .cancelled {
+                throw CancellationError()
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                throw DeepSeekError.api(error.localizedDescription)
+            }
+        } catch {
+            throw DeepSeekError.api(error.localizedDescription)
+        }
+    }
+
     /// 从 payload 里解析并校验事项字段。
     private static func parseTask(_ payload: [String: Any]) throws -> ParsedTask {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
         guard let title = payload["title"] as? String,
               let remindStr = payload["remind_at"] as? String,
-              let remindAt = formatter.date(from: remindStr) else {
+              let remindAt = dateFormatter.date(from: remindStr) else {
             throw DeepSeekError.parse("返回格式异常:\(payload)")
         }
         let times = (payload["repeat_times"] as? [Any])?.compactMap { $0 as? String } ?? []
-        for t in times where t.wholeMatch(of: /\d{1,2}:\d{2}/) == nil {
+        for t in times where t.wholeMatch(of: try! Regex(#"\d{1,2}:\d{2}"#)) == nil {
             throw DeepSeekError.parse("时间点格式异常:\(t)")
         }
         return ParsedTask(

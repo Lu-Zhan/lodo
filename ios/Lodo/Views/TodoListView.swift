@@ -1,6 +1,10 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 import LodoCore
+#if os(iOS)
+import UIKit
+#endif
 
 /// 全局 agent 一次解析后的回应形态(AgentView 据此展示)。
 enum AgentReply {
@@ -10,43 +14,65 @@ enum AgentReply {
     case confirm([String])
     /// 关键信息缺失,反问 + 候选补充。
     case clarify(question: String, options: [String])
+    /// 记忆问答的回答,或收藏回执;related 为相关条目标题(可为空),不做跳转。
+    case answer(text: String, related: [String])
 }
 
 /// 待办页:横滑日期条(默认今天)、到期卡片(完成/稍等)、
 /// 选中日待办与未来待办分组、已完成列表。
 struct TodoListView: View {
-    /// tab 栏"添加"按钮置 true 后弹出快速添加页(见 ContentView)。
-    @Binding var addRequested: Bool
     /// 非 nil 时弹出全局 agent 并预填文本(lodo://agent 深链,见 ContentView)。
     @Binding var agentRequest: String?
+    /// tab 栏"添加"按钮触发时置 true:agent 弹出后自动开始语音。
+    @Binding var agentAutoStart: Bool
+    /// 非 nil 时跳到该事项并自动发起改期请求(通知"改期"按钮交接,见 ContentView)。
+    @Binding var rescheduleRequestUUID: String?
 
-    @Environment(\.modelContext) private var context
-    /// 只查未完成事项(已完成列表在 DoneListView 单独查询)。
+    // 以下几个跨 extension 文件(TodoListView+Agent/+Reschedule/+CRUD)被读写,
+    // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
+    @Environment(\.modelContext) var context
+    @Environment(\.scenePhase) private var scenePhase
+    /// 只查未完成事项,已完成事项在待办页底部单独折叠展示。
     @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "pending" },
            sort: \TaskItem.nextRemindAt)
-    private var pending: [TaskItem]
+    var pending: [TaskItem]
+    /// 已完成事项并入待办页底部,默认折叠展示。
+    @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "done" },
+           sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
+    private var doneTasks: [TaskItem]
+
+    @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
     @State private var now = Date()
-    @State private var selectedDate = Calendar.current.startOfDay(for: Date())
-    @State private var sheet: SheetMode?
+    // consumeReschedule (TodoListView+Reschedule.swift) 需要跳日期,保持 internal。
+    @State var selectedDate = Calendar.current.startOfDay(for: Date())
+    @State var sheet: SheetMode?
     /// agent 解析出、等待用户确认的批量操作。
-    @State private var pendingActions: [AIAction] = []
+    @State var pendingActions: [AIAction] = []
     /// 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误 / 进行中的请求。
-    @State private var rescheduleLoading: String?
-    @State private var reschedule: (uuid: String, candidates: [(label: String, date: Date)])?
-    @State private var rescheduleError: String?
-    @State private var rescheduleTask: Task<Void, Never>?
+    @State var rescheduleLoading: String?
+    @State var reschedule: (uuid: String, candidates: [(label: String, date: Date)])?
+    @State var rescheduleError: String?
+    @State var rescheduleTask: Task<Void, Never>?
     /// 完成后询问实际耗时的轻量条(队列,连续完成不互相覆盖)。
-    @State private var askDurationQueue: [(title: String, planned: Int)] = []
+    @State var askDurationQueue: [(title: String, planned: Int)] = []
+    /// 通知权限被拒绝(app 内唯一提醒渠道失效)时提示用户去系统设置开启。
+    @State private var notificationsDenied = false
+    /// 批量 agent 操作里有目标事项在确认期间被别处改动/删除时的提示。
+    @State var actionsWarning: String?
+    @State private var doneExpanded = false
+    @State private var expandedDoneDays: Set<Date> = []
+    @State private var insight: String?
 
     /// 日期条展示的天数(从今天起)。
     private static let stripDays = 30
+    private static let insightWeekKey = "insightWeek"
+    private static let insightTextKey = "insightText"
 
     enum SheetMode: Identifiable {
-        /// 快速添加页(自然语言 + 语音 + 手动,仅 iOS)。
-        case add
-        /// 主页下拉唤出的全局 agent(一句话新增/修改,仅 iOS);深链可带预填文本。
-        case agent(prefill: String?)
+        /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,
+        /// autoStart 为 true 时弹出后自动开始语音(仅 tab 按钮/小组件"+"触发)。
+        case agent(prefill: String?, autoStart: Bool)
         case create(ParsedTask?)
         /// 编辑事项;agent 路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
@@ -54,7 +80,6 @@ struct TodoListView: View {
 
         var id: String {
             switch self {
-            case .add: return "add"
             case .agent: return "agent"
             case .create: return "create"
             case .edit(let task, _): return task.uuid.uuidString
@@ -74,6 +99,17 @@ struct TodoListView: View {
                                                   to: selectedDate) else { return [] }
         return upcoming.filter { $0.nextRemindAt >= nextDay }
     }
+    /// 今天完成的事项:保持平铺展示,不参与日期折叠。
+    private var todayDone: [TaskItem] {
+        doneTasks.filter { Calendar.current.isDateInToday($0.doneAt ?? .distantPast) }
+    }
+    /// 其他日期完成的事项:按完成日分组,日期倒序,默认折叠。
+    private var otherDoneGroups: [(date: Date, tasks: [TaskItem])] {
+        let calendar = Calendar.current
+        let others = doneTasks.filter { !calendar.isDateInToday($0.doneAt ?? .distantPast) }
+        let groups = Dictionary(grouping: others) { calendar.startOfDay(for: $0.doneAt ?? .distantPast) }
+        return groups.sorted { $0.key > $1.key }.map { (date: $0.key, tasks: $0.value) }
+    }
     /// 下一次需要唤醒刷新 `now` 的时刻:最近一个未到期事项或明天零点,取早者。
     private var nextWakeDate: Date {
         let midnight = Calendar.current.startOfDay(for: now).addingTimeInterval(86400)
@@ -84,6 +120,9 @@ struct TodoListView: View {
     var body: some View {
         NavigationStack {
             List {
+                if notificationsDenied {
+                    notificationDeniedSection
+                }
                 dateStrip
                 if let ask = askDurationQueue.first {
                     askDurationSection(ask)
@@ -96,17 +135,19 @@ struct TodoListView: View {
                 if !futureTasks.isEmpty {
                     futureSection
                 }
+                doneSection
             }
             .animation(.snappy, value: due.map(\.uuid))
             .animation(.snappy, value: askDurationQueue.map(\.title))
             .animation(.snappy, value: selectedDate)
+            .animation(.snappy, value: doneExpanded)
             .navigationTitle("lodo")
             .toolbar {
                 #if os(macOS)
                 // macOS 没有下拉手势,agent 入口放工具栏
                 ToolbarItem {
                     Button {
-                        sheet = .agent(prefill: nil)
+                        sheet = .agent(prefill: nil, autoStart: false)
                     } label: {
                         Label("AI 助手", systemImage: "sparkles")
                     }
@@ -127,10 +168,8 @@ struct TodoListView: View {
                 DispatchQueue.main.async { consumeRoutes() }
             }) { mode in
                 switch mode {
-                case .add:
-                    AddTaskView(onSaveManual: { saveNew($0) })
-                case .agent(let prefill):
-                    AgentView(prefill: prefill,
+                case .agent(let prefill, let autoStart):
+                    AgentView(prefill: prefill, autoStart: autoStart,
                               submit: { try await route($0) },
                               onConfirm: { performPendingActions() })
                 case .create(let parsed):
@@ -141,12 +180,6 @@ struct TodoListView: View {
                     SettingsView()
                 }
             }
-            #if os(iOS)
-            // 下拉唤出全局 agent(一句话新增/修改待办)
-            .refreshable {
-                sheet = .agent(prefill: nil)
-            }
-            #endif
             // 按需唤醒:睡到下一个到期时刻/明天零点再刷新 now,替代固定 10 秒轮询
             .task(id: nextWakeDate) {
                 let interval = nextWakeDate.timeIntervalSinceNow + 1
@@ -156,22 +189,37 @@ struct TodoListView: View {
                 guard !Task.isCancelled else { return }
                 now = Date()
             }
-            .onChange(of: addRequested) { _, requested in
-                if requested { consumeRoutes() }
-            }
             .onChange(of: agentRequest) { _, request in
                 if request != nil { consumeRoutes() }
+            }
+            .onChange(of: rescheduleRequestUUID) { _, uuid in
+                consumeReschedule(uuid)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { checkNotificationAuthorization() }
+            }
+            .onChange(of: doneExpanded) { _, expanded in
+                if expanded {
+                    Task { await loadInsight() }
+                }
+            }
+            .alert("提示", isPresented: Binding(
+                get: { actionsWarning != nil },
+                set: { if !$0 { actionsWarning = nil } }
+            )) {
+                Button("好", role: .cancel) { actionsWarning = nil }
+            } message: {
+                Text(actionsWarning ?? "")
             }
             .onAppear {
                 // 冷启动时深链可能先于本视图出现,补一次检查
                 consumeRoutes()
+                consumeReschedule(rescheduleRequestUUID)
+                checkNotificationAuthorization()
                 #if DEBUG
-                // 截图验证用:--demo-add 启动参数直接弹出快速添加页
-                if ProcessInfo.processInfo.arguments.contains("--demo-add") {
-                    sheet = .add
-                }
+                // 截图验证用:--demo-agent 启动参数直接弹出 AI 助手
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent") {
-                    sheet = .agent(prefill: nil)
+                    sheet = .agent(prefill: nil, autoStart: false)
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-settings") {
                     sheet = .settings
@@ -191,6 +239,39 @@ struct TodoListView: View {
             }
         }
     }
+
+    // MARK: - 通知权限
+
+    /// 通知是纠缠式提醒唯一的推送渠道;权限被拒时提示用户,否则提醒会静默失效。
+    private var notificationDeniedSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("通知权限已关闭,提醒不会推送", systemImage: "bell.slash.fill")
+                    .foregroundStyle(.orange)
+                #if os(iOS)
+                Button("前往系统设置开启") { openNotificationSettings() }
+                    .buttonStyle(.bordered)
+                #endif
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func checkNotificationAuthorization() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            Task { @MainActor in
+                notificationsDenied = settings.authorizationStatus == .denied
+            }
+        }
+    }
+
+    #if os(iOS)
+    private func openNotificationSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+    #endif
 
     // MARK: - 日期条
 
@@ -234,6 +315,9 @@ struct TodoListView: View {
             .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         }
         .buttonStyle(.plain)
+        #if os(iOS)
+        .hoverEffect(.highlight)
+        #endif
         .accessibilityLabel(date.formatted(.dateTime.month().day().weekday()))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -255,6 +339,7 @@ struct TodoListView: View {
                         } label: {
                             if rescheduleLoading == task.uuid.uuidString {
                                 ProgressView().controlSize(.small)
+                                    .accessibilityLabel("处理中")
                             } else {
                                 Label("改期", systemImage: "calendar.badge.clock")
                                     .font(.footnote)
@@ -285,25 +370,26 @@ struct TodoListView: View {
                         .buttonStyle(.bordered)
                     }
                     if let reschedule, reschedule.uuid == task.uuid.uuidString {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack {
-                                ForEach(reschedule.candidates, id: \.label) { candidate in
-                                    Button(candidate.label) {
-                                        applyReschedule(task, to: candidate.date)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .font(.footnote)
-                                    .tint(.accentColor)
+                        HorizontalChipRow {
+                            ForEach(reschedule.candidates, id: \.label) { candidate in
+                                Button(candidate.label) {
+                                    applyReschedule(task, to: candidate.date)
                                 }
-                                Button {
-                                    withAnimation(.snappy) { self.reschedule = nil }
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("收起改期候选")
+                                .buttonStyle(.bordered)
+                                .font(.footnote)
+                                .tint(.accentColor)
                             }
+                            Button {
+                                withAnimation(.snappy) { self.reschedule = nil }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            #if os(iOS)
+                            .hoverEffect(.highlight)
+                            #endif
+                            .accessibilityLabel("收起改期候选")
                         }
                         .transition(.scale(scale: 0.96).combined(with: .opacity))
                     }
@@ -323,51 +409,25 @@ struct TodoListView: View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
                 Text("「\(ask.title)」实际用了多久?").font(.subheadline)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(durationChips(planned: ask.planned), id: \.self) { minutes in
-                            Button("\(minutes) 分钟") {
-                                Haptics.success()
-                                DurationMemory.recordActual(
-                                    title: ask.title, planned: ask.planned, minutes: minutes)
-                                popAskDuration()
-                            }
-                            .buttonStyle(.bordered)
-                            .font(.footnote)
+                HorizontalChipRow {
+                    ForEach(durationChips(planned: ask.planned), id: \.self) { minutes in
+                        Button("\(minutes) 分钟") {
+                            Haptics.success()
+                            DurationMemory.recordActual(
+                                title: ask.title, planned: ask.planned, minutes: minutes)
+                            popAskDuration()
                         }
-                        Button("跳过") { popAskDuration() }
-                            .buttonStyle(.plain)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        .buttonStyle(.bordered)
+                        .font(.footnote)
                     }
+                    Button("跳过") { popAskDuration() }
+                        .buttonStyle(.plain)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(.vertical, 2)
         }
-    }
-
-    private func popAskDuration() {
-        withAnimation(.snappy) {
-            if !askDurationQueue.isEmpty { askDurationQueue.removeFirst() }
-        }
-    }
-
-    private func durationChips(planned: Int) -> [Int] {
-        let lower = max(5, (planned / 2 + 2) / 5 * 5)
-        let upper = (planned * 3 / 2 + 2) / 5 * 5
-        var chips: [Int] = []
-        for value in [lower, planned, upper] where !chips.contains(value) {
-            chips.append(value)
-        }
-        return chips
-    }
-
-    private func dueCaption(_ task: TaskItem) -> String {
-        if task.phase == .end { return "时间到 — 完成了吗?" }
-        if task.durationMinutes > 0 {
-            return "\(task.caption) — 该开始了!"
-        }
-        return task.caption
     }
 
     /// 选中日期的待办;与未来待办分开成组。
@@ -400,6 +460,44 @@ struct TodoListView: View {
         }
     }
 
+    private var doneSection: some View {
+        Section {
+            DisclosureGroup(isExpanded: $doneExpanded) {
+                if insightEnabled, let insight {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("本周洞察")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Label(insight, systemImage: "sparkles")
+                            .font(.subheadline)
+                    }
+                    .padding(.vertical, 2)
+                }
+                if doneTasks.isEmpty {
+                    ContentUnavailableView("还没有完成的事项", systemImage: "tray")
+                }
+                if !todayDone.isEmpty {
+                    Text("今天")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ForEach(todayDone) { task in
+                        doneRow(task)
+                    }
+                }
+                ForEach(otherDoneGroups, id: \.date) { group in
+                    DisclosureGroup(dayGroupTitle(group.date),
+                                    isExpanded: doneDayExpandedBinding(for: group.date)) {
+                        ForEach(group.tasks) { task in
+                            doneRow(task)
+                        }
+                    }
+                }
+            } label: {
+                Label("已完成", systemImage: "checkmark.circle")
+            }
+        }
+    }
+
     private func pendingRow(_ task: TaskItem) -> some View {
         Button {
             sheet = .edit(task, nil)
@@ -410,209 +508,109 @@ struct TodoListView: View {
             }
         }
         .buttonStyle(.plain)
-        // 右滑(满滑)完成
-        .swipeActions(edge: .leading) {
-            Button {
-                Haptics.success()
-                completeWithSampling(task)
-            } label: {
-                Label("完成", systemImage: "checkmark")
-            }
-            .tint(.green)
-        }
-        // 左滑(满滑)删除
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                Haptics.impact()
+        .nagSwipeActions(
+            leadingLabel: "完成", leadingSystemImage: "checkmark", leadingTint: .green,
+            onLeading: { completeWithSampling(task) },
+            onDelete: {
                 NotificationManager.shared.cancelChain(for: task.uuid)
                 withAnimation(.snappy) {
                     context.delete(task)
                 }
                 try? context.save()
                 WidgetBridge.sync(context: context)
-            } label: {
-                Label("删除", systemImage: "trash")
+            })
+    }
+
+    private func doneRow(_ task: TaskItem) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(task.title).strikethrough()
+            if let doneAt = task.doneAt {
+                Text("完成于 \(TaskItem.format(doneAt))")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
+        .nagSwipeActions(
+            leadingLabel: "未完成", leadingSystemImage: "arrow.uturn.backward", leadingTint: .orange,
+            onLeading: { restoreDoneTask(task) },
+            onDelete: {
+                context.delete(task)
+                try? context.save()
+            })
     }
 
-    // MARK: - 动作
-
-    /// 全局 agent:带上当前待办列表,把一句话解析成操作。
-    /// 单条新建/修改直达表单(表单即确认);批量或含完成/删除的进确认清单;
-    /// 关键信息缺失时透传反问。uuid 用最新 pending 列表重新匹配。
-    private func route(_ text: String) async throws -> AgentReply {
-        let context = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
-        switch try await DeepSeekClient.command(text, tasks: context) {
-        case .clarify(let question, let options):
-            return .clarify(question: question, options: options)
-        case .actions(let actions):
-            if actions.count == 1 {
-                if case .create(let parsed) = actions[0] {
-                    sheet = .create(parsed)
-                    return .routed
-                }
-                if case .update(let uuid, let parsed) = actions[0] {
-                    guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
-                        throw DeepSeekError.parse("找不到要修改的事项")
-                    }
-                    sheet = .edit(task, parsed)
-                    return .routed
+    private func doneDayExpandedBinding(for date: Date) -> Binding<Bool> {
+        Binding(
+            get: { expandedDoneDays.contains(date) },
+            set: { isExpanded in
+                if isExpanded {
+                    expandedDoneDays.insert(date)
+                } else {
+                    expandedDoneDays.remove(date)
                 }
             }
-            pendingActions = actions
-            return .confirm(actions.map(describe))
-        }
+        )
     }
 
-    private func describe(_ action: AIAction) -> String {
-        switch action {
-        case .create(let parsed):
-            var caption = TaskItem.format(parsed.remindAt)
-            if parsed.durationMinutes > 0 { caption += " · \(parsed.durationMinutes) 分钟" }
-            return "新建:\(parsed.title)(\(caption))"
-        case .update(_, let parsed):
-            return "修改:\(parsed.title)(\(TaskItem.format(parsed.remindAt)))"
-        case .complete(let uuid):
-            return "完成:\(title(of: uuid) ?? "未知事项")"
-        case .delete(let uuid):
-            return "删除:\(title(of: uuid) ?? "未知事项")"
-        }
+    private func dayGroupTitle(_ date: Date) -> String {
+        Calendar.current.isDateInYesterday(date)
+            ? "昨天"
+            : date.formatted(.dateTime.month().day())
     }
 
-    private func title(of uuid: String) -> String? {
-        pending.first { $0.uuid.uuidString == uuid }?.title
-    }
-
-    /// 执行确认后的批量操作,完毕关闭 agent。
-    private func performPendingActions() {
-        for action in pendingActions {
-            switch action {
-            case .create(let parsed):
-                saveNew(parsed)
-            case .update(let uuid, let parsed):
-                if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
-                    apply(parsed, to: task)
-                }
-            case .complete(let uuid):
-                if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
-                    NotificationManager.shared.complete(task, context: context)
-                }
-            case .delete(let uuid):
-                if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
-                    NotificationManager.shared.cancelChain(for: task.uuid)
-                    context.delete(task)
-                }
-            }
-        }
-        pendingActions = []
-        try? context.save()
-        WidgetBridge.sync(context: context)
-        sheet = nil
-    }
-
-    /// 消费深链/tab 按钮的路由请求;有 sheet 打开时不打断(如 agent 正在确认),
-    /// 由 sheet onDismiss 再补一次消费。
-    private func consumeRoutes() {
-        guard sheet == nil else { return }
-        if addRequested {
-            addRequested = false
-            sheet = .add
-            return
-        }
-        if let request = agentRequest {
-            agentRequest = nil
-            sheet = .agent(prefill: request.isEmpty ? nil : request)
-        }
-    }
-
-    /// 完成 + 实际耗时采样:仅真正"完成一次"(非两阶段的"开始了")且命中采样时,
-    /// 顶部出轻量条询问实际用时(排队,连续完成不覆盖)。
-    private func completeWithSampling(_ task: TaskItem) {
-        let title = task.title
-        let planned = task.durationMinutes
-        // phase==start 且有时长的这次点按是"开始了",不算完成
-        let isFinishing = !(task.phase == .start && task.durationMinutes > 0)
-        withAnimation(.snappy) {
-            NotificationManager.shared.complete(task, context: context)
-        }
-        if isFinishing, planned > 0,
-           DurationMemory.shouldAskActual(title: title, planned: planned) {
-            withAnimation(.snappy) {
-                askDurationQueue.append((title, planned))
-            }
-        }
-    }
-
-    /// 请求逾期事项的 AI 改期候选(按需调用;新请求取消旧请求,返回时校验仍是当前卡)。
-    private func requestReschedule(_ task: TaskItem) {
-        rescheduleTask?.cancel()
-        let uuid = task.uuid.uuidString
-        rescheduleLoading = uuid
-        reschedule = nil
-        rescheduleError = nil
-        let title = task.title
-        let remindAt = task.remindAt
-        let duration = task.durationMinutes
-        let recurring = task.isRecurring
-        rescheduleTask = Task {
-            do {
-                let candidates = try await DeepSeekClient.suggestReschedule(
-                    title: title, remindAt: remindAt,
-                    durationMinutes: duration, isRecurring: recurring)
-                guard !Task.isCancelled, rescheduleLoading == uuid else { return }
-                withAnimation(.snappy) {
-                    reschedule = (uuid, candidates)
-                }
-            } catch {
-                guard !Task.isCancelled, rescheduleLoading == uuid,
-                      !(error is CancellationError) else { return }
-                rescheduleError = error.localizedDescription
-            }
-            if rescheduleLoading == uuid { rescheduleLoading = nil }
-        }
-    }
-
-    /// 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。
-    private func applyReschedule(_ task: TaskItem, to date: Date) {
-        Haptics.success()
-        guard task.status == .pending else {
-            reschedule = nil
-            return
-        }
-        if !task.isRecurring { task.remindAt = date }
-        task.nextRemindAt = date
-        withAnimation(.snappy) {
-            reschedule = nil
-        }
-        try? context.save()
-        NotificationManager.shared.rebuild(for: task)
-    }
-
-    private func saveNew(_ parsed: ParsedTask) {
-        let task = TaskItem(
-            title: parsed.title, remindAt: parsed.remindAt,
-            durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
-            repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
-            repeatTimes: parsed.repeatTimes)
-        context.insert(task)
-        try? context.save()
-        NotificationManager.shared.rebuild(for: task)
-        DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
-    }
-
-    private func apply(_ parsed: ParsedTask, to task: TaskItem) {
-        task.title = parsed.title
-        task.remindAt = parsed.remindAt
-        task.durationMinutes = parsed.durationMinutes
-        task.allDay = parsed.allDay
-        task.repeatTypeRaw = parsed.repeatType.rawValue
-        task.repeatDays = parsed.repeatDays
-        task.repeatTimes = parsed.repeatTimes
+    /// 恢复为待办:回到 start 阶段,提醒时间取原定时间(已过期会直接进到期卡)。
+    private func restoreDoneTask(_ task: TaskItem) {
+        task.statusRaw = TaskStatus.pending.rawValue
         task.phaseRaw = TaskPhase.start.rawValue
-        task.nextRemindAt = parsed.remindAt
+        task.doneAt = nil
+        task.nextRemindAt = task.remindAt
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
-        DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
     }
+
+    /// 每周完成洞察:本地统计近 7 天完成情况,AI 只负责说成一句正向的话;
+    /// 同一 ISO 周缓存,失败静默不显示。
+    private func loadInsight() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--demo-insight") {
+            insight = "这周完成 12 件,比上周多 3 件;晚上 9 点后你的完成率最高,阅读类放晚上试试。"
+            return
+        }
+        #endif
+        guard insightEnabled, DeepSeekClient.isConfigured else { return }
+        let calendar = Calendar.current
+        let stamp = "\(calendar.component(.yearForWeekOfYear, from: Date()))-" +
+            "\(calendar.component(.weekOfYear, from: Date()))"
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: Self.insightWeekKey) == stamp,
+           let cached = defaults.string(forKey: Self.insightTextKey) {
+            insight = cached
+            return
+        }
+        let now = Date()
+        let weekAgo = now.addingTimeInterval(-7 * 86400)
+        let twoWeeksAgo = now.addingTimeInterval(-14 * 86400)
+        let recent = doneTasks.filter { ($0.doneAt ?? .distantPast) > weekAgo }
+        guard !recent.isEmpty else { return }
+        let previous = doneTasks.filter {
+            let doneAt = $0.doneAt ?? .distantPast
+            return doneAt > twoWeeksAgo && doneAt <= weekAgo
+        }
+        var stats = "近 7 天完成 \(recent.count) 件(再往前 7 天完成 \(previous.count) 件)"
+        let hours = recent.compactMap { task in
+            task.doneAt.map { calendar.component(.hour, from: $0) }
+        }
+        if let topHour = Dictionary(grouping: hours, by: { $0 })
+            .max(by: { $0.value.count < $1.value.count })?.key {
+            stats += ";最常完成时段:\(topHour) 点左右"
+        }
+        stats += ";最近完成:" + recent.prefix(5).map(\.title).joined(separator: "、")
+        guard let text = try? await DeepSeekClient.weeklyInsight(stats: stats) else { return }
+        defaults.set(stamp, forKey: Self.insightWeekKey)
+        defaults.set(text, forKey: Self.insightTextKey)
+        insight = text
+    }
+
+    // 全局 agent 路由/批量确认、改期请求、CRUD 等逻辑拆到同目录的
+    // TodoListView+Agent.swift / +Reschedule.swift / +CRUD.swift。
 }

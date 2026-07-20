@@ -4,6 +4,8 @@ import LodoCore
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
+    @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
+
     @AppStorage(AppSettings.snoozeMinutesKey) private var snoozeMinutes = 15
     @AppStorage(AppSettings.allDayTimeKey) private var allDayTime = "09:00"
     @AppStorage(AppSettings.digestEnabledKey) private var digestEnabled = false
@@ -13,6 +15,8 @@ struct SettingsView: View {
 
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
+    @AppStorage(AppSettings.agentAutoRecordOnOpenKey) private var agentAutoRecordOnOpen = true
+    @AppStorage(AppSettings.agentSilenceTimeoutSecondsKey) private var agentSilenceTimeoutSeconds = 3
     @AppStorage(AppSettings.agentPersonaStyleKey) private var personaStyle = "默认"
     @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
     @AppStorage(AppSettings.aiProviderKey) private var aiProvider = "DeepSeek"
@@ -26,6 +30,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // ---- iCloud ----
+                Section {
+                    Toggle("iCloud 同步", isOn: $icloudSyncEnabled)
+                } footer: {
+                    Text("开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
+                }
+
                 // ---- 提醒 ----
                 Section {
                     Stepper("稍等间隔:\(snoozeMinutes) 分钟",
@@ -85,6 +96,17 @@ struct SettingsView: View {
                     Text("滑动完成、删除等操作时轻微振动。")
                 }
                 #endif
+
+                Section {
+                    Toggle("点击添加自动开始语音", isOn: $agentAutoRecordOnOpen)
+                    Stepper("静音自动停止:\(agentSilenceTimeoutSeconds) 秒",
+                            value: $agentSilenceTimeoutSeconds, in: 0...30, step: 1)
+                } footer: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。")
+                        Text("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
+                    }
+                }
 
                 // ---- AI:服务 → 个性 → 洞察 → 记忆 ----
                 Section {
@@ -159,7 +181,7 @@ struct SettingsView: View {
                 Section {
                     Toggle("完成洞察", isOn: $insightEnabled)
                 } footer: {
-                    Text("每周在已完成页生成一句正向回顾,不会推送通知。")
+                    Text("每周在已完成区生成一句正向回顾,不会推送通知。")
                 }
 
                 Section {

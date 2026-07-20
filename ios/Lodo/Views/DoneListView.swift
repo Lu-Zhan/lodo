@@ -5,9 +5,10 @@ import LodoCore
 /// 已完成列表页(第二个 tab):按完成时间倒序;右滑恢复未完成,左滑删除。
 struct DoneListView: View {
     @Environment(\.modelContext) private var context
-    /// 只查已完成事项(待办列表在 TodoListView 单独查询)。
+    /// 只查已完成事项(待办列表在 TodoListView 单独查询);直接按完成时间倒序取,
+    /// 避免每次访问都在 Swift 侧对全量历史重新排序一遍。
     @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "done" },
-           sort: \TaskItem.nextRemindAt)
+           sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
     private var allTasks: [TaskItem]
 
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
@@ -16,8 +17,34 @@ struct DoneListView: View {
     private static let insightWeekKey = "insightWeek"
     private static let insightTextKey = "insightText"
 
-    private var done: [TaskItem] {
-        allTasks.sorted { ($0.doneAt ?? .distantPast) > ($1.doneAt ?? .distantPast) }
+    /// 今天完成的事项:保持平铺展示,不参与折叠。
+    private var todayDone: [TaskItem] {
+        allTasks.filter { Calendar.current.isDateInToday($0.doneAt ?? .distantPast) }
+    }
+
+    /// 其他日子完成的事项:按天分组、按日期倒序,默认折叠。
+    private var otherDoneGroups: [(date: Date, tasks: [TaskItem])] {
+        let calendar = Calendar.current
+        let others = allTasks.filter { !calendar.isDateInToday($0.doneAt ?? .distantPast) }
+        let groups = Dictionary(grouping: others) { calendar.startOfDay(for: $0.doneAt ?? .distantPast) }
+        return groups.sorted { $0.key > $1.key }.map { (date: $0.key, tasks: $0.value) }
+    }
+
+    @State private var expandedDays: Set<Date> = []
+
+    private func expandedBinding(for date: Date) -> Binding<Bool> {
+        Binding(
+            get: { expandedDays.contains(date) },
+            set: { isExpanded in
+                if isExpanded { expandedDays.insert(date) } else { expandedDays.remove(date) }
+            }
+        )
+    }
+
+    private func dayGroupTitle(_ date: Date) -> String {
+        Calendar.current.isDateInYesterday(date)
+            ? "昨天"
+            : date.formatted(.dateTime.month().day())
     }
 
     var body: some View {
@@ -29,35 +56,20 @@ struct DoneListView: View {
                             .font(.subheadline)
                     }
                 }
-                if done.isEmpty {
+                if allTasks.isEmpty {
                     ContentUnavailableView("还没有完成的事项", systemImage: "tray")
                 }
-                ForEach(done) { task in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(task.title).strikethrough()
-                        if let doneAt = task.doneAt {
-                            Text("完成于 \(TaskItem.format(doneAt))")
-                                .font(.footnote).foregroundStyle(.secondary)
+                if !todayDone.isEmpty {
+                    Section("今天") {
+                        ForEach(todayDone) { task in
+                            doneRow(task)
                         }
                     }
-                    // 右滑(满滑)恢复为未完成
-                    .swipeActions(edge: .leading) {
-                        Button {
-                            Haptics.success()
-                            restore(task)
-                        } label: {
-                            Label("未完成", systemImage: "arrow.uturn.backward")
-                        }
-                        .tint(.orange)
-                    }
-                    // 左滑(满滑)删除
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            Haptics.impact()
-                            context.delete(task)
-                            try? context.save()
-                        } label: {
-                            Label("删除", systemImage: "trash")
+                }
+                ForEach(otherDoneGroups, id: \.date) { group in
+                    DisclosureGroup(dayGroupTitle(group.date), isExpanded: expandedBinding(for: group.date)) {
+                        ForEach(group.tasks) { task in
+                            doneRow(task)
                         }
                     }
                 }
@@ -65,6 +77,24 @@ struct DoneListView: View {
             .navigationTitle("已完成")
             .task { await loadInsight() }
         }
+    }
+
+    @ViewBuilder
+    private func doneRow(_ task: TaskItem) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(task.title).strikethrough()
+            if let doneAt = task.doneAt {
+                Text("完成于 \(TaskItem.format(doneAt))")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .nagSwipeActions(
+            leadingLabel: "未完成", leadingSystemImage: "arrow.uturn.backward", leadingTint: .orange,
+            onLeading: { restore(task) },
+            onDelete: {
+                context.delete(task)
+                try? context.save()
+            })
     }
 
     /// 每周完成洞察:本地统计近 7 天完成情况,AI 只负责说成一句正向的话;
@@ -89,9 +119,9 @@ struct DoneListView: View {
         let now = Date()
         let weekAgo = now.addingTimeInterval(-7 * 86400)
         let twoWeeksAgo = now.addingTimeInterval(-14 * 86400)
-        let recent = done.filter { ($0.doneAt ?? .distantPast) > weekAgo }
+        let recent = allTasks.filter { ($0.doneAt ?? .distantPast) > weekAgo }
         guard !recent.isEmpty else { return }
-        let previous = done.filter {
+        let previous = allTasks.filter {
             let doneAt = $0.doneAt ?? .distantPast
             return doneAt > twoWeeksAgo && doneAt <= weekAgo
         }

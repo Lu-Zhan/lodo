@@ -14,8 +14,15 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let nagCategory = "LODO_NAG"
     static let doneAction = "LODO_DONE"
     static let snoozeAction = "LODO_SNOOZE"
+    static let rescheduleAction = "LODO_RESCHEDULE"
     static let digestID = "lodo-digest"
     private static let chainLength = 8
+
+    /// 通知"改期"按钮交接给 app 前台的 uuid(双通道:UserDefaults 兜底冷启动/
+    /// 回前台消费,NotificationCenter 广播供已在前台时的快路径),
+    /// 与 LodoIntents.swift 里 Siri 的 agent handoff 是同一种模式。
+    static let pendingRescheduleUUIDKey = "pendingRescheduleUUID"
+    static let rescheduleHandoff = Notification.Name("LodoRescheduleHandoff")
 
     private var container: ModelContainer?
 
@@ -27,8 +34,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                                         options: [])
         let snooze = UNNotificationAction(identifier: Self.snoozeAction, title: "稍等一会",
                                           options: [])
+        // 改期要打开 App 展示改期候选,不像完成/稍等能在后台静默处理,所以带 .foreground。
+        let reschedule = UNNotificationAction(identifier: Self.rescheduleAction, title: "改期",
+                                              options: [.foreground])
         center.setNotificationCategories([
-            UNNotificationCategory(identifier: Self.nagCategory, actions: [done, snooze],
+            UNNotificationCategory(identifier: Self.nagCategory, actions: [done, snooze, reschedule],
                                    intentIdentifiers: [], options: []),
         ])
         center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
@@ -66,13 +76,9 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             guard fire > now else { continue }
             let content = UNMutableNotificationContent()
             content.title = task.title
-            if starting {
-                content.body = "该开始了!(时长 \(task.durationMinutes) 分钟)"
-            } else if task.phase == .end {
-                content.body = "时间到 — 完成了吗?"
-            } else {
-                content.body = "到时间了"
-            }
+            content.body = Self.reminderBody(style: AppSettings.agentPersonaStyle, starting: starting,
+                                             isEnd: task.phase == .end,
+                                             durationMinutes: task.durationMinutes)
             content.sound = .default
             content.categoryIdentifier = Self.nagCategory
             content.userInfo = ["uuid": task.uuid.uuidString]
@@ -82,6 +88,28 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 identifier: "task-\(task.uuid.uuidString)-nag-\(i)",
                 content: content, trigger: trigger))
         }
+    }
+
+    /// 4 个预设说话风格各一套提醒文案模板(到点/该开始/时间到三阶段);
+    /// "默认"和"自定义"(自由文本、无法预先枚举模板)沿用原文案。
+    /// 通知链是预排的、不会实时调用 AI,所以这里是本地写死的文案,不引入网络依赖。
+    private static let reminderTemplates: [String: (due: String, start: String, end: String)] = [
+        "高效秘书": ("到时间了,请处理。", "该开始了,请预留 %d 分钟。", "时间已到,请确认完成情况。"),
+        "温柔陪伴": ("到时间啦,别忘了哦~", "要开始啦~大概需要 %d 分钟,加油!", "时间到啦,完成了吗?"),
+        "严格教练": ("时间到了,马上行动!", "该开始了!给自己 %d 分钟,专注去做。", "时间到,完成了没有?"),
+        "幽默轻松": ("叮!你的专属提醒到啦~", "开工时间到~预计 %d 分钟,冲鸭!", "时间到啦,搞定了没?别偷懒哦~"),
+    ]
+
+    private static func reminderBody(style: String, starting: Bool, isEnd: Bool,
+                                     durationMinutes: Int) -> String {
+        guard let template = reminderTemplates[style] else {
+            if starting { return "该开始了!(时长 \(durationMinutes) 分钟)" }
+            if isEnd { return "时间到 — 完成了吗?" }
+            return "到时间了"
+        }
+        if starting { return String(format: template.start, durationMinutes) }
+        if isEnd { return template.end }
+        return template.due
     }
 
     func cancelChain(for uuid: UUID) {
@@ -277,6 +305,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 self.complete(task, context: context)
             case Self.snoozeAction:
                 self.snooze(task, context: context)
+            case Self.rescheduleAction:
+                UserDefaults.standard.set(uuidString, forKey: Self.pendingRescheduleUUIDKey)
+                NotificationCenter.default.post(name: Self.rescheduleHandoff, object: nil,
+                                                userInfo: ["uuid": uuidString])
             default:
                 break  // 点通知本体:打开 app,不改状态
             }

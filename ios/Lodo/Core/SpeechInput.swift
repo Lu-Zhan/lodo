@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import LodoCore
 
 /// 中文语音听写:AVAudioEngine 采集 + SFSpeechRecognizer 实时转写(iOS/macOS 通用,
 /// 音频会话配置仅 iOS 需要)。转写结果通过 `transcript` 增量更新,停止后保留最终文本。
@@ -15,6 +16,9 @@ final class SpeechInput {
     private let audioEngine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    /// 静音自动停止:最近一次识别到新内容(或开始录音)的时刻。
+    private var lastActivityAt = Date()
+    private var silenceWatchTask: Task<Void, Never>?
 
     func toggle() {
         if isRecording {
@@ -63,12 +67,15 @@ final class SpeechInput {
             audioEngine.prepare()
             try audioEngine.start()
             isRecording = true
+            lastActivityAt = Date()
+            watchSilence()
 
             task = recognizer.recognitionTask(with: request) { [weak self] result, error in
                 Task { @MainActor in
                     guard let self else { return }
                     if let result {
                         self.transcript = result.bestTranscription.formattedString
+                        self.lastActivityAt = Date()
                     }
                     if error != nil || result?.isFinal == true {
                         self.stop()
@@ -83,9 +90,28 @@ final class SpeechInput {
         }
     }
 
+    /// 静音超过设置时长(0 = 关闭,不自动停止)自动停止录音。
+    private func watchSilence() {
+        silenceWatchTask?.cancel()
+        silenceWatchTask = Task { [weak self] in
+            while let self, self.isRecording, !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard !Task.isCancelled, self.isRecording else { return }
+                let timeout = AppSettings.agentSilenceTimeoutSeconds
+                guard timeout > 0 else { continue }
+                if Date().timeIntervalSince(self.lastActivityAt) >= Double(timeout) {
+                    self.stop()
+                    return
+                }
+            }
+        }
+    }
+
     /// 停止采集;识别任务继续把已缓冲的音频出完最终结果。
     func stop() {
         guard isRecording || audioEngine.isRunning else { return }
+        silenceWatchTask?.cancel()
+        silenceWatchTask = nil
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
         request?.endAudio()

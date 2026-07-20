@@ -1,4 +1,5 @@
 import Foundation
+import LodoCore
 #if os(iOS)
 import UIKit
 #endif

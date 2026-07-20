@@ -1,8 +1,7 @@
 import SwiftUI
 import LodoCore
 
-/// 创建/编辑表单的字段值与校验、转换逻辑,
-/// TaskEditView 与 AddTaskView 的手动输入模块共用。
+/// 创建/编辑表单的字段值与校验、转换逻辑,TaskEditView 使用。
 struct TaskFormModel {
     var title: String
     var repeatType: RepeatType

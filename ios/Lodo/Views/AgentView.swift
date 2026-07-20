@@ -1,9 +1,12 @@
 import SwiftUI
+import LodoCore
 
 /// 主页下拉唤出的全局 agent:大对话框,一句话新增/修改/完成/删除待办(可批量);
 /// 右下角语音按钮,讲完话自动提交。单条新建/修改直达表单;
 /// 批量或含完成/删除的操作先在本页确认;信息不全时反问并给候选。
 struct AgentView: View {
+    /// 弹出后是否自动开始语音(tab 栏"添加"按钮触发时为 true)。
+    let autoStart: Bool
     /// 解析并路由输入文本;返回本页要展示的回应形态。
     let submit: (String) async throws -> AgentReply
     /// 用户确认执行批量操作(操作暂存在 TodoListView)。
@@ -14,8 +17,10 @@ struct AgentView: View {
     @State private var text: String
 
     init(prefill: String? = nil,
+         autoStart: Bool = false,
          submit: @escaping (String) async throws -> AgentReply,
          onConfirm: @escaping () -> Void) {
+        self.autoStart = autoStart
         self.submit = submit
         self.onConfirm = onConfirm
         _text = State(initialValue: prefill ?? "")
@@ -32,11 +37,13 @@ struct AgentView: View {
     @State private var clarify: (question: String, options: [String])?
     /// 反问时保留的原话,选候选后拼接重新提交。
     @State private var clarifyBase = ""
+    /// 记忆问答的回答,或收藏回执;related 为相关条目标题。
+    @State private var answer: (text: String, related: [String])?
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                TextField("例如:明天3点开会一小时 / 把开会改到晚上8点",
+                TextField("例如:明天3点开会 / 记住wifi密码是8888 / 我存过的菜谱",
                           text: $text, axis: .vertical)
                     .font(.title3)
                     .lineLimit(3...8)
@@ -60,6 +67,10 @@ struct AgentView: View {
                     confirmSection(confirmLines)
                         .transition(.scale(scale: 0.96).combined(with: .opacity))
                 }
+                if let answer {
+                    answerSection(answer)
+                        .transition(.scale(scale: 0.96).combined(with: .opacity))
+                }
 
                 Spacer(minLength: 0)
 
@@ -80,6 +91,9 @@ struct AgentView: View {
                             .foregroundStyle(speech.isRecording ? Color.red : Color.accentColor)
                     }
                     .buttonStyle(.plain)
+                    #if os(iOS)
+                    .hoverEffect(.highlight)
+                    #endif
                     .disabled(busy)
                     .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
                 }
@@ -87,6 +101,7 @@ struct AgentView: View {
             .padding()
             .animation(.snappy, value: confirmLines)
             .animation(.snappy, value: clarify?.question)
+            .animation(.snappy, value: answer?.text)
             .navigationTitle("AI 助手")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -97,10 +112,12 @@ struct AgentView: View {
                         speech.stop()
                         dismiss()
                     }
+                    .keyboardShortcut(.cancelAction)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if busy {
                         ProgressView()
+                            .accessibilityLabel("处理中")
                     } else {
                         Button {
                             parse()
@@ -109,6 +126,7 @@ struct AgentView: View {
                         }
                         .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
                         .accessibilityLabel("解析")
+                        .keyboardShortcut(.defaultAction)
                     }
                 }
             }
@@ -126,6 +144,10 @@ struct AgentView: View {
             }
             .onDisappear { speech.stop() }
             .onAppear {
+                if autoStart && AppSettings.agentAutoRecordOnOpen && !speech.isRecording {
+                    typedPrefix = text
+                    speech.toggle()
+                }
                 #if DEBUG
                 // 截图验证用:模拟确认清单 / 反问两种回应态
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-confirm") {
@@ -137,6 +159,11 @@ struct AgentView: View {
                     text = clarifyBase
                     clarify = (question: "什么时候提醒你交材料?",
                                options: ["明天 09:00", "明天 14:00", "今晚 20:00"])
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-answer") {
+                    text = "我之前存的 wifi 密码"
+                    answer = (text: "你收藏的 wifi 密码是 8888。",
+                              related: ["家里 wifi 密码"])
                 }
                 #endif
             }
@@ -154,15 +181,13 @@ struct AgentView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label(clarify.question, systemImage: "questionmark.circle")
                 .font(.subheadline)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
-                    ForEach(clarify.options, id: \.self) { option in
-                        Button(option) {
-                            resolveClarify(with: option)
-                        }
-                        .buttonStyle(.bordered)
-                        .font(.footnote)
+            HorizontalChipRow {
+                ForEach(clarify.options, id: \.self) { option in
+                    Button(option) {
+                        resolveClarify(with: option)
                     }
+                    .buttonStyle(.bordered)
+                    .font(.footnote)
                 }
             }
         }
@@ -198,7 +223,28 @@ struct AgentView: View {
         if line.hasPrefix("修改") { return "pencil.circle" }
         if line.hasPrefix("完成") { return "checkmark.circle" }
         if line.hasPrefix("删除") { return "trash.circle" }
+        if line.hasPrefix("收藏") { return "bookmark.circle" }
         return "circle"
+    }
+
+    /// 记忆问答的回答,或收藏回执;related 非空时列出相关条目标题。
+    private func answerSection(_ answer: (text: String, related: [String])) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(answer.text, systemImage: "sparkles")
+                .font(.subheadline)
+            ForEach(answer.related, id: \.self) { title in
+                Label(title, systemImage: "bookmark.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Button("完成") {
+                dismiss()
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(12)
+        .background(.fill.quaternary,
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: - 提交
@@ -217,6 +263,7 @@ struct AgentView: View {
         busy = true
         errorText = nil
         confirmLines = nil
+        answer = nil
         Task {
             defer { busy = false }
             do {
@@ -230,6 +277,10 @@ struct AgentView: View {
                     clarifyBase = trimmed
                     confirmLines = nil
                     clarify = (question: question, options: options)
+                case .answer(let text, let related):
+                    clarify = nil
+                    confirmLines = nil
+                    answer = (text, related)
                 }
             } catch {
                 errorText = error.localizedDescription

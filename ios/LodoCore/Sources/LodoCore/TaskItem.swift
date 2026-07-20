@@ -1,27 +1,31 @@
 import Foundation
 import SwiftData
-import LodoCore
 
-/// SwiftData 持久化模型,字段与 web 版 tasks 表对齐;调度计算通过 TaskData 互转交给 LodoCore。
+/// SwiftData 持久化模型,字段与 web 版 tasks 表对齐;调度计算通过 TaskData 互转交给 Scheduler。
+/// 放在 LodoCore(而不是主 App target)里,是为了让 iOS/macOS 主 App 和 Watch App
+/// 共用同一份模型定义,不需要手动维护两份保持字段一致。
+/// 每个存储属性都在声明处给了默认值(不是只在 init 里赋值)、且 uuid 去掉了
+/// `.unique` 约束——这两点是 CloudKit 同步的硬性要求(CloudKit 不支持唯一约束,
+/// schema 里每个字段都要有默认值),uuid 的唯一性改由应用层保证(每次 UUID() 生成)。
 @Model
-final class TaskItem {
-    @Attribute(.unique) var uuid: UUID
-    var title: String
-    var remindAt: Date
-    var durationMinutes: Int
-    var allDay: Bool
-    var repeatTypeRaw: String
-    var repeatDays: [Int]
-    var repeatTimes: [String]
-    var statusRaw: String
-    var phaseRaw: String
-    var nextRemindAt: Date
-    var createdAt: Date
-    var doneAt: Date?
+public final class TaskItem {
+    public var uuid: UUID = UUID()
+    public var title: String = ""
+    public var remindAt: Date = Date.now
+    public var durationMinutes: Int = 0
+    public var allDay: Bool = false
+    public var repeatTypeRaw: String = "none"
+    public var repeatDays: [Int] = []
+    public var repeatTimes: [String] = []
+    public var statusRaw: String = "pending"
+    public var phaseRaw: String = "start"
+    public var nextRemindAt: Date = Date.now
+    public var createdAt: Date = Date.now
+    public var doneAt: Date?
     /// 导出到系统提醒事项后的 EKReminder identifier(或导入来源),用于去重与更新。
-    var ekIdentifier: String?
+    public var ekIdentifier: String?
 
-    init(
+    public init(
         title: String,
         remindAt: Date,
         durationMinutes: Int = 0,
@@ -50,13 +54,13 @@ final class TaskItem {
         self.ekIdentifier = ekIdentifier
     }
 
-    var repeatType: RepeatType { RepeatType(rawValue: repeatTypeRaw) ?? .none }
-    var status: TaskStatus { TaskStatus(rawValue: statusRaw) ?? .pending }
-    var phase: TaskPhase { TaskPhase(rawValue: phaseRaw) ?? .start }
-    var isRecurring: Bool { repeatType != .none }
+    public var repeatType: RepeatType { RepeatType(rawValue: repeatTypeRaw) ?? .none }
+    public var status: TaskStatus { TaskStatus(rawValue: statusRaw) ?? .pending }
+    public var phase: TaskPhase { TaskPhase(rawValue: phaseRaw) ?? .start }
+    public var isRecurring: Bool { repeatType != .none }
 
-    /// 转成 LodoCore 的纯数据结构做调度计算。
-    var data: TaskData {
+    /// 转成纯数据结构做调度计算。
+    public var data: TaskData {
         TaskData(
             title: title, remindAt: remindAt, durationMinutes: durationMinutes,
             allDay: allDay, repeatType: repeatType, repeatDays: repeatDays,
@@ -66,7 +70,7 @@ final class TaskItem {
     }
 
     /// 把调度计算结果写回模型。
-    func apply(_ d: TaskData) {
+    public func apply(_ d: TaskData) {
         title = d.title
         remindAt = d.remindAt
         durationMinutes = d.durationMinutes
@@ -81,7 +85,7 @@ final class TaskItem {
     }
 
     /// 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"。
-    var caption: String {
+    public var caption: String {
         var parts = [Self.format(nextRemindAt)]
         if isRecurring {
             parts.append(data.repeatLabel)
@@ -93,7 +97,7 @@ final class TaskItem {
         return parts.joined(separator: " · ")
     }
 
-    static func format(_ date: Date) -> String {
+    public static func format(_ date: Date) -> String {
         let calendar = Calendar.current
         let time = date.formatted(date: .omitted, time: .shortened)
         if calendar.isDateInToday(date) { return "今天 \(time)" }

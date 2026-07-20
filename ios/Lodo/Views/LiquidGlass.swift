@@ -15,3 +15,14 @@ extension View {
         }
     }
 }
+
+/// 表单主要确认按钮:iOS/macOS 26 起用 `role: .confirm` 表达确认语义,
+/// 旧系统回退到不带 role 的普通按钮,调用处无需重复 #available。
+@ViewBuilder
+func confirmButton(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+    if #available(iOS 26.0, macOS 26.0, *) {
+        Button(title, role: .confirm, action: action)
+    } else {
+        Button(title, action: action)
+    }
+}

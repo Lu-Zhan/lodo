@@ -5,15 +5,17 @@ import FoundationModels
 /// 苹果智能(Foundation Models)端侧推理:与云服务商同形的 JSON 传输层。
 /// prompt 复用 DeepSeekClient 的全套指令(要求只返回 JSON),
 /// 免 key、离线、数据不出设备;仅在支持 Apple Intelligence 的设备上可用。
+/// watchOS 不提供这个框架,`canImport` 门控让这个文件在 Watch 上直接编译为空,
+/// Watch 侧永远走云端服务商分支。
 @available(iOS 26.0, macOS 26.0, *)
-enum FoundationModelsClient {
+public enum FoundationModelsClient {
     /// 设备当前是否可用苹果智能。
-    static var isAvailable: Bool {
+    public static var isAvailable: Bool {
         SystemLanguageModel.default.availability == .available
     }
 
     /// 面向设置页的可用性说明。
-    static var availabilityHint: String {
+    public static var availabilityHint: String {
         switch SystemLanguageModel.default.availability {
         case .available:
             return "苹果智能可用:免 key、离线,数据不出设备。"
@@ -32,7 +34,7 @@ enum FoundationModelsClient {
     }
 
     /// 端侧推理并解析出 JSON payload,形态与云端 payload 一致(含 error 检查)。
-    static func payload(system: String, user: String) async throws -> [String: Any] {
+    public static func payload(system: String, user: String) async throws -> [String: Any] {
         guard isAvailable else { throw DeepSeekError.api(availabilityHint) }
         let session = LanguageModelSession(instructions: system)
         let text: String
