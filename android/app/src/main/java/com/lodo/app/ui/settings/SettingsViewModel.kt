@@ -95,6 +95,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         app.settings.setInsightEnabled(enabled)
     }
 
+    fun setAgentAutoRecordOnOpen(enabled: Boolean) = viewModelScope.launch {
+        app.settings.setAgentAutoRecordOnOpen(enabled)
+    }
+
+    fun setAgentSilenceTimeoutSeconds(seconds: Int) = viewModelScope.launch {
+        app.settings.setAgentSilenceTimeoutSeconds(seconds)
+    }
+
     fun saveMemory() {
         DurationMemory.save(app, memoryText)
     }

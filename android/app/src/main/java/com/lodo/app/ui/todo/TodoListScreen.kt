@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -54,15 +55,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lodo.app.LodoApp
+import com.lodo.app.PendingRoute
 import com.lodo.app.core.TaskPhase
 import com.lodo.app.core.weekdayNames
 import com.lodo.app.data.TaskEntity
@@ -86,6 +91,19 @@ fun TodoListScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
 
+    // App Shortcuts / 通知"改期"按钮打开 App 后要消费的路由(对应 iOS 的
+    // agentRequest 深链/Siri handoff 消费模式),消费一次即清空。
+    val app = LocalContext.current.applicationContext as LodoApp
+    val pendingRoute by app.pendingRoute.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingRoute) {
+        when (val route = pendingRoute) {
+            is PendingRoute.Agent -> vm.sheet = SheetMode.Agent(autoStart = route.autoStart)
+            is PendingRoute.Reschedule -> vm.handleReschedule(route.uuid)
+            null -> return@LaunchedEffect
+        }
+        app.pendingRoute.value = null
+    }
+
     val dueUuids = state.due.map { it.uuid }.toSet()
     val upcoming = state.pending.filter { it.uuid !in dueUuids }
     val dayTasks = upcoming.filter { it.nextRemindAt.toLocalDate() == vm.selectedDate }
@@ -107,7 +125,7 @@ fun TodoListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { vm.sheet = SheetMode.Add }) {
+            FloatingActionButton(onClick = { vm.sheet = SheetMode.Agent(autoStart = true) }) {
                 Icon(Icons.Filled.Add, contentDescription = "添加")
             }
         },
@@ -202,6 +220,7 @@ fun TodoListScreen(
     when (val sheet = vm.sheet) {
         is SheetMode.Add -> AddTaskSheet(
             allDayTime = state.allDayTime,
+            agentSilenceTimeoutSeconds = state.agentSilenceTimeoutSeconds,
             onAiParse = vm::addParse,
             onSave = {
                 vm.saveNew(it)
@@ -211,6 +230,8 @@ fun TodoListScreen(
         )
         is SheetMode.Agent -> AgentSheet(
             prefill = sheet.prefill,
+            autoStart = sheet.autoStart && state.agentAutoRecordOnOpen,
+            agentSilenceTimeoutSeconds = state.agentSilenceTimeoutSeconds,
             onSubmit = vm::agentRoute,
             onConfirm = { vm.performPendingActions() },
             onDismiss = {
@@ -242,6 +263,17 @@ fun TodoListScreen(
             onDismiss = { vm.sheet = null },
         )
         null -> {}
+    }
+
+    vm.actionsWarning?.let { warning ->
+        AlertDialog(
+            onDismissRequest = { vm.dismissActionsWarning() },
+            title = { Text("提示") },
+            text = { Text(warning) },
+            confirmButton = {
+                TextButton(onClick = { vm.dismissActionsWarning() }) { Text("好") }
+            },
+        )
     }
 }
 

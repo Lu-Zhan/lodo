@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">lodo</string>
+    <string name="shortcut_agent_short">AI 助手</string>
+    <string name="shortcut_agent_long">打开 AI 助手</string>
+    <string name="shortcut_add_short">新建</string>
+    <string name="shortcut_add_long">新建事项</string>
 </resources>

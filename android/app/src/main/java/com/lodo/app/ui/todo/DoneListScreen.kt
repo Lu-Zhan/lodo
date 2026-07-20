@@ -1,5 +1,7 @@
 package com.lodo.app.ui.todo
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,9 +33,13 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextDecoration
@@ -43,6 +50,7 @@ import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.TaskEntity
 import com.lodo.app.ui.EmptyState
 import com.lodo.app.ui.SectionHeader
+import java.time.LocalDate
 
 /** 已完成标签页,对应 iOS DoneListView:本周洞察 + 右滑恢复未完成、左滑删除。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +59,18 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
     val state by vm.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.done.size) { vm.loadInsight() }
+
+    val today = remember { LocalDate.now() }
+    val todayDone = remember(state.done, today) {
+        state.done.filter { it.doneAt?.toLocalDate() == today }
+    }
+    val otherGroups = remember(state.done, today) {
+        state.done.filter { it.doneAt?.toLocalDate() != today }
+            .groupBy { it.doneAt?.toLocalDate() ?: today }
+            .toSortedMap(compareByDescending { it })
+            .toList()
+    }
+    var expandedDays by remember { mutableStateOf(setOf<LocalDate>()) }
 
     Scaffold(
         modifier = modifier,
@@ -90,16 +110,69 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
                     EmptyState(Icons.Outlined.Inbox, "还没有完成的事项")
                 }
             } else {
-                items(state.done, key = { it.uuid }) { task ->
-                    DoneRow(
-                        task = task,
-                        hapticsEnabled = state.hapticsEnabled,
-                        onRestore = { vm.restore(task.uuid) },
-                        onDelete = { vm.delete(task.uuid) },
-                    )
+                if (todayDone.isNotEmpty()) {
+                    item(key = "today-header") { SectionHeader("今天") }
+                    items(todayDone, key = { "today-" + it.uuid }) { task ->
+                        DoneRow(
+                            task = task,
+                            hapticsEnabled = state.hapticsEnabled,
+                            onRestore = { vm.restore(task.uuid) },
+                            onDelete = { vm.delete(task.uuid) },
+                        )
+                    }
+                }
+                otherGroups.forEach { (date, tasks) ->
+                    item(key = "group-header-$date") {
+                        DoneGroupHeader(
+                            title = TimeFormat.dayLabel(date, today),
+                            expanded = expandedDays.contains(date),
+                            onToggle = {
+                                expandedDays = if (expandedDays.contains(date)) {
+                                    expandedDays - date
+                                } else {
+                                    expandedDays + date
+                                }
+                            },
+                        )
+                    }
+                    if (expandedDays.contains(date)) {
+                        items(tasks, key = { "g-" + it.uuid }) { task ->
+                            DoneRow(
+                                task = task,
+                                hapticsEnabled = state.hapticsEnabled,
+                                onRestore = { vm.restore(task.uuid) },
+                                onDelete = { vm.delete(task.uuid) },
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+/** 非今天的已完成分组标题:默认折叠,点击展开/收起,箭头随状态旋转。 */
+@Composable
+private fun DoneGroupHeader(title: String, expanded: Boolean, onToggle: () -> Unit) {
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            Icons.Filled.ExpandMore,
+            contentDescription = if (expanded) "收起" else "展开",
+            modifier = Modifier.rotate(rotation),
+        )
     }
 }
 

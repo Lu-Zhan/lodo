@@ -50,6 +50,10 @@ data class Settings(
     val hapticsEnabled: Boolean = true,
     /** 已完成页的每周完成洞察,默认开。 */
     val insightEnabled: Boolean = true,
+    /** 点击添加弹出 AI 助手时自动开始语音,默认开。 */
+    val agentAutoRecordOnOpen: Boolean = true,
+    /** 语音输入静音多少秒后自动停止,默认 3 秒;0 = 关闭,不自动停止。 */
+    val agentSilenceTimeoutSeconds: Int = 3,
     /** AI 服务商("自定义"用自定义端点),默认 DeepSeek。 */
     val aiProvider: String = "DeepSeek",
     /** 模型覆盖值,空=用服务商默认。 */
@@ -72,6 +76,8 @@ class SettingsRepository(private val context: Context) {
         val DIGEST_DAYS = stringPreferencesKey("digestDays")
         val HAPTICS_ENABLED = booleanPreferencesKey("hapticsEnabled")
         val INSIGHT_ENABLED = booleanPreferencesKey("insightEnabled")
+        val AGENT_AUTO_RECORD_ON_OPEN = booleanPreferencesKey("agentAutoRecordOnOpen")
+        val AGENT_SILENCE_TIMEOUT_SECONDS = intPreferencesKey("agentSilenceTimeoutSeconds")
         val AI_PROVIDER = stringPreferencesKey("aiProvider")
         val AI_MODEL = stringPreferencesKey("aiModel")
         val AI_CUSTOM_ENDPOINT = stringPreferencesKey("aiCustomEndpoint")
@@ -99,6 +105,8 @@ class SettingsRepository(private val context: Context) {
                 .split(",").mapNotNull { it.toIntOrNull() }.filter { it in 0..6 }.sorted(),
             hapticsEnabled = p[Keys.HAPTICS_ENABLED] ?: true,
             insightEnabled = p[Keys.INSIGHT_ENABLED] ?: true,
+            agentAutoRecordOnOpen = p[Keys.AGENT_AUTO_RECORD_ON_OPEN] ?: true,
+            agentSilenceTimeoutSeconds = p[Keys.AGENT_SILENCE_TIMEOUT_SECONDS] ?: 3,
             aiProvider = p[Keys.AI_PROVIDER] ?: "DeepSeek",
             aiModel = p[Keys.AI_MODEL] ?: "",
             aiCustomEndpoint = p[Keys.AI_CUSTOM_ENDPOINT] ?: "",
@@ -143,6 +151,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setInsightEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.INSIGHT_ENABLED] = enabled }
+    }
+
+    suspend fun setAgentAutoRecordOnOpen(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.AGENT_AUTO_RECORD_ON_OPEN] = enabled }
+    }
+
+    suspend fun setAgentSilenceTimeoutSeconds(seconds: Int) {
+        context.dataStore.edit { it[Keys.AGENT_SILENCE_TIMEOUT_SECONDS] = seconds.coerceIn(0, 30) }
     }
 
     suspend fun setAiProvider(provider: String) {

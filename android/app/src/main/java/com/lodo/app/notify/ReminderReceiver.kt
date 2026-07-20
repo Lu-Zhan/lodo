@@ -39,7 +39,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val now = LocalDateTime.now()
         val data = entity.toData()
         if (data.isDue(now)) {
-            Notifications.showTask(app, entity)
+            Notifications.showTask(app, entity, app.settings.snapshot().personaStyle)
             // 忽略通知也会在稍等间隔后再次提醒(与 web 版 markNotified 语义一致)
             val notified = Scheduler.markNotified(data, now, app.settings.snapshot().snoozeMinutes)
             dao.upsert(entity.withData(notified))

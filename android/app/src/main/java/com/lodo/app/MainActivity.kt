@@ -1,6 +1,7 @@
 package com.lodo.app
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
+import com.lodo.app.notify.AlarmScheduler
 import com.lodo.app.ui.MainScreen
 import com.lodo.app.ui.theme.LodoTheme
 import kotlinx.coroutines.launch
@@ -25,9 +27,28 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        consumeRouteIntent(intent)
         setContent {
             LodoTheme {
                 MainScreen()
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        consumeRouteIntent(intent)
+    }
+
+    /** App Shortcuts / 通知"改期"按钮写入的"route" extra,交给 Compose 层
+     * (TodoListScreen)消费。 */
+    private fun consumeRouteIntent(intent: Intent) {
+        val app = application as LodoApp
+        when (intent.getStringExtra("route")) {
+            "agent" -> app.pendingRoute.value = PendingRoute.Agent(autoStart = false)
+            "add" -> app.pendingRoute.value = PendingRoute.Agent(autoStart = true)
+            "reschedule" -> intent.getStringExtra(AlarmScheduler.EXTRA_UUID)?.let { uuid ->
+                app.pendingRoute.value = PendingRoute.Reschedule(uuid)
             }
         }
     }

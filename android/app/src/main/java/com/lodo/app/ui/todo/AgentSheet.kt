@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +66,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun AgentSheet(
     prefill: String?,
+    autoStart: Boolean = false,
+    agentSilenceTimeoutSeconds: Int = 3,
     onSubmit: suspend (String) -> AgentReply,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
@@ -114,6 +117,13 @@ fun AgentSheet(
                 // 讲完话自动提交
                 parse()
             }
+    }
+
+    LaunchedEffect(Unit) {
+        if (autoStart) {
+            runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
+                .onFailure { errorText = "设备不支持语音输入" }
+        }
     }
 
     ModalBottomSheet(
@@ -224,7 +234,7 @@ fun AgentSheet(
                 Spacer(Modifier.weight(1f))
                 // 右下角:语音输入,讲完自动提交
                 FloatingActionButton(onClick = {
-                    runCatching { speechLauncher.launch(speechIntent()) }
+                    runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
                         .onFailure { errorText = "设备不支持语音输入" }
                 }) {
                     Icon(Icons.Filled.Mic, contentDescription = "语音输入")

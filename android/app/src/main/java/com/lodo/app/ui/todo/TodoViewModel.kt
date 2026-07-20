@@ -29,8 +29,9 @@ import java.time.LocalDateTime
 sealed interface SheetMode {
     /** 快速添加页(AI 输入 + 手动表单)。 */
     data object Add : SheetMode
-    /** 全局 agent(一句话新增/修改/完成/删除,可带预填)。 */
-    data class Agent(val prefill: String? = null) : SheetMode
+    /** 全局 agent(一句话新增/修改/完成/删除,可带预填);autoStart 为 true 时
+     * 弹出后自动拉起系统语音识别(FAB 触发时为 true,顶栏 ✨ 按钮为 false)。 */
+    data class Agent(val prefill: String? = null, val autoStart: Boolean = false) : SheetMode
     data class Create(val parsed: ParsedTask?) : SheetMode
     data class Edit(val task: TaskEntity, val parsed: ParsedTask? = null) : SheetMode
 }
@@ -52,6 +53,8 @@ data class TodoUiState(
     val snoozeMinutes: Int = 15,
     val allDayTime: String = "09:00",
     val hapticsEnabled: Boolean = true,
+    val agentAutoRecordOnOpen: Boolean = true,
+    val agentSilenceTimeoutSeconds: Int = 3,
 )
 
 class TodoViewModel(application: Application) : AndroidViewModel(application) {
@@ -87,6 +90,8 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             snoozeMinutes = settings.snoozeMinutes,
             allDayTime = settings.allDayTime,
             hapticsEnabled = settings.hapticsEnabled,
+            agentAutoRecordOnOpen = settings.agentAutoRecordOnOpen,
+            agentSilenceTimeoutSeconds = settings.agentSilenceTimeoutSeconds,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodoUiState())
 
@@ -158,18 +163,48 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     private fun titleOf(uuid: String): String? =
         uiState.value.pending.firstOrNull { it.uuid == uuid }?.title
 
-    /** 执行确认后的批量操作,完毕关闭 agent。 */
+    /** 批量 agent 操作里有目标事项在确认期间被别处改动/删除时的提示。 */
+    var actionsWarning by mutableStateOf<String?>(null)
+        private set
+
+    fun dismissActionsWarning() {
+        actionsWarning = null
+    }
+
+    /** 执行确认后的批量操作,完毕关闭 agent。等待确认期间,目标事项可能已被
+     * 通知按钮/Siri 改动或完成/删除;TaskRepository 对不存在的 uuid 是静默
+     * no-op,这里先检查存在性、统计 missingCount,而不是让用户以为全部成功了。 */
     fun performPendingActions() = viewModelScope.launch {
+        val pending = uiState.value.pending
+        var missingCount = 0
         for (action in pendingActions) {
             when (action) {
                 is AIAction.Create -> app.repository.saveNew(action.task)
-                is AIAction.Update -> app.repository.applyEdit(action.uuid, action.task)
-                is AIAction.Complete -> app.repository.complete(action.uuid)
-                is AIAction.Delete -> app.repository.delete(action.uuid)
+                is AIAction.Update ->
+                    if (pending.any { it.uuid == action.uuid }) {
+                        app.repository.applyEdit(action.uuid, action.task)
+                    } else {
+                        missingCount++
+                    }
+                is AIAction.Complete ->
+                    if (pending.any { it.uuid == action.uuid }) {
+                        app.repository.complete(action.uuid)
+                    } else {
+                        missingCount++
+                    }
+                is AIAction.Delete ->
+                    if (pending.any { it.uuid == action.uuid }) {
+                        app.repository.delete(action.uuid)
+                    } else {
+                        missingCount++
+                    }
             }
         }
         pendingActions = emptyList()
         sheet = null
+        if (missingCount > 0) {
+            actionsWarning = "有 $missingCount 项操作未执行:对应事项已不存在"
+        }
     }
 
     /** agent 关闭时清掉未确认的操作,避免残留被后续误执行。 */
@@ -224,6 +259,14 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ---- 到期卡改期 ----
+
+    /** 通知"改期"按钮打开 App 后的路由消费:跳到事项所在日期并直接发起改期请求,
+     * 等同于用户在到期卡片上手动点了一次"改期"。 */
+    fun handleReschedule(uuid: String) {
+        val task = uiState.value.pending.firstOrNull { it.uuid == uuid } ?: return
+        selectedDate = task.nextRemindAt.toLocalDate()
+        requestReschedule(task)
+    }
 
     /** 请求改期候选:新请求取消旧请求,返回时校验仍是当前卡片。 */
     fun requestReschedule(task: TaskEntity) {

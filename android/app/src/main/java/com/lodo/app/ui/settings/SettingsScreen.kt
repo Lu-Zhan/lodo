@@ -196,6 +196,33 @@ fun SettingsScreen(
             }
             FooterText("滑动完成、删除等操作时轻微振动。")
 
+            SectionHeader("点击添加自动开始语音")
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "点击添加自动开始语音",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = settings.agentAutoRecordOnOpen,
+                    onCheckedChange = vm::setAgentAutoRecordOnOpen,
+                )
+            }
+            FooterText("点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。")
+            StepperRow(
+                label = "静音自动停止:${settings.agentSilenceTimeoutSeconds} 秒",
+                onDecrement = {
+                    vm.setAgentSilenceTimeoutSeconds(settings.agentSilenceTimeoutSeconds - 1)
+                },
+                onIncrement = {
+                    vm.setAgentSilenceTimeoutSeconds(settings.agentSilenceTimeoutSeconds + 1)
+                },
+            )
+            FooterText("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
+
             // ---- AI:服务 → 个性 → 洞察 → 记忆 ----
             SectionHeader("AI 服务")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

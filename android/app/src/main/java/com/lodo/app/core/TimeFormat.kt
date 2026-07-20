@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter
 object TimeFormat {
     private val hhmmFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val monthDayFormatter = DateTimeFormatter.ofPattern("M月d日 HH:mm")
+    private val dayLabelFormatter = DateTimeFormatter.ofPattern("M月d日")
 
     /** 解析 "HH:MM";格式异常时与 iOS 版一致回退到 9:00。 */
     fun localTime(hhmm: String): LocalTime {
@@ -30,5 +31,11 @@ object TimeFormat {
             today.plusDays(1) -> "明天 $time"
             else -> dateTime.format(monthDayFormatter)
         }
+    }
+
+    /** 已完成页分组标题:"昨天" / "7月14日"。 */
+    fun dayLabel(date: LocalDate, today: LocalDate = LocalDate.now()): String = when (date) {
+        today.minusDays(1) -> "昨天"
+        else -> date.format(dayLabelFormatter)
     }
 }

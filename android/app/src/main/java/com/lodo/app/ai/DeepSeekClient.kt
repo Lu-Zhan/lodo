@@ -2,6 +2,7 @@ package com.lodo.app.ai
 
 import com.lodo.app.core.RepeatType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -289,6 +290,21 @@ object DeepSeekClient {
         }
     }
 
+    /** 传输层错误(超时/连接问题)延时后重试一次;HTTP 状态码错误不重试
+     * (同一个请求重试不会变好)。 */
+    private suspend fun executeWithRetry(client: OkHttpClient, request: Request): okhttp3.Response {
+        return try {
+            client.newCall(request).execute()
+        } catch (e: IOException) {
+            delay(500)
+            try {
+                client.newCall(request).execute()
+            } catch (e: IOException) {
+                throw DeepSeekException("调用 DeepSeek 失败:${e.message}")
+            }
+        }
+    }
+
     /** 发起请求并取回模型返回的 JSON payload(含 error 检查)。
      * timeoutSeconds:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。 */
     private suspend fun complete(
@@ -321,11 +337,8 @@ object DeepSeekClient {
                 .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .callTimeout(timeoutSeconds + 5, TimeUnit.SECONDS)
                 .build()
-            val response = try {
-                call.newCall(request).execute()
-            } catch (e: IOException) {
-                throw DeepSeekException("调用 DeepSeek 失败:${e.message}")
-            }
+            val response = executeWithRetry(call, request)
+
             response.use { resp ->
                 val text = resp.body?.string().orEmpty()
                 if (resp.code != 200) {

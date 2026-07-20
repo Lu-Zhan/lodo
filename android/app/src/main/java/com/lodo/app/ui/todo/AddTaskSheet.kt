@@ -44,14 +44,25 @@ import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.SectionHeader
 import kotlinx.coroutines.launch
 
-/** 系统语音识别(zh-CN)启动 Intent。 */
-internal fun speechIntent(): Intent =
-    Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+/**
+ * 系统语音识别(zh-CN)启动 Intent。
+ * @param silenceTimeoutSeconds 静音多少秒后系统识别器自动停止;0 = 不覆盖(用系统默认),
+ * 对应 iOS 应用内录音的静音自动停止设置,系统识别器不保证严格遵守这个提示。
+ */
+internal fun speechIntent(silenceTimeoutSeconds: Int = 3): Intent {
+    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         .putExtra(
             RecognizerIntent.EXTRA_LANGUAGE_MODEL,
             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
         )
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+    if (silenceTimeoutSeconds > 0) {
+        val millis = silenceTimeoutSeconds * 1000L
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, millis)
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, millis)
+    }
+    return intent
+}
 
 /**
  * 快速添加页,对应 iOS AddTaskView:纵向两个模块——
@@ -62,6 +73,7 @@ internal fun speechIntent(): Intent =
 @Composable
 fun AddTaskSheet(
     allDayTime: String,
+    agentSilenceTimeoutSeconds: Int = 3,
     onAiParse: suspend (String) -> Pair<ParsedTask, Int?>,
     onSave: (ParsedTask) -> Unit,
     onDismiss: () -> Unit,
@@ -144,7 +156,7 @@ fun AddTaskSheet(
                 trailingIcon = {
                     Row {
                         IconButton(onClick = {
-                            runCatching { speechLauncher.launch(speechIntent()) }
+                            runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
                                 .onFailure { errorText = "设备不支持语音输入" }
                         }, enabled = !busy) {
                             Icon(Icons.Filled.Mic, contentDescription = "语音输入")

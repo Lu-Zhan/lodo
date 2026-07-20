@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 长按桌面图标弹出的静态快捷方式:新建/AI 助手,对齐 iOS 的 Siri Shortcuts 入口。 -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="agent"
+        android:enabled="true"
+        android:icon="@drawable/ic_notification"
+        android:shortcutShortLabel="@string/shortcut_agent_short"
+        android:shortcutLongLabel="@string/shortcut_agent_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.lodo.app"
+            android:targetClass="com.lodo.app.MainActivity">
+            <extra android:name="route" android:value="agent" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="add"
+        android:enabled="true"
+        android:icon="@drawable/ic_notification"
+        android:shortcutShortLabel="@string/shortcut_add_short"
+        android:shortcutLongLabel="@string/shortcut_add_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.lodo.app"
+            android:targetClass="com.lodo.app.MainActivity">
+            <extra android:name="route" android:value="add" />
+        </intent>
+    </shortcut>
+</shortcuts>
