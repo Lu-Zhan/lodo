@@ -36,6 +36,8 @@ struct AgentView: View {
     @State private var busy = false
     @State private var errorText: String?
     @State private var speech = SpeechInput()
+    /// 打开页面默认唤起键盘,方便直接打字;长按触发的自动语音不需要键盘,不抢焦点。
+    @FocusState private var isInputFocused: Bool
     /// 开始录音时已输入的文字,听写结果追加在其后。
     @State private var typedPrefix = ""
 
@@ -167,6 +169,8 @@ struct AgentView: View {
                 if autoStart && AppSettings.agentAutoRecordOnOpen && !speech.isRecording {
                     typedPrefix = text
                     speech.toggle()
+                } else {
+                    isInputFocused = true
                 }
                 #if DEBUG
                 seedDemoMessagesIfNeeded()
@@ -269,6 +273,7 @@ struct AgentView: View {
                 TextField("说点什么…", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
+                    .focused($isInputFocused)
                     .onSubmit { send() }
 
                 if showsInlineMic {
