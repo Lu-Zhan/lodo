@@ -330,45 +330,16 @@ struct TodoListView: View {
         Section {
             ForEach(due) { task in
                 VStack(alignment: .leading, spacing: 8) {
-                    // 标题行:改期作为次级操作放右上角,主操作行不再拥挤换行
+                    // 标题行:完成/改期/稍等都改成左右滑手势,行内不再放按钮
                     HStack(alignment: .firstTextBaseline) {
                         Text(task.title).font(.headline)
-                        Spacer()
-                        Button {
-                            requestReschedule(task)
-                        } label: {
-                            if rescheduleLoading == task.uuid.uuidString {
-                                ProgressView().controlSize(.small)
-                                    .accessibilityLabel("处理中")
-                            } else {
-                                Label("改期", systemImage: "calendar.badge.clock")
-                                    .font(.footnote)
-                            }
+                        if rescheduleLoading == task.uuid.uuidString {
+                            Spacer()
+                            ProgressView().controlSize(.small)
+                                .accessibilityLabel("正在改期")
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(rescheduleLoading != nil)
                     }
                     Text(dueCaption(task)).font(.footnote).foregroundStyle(.secondary)
-                    HStack {
-                        Button {
-                            completeWithSampling(task)
-                        } label: {
-                            Label(task.phase == .start && task.durationMinutes > 0
-                                  ? "开始了" : "完成",
-                                  systemImage: task.phase == .start && task.durationMinutes > 0
-                                  ? "play.fill" : "checkmark")
-                                .lineLimit(1)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        Button {
-                            NotificationManager.shared.snooze(task, context: context)
-                        } label: {
-                            Label("稍等 \(AppSettings.snoozeMinutes) 分钟", systemImage: "hourglass")
-                                .lineLimit(1)
-                        }
-                        .buttonStyle(.bordered)
-                    }
                     if let reschedule, reschedule.uuid == task.uuid.uuidString {
                         HorizontalChipRow {
                             ForEach(reschedule.candidates, id: \.label) { candidate in
@@ -395,6 +366,36 @@ struct TodoListView: View {
                     }
                 }
                 .padding(.vertical, 4)
+                .swipeActions(edge: .leading) {
+                    Button {
+                        Haptics.success()
+                        completeWithSampling(task)
+                    } label: {
+                        Label(task.phase == .start && task.durationMinutes > 0
+                              ? "开始了" : "完成",
+                              systemImage: task.phase == .start && task.durationMinutes > 0
+                              ? "play.fill" : "checkmark")
+                    }
+                    .tint(.green)
+                }
+                .swipeActions(edge: .trailing) {
+                    // 改期是第一个 action:长滑(full swipe)直接触发它;
+                    // 稍等作为第二个 action,短滑露出后需要点按。
+                    Button {
+                        requestReschedule(task)
+                    } label: {
+                        Label("改期", systemImage: "calendar.badge.clock")
+                    }
+                    .tint(.blue)
+                    .disabled(rescheduleLoading != nil)
+                    Button {
+                        NotificationManager.shared.snooze(task, context: context)
+                    } label: {
+                        Text("+\(AppSettings.snoozeMinutes)M")
+                    }
+                    .tint(.orange)
+                    .accessibilityLabel("稍等 \(AppSettings.snoozeMinutes) 分钟")
+                }
             }
             if let rescheduleError {
                 Text(rescheduleError).font(.footnote).foregroundStyle(.red)

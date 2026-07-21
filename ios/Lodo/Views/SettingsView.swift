@@ -198,6 +198,14 @@ struct SettingsView: View {
                 } footer: {
                     Text("AI 会在事项完成后归纳\"类型 → 典型时长\",新建没说时长的事项时据此建议。")
                 }
+
+                Section {
+                    NavigationLink("管理 AI Agent") { AgentSkillListView() }
+                } header: {
+                    Text("AI Agent")
+                } footer: {
+                    Text("agent.md 是总则,待办/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。")
+                }
             }
             .formStyle(.grouped)
             .navigationTitle("设置")

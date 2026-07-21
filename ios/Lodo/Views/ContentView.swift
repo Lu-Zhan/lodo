@@ -11,6 +11,10 @@ struct ContentView: View {
     @State private var agentAutoStart = false
     /// 非 nil 时由待办页跳到该事项并自动发起改期请求(通知"改期"按钮交接)。
     @State private var rescheduleRequestUUID: String?
+    #if DEBUG
+    @State private var showAgentSkillsDemo = false
+    @State private var showAgentSkillEditDemo = false
+    #endif
 
     enum AppTab: Hashable {
         case todo, memory, add
@@ -30,8 +34,22 @@ struct ContentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-memory-tab") {
                     selection = .memory
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-skills") {
+                    showAgentSkillsDemo = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-skill-edit") {
+                    showAgentSkillEditDemo = true
+                }
                 #endif
             }
+            #if DEBUG
+            .sheet(isPresented: $showAgentSkillsDemo) {
+                NavigationStack { AgentSkillListView() }
+            }
+            .sheet(isPresented: $showAgentSkillEditDemo) {
+                NavigationStack { AgentSkillEditView(id: .todo) }
+            }
+            #endif
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     if Date().timeIntervalSince(lastActiveRefresh) > 30 {
@@ -123,7 +141,7 @@ struct ContentView: View {
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
                 MemoryListView()
             }
-            Tab("添加", systemImage: "plus", value: AppTab.add, role: .search) {
+            Tab("添加", systemImage: "sparkles", value: AppTab.add, role: .search) {
                 Color.clear
             }
         }
