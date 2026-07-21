@@ -8,8 +8,9 @@ import UIKit
 
 /// 全局 agent 一次解析后的回应形态(AgentView 据此展示)。
 enum AgentReply {
-    /// 已直达表单(单条新建/修改),agent 页无事可做。
-    case routed
+    /// 单条新建/修改:AgentView 叠一个 TaskEditView 在聊天页上面,
+    /// 保存后由 AgentView 自己往当前 thread 追加一条结果消息。
+    case routeToForm(existing: TaskItem?, parsed: ParsedTask)
     /// 需要确认的操作清单(批量或含完成/删除),元素为中文描述。
     case confirm([String])
     /// 关键信息缺失,反问 + 候选补充。
@@ -153,13 +154,19 @@ struct TodoListView: View {
             .navigationTitle("lodo")
             .toolbar {
                 #if os(macOS)
-                // macOS 没有下拉手势,agent 入口放工具栏
+                // macOS 没有下拉手势,agent 入口放工具栏;短按打开/回到最近对话,
+                // 长按直接开语音(与 iOS 悬浮按钮同一套交互,见 ContentView.swift)。
                 ToolbarItem {
                     Button {
                         sheet = .agent(prefill: nil, autoStart: false)
                     } label: {
                         Label("AI 助手", systemImage: "sparkles")
                     }
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                            sheet = .agent(prefill: nil, autoStart: true)
+                        }
+                    )
                 }
                 #endif
                 ToolbarItem {
@@ -179,8 +186,17 @@ struct TodoListView: View {
                 switch mode {
                 case .agent(let prefill, let autoStart):
                     AgentView(prefill: prefill, autoStart: autoStart,
-                              submit: { try await route($0) },
-                              onConfirm: { performPendingActions() })
+                              submit: { text, history, onThought in
+                                  try await route(text, history: history, onThought: onThought)
+                              },
+                              onConfirm: { performPendingActions() },
+                              saveTask: { existing, parsed in
+                                  if let existing {
+                                      apply(parsed, to: existing)
+                                  } else {
+                                      saveNew(parsed)
+                                  }
+                              })
                 case .create(let parsed, let attachment):
                     TaskEditView(existing: nil, parsed: parsed, attachment: attachment) {
                         saveNew($0, attachment: attachment)

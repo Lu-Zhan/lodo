@@ -97,9 +97,7 @@ struct ContentView: View {
                 guard url.scheme == "lodo" else { return }
                 switch url.host {
                 case "add":
-                    selection = .todo
-                    agentRequest = ""
-                    agentAutoStart = true
+                    openAgent(autoStart: true)
                 case "agent":
                     let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                         .queryItems?.first { $0.name == "text" }?.value
@@ -138,8 +136,10 @@ struct ContentView: View {
     /// iOS 18 / macOS 15 起的新 Tab 写法。
     /// sidebarAdaptable:iPhone 仍是标签栏,iPad 可展开成侧边栏,macOS 呈现为
     /// 系统「提醒事项」式的侧边栏,是待办类 app 在大屏上的标准形态。
-    /// iOS 侧第四个 Tab 用 role .search 与前三个分离靠右,作为"添加"按钮:
-    /// 选中即拦截,弹出 AI 助手并回到原 tab,不真正切换页面。
+    /// AI 入口(iOS/iPadOS)不再用系统 Tab(role: .search)——那样拿不到长按手势
+    /// (系统 tab bar chrome 接管手势,挂不上真正生效的 onLongPressGesture)。
+    /// 改成叠在 TabView 上的自绘悬浮按钮:短按打开/回到最近对话,长按自动开语音。
+    /// macOS 用的是 TodoListView 工具栏里的"AI 助手"按钮(见该文件),不走这里。
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
         TabView(selection: $selection) {
@@ -151,19 +151,45 @@ struct ContentView: View {
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
                 MemoryListView(onConvertToTodo: convertToTodo)
             }
-            Tab("添加", systemImage: "sparkles", value: AppTab.add, role: .search) {
-                Color.clear
-            }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .onChange(of: selection) { _, new in
-            if new == .add {
-                // "添加"不是真正的页面:切到待办页并弹出 AI 助手(自动开始语音)
-                selection = .todo
-                agentRequest = ""
-                agentAutoStart = true
-            }
+        #if os(iOS)
+        .overlay(alignment: .bottomTrailing) {
+            agentQuickButton
+                .padding(.trailing, 20)
+                .padding(.bottom, 90)
         }
+        #endif
+    }
+
+    #if os(iOS)
+    /// 短按:打开/回到最近一次对话,不自动开语音。长按:同时自动开语音。
+    private var agentQuickButton: some View {
+        Button {
+            openAgent(autoStart: false)
+        } label: {
+            Image(systemName: "sparkles")
+                .font(.title2)
+                .frame(width: 52, height: 52)
+                .background(.regularMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.separator))
+        }
+        .buttonStyle(.plain)
+        .hoverEffect(.highlight)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                openAgent(autoStart: true)
+            }
+        )
+        .accessibilityLabel("AI 助手")
+        .accessibilityHint("长按直接开始语音")
+    }
+    #endif
+
+    private func openAgent(autoStart: Bool) {
+        selection = .todo
+        agentRequest = ""
+        agentAutoStart = autoStart
     }
 
     #if os(iOS)

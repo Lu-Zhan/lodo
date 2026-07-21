@@ -43,10 +43,19 @@ public enum AIAction {
     case askMemory(question: String)
 }
 
-/// AI 总入口的返回:操作列表,或关键信息缺失时的反问(附候选补充)。
+/// AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或
+/// ReAct 循环里的中间步骤(还没准备好给最终答案,先要执行一个只读工具)。
 public enum AICommandResult {
     case actions([AIAction])
     case clarify(question: String, options: [String])
+    case toolCall(thought: String, tool: AITool)
+}
+
+/// ReAct 循环里可调用的只读工具;enum 设计是为了以后加新工具不用改循环机制。
+/// 只读是硬性要求——写操作(新建/修改/完成/删除)永远只能是最终答案的一部分,
+/// 不能在推理过程中未经确认就被模型自己调用。
+public enum AITool {
+    case searchMemory(question: String)
 }
 
 public enum DeepSeekError: LocalizedError {
@@ -91,6 +100,20 @@ public enum DeepSeekClient {
         return "当前时间:\(dateFormatter.string(from: now))(星期\(weekdays[index]))"
     }
 
+    /// 对话历史块:多轮聊天用,拼进 command() 的 system prompt。
+    /// 空历史返回空字符串(单测入口,纯字符串拼接不依赖网络)。
+    static func historyBlock(_ history: [(role: String, content: String)]) -> String {
+        guard !history.isEmpty else { return "" }
+        let lines = history.map { "\($0.role == "user" ? "用户" : "助手"):\($0.content)" }
+            .joined(separator: "\n")
+        return """
+
+
+        对话历史(供理解上下文用,不要重复执行历史里已经完成的操作):
+        \(lines)
+        """
+    }
+
     /// 自然语言 → 新事项字段。
     public static func parse(_ text: String) async throws -> ParsedTask {
         let system = """
@@ -130,7 +153,8 @@ public enum DeepSeekClient {
     /// 的拼接顺序对所有调用方一致,详见 `AgentSkillStore`)。
     public static func command(
         _ text: String, tasks allTasks: [(uuid: String, task: ParsedTask)],
-        memoryEnabled: Bool = false
+        memoryEnabled: Bool = false,
+        history: [(role: String, content: String)] = []
     ) async throws -> AICommandResult {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
         let tasks = Array(allTasks.prefix(50))
@@ -148,7 +172,7 @@ public enum DeepSeekClient {
         \(timeContext)
 
         当前待办列表:
-        \(json(list))\(personaBlock)
+        \(json(list))\(personaBlock)\(historyBlock(history))
         """
         return try parseCommand(
             await payload(system: system, user: text),
@@ -165,6 +189,21 @@ public enum DeepSeekClient {
         if let question = payload["question"] as? String, !question.isEmpty {
             let options = (payload["options"] as? [Any])?.compactMap { $0 as? String } ?? []
             return .clarify(question: question, options: options)
+        }
+        // ReAct 中间步骤:memoryEnabled == false(Watch)时 prompt 里根本没提过这个选项,
+        // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
+        if memoryEnabled, let toolName = payload["tool"] as? String {
+            let thought = (payload["thought"] as? String) ?? ""
+            switch toolName {
+            case "search_memory":
+                guard let query = (payload["query"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:search_memory 缺少 query")
+                }
+                return .toolCall(thought: thought, tool: .searchMemory(question: query))
+            default:
+                throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
+            }
         }
         guard let rawActions = payload["actions"] as? [[String: Any]],
               !rawActions.isEmpty else {
@@ -291,6 +330,26 @@ public enum DeepSeekClient {
             throw DeepSeekError.parse("返回格式异常:缺少 insight")
         }
         return insight
+    }
+
+    /// 把 agent 对话的首轮内容总结成一个简短标题(thread 列表/导航栏用)。
+    /// 不拼 personaBlock:标题要客观简洁,不需要说话风格。
+    public static func summarizeThreadTitle(_ text: String) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的对话标题生成助手。根据用户和 AI 的第一轮对话内容,\
+        生成一个不超过 12 个字的简短标题,概括这轮对话的主题,不用标点结尾。\
+        只返回 JSON:{"title": "标题"},不要任何其他文字。
+        """
+        return try parseThreadTitle(await payload(system: system, user: text))
+    }
+
+    /// 从 payload 里解析对话标题(单测入口)。
+    static func parseThreadTitle(_ payload: [String: Any]) throws -> String {
+        guard let title = payload["title"] as? String,
+              !title.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 title")
+        }
+        return title.trimmingCharacters(in: .whitespaces)
     }
 
     /// 把今天的事项列表改写成一句话汇总,突出重点事件(用于每日汇总通知正文)。

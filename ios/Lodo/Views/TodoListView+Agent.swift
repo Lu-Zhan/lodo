@@ -8,48 +8,89 @@ extension TodoListView {
     /// 收藏/记忆问答也走同一入口)。单条新建/修改直达表单(表单即确认);
     /// 批量或含完成/删除的进确认清单;单条收藏/查记忆直接执行/作答;
     /// 关键信息缺失时透传反问。uuid 用最新 pending 列表重新匹配。
-    func route(_ text: String) async throws -> AgentReply {
+    ///
+    /// ReAct 循环:模型如果先要查记忆才能给最终答案,会先返回一个 .toolCall
+    /// (只读、不落库),执行完把检索结果喂回去再问一轮,最多 3 轮(1 次初始 +
+    /// 2 次工具调用),超过就报错——不能无限转,也不允许写操作在这个循环里
+    /// 未经确认就被模型自己执行。onThought 用来给聊天页展示"正在查记忆…"
+    /// 这类轻量提示,循环结束(不管哪个分支返回)提示自然被 AgentView 清掉。
+    func route(
+        _ text: String, history: [(role: String, content: String)] = [],
+        onThought: (String) -> Void = { _ in }
+    ) async throws -> AgentReply {
         let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
-        switch try await DeepSeekClient.command(text, tasks: taskContext, memoryEnabled: true) {
-        case .clarify(let question, let options):
-            return .clarify(question: question, options: options)
-        case .actions(let actions):
-            if actions.count == 1 {
-                if case .create(let parsed) = actions[0] {
-                    sheet = .create(parsed, nil)
-                    return .routed
-                }
-                if case .update(let uuid, let parsed) = actions[0] {
-                    guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
-                        throw DeepSeekError.parse("找不到要修改的事项")
+        var reasoningHistory = history
+        var currentText = text
+
+        for _ in 0..<3 {
+            switch try await DeepSeekClient.command(
+                currentText, tasks: taskContext, memoryEnabled: true, history: reasoningHistory) {
+            case .clarify(let question, let options):
+                return .clarify(question: question, options: options)
+            case .toolCall(let thought, .searchMemory(let query)):
+                onThought(thought)
+                let candidates = await retrieveMemoryCandidates(query)
+                let observation = candidates.isEmpty ? "没有找到相关记忆内容" :
+                    candidates.map { "「\($0.title)」\($0.excerpt)" }.joined(separator: "\n")
+                reasoningHistory.append((role: "assistant", content: "思考:\(thought);查记忆:\(query)"))
+                reasoningHistory.append((role: "user", content: "记忆检索结果:\n\(observation)"))
+                currentText = "(请基于以上记忆检索结果继续处理最初的请求:\(text))"
+            case .actions(let actions):
+                if actions.count == 1 {
+                    if case .create(let parsed) = actions[0] {
+                        return .routeToForm(existing: nil, parsed: parsed)
                     }
-                    sheet = .edit(task, parsed)
-                    return .routed
+                    if case .update(let uuid, let parsed) = actions[0] {
+                        guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
+                            throw DeepSeekError.parse("找不到要修改的事项")
+                        }
+                        return .routeToForm(existing: task, parsed: parsed)
+                    }
+                    if case .memorize(let text) = actions[0] {
+                        MemoryPipeline.saveText(text, context: context)
+                        return .answer(
+                            text: "已收藏「\(MemorySearch.truncate(text, limit: 20))」,AI 正在整理成记忆条目。",
+                            related: [])
+                    }
+                    if case .askMemory(let question) = actions[0] {
+                        return try await answerFromMemory(question)
+                    }
                 }
-                if case .memorize(let text) = actions[0] {
-                    MemoryPipeline.saveText(text, context: context)
-                    return .answer(
-                        text: "已收藏「\(MemorySearch.truncate(text, limit: 20))」,AI 正在整理成记忆条目。",
-                        related: [])
-                }
-                if case .askMemory(let question) = actions[0] {
-                    return try await answerFromMemory(question)
-                }
+                pendingActions = actions
+                return .confirm(actions.map(describe))
             }
-            pendingActions = actions
-            return .confirm(actions.map(describe))
         }
+        throw DeepSeekError.parse("多轮推理超过上限,换个说法试试")
     }
 
-    /// 记忆问答:语义检索(命中 chunk 原文当摘录)与关键词粗排(整条截断兜底)取并集,
-    /// 交给 AI 作答;库为空本地短路,不发请求。语义检索不可用时自动退化成纯关键词,
-    /// 和"转为待办"等其他记忆功能一样不因为 AI 能力缺失而不可用。
+    /// 记忆问答:语义检索(命中 chunk 原文当摘录)与关键词粗排(整条截断兜底)取并集。
+    /// 库为空本地短路,不发请求。语义检索不可用时自动退化成纯关键词,和"转为待办"
+    /// 等其他记忆功能一样不因为 AI 能力缺失而不可用。
     private func answerFromMemory(_ question: String) async throws -> AgentReply {
         let items = (try? context.fetch(FetchDescriptor<MemoryItem>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
         guard !items.isEmpty else {
             return .answer(text: "你还没有任何收藏,先在「记忆」页收藏一些内容吧。", related: [])
         }
+        let candidates = await retrieveMemoryCandidates(question)
+        let (answer, relatedUUIDs) = try await DeepSeekClient.askMemory(
+            question: question, items: candidates)
+        let relatedTitles = relatedUUIDs.compactMap { uuid -> String? in
+            guard let item = items.first(where: { $0.uuid.uuidString == uuid }) else { return nil }
+            return item.title.isEmpty ? "(整理中)" : item.title
+        }
+        return .answer(text: answer, related: relatedTitles)
+    }
+
+    /// 语义检索(命中 chunk 原文当摘录)与关键词粗排(整条截断兜底)取并集,给出
+    /// 命中的记忆条目片段;不生成自然语言回答——ReAct 工具步骤和 answerFromMemory
+    /// 共用这一段,前者把结果原样喂回模型让它自己继续推理,省一次多余的 AI 调用。
+    private func retrieveMemoryCandidates(
+        _ question: String
+    ) async -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String)] {
+        let items = (try? context.fetch(FetchDescriptor<MemoryItem>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
+        guard !items.isEmpty else { return [] }
         let itemsByUUID = Dictionary(uniqueKeysWithValues: items.map { ($0.uuid, $0) })
 
         // 语义检索:命中的是具体 chunk,原文直接当摘录用,不再是整条内容的前 400 字。
@@ -88,7 +129,7 @@ extension TodoListView {
             seen.insert(uuid)
             orderedUUIDs.append(uuid)
         }
-        let candidates = orderedUUIDs.prefix(MemorySearch.maxAskItems)
+        return orderedUUIDs.prefix(MemorySearch.maxAskItems)
             .compactMap { uuid -> (uuid: String, title: String, summary: String, tags: [String], excerpt: String)? in
                 guard let item = itemsByUUID[uuid] else { return nil }
                 let excerpt = semanticExcerpts[uuid] ?? MemorySearch.truncate(
@@ -96,13 +137,6 @@ extension TodoListView {
                 return (uuid: item.uuid.uuidString, title: item.title, summary: item.summary,
                         tags: item.tags, excerpt: excerpt)
             }
-        let (answer, relatedUUIDs) = try await DeepSeekClient.askMemory(
-            question: question, items: candidates)
-        let relatedTitles = relatedUUIDs.compactMap { uuid -> String? in
-            guard let item = items.first(where: { $0.uuid.uuidString == uuid }) else { return nil }
-            return item.title.isEmpty ? "(整理中)" : item.title
-        }
-        return .answer(text: answer, related: relatedTitles)
     }
 
     /// 端上给问题算向量;不可用/结果为空返回 nil,调用方据此跳过语义检索只用关键词。
@@ -143,9 +177,10 @@ extension TodoListView {
         pending.first { $0.uuid.uuidString == uuid }?.title
     }
 
-    /// 执行确认后的批量操作,完毕关闭 agent。等待确认期间,目标事项可能已被
-    /// 通知按钮/小组件/Siri 改动或完成/删除;找不到时计入 missingCount,
-    /// 而不是静默跳过——否则用户会以为全部操作都成功了。
+    /// 执行确认后的批量操作;不关闭 agent 聊天页,由 AgentView 自己往当前
+    /// thread 追加一条结果消息。等待确认期间,目标事项可能已被通知按钮/
+    /// 小组件/Siri 改动或完成/删除;找不到时计入 missingCount,而不是静默
+    /// 跳过——否则用户会以为全部操作都成功了。
     func performPendingActions() {
         var missingCount = 0
         for action in pendingActions {
@@ -182,7 +217,6 @@ extension TodoListView {
         pendingActions = []
         try? context.save()
         WidgetBridge.sync(context: context)
-        sheet = nil
         if missingCount > 0 {
             actionsWarning = "有 \(missingCount) 项操作未执行:对应事项已不存在"
         }

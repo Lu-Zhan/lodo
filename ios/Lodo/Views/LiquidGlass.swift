@@ -14,6 +14,16 @@ extension View {
             buttonStyle(.borderedProminent)
         }
     }
+
+    /// 系统 chrome 用的玻璃材质背景(如 agent 聊天页输入栏),旧系统回退纯色 material。
+    @ViewBuilder
+    func glassBackground(_ shape: some Shape) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            glassEffect(.regular, in: shape)
+        } else {
+            background(.thinMaterial, in: shape)
+        }
+    }
 }
 
 /// 表单主要确认按钮:iOS/macOS 26 起用 `role: .confirm` 表达确认语义,

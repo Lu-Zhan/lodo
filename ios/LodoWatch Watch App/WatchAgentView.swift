@@ -120,6 +120,10 @@ struct WatchAgentView: View {
                     clarify = nil
                     pendingActions = actions
                     confirmLines = actions.map(describe)
+                case .toolCall:
+                    // 死代码安全阀:Watch 调 command 不传 memoryEnabled(恒 false),
+                    // prompt 里根本没提过"先查记忆"这个选项,模型不会返回这个 case。
+                    errorText = "暂不支持的操作类型"
                 }
             } catch {
                 errorText = error.localizedDescription

@@ -28,23 +28,28 @@ enum MemoryPipeline {
 
     /// 收藏本地文件:先拷进 App Group 的 Memory/ 再走整理。
     /// 调用方负责 security-scoped resource 的开与关(fileImporter/分享收件箱两侧不同)。
-    static func saveFile(_ fileURL: URL, context: ModelContext) {
+    /// 返回新建的条目(聊天页附件想拿 uuid 关联消息;其余调用方多数不关心,可丢弃)。
+    @discardableResult
+    static func saveFile(_ fileURL: URL, context: ModelContext) -> MemoryItem? {
         let kind = MemorySearch.kind(forExtension: fileURL.pathExtension)
         let item = MemoryItem(kind: kind == .text ? .text : kind,
                               originalFileName: fileURL.lastPathComponent)
-        guard let copied = copyIntoStore(from: fileURL, uuid: item.uuid) else { return }
+        guard let copied = copyIntoStore(from: fileURL, uuid: item.uuid) else { return nil }
         item.relativeFilePath = "Memory/\(copied.lastPathComponent)"
         insertAndOrganize(item, context: context)
+        return item
     }
 
     /// 收藏粘贴板里的图片数据(没有源文件路径,直接写成 png)。
-    static func saveImageData(_ data: Data, context: ModelContext) {
-        guard let dir = AppGroup.memoryDirURL else { return }
+    @discardableResult
+    static func saveImageData(_ data: Data, context: ModelContext) -> MemoryItem? {
+        guard let dir = AppGroup.memoryDirURL else { return nil }
         let item = MemoryItem(kind: .image, originalFileName: nil)
         let target = dir.appending(path: "\(item.uuid.uuidString).png")
-        guard (try? data.write(to: target, options: .atomic)) != nil else { return }
+        guard (try? data.write(to: target, options: .atomic)) != nil else { return nil }
         item.relativeFilePath = "Memory/\(target.lastPathComponent)"
         insertAndOrganize(item, context: context)
+        return item
     }
 
     /// 整理失败的条目重试:重跑提取 + AI 整理。

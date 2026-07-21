@@ -195,4 +195,39 @@ final class CommandParseTests: XCTestCase {
         }
         XCTAssertEqual(actions.count, 2)
     }
+
+    // MARK: - ReAct 工具调用(search_memory)
+
+    func testToolCallSearchMemory() throws {
+        let payload: [String: Any] = [
+            "thought": "需要先看看装备清单写了什么", "tool": "search_memory", "query": "爬山装备清单"
+        ]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .toolCall(let thought, .searchMemory(let query)) = result else {
+            XCTFail("expected toolCall(.searchMemory)")
+            return
+        }
+        XCTAssertEqual(thought, "需要先看看装备清单写了什么")
+        XCTAssertEqual(query, "爬山装备清单")
+    }
+
+    func testToolCallMissingQueryThrows() {
+        let payload: [String: Any] = ["thought": "…", "tool": "search_memory"]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true))
+    }
+
+    func testToolCallUnknownToolThrows() {
+        let payload: [String: Any] = ["tool": "search_web", "query": "x"]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true))
+    }
+
+    /// memoryEnabled == false(Watch)时 prompt 里没提过这个选项,模型幻觉出来也不认,
+    /// 落到 actions 解析(这里没给 actions,按"缺少 actions"报错)。
+    func testToolCallIgnoredWhenMemoryDisabled() {
+        let payload: [String: Any] = ["tool": "search_memory", "query": "爬山装备清单"]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
 }
