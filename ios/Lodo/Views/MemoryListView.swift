@@ -9,6 +9,9 @@ import UIKit
 /// "记忆" tab:AI 整理后的收藏条目列表。顶部搜索框输入即本地过滤 + 标签筛选;
 /// 自然语言问答统一走右下角全局 agent 入口(TodoListView+Agent.answerFromMemory)。
 struct MemoryListView: View {
+    /// 左滑"转为待办"交接:切到待办 tab 并弹出预填标题+内容附件的新建表单(见 ContentView)。
+    let onConvertToTodo: (String, TaskAttachment) -> Void
+
     @Environment(\.modelContext) private var context
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
     private var items: [MemoryItem]
@@ -73,6 +76,15 @@ struct MemoryListView: View {
                             } label: {
                                 Label("删除", systemImage: "trash")
                             }
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                let attachment = MemoryPipeline.makeAttachment(from: item)
+                                onConvertToTodo(attachment.title, attachment)
+                            } label: {
+                                Label("转为待办", systemImage: "checklist")
+                            }
+                            .tint(.accentColor)
                         }
                     }
                 }

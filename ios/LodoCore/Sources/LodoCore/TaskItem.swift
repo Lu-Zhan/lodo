@@ -25,6 +25,16 @@ public final class TaskItem {
     /// 导出到系统提醒事项后的 EKReminder identifier(或导入来源),用于去重与更新。
     public var ekIdentifier: String?
 
+    // 记忆"转为待办"携带的内容快照,展平存储(与 attachment 计算属性配套);
+    // 直接新建的待办这几个字段都是 nil。同样出于 CloudKit 同步要求,不给默认值
+    // (nil 就是默认值,和 doneAt/ekIdentifier 的写法一致)。
+    public var attachmentKindRaw: String?
+    public var attachmentTitle: String?
+    public var attachmentSummary: String?
+    public var attachmentText: String?
+    public var attachmentURLString: String?
+    public var attachmentFileName: String?
+
     public init(
         title: String,
         remindAt: Date,
@@ -58,6 +68,27 @@ public final class TaskItem {
     public var status: TaskStatus { TaskStatus(rawValue: statusRaw) ?? .pending }
     public var phase: TaskPhase { TaskPhase(rawValue: phaseRaw) ?? .start }
     public var isRecurring: Bool { repeatType != .none }
+
+    /// 展平字段 ↔ TaskAttachment 的桥接;nil = 直接新建的待办(无附件)。
+    public var attachment: TaskAttachment? {
+        get {
+            guard let kindRaw = attachmentKindRaw, let kind = MemoryKind(rawValue: kindRaw) else {
+                return nil
+            }
+            return TaskAttachment(
+                kind: kind, title: attachmentTitle ?? "", summary: attachmentSummary ?? "",
+                text: attachmentText ?? "", urlString: attachmentURLString,
+                originalFileName: attachmentFileName)
+        }
+        set {
+            attachmentKindRaw = newValue?.kind.rawValue
+            attachmentTitle = newValue?.title
+            attachmentSummary = newValue?.summary
+            attachmentText = newValue?.text
+            attachmentURLString = newValue?.urlString
+            attachmentFileName = newValue?.originalFileName
+        }
+    }
 
     /// 转成纯数据结构做调度计算。
     public var data: TaskData {

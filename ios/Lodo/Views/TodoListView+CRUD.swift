@@ -45,12 +45,24 @@ extension TodoListView {
         }
     }
 
-    func saveNew(_ parsed: ParsedTask) {
+    /// 记忆条目"转为待办"交接:弹出新建表单,预填标题+内容附件,时间用默认值待用户
+    /// 手动调整(与空白新建同一套默认值,见 TaskFormModel.init);原记忆条目不受影响。
+    func consumeConvertToTodo(_ request: ConvertToTodoRequest?) {
+        guard let request else { return }
+        convertToTodoRequest = nil
+        let parsed = ParsedTask(
+            title: request.title, remindAt: Date().addingTimeInterval(300), allDay: false,
+            durationMinutes: 0, repeatType: .none, repeatDays: [], repeatTimes: [])
+        sheet = .create(parsed, request.attachment)
+    }
+
+    func saveNew(_ parsed: ParsedTask, attachment: TaskAttachment? = nil) {
         let task = TaskItem(
             title: parsed.title, remindAt: parsed.remindAt,
             durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
             repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
             repeatTimes: parsed.repeatTimes)
+        task.attachment = attachment
         context.insert(task)
         try? context.save()
         NotificationManager.shared.rebuild(for: task)

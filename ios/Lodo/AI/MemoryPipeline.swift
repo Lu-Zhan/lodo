@@ -54,6 +54,16 @@ enum MemoryPipeline {
         organize(item, context: context)
     }
 
+    /// 记忆条目"转为待办"时拷贝的内容快照:标题/摘要/已提取文字/链接,
+    /// 不带原始文件——原记忆条目之后被编辑或删除都不影响这份快照。
+    static func makeAttachment(from item: MemoryItem) -> TaskAttachment {
+        TaskAttachment(
+            kind: item.kind,
+            title: item.title.isEmpty ? (item.originalFileName ?? "") : item.title,
+            summary: item.summary, text: item.sourceText,
+            urlString: item.urlString, originalFileName: item.originalFileName)
+    }
+
     /// 删除条目并清掉原始文件。
     static func delete(_ item: MemoryItem, context: ModelContext) {
         if let url = fileURL(of: item) {

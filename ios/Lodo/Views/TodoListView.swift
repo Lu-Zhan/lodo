@@ -18,6 +18,12 @@ enum AgentReply {
     case answer(text: String, related: [String])
 }
 
+/// 记忆条目左滑"转为待办"交接的载荷(见 ContentView)。
+struct ConvertToTodoRequest: Equatable {
+    var title: String
+    var attachment: TaskAttachment
+}
+
 /// 待办页:横滑日期条(默认今天)、到期卡片(完成/稍等)、
 /// 选中日待办与未来待办分组、已完成列表。
 struct TodoListView: View {
@@ -27,6 +33,8 @@ struct TodoListView: View {
     @Binding var agentAutoStart: Bool
     /// 非 nil 时跳到该事项并自动发起改期请求(通知"改期"按钮交接,见 ContentView)。
     @Binding var rescheduleRequestUUID: String?
+    /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,见 ContentView)。
+    @Binding var convertToTodoRequest: ConvertToTodoRequest?
 
     // 以下几个跨 extension 文件(TodoListView+Agent/+Reschedule/+CRUD)被读写,
     // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
@@ -73,7 +81,8 @@ struct TodoListView: View {
         /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,
         /// autoStart 为 true 时弹出后自动开始语音(仅 tab 按钮/小组件"+"触发)。
         case agent(prefill: String?, autoStart: Bool)
-        case create(ParsedTask?)
+        /// attachment 非 nil 时来自记忆条目"转为待办"。
+        case create(ParsedTask?, TaskAttachment?)
         /// 编辑事项;agent 路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
         case settings
@@ -172,10 +181,14 @@ struct TodoListView: View {
                     AgentView(prefill: prefill, autoStart: autoStart,
                               submit: { try await route($0) },
                               onConfirm: { performPendingActions() })
-                case .create(let parsed):
-                    TaskEditView(existing: nil, parsed: parsed) { saveNew($0) }
+                case .create(let parsed, let attachment):
+                    TaskEditView(existing: nil, parsed: parsed, attachment: attachment) {
+                        saveNew($0, attachment: attachment)
+                    }
                 case .edit(let task, let parsed):
-                    TaskEditView(existing: task, parsed: parsed) { apply($0, to: task) }
+                    TaskEditView(existing: task, parsed: parsed, attachment: task.attachment) {
+                        apply($0, to: task)
+                    }
                 case .settings:
                     SettingsView()
                 }
@@ -194,6 +207,9 @@ struct TodoListView: View {
             }
             .onChange(of: rescheduleRequestUUID) { _, uuid in
                 consumeReschedule(uuid)
+            }
+            .onChange(of: convertToTodoRequest) { _, request in
+                consumeConvertToTodo(request)
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { checkNotificationAuthorization() }
@@ -215,6 +231,7 @@ struct TodoListView: View {
                 // 冷启动时深链可能先于本视图出现,补一次检查
                 consumeRoutes()
                 consumeReschedule(rescheduleRequestUUID)
+                consumeConvertToTodo(convertToTodoRequest)
                 checkNotificationAuthorization()
                 #if DEBUG
                 // 截图验证用:--demo-agent 启动参数直接弹出 AI 助手

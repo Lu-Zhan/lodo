@@ -16,7 +16,7 @@ extension TodoListView {
         case .actions(let actions):
             if actions.count == 1 {
                 if case .create(let parsed) = actions[0] {
-                    sheet = .create(parsed)
+                    sheet = .create(parsed, nil)
                     return .routed
                 }
                 if case .update(let uuid, let parsed) = actions[0] {

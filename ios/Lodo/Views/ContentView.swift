@@ -1,4 +1,5 @@
 import SwiftUI
+import LodoCore
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -11,6 +12,8 @@ struct ContentView: View {
     @State private var agentAutoStart = false
     /// 非 nil 时由待办页跳到该事项并自动发起改期请求(通知"改期"按钮交接)。
     @State private var rescheduleRequestUUID: String?
+    /// 非 nil 时由待办页弹出新建表单并预填标题+内容附件(记忆条目"转为待办"交接)。
+    @State private var convertToTodoRequest: ConvertToTodoRequest?
     #if DEBUG
     @State private var showAgentSkillsDemo = false
     @State private var showAgentSkillEditDemo = false
@@ -39,6 +42,12 @@ struct ContentView: View {
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-skill-edit") {
                     showAgentSkillEditDemo = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-convert-to-todo") {
+                    convertToTodo("测试:从记忆转来的标题", TaskAttachment(
+                        kind: .text, title: "测试:从记忆转来的标题",
+                        summary: "这是演示用的记忆摘要,验证附件能正确带进新建表单。",
+                        text: "演示正文"))
                 }
                 #endif
             }
@@ -136,10 +145,11 @@ struct ContentView: View {
         TabView(selection: $selection) {
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
                 TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            rescheduleRequestUUID: $rescheduleRequestUUID)
+                            rescheduleRequestUUID: $rescheduleRequestUUID,
+                            convertToTodoRequest: $convertToTodoRequest)
             }
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
-                MemoryListView()
+                MemoryListView(onConvertToTodo: convertToTodo)
             }
             Tab("添加", systemImage: "sparkles", value: AppTab.add, role: .search) {
                 Color.clear
@@ -176,6 +186,12 @@ struct ContentView: View {
         rescheduleRequestUUID = uuid
     }
 
+    /// 记忆条目左滑"转为待办":切到待办 tab 并弹出预填标题的新建表单。
+    private func convertToTodo(_ title: String, _ attachment: TaskAttachment) {
+        selection = .todo
+        convertToTodoRequest = ConvertToTodoRequest(title: title, attachment: attachment)
+    }
+
     /// iOS 18 / macOS 15 以下的宽屏侧边栏:手动 NavigationSplitView 代替
     /// sidebarAdaptable(iOS 18+ 才有 API),"设置"仍走 TodoListView 已有的工具栏按钮。
     private var legacySidebarTabs: some View {
@@ -194,9 +210,10 @@ struct ContentView: View {
             switch selection {
             case .todo:
                 TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            rescheduleRequestUUID: $rescheduleRequestUUID)
+                            rescheduleRequestUUID: $rescheduleRequestUUID,
+                            convertToTodoRequest: $convertToTodoRequest)
             case .memory:
-                MemoryListView()
+                MemoryListView(onConvertToTodo: convertToTodo)
             case .add:
                 Color.clear
             }
@@ -206,10 +223,11 @@ struct ContentView: View {
     private var legacyTabs: some View {
         TabView(selection: $selection) {
             TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                        rescheduleRequestUUID: $rescheduleRequestUUID)
+                        rescheduleRequestUUID: $rescheduleRequestUUID,
+                        convertToTodoRequest: $convertToTodoRequest)
                 .tabItem { Label("待办", systemImage: "checklist") }
                 .tag(AppTab.todo)
-            MemoryListView()
+            MemoryListView(onConvertToTodo: convertToTodo)
                 .tabItem { Label("记忆", systemImage: "sparkles.rectangle.stack") }
                 .tag(AppTab.memory)
         }
