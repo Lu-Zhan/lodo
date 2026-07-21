@@ -21,7 +21,7 @@ struct MemoryListView: View {
     @State private var query = ""
     @State private var selectedTags: Set<String> = []
     @State private var selectedKinds: Set<MemoryKind> = []
-    @State private var filtersExpanded = false
+    @State private var showFilters = false
     @State private var showCompose = false
     @State private var showFileImporter = false
     @State private var showTagManage = false
@@ -53,7 +53,6 @@ struct MemoryListView: View {
     var body: some View {
         NavigationStack {
             List {
-                tagFilterRow
                 if items.isEmpty {
                     ContentUnavailableView(
                         "还没有收藏",
@@ -92,9 +91,12 @@ struct MemoryListView: View {
             .navigationTitle("记忆")
             .onAppear {
                 #if DEBUG
-                // 截图验证用:直接展开筛选区
+                // 截图验证用:直接弹出筛选浮层(popover 挂在工具栏按钮上,
+                // appear 当帧触发有时不生效,延后一点再弹)
                 if ProcessInfo.processInfo.arguments.contains("--demo-memory-filters") {
-                    filtersExpanded = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showFilters = true
+                    }
                 }
                 #endif
             }
@@ -106,7 +108,6 @@ struct MemoryListView: View {
                             id: \.self) { tag in
                         Button {
                             selectedTags.insert(tag)
-                            filtersExpanded = true
                             query = ""
                         } label: {
                             Label("标签:\(tag)", systemImage: "tag")
@@ -115,7 +116,7 @@ struct MemoryListView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .navigation) {
                     Menu {
                         Button("粘贴收藏", systemImage: "doc.on.clipboard") {
                             pasteFromClipboard()
@@ -132,6 +133,20 @@ struct MemoryListView: View {
                         }
                     } label: {
                         Label("收藏", systemImage: "plus")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showFilters = true
+                    } label: {
+                        Label("筛选", systemImage: activeFilterCount > 0
+                              ? "line.3.horizontal.decrease.circle.fill"
+                              : "line.3.horizontal.decrease.circle")
+                    }
+                    .disabled(allTags.isEmpty && availableKinds.isEmpty)
+                    .popover(isPresented: $showFilters) {
+                        filterContent
+                            .presentationCompactAdaptation(.popover)
                     }
                 }
             }
@@ -154,67 +169,62 @@ struct MemoryListView: View {
         }
     }
 
-    // MARK: - 标签筛选行
+    // MARK: - 筛选浮层
 
-    /// 搜索框下的筛选区,默认折叠;展开后两行独立的 chips:
-    /// 第一行按来源格式筛,第二行按内容标签筛,点选即筛(可多选,再点取消)。
+    /// 工具栏"筛选"按钮弹出的浮层:两行独立的 chips——第一行按来源格式筛,
+    /// 第二行按内容标签筛,点选即筛(可多选,再点取消)。
     @ViewBuilder
-    private var tagFilterRow: some View {
-        if !allTags.isEmpty || !availableKinds.isEmpty {
-            Section {
-                DisclosureGroup(isExpanded: $filtersExpanded) {
-                    if availableKinds.count > 1 {
-                        HorizontalChipRow {
-                            ForEach(availableKinds, id: \.self) { kind in
-                                let selected = selectedKinds.contains(kind)
-                                Button {
-                                    if selected {
-                                        selectedKinds.remove(kind)
-                                    } else {
-                                        selectedKinds.insert(kind)
-                                    }
-                                } label: {
-                                    Label(kind.label, systemImage: kind.symbol)
-                                }
-                                .font(.footnote)
-                                .buttonStyle(.bordered)
-                                .buttonBorderShape(.capsule)
-                                .tint(selected ? Color.accentColor : Color.secondary)
+    private var filterContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("筛选").font(.headline)
+            if availableKinds.count > 1 {
+                HorizontalChipRow {
+                    ForEach(availableKinds, id: \.self) { kind in
+                        let selected = selectedKinds.contains(kind)
+                        Button {
+                            if selected {
+                                selectedKinds.remove(kind)
+                            } else {
+                                selectedKinds.insert(kind)
                             }
+                        } label: {
+                            Label(kind.label, systemImage: kind.symbol)
                         }
-                    }
-                    if !allTags.isEmpty {
-                        HorizontalChipRow {
-                            ForEach(allTags, id: \.self) { tag in
-                                let selected = selectedTags.contains(tag)
-                                Button("#\(tag)") {
-                                    if selected {
-                                        selectedTags.remove(tag)
-                                    } else {
-                                        selectedTags.insert(tag)
-                                    }
-                                }
-                                .font(.footnote)
-                                .buttonStyle(.bordered)
-                                .buttonBorderShape(.capsule)
-                                .tint(selected ? Color.accentColor : Color.secondary)
-                            }
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Label("筛选", systemImage: "line.3.horizontal.decrease.circle")
-                        Spacer()
-                        if activeFilterCount > 0 {
-                            // 折叠时也能看出有筛选生效
-                            Text("\(activeFilterCount) 个选中")
-                                .font(.footnote)
-                                .foregroundStyle(.tint)
-                        }
+                        .font(.footnote)
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                        .tint(selected ? Color.accentColor : Color.secondary)
                     }
                 }
             }
+            if !allTags.isEmpty {
+                HorizontalChipRow {
+                    ForEach(allTags, id: \.self) { tag in
+                        let selected = selectedTags.contains(tag)
+                        Button("#\(tag)") {
+                            if selected {
+                                selectedTags.remove(tag)
+                            } else {
+                                selectedTags.insert(tag)
+                            }
+                        }
+                        .font(.footnote)
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                        .tint(selected ? Color.accentColor : Color.secondary)
+                    }
+                }
+            }
+            if activeFilterCount > 0 {
+                Button("清除筛选", role: .destructive) {
+                    selectedKinds.removeAll()
+                    selectedTags.removeAll()
+                }
+                .font(.footnote)
+            }
         }
+        .padding()
+        .frame(width: 280)
     }
 
     // MARK: - 粘贴收藏(优先级:图片 > 链接 > 文字)
