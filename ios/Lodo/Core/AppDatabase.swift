@@ -17,18 +17,18 @@ enum AppDatabase {
         if let storeURL = AppGroup.storeURL {
             AppGroup.migrateLegacyStoreIfNeeded(to: storeURL)
             if let container = try? ModelContainer(
-                for: TaskItem.self, MemoryItem.self, MemoryTag.self,
+                for: TaskItem.self, MemoryItem.self, MemoryTag.self, MemoryChunk.self,
                 configurations: ModelConfiguration(url: storeURL, cloudKitDatabase: cloudKit)) {
                 return container
             }
         }
         if let container = try? ModelContainer(
-            for: TaskItem.self, MemoryItem.self, MemoryTag.self,
+            for: TaskItem.self, MemoryItem.self, MemoryTag.self, MemoryChunk.self,
             configurations: ModelConfiguration(cloudKitDatabase: cloudKit)) {
             return container
         }
         guard let inMemory = try? ModelContainer(
-            for: TaskItem.self, MemoryItem.self, MemoryTag.self,
+            for: TaskItem.self, MemoryItem.self, MemoryTag.self, MemoryChunk.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)) else {
             fatalError("无法初始化数据库(含内存兜底)")
         }

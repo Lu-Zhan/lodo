@@ -64,11 +64,15 @@ enum MemoryPipeline {
             urlString: item.urlString, originalFileName: item.originalFileName)
     }
 
-    /// 删除条目并清掉原始文件。
+    /// 删除条目、清掉原始文件、清掉这条记忆的全部 MemoryChunk(避免孤儿数据)。
     static func delete(_ item: MemoryItem, context: ModelContext) {
         if let url = fileURL(of: item) {
             try? FileManager.default.removeItem(at: url)
         }
+        let owner = item.uuid
+        let chunks = (try? context.fetch(FetchDescriptor<MemoryChunk>(
+            predicate: #Predicate { $0.itemUUID == owner }))) ?? []
+        for chunk in chunks { context.delete(chunk) }
         context.delete(item)
         try? context.save()
     }
@@ -139,8 +143,39 @@ enum MemoryPipeline {
                 }
                 item.statusRaw = MemoryStatus.failed.rawValue
             }
+            // 分片 + 语义向量:独立于上面 AI 整理是否成功,尽力而为
+            // (embedding 失败时退化成关键词检索,不影响记忆本身可用)。
+            await reindexChunks(item, context: context)
             try? context.save()
         }
+    }
+
+    /// 重新分片 + 算向量,替换这条记忆现有的 MemoryChunk(sourceText 变了就要重算)。
+    private static func reindexChunks(_ item: MemoryItem, context: ModelContext) async {
+        let owner = item.uuid
+        let existing = (try? context.fetch(FetchDescriptor<MemoryChunk>(
+            predicate: #Predicate { $0.itemUUID == owner }))) ?? []
+        for chunk in existing { context.delete(chunk) }
+
+        let pieces = MemoryChunker.split(item.sourceText)
+        guard !pieces.isEmpty else { return }
+        let vectors = await embedBestEffort(pieces)
+        for (index, text) in pieces.enumerated() {
+            let vector = index < vectors.count ? vectors[index] : []
+            context.insert(MemoryChunk(itemUUID: owner, text: text, embedding: vector))
+        }
+    }
+
+    /// 端上优先算向量;不可用/出错时返回等长的空向量数组,调用方据此退化
+    /// (chunk 仍然入库,只是那条只能靠关键词检索命中)。云端兜底见 Phase 2。
+    private static func embedBestEffort(_ texts: [String]) async -> [[Float]] {
+        #if (os(iOS) || os(macOS)) && canImport(NaturalLanguage)
+        if let vectors = try? await OnDeviceEmbeddingProvider().embed(texts),
+           vectors.count == texts.count {
+            return vectors
+        }
+        #endif
+        return texts.map { _ in [] }
     }
 
     private static func extract(_ item: MemoryItem) async -> ContentExtractor.Extraction {

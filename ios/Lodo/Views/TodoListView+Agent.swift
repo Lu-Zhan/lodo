@@ -41,13 +41,37 @@ extension TodoListView {
         }
     }
 
-    /// 记忆问答:本地取全部收藏,粗排相关条目后交给 AI 作答;库为空本地短路,不发请求。
+    /// 记忆问答:语义检索(命中 chunk 原文当摘录)与关键词粗排(整条截断兜底)取并集,
+    /// 交给 AI 作答;库为空本地短路,不发请求。语义检索不可用时自动退化成纯关键词,
+    /// 和"转为待办"等其他记忆功能一样不因为 AI 能力缺失而不可用。
     private func answerFromMemory(_ question: String) async throws -> AgentReply {
         let items = (try? context.fetch(FetchDescriptor<MemoryItem>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
         guard !items.isEmpty else {
             return .answer(text: "你还没有任何收藏,先在「记忆」页收藏一些内容吧。", related: [])
         }
+        let itemsByUUID = Dictionary(uniqueKeysWithValues: items.map { ($0.uuid, $0) })
+
+        // 语义检索:命中的是具体 chunk,原文直接当摘录用,不再是整条内容的前 400 字。
+        var semanticExcerpts: [UUID: String] = [:]
+        var semanticOrder: [UUID] = []
+        if let queryVector = await embedQueryBestEffort(question) {
+            let chunks = (try? context.fetch(FetchDescriptor<MemoryChunk>())) ?? []
+            let chunkByUUID = Dictionary(uniqueKeysWithValues: chunks.map { ($0.uuid, $0) })
+            let candidates = chunks.filter { !$0.embedding.isEmpty }
+                .map { (id: $0.uuid, vector: $0.embedding) }
+            let topChunkUUIDs = VectorSearch.topK(
+                query: queryVector, candidates: candidates, k: MemorySearch.maxAskItems)
+            for chunkUUID in topChunkUUIDs {
+                guard let chunk = chunkByUUID[chunkUUID],
+                      itemsByUUID[chunk.itemUUID] != nil,
+                      semanticExcerpts[chunk.itemUUID] == nil else { continue }
+                semanticExcerpts[chunk.itemUUID] = chunk.text
+                semanticOrder.append(chunk.itemUUID)
+            }
+        }
+
+        // 关键词粗排照旧保留:精确匹配人名/编号这类语义检索未必擅长的场景兜底。
         let ranked = MemorySearch.rank(
             question: question,
             items: items.enumerated().map { index, item in
@@ -55,13 +79,23 @@ extension TodoListView {
                  text: "\(item.title) \(item.summary) \(item.tags.joined(separator: " ")) \(item.sourceText)",
                  createdAt: item.createdAt)
             })
-        let candidates = ranked.map { index -> (uuid: String, title: String, summary: String, tags: [String], excerpt: String) in
-            let item = items[index]
-            return (uuid: item.uuid.uuidString, title: item.title, summary: item.summary,
-                    tags: item.tags,
-                    excerpt: MemorySearch.truncate(item.sourceText,
-                                                   limit: MemorySearch.maxExcerptChars))
+        let keywordOrder = ranked.map { items[$0].uuid }
+
+        // 合并去重:语义命中优先,关键词补位,按原有条目数上限截断。
+        var seen = Set<UUID>()
+        var orderedUUIDs: [UUID] = []
+        for uuid in semanticOrder + keywordOrder where !seen.contains(uuid) {
+            seen.insert(uuid)
+            orderedUUIDs.append(uuid)
         }
+        let candidates = orderedUUIDs.prefix(MemorySearch.maxAskItems)
+            .compactMap { uuid -> (uuid: String, title: String, summary: String, tags: [String], excerpt: String)? in
+                guard let item = itemsByUUID[uuid] else { return nil }
+                let excerpt = semanticExcerpts[uuid] ?? MemorySearch.truncate(
+                    item.sourceText, limit: MemorySearch.maxExcerptChars)
+                return (uuid: item.uuid.uuidString, title: item.title, summary: item.summary,
+                        tags: item.tags, excerpt: excerpt)
+            }
         let (answer, relatedUUIDs) = try await DeepSeekClient.askMemory(
             question: question, items: candidates)
         let relatedTitles = relatedUUIDs.compactMap { uuid -> String? in
@@ -69,6 +103,17 @@ extension TodoListView {
             return item.title.isEmpty ? "(整理中)" : item.title
         }
         return .answer(text: answer, related: relatedTitles)
+    }
+
+    /// 端上给问题算向量;不可用/结果为空返回 nil,调用方据此跳过语义检索只用关键词。
+    private func embedQueryBestEffort(_ question: String) async -> [Float]? {
+        #if (os(iOS) || os(macOS)) && canImport(NaturalLanguage)
+        if let vectors = try? await OnDeviceEmbeddingProvider().embed([question]),
+           let first = vectors.first, !first.isEmpty {
+            return first
+        }
+        #endif
+        return nil
     }
 
     private func describe(_ action: AIAction) -> String {
