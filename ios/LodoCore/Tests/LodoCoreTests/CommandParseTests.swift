@@ -230,4 +230,93 @@ final class CommandParseTests: XCTestCase {
         XCTAssertThrowsError(
             try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
     }
+
+    // MARK: - ReAct 工具调用(web_search)+ answer 操作
+
+    func testToolCallWebSearch() throws {
+        let payload: [String: Any] = [
+            "thought": "需要查最新价格", "tool": "web_search", "query": "iPhone 17 Pro 价格"
+        ]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true)
+        guard case .toolCall(let thought, .webSearch(let query)) = result else {
+            XCTFail("expected toolCall(.webSearch)")
+            return
+        }
+        XCTAssertEqual(thought, "需要查最新价格")
+        XCTAssertEqual(query, "iPhone 17 Pro 价格")
+    }
+
+    func testToolCallWebSearchMissingQueryThrows() {
+        let payload: [String: Any] = ["thought": "…", "tool": "web_search"]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true))
+    }
+
+    /// webSearchEnabled == false 时 prompt 里没提过这个选项,模型幻觉出来也不认。
+    func testToolCallWebSearchIgnoredWhenDisabled() {
+        let payload: [String: Any] = ["tool": "web_search", "query": "x"]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: false))
+    }
+
+    func testAnswerActionAlone() throws {
+        let payload: [String: Any] = ["actions": [["action": "answer", "text": "今天多云转晴"]]]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .answer(let text) = actions[0] else {
+            XCTFail("expected single answer action")
+            return
+        }
+        XCTAssertEqual(text, "今天多云转晴")
+    }
+
+    func testAnswerEmptyTextThrows() {
+        let payload: [String: Any] = ["actions": [["action": "answer", "text": "  "]]]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true))
+    }
+
+    /// webSearchEnabled == false 时,即使模型幻觉出 answer,也按未知 action 处理。
+    func testAnswerWhenDisabledThrowsUnknownAction() {
+        let payload: [String: Any] = ["actions": [["action": "answer", "text": "今天多云转晴"]]]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: false))
+    }
+
+    /// answer 与写操作混在一句话里返回时,丢弃 answer 只留写操作。
+    func testAnswerMixedWithCreateDropsAnswer() throws {
+        let payload: [String: Any] = ["actions": [
+            taskPayload(action: "create"),
+            ["action": "answer", "text": "顺带回答"]
+        ]]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true)
+        guard case .actions(let actions) = result else {
+            XCTFail("expected actions")
+            return
+        }
+        XCTAssertEqual(actions.count, 1)
+        guard case .create = actions[0] else {
+            XCTFail("expected remaining action to be create")
+            return
+        }
+    }
+
+    /// ask_memory 与 answer 混在一起(两者都是"问答类"操作)时只留第一条。
+    func testAskMemoryAndAnswerCollapsesToFirst() throws {
+        let payload: [String: Any] = ["actions": [
+            ["action": "ask_memory", "question": "问题一"],
+            ["action": "answer", "text": "回答二"]
+        ]]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: true, webSearchEnabled: true)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .askMemory(let question) = actions[0] else {
+            XCTFail("expected single askMemory action (first informational one)")
+            return
+        }
+        XCTAssertEqual(question, "问题一")
+    }
 }

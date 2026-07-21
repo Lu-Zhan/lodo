@@ -9,22 +9,32 @@ extension TodoListView {
     /// 批量或含完成/删除的进确认清单;单条收藏/查记忆直接执行/作答;
     /// 关键信息缺失时透传反问。uuid 用最新 pending 列表重新匹配。
     ///
-    /// ReAct 循环:模型如果先要查记忆才能给最终答案,会先返回一个 .toolCall
-    /// (只读、不落库),执行完把检索结果喂回去再问一轮,最多 3 轮(1 次初始 +
-    /// 2 次工具调用),超过就报错——不能无限转,也不允许写操作在这个循环里
-    /// 未经确认就被模型自己执行。onThought 用来给聊天页展示"正在查记忆…"
-    /// 这类轻量提示,循环结束(不管哪个分支返回)提示自然被 AgentView 清掉。
+    /// ReAct 循环:模型如果先要查记忆/联网搜索才能给最终答案,会先返回一个
+    /// .toolCall(只读、不落库),执行完把结果喂回去再问一轮,最多 3 轮(1 次初始 +
+    /// 2 次工具调用,两种工具可以混用),超过就报错——不能无限转,也不允许写操作
+    /// 在这个循环里未经确认就被模型自己执行。onThought 用来给聊天页展示
+    /// "正在查记忆…"/"正在联网搜索…"这类轻量提示,循环结束(不管哪个分支返回)
+    /// 提示自然被 AgentView 清掉。
     func route(
         _ text: String, history: [(role: String, content: String)] = [],
         onThought: (String) -> Void = { _ in }
     ) async throws -> AgentReply {
+        // 撤销走本地固定短语匹配,不进 AI 循环——这是确定性操作,交给模型理解
+        // 反而多一次网络请求、多一种出错可能,不值得。要求整句话就是这几个词
+        // 之一(不是"包含"),避免误伤"撤销一份合同"这类正常事项标题。
+        if isUndoCommand(text) {
+            return performUndo()
+        }
+
         let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         var reasoningHistory = history
         var currentText = text
+        let webSearchEnabled = WebSearchClient.isConfigured
 
         for _ in 0..<3 {
             switch try await DeepSeekClient.command(
-                currentText, tasks: taskContext, memoryEnabled: true, history: reasoningHistory) {
+                currentText, tasks: taskContext, memoryEnabled: true,
+                webSearchEnabled: webSearchEnabled, history: reasoningHistory) {
             case .clarify(let question, let options):
                 return .clarify(question: question, options: options)
             case .toolCall(let thought, .searchMemory(let query)):
@@ -35,6 +45,20 @@ extension TodoListView {
                 reasoningHistory.append((role: "assistant", content: "思考:\(thought);查记忆:\(query)"))
                 reasoningHistory.append((role: "user", content: "记忆检索结果:\n\(observation)"))
                 currentText = "(请基于以上记忆检索结果继续处理最初的请求:\(text))"
+            case .toolCall(let thought, .webSearch(let query)):
+                onThought(thought)
+                let observation: String
+                do {
+                    let results = try await WebSearchClient.search(query)
+                    observation = results.isEmpty ? "没有搜到相关结果" :
+                        results.map { "「\($0.title)」\($0.snippet)\n来源:\($0.url)" }
+                            .joined(separator: "\n\n")
+                } catch {
+                    observation = "联网搜索失败:\(error.localizedDescription)"
+                }
+                reasoningHistory.append((role: "assistant", content: "思考:\(thought);联网搜索:\(query)"))
+                reasoningHistory.append((role: "user", content: "搜索结果:\n\(observation)"))
+                currentText = "(请基于以上搜索结果继续处理最初的请求:\(text))"
             case .actions(let actions):
                 if actions.count == 1 {
                     if case .create(let parsed) = actions[0] {
@@ -54,6 +78,9 @@ extension TodoListView {
                     }
                     if case .askMemory(let question) = actions[0] {
                         return try await answerFromMemory(question)
+                    }
+                    if case .answer(let text) = actions[0] {
+                        return .answer(text: text, related: [])
                     }
                 }
                 pendingActions = actions
@@ -170,6 +197,10 @@ extension TodoListView {
             // 防御性分支:parseCommand 已把 ask_memory 与写操作混合时丢弃,
             // 正常不会走到这里。
             return "查询记忆"
+        case .answer:
+            // 防御性分支:parseCommand 已把 answer 与写操作混合时丢弃,
+            // 正常不会走到这里(route() 已把单条 answer 短路直接返回)。
+            return "回答问题"
         }
     }
 
@@ -180,27 +211,34 @@ extension TodoListView {
     /// 执行确认后的批量操作;不关闭 agent 聊天页,由 AgentView 自己往当前
     /// thread 追加一条结果消息。等待确认期间,目标事项可能已被通知按钮/
     /// 小组件/Siri 改动或完成/删除;找不到时计入 missingCount,而不是静默
-    /// 跳过——否则用户会以为全部操作都成功了。
+    /// 跳过——否则用户会以为全部操作都成功了。执行前把每条操作的"改回原样"
+    /// 快照存进 lastUndo,供后面撤销用;新的一批会整体覆盖上一批。
     func performPendingActions() {
         var missingCount = 0
+        var undoOps: [UndoOp] = []
         for action in pendingActions {
             switch action {
             case .create(let parsed):
-                saveNew(parsed)
+                let created = saveNew(parsed)
+                undoOps.append(.created(uuid: created.uuid))
             case .update(let uuid, let parsed):
                 if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
+                    undoOps.append(.updated(before: task.backup))
                     apply(parsed, to: task)
                 } else {
                     missingCount += 1
                 }
             case .complete(let uuid):
                 if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
-                    NotificationManager.shared.complete(task, context: context)
+                    let before = task.backup
+                    let history = NotificationManager.shared.complete(task, context: context)
+                    undoOps.append(.completed(before: before, insertedHistoryUUID: history?.uuid))
                 } else {
                     missingCount += 1
                 }
             case .delete(let uuid):
                 if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
+                    undoOps.append(.deleted(before: task.backup))
                     NotificationManager.shared.cancelChain(for: task.uuid)
                     context.delete(task)
                 } else {
@@ -209,17 +247,72 @@ extension TodoListView {
             case .memorize(let text):
                 // 防御性分支:正常单条 memorize 已在 route() 里直接执行。
                 MemoryPipeline.saveText(text, context: context)
-            case .askMemory:
-                // 防御性分支:查询类操作没有可执行的落库动作。
+            case .askMemory, .answer:
+                // 防御性分支:查询/回答类操作没有可执行的落库动作。
                 break
             }
         }
         pendingActions = []
+        lastUndo = undoOps.isEmpty ? nil : undoOps
         try? context.save()
         WidgetBridge.sync(context: context)
         if missingCount > 0 {
             actionsWarning = "有 \(missingCount) 项操作未执行:对应事项已不存在"
         }
+    }
+
+    // MARK: - 撤销
+
+    /// 要求整句话就是这几个固定短语之一,不做"包含"匹配。
+    private func isUndoCommand(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["撤销", "撤销上一步", "撤销上一条", "撤回", "撤回上一步", "undo"].contains(trimmed)
+    }
+
+    /// 把 lastUndo 记录的上一批操作按相反方向改回去:新建 → 删除,修改/完成 →
+    /// 用之前的快照覆盖回去,删除 → 用快照重新插入(uuid 不变)。用完清空,
+    /// 只能撤销最近一批,不支持多级撤销栈。
+    private func performUndo() -> AgentReply {
+        guard let ops = lastUndo else {
+            return .answer(text: "没有可撤销的操作。", related: [])
+        }
+        var missingCount = 0
+        for op in ops.reversed() {
+            switch op {
+            case .created(let uuid):
+                guard let task = taskByUUID(uuid) else { missingCount += 1; continue }
+                NotificationManager.shared.cancelChain(for: task.uuid)
+                context.delete(task)
+            case .updated(let before):
+                guard let task = taskByUUID(before.uuid) else { missingCount += 1; continue }
+                before.apply(to: task)
+                NotificationManager.shared.rebuild(for: task)
+            case .completed(let before, let insertedHistoryUUID):
+                if let task = taskByUUID(before.uuid) {
+                    before.apply(to: task)
+                    NotificationManager.shared.rebuild(for: task)
+                } else {
+                    missingCount += 1
+                }
+                if let insertedHistoryUUID, let history = taskByUUID(insertedHistoryUUID) {
+                    context.delete(history)
+                }
+            case .deleted(let before):
+                let task = TaskItem(title: before.title, remindAt: before.remindAt)
+                before.apply(to: task)
+                context.insert(task)
+                NotificationManager.shared.rebuild(for: task)
+            }
+        }
+        lastUndo = nil
+        try? context.save()
+        WidgetBridge.sync(context: context)
+        let suffix = missingCount > 0 ? "(\(missingCount) 项因事项已不存在无法撤销)" : ""
+        return .answer(text: "已撤销上一步操作\(suffix)。", related: [])
+    }
+
+    private func taskByUUID(_ uuid: UUID) -> TaskItem? {
+        pending.first(where: { $0.uuid == uuid }) ?? doneTasks.first(where: { $0.uuid == uuid })
     }
 
     /// 消费深链/tab 按钮的路由请求;有 sheet 打开时不打断(如 agent 正在确认),

@@ -6,6 +6,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case agent
     case todo
     case memory
+    case webSearch
 
     public var id: String { rawValue }
 
@@ -14,6 +15,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .agent: return "总则(agent.md)"
         case .todo: return "构建待办"
         case .memory: return "记忆"
+        case .webSearch: return "联网搜索"
         }
     }
 
@@ -22,6 +24,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .agent: return "AI 入口的角色设定与通用判断规则"
         case .todo: return "新建/修改事项的字段格式与时间换算规则"
         case .memory: return "收藏与查记忆的判定规则(仅记忆功能开启时生效)"
+        case .webSearch: return "查最新信息/回答一般问题的判定规则(仅配置 Tavily key 后生效)"
         }
     }
 }
@@ -72,6 +75,7 @@ public enum AgentSkillStore {
         case .agent: return defaultAgent
         case .todo: return defaultTodo
         case .memory: return defaultMemory
+        case .webSearch: return defaultWebSearch
         }
     }
 
@@ -141,5 +145,26 @@ public enum AgentSkillStore {
     - 用户要新建/修改的事项,内容细节依赖以前存的记忆(如"参考我存的装备清单新建一个待办")\
     且你还没看到那段记忆具体写了什么 → 先用 search_memory 查,不要凭空编内容;\
     已经在对话历史里看到查询结果的,直接用结果里的内容给最终答案,不要重复查。
+    """
+
+    private static let defaultWebSearch = """
+    额外支持的操作:
+    - 直接回答:{"action": "answer", "text": "给用户的完整回答"}\
+    (用户提出的是一般性问题,和新建/修改待办、收藏/查记忆都无关时用;\
+    可以是你已经确定知道答案、不需要查的情况,也可以是联网搜索后给出的)
+    - 先联网搜索再回答:{"thought": "为什么需要搜", "tool": "web_search", "query": "要搜索的关键词"}\
+    (仅在需要查最新/实时信息、或你不确定/可能过时的内容时用;每次交流最多用一次,\
+    拿到搜索结果后必须在下一轮给出真正的最终答案——action 列表或反问,\
+    不能连续再搜、也不能一直用这个占位不给结果)
+
+    额外判断规则:
+    - 用户提出一般性问题(如"今天天气怎么样""XX最新价格是多少""这个词是什么意思")\
+    且和新建/修改待办、收藏/查记忆都无关 → answer,此时整个 actions 只放这一条,不与其他操作混用\
+    (如果一句话里同时有新建待办和提问,只处理新建待办,提问可以重新单独问)。
+    - 涉及待办本身的问题(如"我明天有什么安排""这个事项还有多久到期")按当前待办列表自己回答,\
+    不需要联网搜索。
+    - 需要最新/实时信息(新闻、天气、价格、赛事结果等)或你不确定答案是否过时时,\
+    先用 web_search 查,不要凭空编内容;已经在对话历史里看到搜索结果的,\
+    直接用结果里的内容给最终答案,不要重复搜。
     """
 }

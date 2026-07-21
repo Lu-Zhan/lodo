@@ -1,8 +1,10 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import LodoCore
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
 
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
 
@@ -22,10 +24,25 @@ struct SettingsView: View {
     @AppStorage(AppSettings.aiProviderKey) private var aiProvider = "DeepSeek"
     @AppStorage(AppSettings.aiModelKey) private var aiModel = ""
     @AppStorage(AppSettings.aiCustomEndpointKey) private var aiCustomEndpoint = ""
+    @AppStorage(AppSettings.thinkingLevelKey) private var thinkingLevel = "medium"
 
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
     @State private var confirmMemoryReset = false
+
+    // ---- 联网搜索(Tavily) ----
+    @State private var tavilyKey = KeychainHelper.apiKey(for: "Tavily") ?? ""
+    @State private var tavilyKeySaved = KeychainHelper.apiKey(for: "Tavily") != nil
+
+    // ---- 备份与恢复 ----
+    @State private var exportedZipURL: URL?
+    @State private var exportErrorMessage: String?
+    @State private var showImportPicker = false
+    @State private var pendingImportURL: URL?
+    @State private var pendingImportManifest: BackupManifest?
+    @State private var showImportConfirm = false
+    @State private var importErrorMessage: String?
+    @State private var importSuccessMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -36,6 +53,9 @@ struct SettingsView: View {
                 } footer: {
                     Text("开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
                 }
+
+                // ---- 备份与恢复 ----
+                backupRestoreSection
 
                 // ---- 提醒 ----
                 Section {
@@ -154,6 +174,9 @@ struct SettingsView: View {
                     Text("默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。")
                 }
 
+                aiThinkingSection
+                webSearchSection
+
                 Section {
                     Picker("AI 个性", selection: $personaStyle) {
                         Text("默认").tag("默认")
@@ -215,6 +238,7 @@ struct SettingsView: View {
                 }
             }
             .onChange(of: apiKey) { keySaved = false }
+            .onChange(of: tavilyKey) { tavilyKeySaved = false }
             .onChange(of: aiProvider) { _, provider in
                 // 切换服务商:载入该服务商已存的 key,清掉模型覆盖值
                 apiKey = KeychainHelper.apiKey(for: provider) ?? ""
@@ -225,6 +249,21 @@ struct SettingsView: View {
             .onChange(of: digestTimesRaw) { refreshDigest() }
             .onChange(of: digestRepeatType) { refreshDigest() }
             .onChange(of: digestDaysRaw) { refreshDigest() }
+            .backupRestoreHandlers(
+                showImportPicker: $showImportPicker,
+                showImportConfirm: $showImportConfirm,
+                confirmTitle: pendingImportManifest.map(importSummary) ?? "",
+                onImportPicked: handleImportPicked,
+                onMerge: { performImport(strategy: .merge) },
+                onReplace: { performImport(strategy: .replace) },
+                onCancelImport: {
+                    pendingImportURL = nil
+                    pendingImportManifest = nil
+                },
+                exportErrorMessage: $exportErrorMessage,
+                importErrorMessage: $importErrorMessage,
+                importSuccessMessage: $importSuccessMessage
+            )
         }
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
@@ -233,6 +272,110 @@ struct SettingsView: View {
 
     private func refreshDigest() {
         Task { @MainActor in NotificationManager.shared.refreshAll() }
+    }
+
+    // MARK: - AI 思考 / 联网搜索
+
+    @ViewBuilder
+    private var aiThinkingSection: some View {
+        Section {
+            Picker("思考强度", selection: $thinkingLevel) {
+                Text("关闭").tag("off")
+                Text("低").tag("low")
+                Text("中").tag("medium")
+                Text("高").tag("high")
+            }
+        } header: {
+            Text("AI 思考")
+        } footer: {
+            Text("思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置,不影响正常使用。")
+        }
+    }
+
+    @ViewBuilder
+    private var webSearchSection: some View {
+        Section {
+            SecureField("Tavily API Key", text: $tavilyKey)
+                .plainKeyboard()
+            Button(tavilyKeySaved ? "已保存" : "保存") {
+                KeychainHelper.save(tavilyKey, for: "Tavily")
+                tavilyKeySaved = true
+            }
+            .disabled(tavilyKeySaved)
+        } header: {
+            Text("联网搜索")
+        } footer: {
+            Text("配置后 AI 助手能在需要最新信息或回答一般问题时联网搜索;免费在 tavily.com 注册获取 API Key,不填则不启用联网搜索。")
+        }
+    }
+
+    // MARK: - 备份与恢复
+
+    @ViewBuilder
+    private var backupRestoreSection: some View {
+        Section {
+            Button {
+                exportBackup()
+            } label: {
+                Label("导出备份", systemImage: "square.and.arrow.up")
+            }
+            if let exportedZipURL {
+                ShareLink(item: exportedZipURL) {
+                    Label("分享导出的文件", systemImage: "square.and.arrow.up.on.square")
+                }
+            }
+            Button {
+                showImportPicker = true
+            } label: {
+                Label("导入备份", systemImage: "square.and.arrow.down")
+            }
+        } header: {
+            Text("备份与恢复")
+        } footer: {
+            Text("导出一份包含待办、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。")
+        }
+    }
+
+    private func exportBackup() {
+        do {
+            exportedZipURL = try BackupManager.export(context: context)
+        } catch {
+            exportErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleImportPicked(_ result: Result<[URL], Error>) {
+        guard let url = try? result.get().first else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let localURL = FileManager.default.temporaryDirectory
+                .appending(path: "lodo-import-\(UUID().uuidString).zip")
+            try? FileManager.default.removeItem(at: localURL)
+            try FileManager.default.copyItem(at: url, to: localURL)
+            pendingImportManifest = try BackupManager.preview(zipURL: localURL)
+            pendingImportURL = localURL
+            showImportConfirm = true
+        } catch {
+            importErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func performImport(strategy: BackupManager.MergeStrategy) {
+        guard let url = pendingImportURL else { return }
+        do {
+            try BackupManager.commit(zipURL: url, strategy: strategy, context: context)
+            importSuccessMessage = "待办、记忆与 AI 对话已导入;如果设置项有变化(如 iCloud 同步),需要退出并重新打开 App 才能生效。"
+        } catch {
+            importErrorMessage = error.localizedDescription
+        }
+        pendingImportURL = nil
+        pendingImportManifest = nil
+    }
+
+    private func importSummary(_ manifest: BackupManifest) -> String {
+        let date = manifest.exportedAt.formatted(date: .abbreviated, time: .shortened)
+        return "导出于 \(date) · \(manifest.taskCount) 条待办 · \(manifest.memoryCount) 条记忆 · \(manifest.agentThreadCount) 个 AI 对话"
     }
 
     // MARK: - 汇总设置的存取辅助
@@ -294,5 +437,62 @@ private extension View {
         #else
         self.autocorrectionDisabled()
         #endif
+    }
+
+    /// 导出/导入备份用到的 fileImporter + 确认弹窗 + 三个提示 alert;拆成单独的
+    /// modifier 是因为直接拼进 body 的修饰符链会让类型检查器超时
+    /// (SettingsView 的 Form 本来就大)。
+    func backupRestoreHandlers(
+        showImportPicker: Binding<Bool>,
+        showImportConfirm: Binding<Bool>,
+        confirmTitle: String,
+        onImportPicked: @escaping (Result<[URL], Error>) -> Void,
+        onMerge: @escaping () -> Void,
+        onReplace: @escaping () -> Void,
+        onCancelImport: @escaping () -> Void,
+        exportErrorMessage: Binding<String?>,
+        importErrorMessage: Binding<String?>,
+        importSuccessMessage: Binding<String?>
+    ) -> some View {
+        self
+            .fileImporter(
+                isPresented: showImportPicker,
+                allowedContentTypes: [.zip],
+                allowsMultipleSelection: false,
+                onCompletion: onImportPicked
+            )
+            .confirmationDialog(
+                confirmTitle, isPresented: showImportConfirm, titleVisibility: .visible
+            ) {
+                Button("合并更新", action: onMerge)
+                Button("先清空再导入", role: .destructive, action: onReplace)
+                Button("取消", role: .cancel, action: onCancelImport)
+            } message: {
+                Text("合并更新按待办/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有待办、记忆和 AI 对话,不可撤销。")
+            }
+            .alert("导出失败", isPresented: Binding(
+                get: { exportErrorMessage.wrappedValue != nil },
+                set: { if !$0 { exportErrorMessage.wrappedValue = nil } }
+            )) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(exportErrorMessage.wrappedValue ?? "")
+            }
+            .alert("导入失败", isPresented: Binding(
+                get: { importErrorMessage.wrappedValue != nil },
+                set: { if !$0 { importErrorMessage.wrappedValue = nil } }
+            )) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(importErrorMessage.wrappedValue ?? "")
+            }
+            .alert("已导入", isPresented: Binding(
+                get: { importSuccessMessage.wrappedValue != nil },
+                set: { if !$0 { importSuccessMessage.wrappedValue = nil } }
+            )) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(importSuccessMessage.wrappedValue ?? "")
+            }
     }
 }

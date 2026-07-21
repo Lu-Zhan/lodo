@@ -25,6 +25,18 @@ struct ConvertToTodoRequest: Equatable {
     var attachment: TaskAttachment
 }
 
+/// AI 批量执行(performPendingActions)后留下的撤销记录,一条操作一个 case;
+/// 复用备份功能已有的 BackupTask(展平字段 + apply(to:))做"改回原样"的载体,
+/// 不用另起一套快照结构。只保留最近一批,执行新的批量操作或用掉一次撤销都会
+/// 清空(见 TodoListView+Agent.swift 的 performUndo)。
+enum UndoOp {
+    case created(uuid: UUID)
+    case updated(before: BackupTask)
+    /// insertedHistoryUUID:重复事项完成一次时插入的历史记录,撤销要连它一起删掉。
+    case completed(before: BackupTask, insertedHistoryUUID: UUID?)
+    case deleted(before: BackupTask)
+}
+
 /// 待办页:横滑日期条(默认今天)、到期卡片(完成/稍等)、
 /// 选中日待办与未来待办分组、已完成列表。
 struct TodoListView: View {
@@ -45,10 +57,11 @@ struct TodoListView: View {
     @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "pending" },
            sort: \TaskItem.nextRemindAt)
     var pending: [TaskItem]
-    /// 已完成事项并入待办页底部,默认折叠展示。
+    /// 已完成事项并入待办页底部,默认折叠展示。TodoListView+Agent.swift 的撤销
+    /// 逻辑也要按 uuid 查已完成事项(如撤销"完成"本身),不能用 private。
     @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "done" },
            sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
-    private var doneTasks: [TaskItem]
+    var doneTasks: [TaskItem]
 
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
@@ -58,6 +71,8 @@ struct TodoListView: View {
     @State var sheet: SheetMode?
     /// agent 解析出、等待用户确认的批量操作。
     @State var pendingActions: [AIAction] = []
+    /// 上一批 AI 执行完的操作,供"撤销"用;见 TodoListView+Agent.swift。
+    @State var lastUndo: [UndoOp]?
     /// 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误 / 进行中的请求。
     @State var rescheduleLoading: String?
     @State var reschedule: (uuid: String, candidates: [(label: String, date: Date)])?

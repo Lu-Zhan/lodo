@@ -33,7 +33,8 @@ extension ParsedTask {
 
 /// AI 总入口解析出的单个操作。
 /// memorize/askMemory 仅在 command(memoryEnabled: true) 时会出现
-/// (iOS/macOS 主 app;Watch 无记忆数据层,不开启)。
+/// (iOS/macOS 主 app;Watch 无记忆数据层,不开启)。answer 仅在
+/// command(webSearchEnabled: true) 时会出现(配置了 Tavily key 才开启)。
 public enum AIAction {
     case create(ParsedTask)
     case update(uuid: String, task: ParsedTask)
@@ -41,6 +42,8 @@ public enum AIAction {
     case delete(uuid: String)
     case memorize(text: String)
     case askMemory(question: String)
+    /// 与待办/记忆都无关的一般性问题,直接给用户的回答(可能是联网搜索后给出的)。
+    case answer(text: String)
 }
 
 /// AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或
@@ -56,6 +59,7 @@ public enum AICommandResult {
 /// 不能在推理过程中未经确认就被模型自己调用。
 public enum AITool {
     case searchMemory(question: String)
+    case webSearch(query: String)
 }
 
 public enum DeepSeekError: LocalizedError {
@@ -149,11 +153,15 @@ public enum DeepSeekClient {
     /// AI 总入口:给定当前待办列表,把用户的一句话解析成一组操作
     /// (新建/修改/完成/删除,可多条),或在关键信息缺失时反问。
     /// memoryEnabled 开启后额外拼入记忆 skill(收藏/查记忆);默认关闭,
-    /// Watch 等无记忆数据层的调用方不会看到记忆相关指令(但 agent.md/待办 skill
-    /// 的拼接顺序对所有调用方一致,详见 `AgentSkillStore`)。
+    /// Watch 等无记忆数据层的调用方不会看到记忆相关指令。webSearchEnabled 开启后
+    /// 额外拼入联网搜索 skill(配置了 Tavily key 才开启);两者独立,拼接顺序
+    /// 对所有调用方一致(详见 `AgentSkillStore`)。这是"AI 助手"对话入口,
+    /// 按设置里的思考强度传 reasoning_effort(thinking: true),不影响解析/汇总
+    /// 等其他后台小请求的响应速度。
     public static func command(
         _ text: String, tasks allTasks: [(uuid: String, task: ParsedTask)],
         memoryEnabled: Bool = false,
+        webSearchEnabled: Bool = false,
         history: [(role: String, content: String)] = []
     ) async throws -> AICommandResult {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
@@ -167,7 +175,8 @@ public enum DeepSeekClient {
         \(AgentSkillStore.content(for: .agent))
 
         \(AgentSkillStore.content(for: .todo))\
-        \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")
+        \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
+        \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")
 
         \(timeContext)
 
@@ -175,32 +184,41 @@ public enum DeepSeekClient {
         \(json(list))\(personaBlock)\(historyBlock(history))
         """
         return try parseCommand(
-            await payload(system: system, user: text),
+            await payload(system: system, user: text, thinking: true),
             validUUIDs: tasks.map(\.uuid),
-            memoryEnabled: memoryEnabled)
+            memoryEnabled: memoryEnabled,
+            webSearchEnabled: webSearchEnabled)
     }
 
     /// 从 payload 里解析总入口结果(单测入口)。
-    /// memoryEnabled == false 时 memorize/ask_memory 按未知 action 处理
-    /// (即使模型幻觉出这两种操作,Watch 等调用方也保持旧行为)。
+    /// memoryEnabled == false 时 memorize/ask_memory、webSearchEnabled == false 时
+    /// web_search/answer 按未知 action/工具处理(即使模型幻觉出来,Watch 等
+    /// 调用方也保持旧行为)。
     static func parseCommand(
-        _ payload: [String: Any], validUUIDs: [String], memoryEnabled: Bool
+        _ payload: [String: Any], validUUIDs: [String],
+        memoryEnabled: Bool, webSearchEnabled: Bool = false
     ) throws -> AICommandResult {
         if let question = payload["question"] as? String, !question.isEmpty {
             let options = (payload["options"] as? [Any])?.compactMap { $0 as? String } ?? []
             return .clarify(question: question, options: options)
         }
-        // ReAct 中间步骤:memoryEnabled == false(Watch)时 prompt 里根本没提过这个选项,
+        // ReAct 中间步骤:对应开关关闭时 prompt 里根本没提过这个选项,
         // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
-        if memoryEnabled, let toolName = payload["tool"] as? String {
+        if (memoryEnabled || webSearchEnabled), let toolName = payload["tool"] as? String {
             let thought = (payload["thought"] as? String) ?? ""
             switch toolName {
-            case "search_memory":
+            case "search_memory" where memoryEnabled:
                 guard let query = (payload["query"] as? String)?
                     .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
                     throw DeepSeekError.parse("返回格式异常:search_memory 缺少 query")
                 }
                 return .toolCall(thought: thought, tool: .searchMemory(question: query))
+            case "web_search" where webSearchEnabled:
+                guard let query = (payload["query"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:web_search 缺少 query")
+                }
+                return .toolCall(thought: thought, tool: .webSearch(query: query))
             default:
                 throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
             }
@@ -241,25 +259,32 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:查询问题为空")
                 }
                 actions.append(.askMemory(question: question))
+            case "answer" where webSearchEnabled:
+                let text = (raw["text"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !text.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:回答内容为空")
+                }
+                actions.append(.answer(text: text))
             default:
                 throw DeepSeekError.parse("返回格式异常:未知 action")
             }
         }
-        // 归一化:prompt 已要求 ask_memory 单独出现,这里是模型不守规矩时的
-        // 确定性兜底——问答与写操作混合时丢弃问答只留写操作(写操作是用户要
-        // 落地的事不能丢,查询可以重问);全是问答时只留第一条。
-        let askQuestions = actions.compactMap { action -> String? in
-            if case .askMemory(let question) = action { return question }
-            return nil
+        // 归一化:prompt 已要求问答类操作(ask_memory/answer)单独出现,这里是模型
+        // 不守规矩时的确定性兜底——问答与写操作混合时丢弃问答只留写操作(写操作是
+        // 用户要落地的事不能丢,查询可以重问);全是问答时只留第一条。
+        func isInformational(_ action: AIAction) -> Bool {
+            switch action {
+            case .askMemory, .answer: return true
+            default: return false
+            }
         }
-        if !askQuestions.isEmpty {
-            if askQuestions.count == actions.count {
-                return .actions([.askMemory(question: askQuestions[0])])
+        let informationalCount = actions.filter(isInformational).count
+        if informationalCount > 0 {
+            if informationalCount == actions.count {
+                return .actions([actions[0]])
             }
-            actions = actions.filter {
-                if case .askMemory = $0 { return false }
-                return true
-            }
+            actions = actions.filter { !isInformational($0) }
         }
         return .actions(actions)
     }
@@ -558,9 +583,13 @@ public enum DeepSeekClient {
     }
 
     /// timeout:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。
+    /// thinking:true 时按设置里的思考强度带上 reasoning_effort(仅 command() 传
+    /// true——AI 助手对话入口才需要深度推理,解析/汇总等后台小请求不需要多等)。
     private static func payload(system: String, user: String,
-                                timeout: TimeInterval = 20) async throws -> [String: Any] {
-        // 苹果智能:端侧推理,免 key,payload 形态与云端一致
+                                timeout: TimeInterval = 20,
+                                thinking: Bool = false) async throws -> [String: Any] {
+        // 苹果智能:端侧推理,免 key,payload 形态与云端一致;端侧模型没有
+        // reasoning_effort 这个概念,thinking 参数在这条路径上不生效。
         if AppSettings.usesAppleIntelligence {
             #if canImport(FoundationModels)
             if #available(iOS 26.0, macOS 26.0, *) {
@@ -574,7 +603,7 @@ public enum DeepSeekClient {
                    let endpoint = URL(string: preset.endpoint) {
                     return try await cloudRequest(endpoint: endpoint, apiKey: key,
                                                   model: preset.model, system: system,
-                                                  user: user, timeout: timeout)
+                                                  user: user, timeout: timeout, thinking: thinking)
                 }
                 throw DeepSeekError.api(FoundationModelsClient.availabilityHint)
             }
@@ -588,21 +617,21 @@ public enum DeepSeekClient {
         }
         return try await cloudRequest(endpoint: endpoint, apiKey: apiKey,
                                       model: AppSettings.aiModel, system: system,
-                                      user: user, timeout: timeout)
+                                      user: user, timeout: timeout, thinking: thinking)
     }
 
     /// 云端 OpenAI 兼容接口的请求构造 + 响应解析,供当前选中服务商和苹果智能
     /// 不可用时的 DeepSeek 退回共用。
     private static func cloudRequest(
         endpoint: URL, apiKey: String, model: String,
-        system: String, user: String, timeout: TimeInterval
+        system: String, user: String, timeout: TimeInterval, thinking: Bool = false
     ) async throws -> [String: Any] {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = timeout
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
+        var body: [String: Any] = [
             "model": model,
             "messages": [
                 ["role": "system", "content": system],
@@ -610,7 +639,13 @@ public enum DeepSeekClient {
             ],
             "response_format": ["type": "json_object"],
             "temperature": 0,
-        ] as [String: Any])
+        ]
+        // reasoning_effort:OpenAI 兼容接口里推理强度的通用字段名,支持推理的
+        // 服务商/模型会据此调整思考深度,不支持的会直接忽略这个多余字段。
+        if thinking, AppSettings.thinkingLevel != "off" {
+            body["reasoning_effort"] = AppSettings.thinkingLevel
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await send(request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {

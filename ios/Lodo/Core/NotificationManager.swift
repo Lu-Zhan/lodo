@@ -239,7 +239,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     /// 完成/开始了:advance;重复事项完成一次会记入历史并排下一次。
     @MainActor
-    func complete(_ task: TaskItem, context: ModelContext) {
+    /// 返回值:重复事项完成一次时插入的已完成历史记录(非重复/两阶段"开始了"
+    /// 时为 nil)。撤销(TodoListView+Agent.swift 的 undo)靠这个 uuid 把这条
+    /// 历史记录也一并删掉,单纯 fire-and-forget 的调用方可以忽略返回值。
+    @discardableResult
+    func complete(_ task: TaskItem, context: ModelContext) -> TaskItem? {
         var d = task.data
         let finished = Scheduler.advance(&d, now: Date())
         task.apply(d)
@@ -247,10 +251,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             // 完成一次(含重复事项)即作为时长记忆样本
             DurationMemory.learn(title: d.title, durationMinutes: d.durationMinutes)
         }
+        var history: TaskItem?
         if finished && d.status == .pending {
             // 重复事项完成一次:插入一条已完成历史
-            context.insert(TaskItem(title: d.title, remindAt: Date(),
-                                    status: .done, doneAt: Date()))
+            history = TaskItem(title: d.title, remindAt: Date(), status: .done, doneAt: Date())
+            context.insert(history!)
         }
         try? context.save()
         if task.status == .done {
@@ -259,6 +264,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         } else {
             rebuild(for: task)
         }
+        return history
     }
 
     @MainActor

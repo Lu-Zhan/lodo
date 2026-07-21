@@ -115,9 +115,10 @@ struct ContentView: View {
     @ViewBuilder
     private var tabs: some View {
         if #available(iOS 26.0, macOS 26.0, *) {
-            // iOS 26+:Liquid Glass 标签栏随内容下滑收起(仅 iOS)
+            // iOS 26+:AI 入口改回系统 Tab(role: .search)的浮动胶囊(见
+            // modernTabsWithSearchAI),标签栏随内容下滑收起(仅 iOS)。
             #if os(iOS)
-            modernTabs.tabBarMinimizeBehavior(.onScrollDown)
+            modernTabsWithSearchAI.tabBarMinimizeBehavior(.onScrollDown)
             #else
             modernTabs
             #endif
@@ -133,12 +134,12 @@ struct ContentView: View {
         }
     }
 
-    /// iOS 18 / macOS 15 起的新 Tab 写法。
+    /// iOS 18 / macOS 15 起的新 Tab 写法,iOS 18-25 与 macOS 走这条路径。
     /// sidebarAdaptable:iPhone 仍是标签栏,iPad 可展开成侧边栏,macOS 呈现为
     /// 系统「提醒事项」式的侧边栏,是待办类 app 在大屏上的标准形态。
-    /// AI 入口(iOS/iPadOS)不再用系统 Tab(role: .search)——那样拿不到长按手势
+    /// AI 入口(iOS/iPadOS)用叠在 TabView 上的自绘悬浮按钮:短按打开/回到最近
+    /// 对话,长按自动开语音——这几个系统版本上 Tab(role: .search) 拿不到长按手势
     /// (系统 tab bar chrome 接管手势,挂不上真正生效的 onLongPressGesture)。
-    /// 改成叠在 TabView 上的自绘悬浮按钮:短按打开/回到最近对话,长按自动开语音。
     /// macOS 用的是 TodoListView 工具栏里的"AI 助手"按钮(见该文件),不走这里。
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
@@ -163,7 +164,38 @@ struct ContentView: View {
     }
 
     #if os(iOS)
-    /// 短按:打开/回到最近一次对话,不自动开语音。长按:同时自动开语音。
+    /// iOS 26+ 专用:AI 入口用系统 Tab(role: .search)——Liquid Glass 标签栏会把它
+    /// 渲成独立于其他标签的浮动胶囊,是系统给"搜索/万能输入"类入口的标准视觉,
+    /// 借来承载 AI 助手很贴切。选中这个 tab 不真正停留,onChange 里立刻切回待办
+    /// 并弹出 agent;系统 tab bar chrome 接管了手势,这个控件挂不上长按,
+    /// 因此不再区分短按/长按,统一按"点击添加自动开始语音"设置项(默认开)决定
+    /// 是否自动开语音——这样这个开关的字面意思(点击就开语音)才真的对得上行为。
+    @available(iOS 26.0, *)
+    private var modernTabsWithSearchAI: some View {
+        TabView(selection: $selection) {
+            Tab("待办", systemImage: "checklist", value: AppTab.todo) {
+                TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
+                            rescheduleRequestUUID: $rescheduleRequestUUID,
+                            convertToTodoRequest: $convertToTodoRequest)
+            }
+            Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
+                MemoryListView(onConvertToTodo: convertToTodo)
+            }
+            Tab("AI 助手", systemImage: "sparkles", value: AppTab.add, role: .search) {
+                Color.clear
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        .onChange(of: selection) { _, newValue in
+            if newValue == .add {
+                openAgent(autoStart: true)
+            }
+        }
+    }
+    #endif
+
+    #if os(iOS)
+    /// iOS 18-25 悬浮按钮:短按打开/回到最近一次对话,不自动开语音。长按:同时自动开语音。
     private var agentQuickButton: some View {
         Button {
             openAgent(autoStart: false)

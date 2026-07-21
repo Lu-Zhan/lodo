@@ -56,7 +56,8 @@ extension TodoListView {
         sheet = .create(parsed, request.attachment)
     }
 
-    func saveNew(_ parsed: ParsedTask, attachment: TaskAttachment? = nil) {
+    @discardableResult
+    func saveNew(_ parsed: ParsedTask, attachment: TaskAttachment? = nil) -> TaskItem {
         let task = TaskItem(
             title: parsed.title, remindAt: parsed.remindAt,
             durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
@@ -67,6 +68,7 @@ extension TodoListView {
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
         DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
+        return task
     }
 
     func apply(_ parsed: ParsedTask, to task: TaskItem) {

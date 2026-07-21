@@ -143,9 +143,10 @@ struct WatchAgentView: View {
             return "完成:\(title(of: uuid) ?? "未知事项")"
         case .delete(let uuid):
             return "删除:\(title(of: uuid) ?? "未知事项")"
-        case .memorize, .askMemory:
-            // 死代码安全阀:Watch 调 command 不传 memoryEnabled(无 MemoryItem 数据层),
-            // 这两支不会被模型返回,仅为满足穷尽 switch。
+        case .memorize, .askMemory, .answer:
+            // 死代码安全阀:Watch 调 command 不传 memoryEnabled/webSearchEnabled
+            // (无 MemoryItem 数据层、也没有联网搜索),这几支不会被模型返回,
+            // 仅为满足穷尽 switch。
             return ""
         }
     }
@@ -186,8 +187,8 @@ struct WatchAgentView: View {
                 guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else { continue }
                 WatchNotificationManager.shared.cancelChain(for: task.uuid)
                 context.delete(task)
-            case .memorize, .askMemory:
-                // 死代码安全阀:Watch 未开 memoryEnabled,不会实际出现。
+            case .memorize, .askMemory, .answer:
+                // 死代码安全阀:Watch 未开 memoryEnabled/webSearchEnabled,不会实际出现。
                 continue
             }
         }

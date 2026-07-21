@@ -390,7 +390,7 @@ struct AgentView: View {
         guard let thread = activeThread else { return }
         if execute {
             onConfirm()
-            appendAssistant(thread: thread, kind: .text, content: "已完成执行。")
+            appendAssistant(thread: thread, kind: .text, content: "已完成执行。回复「撤销」可以撤回这次操作。")
         } else {
             appendAssistant(thread: thread, kind: .text, content: "已取消这次操作。")
         }
@@ -462,6 +462,11 @@ struct AgentView: View {
             outgoing += "\n\n[附件:\(attachment.displayName)]\n\(attachment.extractedText)"
         }
 
+        // 请求一发出就显示"思考中…";ReAct 工具调用会用更具体的提示
+        // (如"正在查记忆…")覆盖它,交换结束后统一在 defer 里清空。
+        if AppSettings.thinkingLevel != "off" {
+            thinkingText = "思考中…"
+        }
         Task {
             defer {
                 busy = false
