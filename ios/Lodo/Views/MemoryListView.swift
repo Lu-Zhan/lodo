@@ -180,38 +180,34 @@ struct MemoryListView: View {
             if availableKinds.count > 1 {
                 HorizontalChipRow {
                     ForEach(availableKinds, id: \.self) { kind in
-                        let selected = selectedKinds.contains(kind)
-                        Button {
-                            if selected {
-                                selectedKinds.remove(kind)
-                            } else {
-                                selectedKinds.insert(kind)
+                        Toggle(isOn: Binding(
+                            get: { selectedKinds.contains(kind) },
+                            set: { on in
+                                if on { selectedKinds.insert(kind) } else { selectedKinds.remove(kind) }
                             }
-                        } label: {
+                        )) {
                             Label(kind.label, systemImage: kind.symbol)
                         }
-                        .font(.footnote)
+                        .toggleStyle(.button)
                         .buttonStyle(.bordered)
                         .buttonBorderShape(.capsule)
-                        .tint(selected ? Color.accentColor : Color.secondary)
+                        .font(.footnote)
                     }
                 }
             }
             if !allTags.isEmpty {
                 HorizontalChipRow {
                     ForEach(allTags, id: \.self) { tag in
-                        let selected = selectedTags.contains(tag)
-                        Button("#\(tag)") {
-                            if selected {
-                                selectedTags.remove(tag)
-                            } else {
-                                selectedTags.insert(tag)
+                        Toggle("#\(tag)", isOn: Binding(
+                            get: { selectedTags.contains(tag) },
+                            set: { on in
+                                if on { selectedTags.insert(tag) } else { selectedTags.remove(tag) }
                             }
-                        }
-                        .font(.footnote)
+                        ))
+                        .toggleStyle(.button)
                         .buttonStyle(.bordered)
                         .buttonBorderShape(.capsule)
-                        .tint(selected ? Color.accentColor : Color.secondary)
+                        .font(.footnote)
                     }
                 }
             }
