@@ -128,10 +128,13 @@ public enum AppSettings {
 
     /// "使用内置 API Key"开关(设置页,仅 DeepSeek 服务商下出现);实际是否
     /// 生效还要看 BuiltInAPIKey.deepSeek 是否真的内置了 key,由
-    /// KeychainHelper.effectiveAPIKey 兜底判断。默认关——内置 key 是否可用
-    /// 因构建环境而异(见 BuiltInAPIKey.swift.example),不能默认开。
+    /// KeychainHelper.effectiveAPIKey 兜底判断。默认开——没内置 key 的构建
+    /// (BuiltInAPIKey.swift.example 的 nil)这个默认值不会有任何效果,
+    /// 仍然安全退回钥匙串。
     public static var useBuiltInKey: Bool {
-        UserDefaults.standard.bool(forKey: useBuiltInKeyKey)
+        UserDefaults.standard.object(forKey: useBuiltInKeyKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: useBuiltInKeyKey)
     }
 
     /// 当前服务商的接口地址;自定义地址无效时返回 nil。

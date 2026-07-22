@@ -293,6 +293,9 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-ask-duration") {
                     askDurationQueue.append((title: "开周会", planned: 60))
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-seed-data"), pending.isEmpty {
+                    seedDemoData()
+                }
                 #endif
             }
         }

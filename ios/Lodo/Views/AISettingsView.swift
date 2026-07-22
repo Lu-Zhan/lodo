@@ -8,7 +8,7 @@ struct AISettingsView: View {
     @AppStorage(AppSettings.aiModelKey) private var aiModel = ""
     @AppStorage(AppSettings.aiCustomEndpointKey) private var aiCustomEndpoint = ""
     @AppStorage(AppSettings.thinkingLevelKey) private var thinkingLevel = "medium"
-    @AppStorage(AppSettings.useBuiltInKeyKey) private var useBuiltInKey = false
+    @AppStorage(AppSettings.useBuiltInKeyKey) private var useBuiltInKey = true
     @AppStorage(AppSettings.agentPersonaStyleKey) private var personaStyle = "默认"
     @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
     @AppStorage(AppSettings.agentAutoRecordOnOpenKey) private var agentAutoRecordOnOpen = true

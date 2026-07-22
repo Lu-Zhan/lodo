@@ -85,4 +85,44 @@ extension TodoListView {
         NotificationManager.shared.rebuild(for: task)
         DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
     }
+
+    #if DEBUG
+    /// 截图/测试用(--demo-seed-data,仅在待办为空时插入):覆盖到期、时长两阶段、
+    /// 每日/每周重复、全天几种典型场景,不含 AI 请求。
+    func seedDemoData() {
+        let calendar = Calendar.current
+        let now = Date()
+
+        saveNew(ParsedTask(
+            title: "买菜", remindAt: now.addingTimeInterval(2 * 3600), allDay: false,
+            durationMinutes: 0, repeatType: .none, repeatDays: [], repeatTimes: []))
+
+        saveNew(ParsedTask(
+            title: "写周报", remindAt: now.addingTimeInterval(4 * 3600), allDay: false,
+            durationMinutes: 30, repeatType: .none, repeatDays: [], repeatTimes: []))
+
+        saveNew(ParsedTask(
+            title: "交房租", remindAt: now.addingTimeInterval(-3600), allDay: false,
+            durationMinutes: 0, repeatType: .none, repeatDays: [], repeatTimes: []))
+
+        let waterTimes = ["09:00", "15:00", "21:00"]
+        saveNew(ParsedTask(
+            title: "喝水", remindAt: AppSettings.time(waterTimes[0], on: now), allDay: false,
+            durationMinutes: 0, repeatType: .daily, repeatDays: [], repeatTimes: waterTimes))
+
+        let weekday = (calendar.component(.weekday, from: now) + 5) % 7
+        let meetingTime = AppSettings.hhmm(from: now.addingTimeInterval(3600))
+        saveNew(ParsedTask(
+            title: "团队周会", remindAt: AppSettings.time(meetingTime, on: now), allDay: false,
+            durationMinutes: 60, repeatType: .weekly, repeatDays: [weekday],
+            repeatTimes: [meetingTime]))
+
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) {
+            saveNew(ParsedTask(
+                title: "妈妈生日", remindAt: AppSettings.time(AppSettings.allDayTime, on: tomorrow),
+                allDay: true, durationMinutes: 0, repeatType: .none, repeatDays: [],
+                repeatTimes: []))
+        }
+    }
+    #endif
 }
