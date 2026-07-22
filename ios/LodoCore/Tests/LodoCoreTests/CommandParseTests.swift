@@ -123,6 +123,54 @@ final class CommandParseTests: XCTestCase {
             try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
     }
 
+    // MARK: - suggest_memorize(AI 主动建议收藏)
+
+    func testSuggestMemorizeValidWhenEnabled() throws {
+        let payload: [String: Any] = [
+            "actions": [["action": "suggest_memorize", "text": "周三下午一般没空"]]
+        ]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .suggestMemorize(let text) = actions[0] else {
+            XCTFail("expected single suggestMemorize action")
+            return
+        }
+        XCTAssertEqual(text, "周三下午一般没空")
+    }
+
+    func testSuggestMemorizeEmptyTextThrows() {
+        let payload: [String: Any] = ["actions": [["action": "suggest_memorize", "text": "  "]]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true))
+    }
+
+    func testSuggestMemorizeWhenDisabledThrowsUnknownAction() {
+        let payload: [String: Any] = [
+            "actions": [["action": "suggest_memorize", "text": "周三下午一般没空"]]
+        ]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
+
+    /// suggest_memorize 是信息类操作(和 ask_memory/answer 同一组),与写操作混在
+    /// 一句话里返回时应该被丢弃,不像 memorize 那样可以共存。
+    func testSuggestMemorizeMixedWithCreateDropsSuggestion() throws {
+        let payload: [String: Any] = ["actions": [
+            taskPayload(action: "create"),
+            ["action": "suggest_memorize", "text": "周三下午一般没空"]
+        ]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .actions(let actions) = result else {
+            XCTFail("expected actions")
+            return
+        }
+        XCTAssertEqual(actions.count, 1)
+        guard case .create = actions[0] else {
+            XCTFail("expected remaining action to be create")
+            return
+        }
+    }
+
     // MARK: - ask_memory(查记忆)+ 归一化兜底
 
     func testAskMemoryAlone() throws {

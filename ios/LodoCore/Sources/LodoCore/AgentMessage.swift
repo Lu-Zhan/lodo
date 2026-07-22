@@ -19,6 +19,9 @@ public enum AgentMessageKind: String {
     /// 批量操作执行完的回执;只在"当前 thread 最新一条"时气泡上带"撤销"按钮,
     /// 和 confirm 的按钮只在最新一条生效同一个道理。
     case executed
+    /// AI 主动建议收藏(用户没明确要求);只在"当前 thread 最新一条"时气泡上带
+    /// "收藏这条"按钮,和 confirm/executed 同一个道理。
+    case memorizeSuggestion
 }
 
 /// 对话里的一条消息。不建 SwiftData 关系,按 threadUUID 过滤查询即可

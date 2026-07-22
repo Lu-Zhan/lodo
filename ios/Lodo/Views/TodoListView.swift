@@ -17,6 +17,8 @@ enum AgentReply {
     case clarify(question: String, options: [String])
     /// 记忆问答的回答,或收藏回执;related 为相关条目标题(可为空),不做跳转。
     case answer(text: String, related: [String])
+    /// AI 主动建议收藏(用户没明确要求);气泡上带"收藏这条"按钮,点了才真正落库。
+    case suggestMemorize(text: String)
 }
 
 /// 记忆条目左滑"转为待办"交接的载荷(见 ContentView)。

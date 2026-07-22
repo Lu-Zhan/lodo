@@ -10,6 +10,7 @@ struct AgentMessageBubble: View {
     var onConfirm: () -> Void = {}
     var onCancelConfirm: () -> Void = {}
     var onUndo: () -> Void = {}
+    var onMemorizeSuggestion: () -> Void = {}
 
     @Environment(\.modelContext) private var context
 
@@ -78,6 +79,24 @@ struct AgentMessageBubble: View {
             answerContent
         case .executed:
             executedContent
+        case .memorizeSuggestion:
+            memorizeSuggestionContent
+        }
+    }
+
+    private var memorizeSuggestionContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(message.content, systemImage: "bookmark.circle").font(.subheadline)
+            if isLatest {
+                Button {
+                    Haptics.success()
+                    onMemorizeSuggestion()
+                } label: {
+                    Label("收藏这条", systemImage: "bookmark")
+                }
+                .buttonStyle(.bordered)
+                .font(.footnote)
+            }
         }
     }
 

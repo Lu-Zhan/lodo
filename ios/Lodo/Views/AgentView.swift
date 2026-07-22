@@ -40,6 +40,8 @@ struct AgentView: View {
 
     @State private var text: String
     @State private var busy = false
+    /// 发送中的请求;busy 时发送按钮变成取消,点了就 cancel 这个 Task。
+    @State private var sendTask: Task<Void, Never>?
     @State private var errorText: String?
     @State private var speech = SpeechInput()
     /// 打开页面默认唤起键盘,方便直接打字;长按触发的自动语音不需要键盘,不抢焦点。
@@ -102,6 +104,7 @@ struct AgentView: View {
                     VStack(spacing: 0) {
                         AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
                                             onUndo: handleUndo,
+                                            onMemorizeSuggestion: handleMemorizeSuggestion,
                                             onExamplePrompt: { send(overrideText: $0) })
                             .id(thread.uuid)
                         thinkingRow
@@ -226,6 +229,11 @@ struct AgentView: View {
                 seedDemoMessagesIfNeeded()
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-hascontent") {
                     text = "明天3点开会"
+                }
+                // 截图验证用:模拟请求进行中,发送按钮应该变成取消。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-busy") {
+                    busy = true
+                    thinkingText = "思考中…"
                 }
                 #endif
             }
@@ -361,9 +369,12 @@ struct AgentView: View {
     }
 
     /// 正在录音时即便文字已经有内容(实时转写填进了输入框)也继续显示麦克风
-    /// (这时候是"停止"按钮),不能被发送按钮抢先弹出来。
+    /// (这时候是"停止"按钮),不能被发送按钮抢先弹出来。busy 期间发送按钮变成
+    /// 取消,必须强制显示——不然请求一发出、输入框被清空,hasComposedContent
+    /// 又变 false,取消按钮会被这条规则顶掉、换回(此时禁用的)麦克风按钮,
+    /// 用户就没有取消入口了。
     private var showsInlineMic: Bool {
-        speech.isRecording || !hasComposedContent
+        !busy && (speech.isRecording || !hasComposedContent)
     }
 
     private var inlineMicButton: some View {
@@ -387,19 +398,24 @@ struct AgentView: View {
         .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
     }
 
+    /// busy 时按钮不再禁用,改成取消——点了就中断这次请求(输入区其余控件
+    /// 如麦克风/附件继续保持 disabled(busy),不允许请求过程中改附件)。
     private var sendButton: some View {
         Button {
-            send()
+            if busy {
+                cancelSend()
+            } else {
+                send()
+            }
         } label: {
-            Image(systemName: "arrow.up")
-                .font(.system(size: 15, weight: .bold))
+            Image(systemName: busy ? "stop.fill" : "arrow.up")
+                .font(.system(size: busy ? 13 : 15, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
-                .background(Color.accentColor, in: Circle())
+                .background(busy ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor), in: Circle())
         }
         .buttonStyle(.plain)
-        .disabled(busy)
-        .accessibilityLabel("发送")
+        .accessibilityLabel(busy ? "取消" : "发送")
     }
 
     private var hasComposedContent: Bool {
@@ -471,6 +487,15 @@ struct AgentView: View {
         if case .answer(let text, let related) = onUndo(thread.uuid) {
             appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
         }
+    }
+
+    /// "收藏这条"按钮:AI 主动建议、用户确认后才真正落库,回执文案和用户直接
+    /// 说"记住这个"走的 memorize 分支保持一致。
+    private func handleMemorizeSuggestion(_ message: AgentMessage) {
+        guard let thread = activeThread else { return }
+        MemoryPipeline.saveText(message.content, context: context)
+        appendAssistant(thread: thread, kind: .text,
+                        content: "已收藏「\(MemorySearch.truncate(message.content, limit: 20))」,AI 正在整理成记忆条目。")
     }
 
     // MARK: - 附件
@@ -568,15 +593,19 @@ struct AgentView: View {
         if AppSettings.thinkingLevel != "off" {
             thinkingText = "思考中…"
         }
-        Task {
+        sendTask = Task {
             defer {
                 busy = false
                 thinkingText = nil
+                sendTask = nil
             }
             do {
                 let reply = try await submit(outgoing, thread.uuid, history) { thought in
                     thinkingText = thought
                 }
+                // 拿到结果时可能已经被用户取消——不再落库/弹表单,避免取消瞬间
+                // 又把回应加回来。
+                guard !Task.isCancelled else { return }
                 switch reply {
                 case .routeToForm(let existing, let parsed):
                     formTarget = FormTarget(existing: existing, parsed: parsed)
@@ -587,14 +616,27 @@ struct AgentView: View {
                                     clarifyOptions: options)
                 case .answer(let text, let related):
                     appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
+                case .suggestMemorize(let text):
+                    appendAssistant(thread: thread, kind: .memorizeSuggestion, content: text)
                 }
                 if isFirstMessage {
                     refineThreadTitle(thread: thread, userText: trimmed, reply: reply)
                 }
             } catch {
+                // 用户主动取消不算错误,不弹提示;DeepSeekClient 的 URLSession
+                // async 请求本身就会随 Task 取消抛 CancellationError,不用额外
+                // 传取消信号进 submit。
+                guard !Task.isCancelled, !(error is CancellationError) else { return }
                 errorText = error.localizedDescription
             }
         }
+    }
+
+    private func cancelSend() {
+        sendTask?.cancel()
+        sendTask = nil
+        busy = false
+        thinkingText = nil
     }
 
     /// 首轮对话拿到回复后,尝试用 AI 把标题从"原话截断"换成真正的总结标题;
@@ -616,6 +658,7 @@ struct AgentView: View {
         case .confirm(let lines): return lines.joined(separator: ";")
         case .clarify(let question, _): return question
         case .answer(let text, _): return text
+        case .suggestMemorize(let text): return text
         }
     }
 
@@ -641,12 +684,17 @@ struct AgentView: View {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "把开会删了"))
             appendAssistant(thread: thread, kind: .executed, content: "已完成执行")
         }
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-memorize-suggestion") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "我周三下午一般没空"))
+            appendAssistant(thread: thread, kind: .memorizeSuggestion, content: "用户周三下午通常没有空闲时间")
+        }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-threads") {
             for title in ["记住wifi密码是8888", "我想去香山爬山"] {
                 let extra = AgentThread()
                 extra.title = title
                 extra.updatedAt = Date().addingTimeInterval(-Double.random(in: 3600...300000))
                 context.insert(extra)
+                context.insert(AgentMessage(threadUUID: extra.uuid, role: .user, content: title))
             }
             try? context.save()
             // popover 挂在工具栏按钮上,当帧触发不生效,延后一点再弹(与记忆筛选按钮同款问题)
@@ -687,15 +735,18 @@ private struct AgentMessageListView: View {
     let thread: AgentThread
     let onConfirmAction: (AgentMessage, Bool) -> Void
     let onUndo: () -> Void
+    let onMemorizeSuggestion: (AgentMessage) -> Void
     let onExamplePrompt: (String) -> Void
 
     @Query private var messages: [AgentMessage]
 
     init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
-         onUndo: @escaping () -> Void, onExamplePrompt: @escaping (String) -> Void) {
+         onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
+         onExamplePrompt: @escaping (String) -> Void) {
         self.thread = thread
         self.onConfirmAction = onConfirmAction
         self.onUndo = onUndo
+        self.onMemorizeSuggestion = onMemorizeSuggestion
         self.onExamplePrompt = onExamplePrompt
         let uuid = thread.uuid
         _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == uuid },
@@ -714,7 +765,8 @@ private struct AgentMessageListView: View {
                             message: message, isLatest: message.uuid == messages.last?.uuid,
                             onConfirm: { onConfirmAction(message, true) },
                             onCancelConfirm: { onConfirmAction(message, false) },
-                            onUndo: onUndo)
+                            onUndo: onUndo,
+                            onMemorizeSuggestion: { onMemorizeSuggestion(message) })
                         .id(message.uuid)
                     }
                 }

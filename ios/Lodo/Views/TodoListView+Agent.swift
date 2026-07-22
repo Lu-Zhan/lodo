@@ -73,7 +73,17 @@ extension TodoListView {
                 currentText = "(请基于以上链接内容继续处理最初的请求:\(text))"
             case .actions(let actions):
                 if actions.count == 1 {
-                    if case .create(let parsed) = actions[0] {
+                    if case .create(var parsed) = actions[0] {
+                        // 时长记忆本来只有 Siri 快捷指令在用(LodoIntents.swift),
+                        // 聊天入口这条主路径反而没消费过——补上;走表单确认(不像
+                        // Siri 直接落库),AI 补的时长用户在表单里还能看到/改掉,
+                        // 比 Siri 那条路径更安全。
+                        if parsed.durationMinutes == 0, let memory = DurationMemory.content,
+                           let minutes = try? await DeepSeekClient.suggestDuration(
+                               text: text, title: parsed.title, memory: memory),
+                           minutes > 0 {
+                            parsed.durationMinutes = minutes
+                        }
                         return .routeToForm(existing: nil, parsed: parsed)
                     }
                     if case .update(let uuid, let parsed) = actions[0] {
@@ -87,6 +97,9 @@ extension TodoListView {
                         return .answer(
                             text: "已收藏「\(MemorySearch.truncate(text, limit: 20))」,AI 正在整理成记忆条目。",
                             related: [])
+                    }
+                    if case .suggestMemorize(let text) = actions[0] {
+                        return .suggestMemorize(text: text)
                     }
                     if case .askMemory(let question) = actions[0] {
                         return try await answerFromMemory(question)
@@ -213,6 +226,10 @@ extension TodoListView {
             // 防御性分支:parseCommand 已把 answer 与写操作混合时丢弃,
             // 正常不会走到这里(route() 已把单条 answer 短路直接返回)。
             return "回答问题"
+        case .suggestMemorize(let text):
+            // 防御性分支:parseCommand 已把 suggest_memorize 与写操作混合时丢弃,
+            // 正常不会走到这里(route() 已把单条 suggest_memorize 短路直接返回)。
+            return "建议收藏:\(MemorySearch.truncate(text, limit: 20))"
         }
     }
 
@@ -264,8 +281,10 @@ extension TodoListView {
                 if let created = MemoryPipeline.saveText(text, context: context) {
                     undoOps.append(.memorized(uuid: created.uuid))
                 }
-            case .askMemory, .answer:
-                // 防御性分支:查询/回答类操作没有可执行的落库动作。
+            case .askMemory, .answer, .suggestMemorize:
+                // 防御性分支:查询/回答/建议收藏类操作没有可执行的落库动作
+                // (suggest_memorize 要用户点了"收藏这条"才真正落库,不能在这里
+                // 静默自动执行——那样就和 memorize 没区别了)。
                 break
             }
         }

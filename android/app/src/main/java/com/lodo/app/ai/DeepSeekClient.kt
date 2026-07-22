@@ -295,8 +295,8 @@ object DeepSeekClient {
     /** 把今天的事项列表改写成一句话汇总,突出重点事件(每日汇总通知正文)。 */
     suspend fun summarizeToday(config: AIConfig, items: List<String>): String {
         val system = "你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表" +
-            "(含时间与时长),用一句话概括今天的安排,突出重点事件" +
-            "(如时间临近、耗时长或听起来重要的),不超过 40 个字," +
+            "(含时间与时长),用一句话给出今天怎么安排的建议——不是单纯罗列," +
+            "要指出哪些优先处理、哪些可以往后放,具体可执行,不超过 40 个字," +
             "只返回 JSON:{\"summary\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
         val summary = complete(config, system, JSONArray(items).toString(), timeoutSeconds = 60).optString("summary")
         if (summary.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 summary")

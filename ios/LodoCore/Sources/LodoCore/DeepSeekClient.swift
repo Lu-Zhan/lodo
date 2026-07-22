@@ -44,6 +44,9 @@ public enum AIAction {
     case askMemory(question: String)
     /// 与待办/记忆都无关的一般性问题,直接给用户的回答(可能是联网搜索后给出的)。
     case answer(text: String)
+    /// AI 主动建议收藏(不是用户明确要求),前端展示成一个"收藏这条"按钮,
+    /// 点了才真正落库——和 memorize 的区别是这条不会自动执行。
+    case suggestMemorize(text: String)
 }
 
 /// AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或
@@ -261,6 +264,13 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:收藏内容为空")
                 }
                 actions.append(.memorize(text: text))
+            case "suggest_memorize" where memoryEnabled:
+                let text = (raw["text"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !text.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:建议收藏内容为空")
+                }
+                actions.append(.suggestMemorize(text: text))
             case "ask_memory" where memoryEnabled:
                 let question = (raw["question"] as? String)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -284,7 +294,7 @@ public enum DeepSeekClient {
         // 用户要落地的事不能丢,查询可以重问);全是问答时只留第一条。
         func isInformational(_ action: AIAction) -> Bool {
             switch action {
-            case .askMemory, .answer: return true
+            case .askMemory, .answer, .suggestMemorize: return true
             default: return false
             }
         }
@@ -422,8 +432,8 @@ public enum DeepSeekClient {
     public static func summarizeToday(_ items: [String]) async throws -> String {
         let system = """
         你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表\
-        (含时间与时长),用一句话概括今天的安排,突出重点事件\
-        (如时间临近、耗时长或听起来重要的),不超过 40 个字,\
+        (含时间与时长),用一句话给出今天怎么安排的建议——不是单纯罗列,\
+        要指出哪些优先处理、哪些可以往后放,具体可执行,不超过 40 个字,\
         只返回 JSON:{"summary": "一句话"},不要任何其他文字。\(personaBlock)
         """
         let payload = try await payload(system: system, user: json(items), timeout: 60)
