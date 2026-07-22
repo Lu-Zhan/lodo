@@ -53,7 +53,7 @@ struct ContentView: View {
             }
             #if DEBUG
             .sheet(isPresented: $showAgentSkillsDemo) {
-                NavigationStack { AgentSkillListView() }
+                NavigationStack { AISettingsView() }
             }
             .sheet(isPresented: $showAgentSkillEditDemo) {
                 NavigationStack { AgentSkillEditView(id: .todo) }

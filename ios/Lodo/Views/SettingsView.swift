@@ -16,23 +16,6 @@ struct SettingsView: View {
     @AppStorage(AppSettings.digestDaysKey) private var digestDaysRaw = "0,1,2,3,4"
 
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
-    @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
-    @AppStorage(AppSettings.agentAutoRecordOnOpenKey) private var agentAutoRecordOnOpen = true
-    @AppStorage(AppSettings.agentSilenceTimeoutSecondsKey) private var agentSilenceTimeoutSeconds = 3
-    @AppStorage(AppSettings.agentPersonaStyleKey) private var personaStyle = "默认"
-    @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
-    @AppStorage(AppSettings.aiProviderKey) private var aiProvider = "DeepSeek"
-    @AppStorage(AppSettings.aiModelKey) private var aiModel = ""
-    @AppStorage(AppSettings.aiCustomEndpointKey) private var aiCustomEndpoint = ""
-    @AppStorage(AppSettings.thinkingLevelKey) private var thinkingLevel = "medium"
-
-    @State private var apiKey = KeychainHelper.apiKey ?? ""
-    @State private var keySaved = KeychainHelper.apiKey != nil
-    @State private var confirmMemoryReset = false
-
-    // ---- 联网搜索(Tavily) ----
-    @State private var tavilyKey = KeychainHelper.apiKey(for: "Tavily") ?? ""
-    @State private var tavilyKeySaved = KeychainHelper.apiKey(for: "Tavily") != nil
 
     // ---- 备份与恢复 ----
     @State private var exportedZipURL: URL?
@@ -117,117 +100,15 @@ struct SettingsView: View {
                 }
                 #endif
 
+                // ---- AI:服务商/API Key、思考、联网搜索、个性、语音、洞察、记忆、Skill 统一入口 ----
                 Section {
-                    Toggle("点击添加自动开始语音", isOn: $agentAutoRecordOnOpen)
-                    Stepper("静音自动停止:\(agentSilenceTimeoutSeconds) 秒",
-                            value: $agentSilenceTimeoutSeconds, in: 0...30, step: 1)
+                    NavigationLink {
+                        AISettingsView()
+                    } label: {
+                        Label("AI 设置", systemImage: "sparkles")
+                    }
                 } footer: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。")
-                        Text("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
-                    }
-                }
-
-                // ---- AI:服务 → 个性 → 洞察 → 记忆 ----
-                Section {
-                    Picker("服务商", selection: $aiProvider) {
-                        ForEach(AppSettings.aiProviders, id: \.name) { provider in
-                            Text(provider.name).tag(provider.name)
-                        }
-                        Text(AppSettings.appleIntelligenceProvider)
-                            .tag(AppSettings.appleIntelligenceProvider)
-                        Text("自定义").tag("自定义")
-                    }
-                    if aiProvider == AppSettings.appleIntelligenceProvider {
-                        Group {
-                            if #available(iOS 26.0, macOS 26.0, *) {
-                                Text(FoundationModelsClient.availabilityHint)
-                            } else {
-                                Text("苹果智能需要 iOS 26 及以上系统。")
-                            }
-                        }
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    } else if aiProvider == "自定义" {
-                        TextField("接口地址(…/chat/completions)", text: $aiCustomEndpoint)
-                            .plainKeyboard()
-                        TextField("模型名称", text: $aiModel)
-                            .plainKeyboard()
-                    } else {
-                        TextField(
-                            "模型(默认 \(AppSettings.aiProviders.first { $0.name == aiProvider }?.model ?? ""))",
-                            text: $aiModel
-                        )
-                        .plainKeyboard()
-                    }
-                    if aiProvider != AppSettings.appleIntelligenceProvider {
-                        SecureField("API Key", text: $apiKey)
-                        Button(keySaved ? "已保存" : "保存 API Key") {
-                            KeychainHelper.save(apiKey, for: aiProvider)
-                            keySaved = true
-                        }
-                        .disabled(keySaved)
-                    }
-                } header: {
-                    Text("AI 服务")
-                } footer: {
-                    Text("默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。")
-                }
-
-                aiThinkingSection
-                webSearchSection
-
-                Section {
-                    Picker("AI 个性", selection: $personaStyle) {
-                        Text("默认").tag("默认")
-                        ForEach(AppSettings.personaPresets, id: \.name) { preset in
-                            Text(preset.name).tag(preset.name)
-                        }
-                        Text("自定义").tag("自定义")
-                    }
-                    if personaStyle == "自定义" {
-                        TextField("描述 AI 的说话风格,例如:像武侠小说里的师父",
-                                  text: $personaCustom, axis: .vertical)
-                            .lineLimit(1...4)
-                    } else if let preset = AppSettings.personaPresets
-                        .first(where: { $0.name == personaStyle }) {
-                        Text(preset.text)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text("AI 个性")
-                } footer: {
-                    Text("影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。")
-                }
-
-                Section {
-                    Toggle("完成洞察", isOn: $insightEnabled)
-                } footer: {
-                    Text("每周在已完成区生成一句正向回顾,不会推送通知。")
-                }
-
-                Section {
-                    NavigationLink("编辑记忆") { MemoryEditView() }
-                    Button("重置记忆", role: .destructive) {
-                        confirmMemoryReset = true
-                    }
-                    .confirmationDialog("确定清空 AI 记忆吗?", isPresented: $confirmMemoryReset,
-                                        titleVisibility: .visible) {
-                        Button("重置记忆", role: .destructive) { DurationMemory.reset() }
-                    }
-                } header: {
-                    Text("AI 记忆")
-                } footer: {
-                    Text("AI 会在事项完成后归纳\"类型 → 典型时长\",新建没说时长的事项时据此建议。")
-                }
-
-                Section {
-                    NavigationLink("管理 AI Agent") { AgentSkillListView() }
-                } header: {
-                    Text("AI Agent")
-                } footer: {
-                    Text("agent.md 是总则,待办/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。")
+                    Text("服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。")
                 }
             }
             .formStyle(.grouped)
@@ -236,14 +117,6 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { dismiss() }
                 }
-            }
-            .onChange(of: apiKey) { keySaved = false }
-            .onChange(of: tavilyKey) { tavilyKeySaved = false }
-            .onChange(of: aiProvider) { _, provider in
-                // 切换服务商:载入该服务商已存的 key,清掉模型覆盖值
-                apiKey = KeychainHelper.apiKey(for: provider) ?? ""
-                keySaved = !apiKey.isEmpty
-                aiModel = ""
             }
             .onChange(of: digestEnabled) { refreshDigest() }
             .onChange(of: digestTimesRaw) { refreshDigest() }
@@ -272,41 +145,6 @@ struct SettingsView: View {
 
     private func refreshDigest() {
         Task { @MainActor in NotificationManager.shared.refreshAll() }
-    }
-
-    // MARK: - AI 思考 / 联网搜索
-
-    @ViewBuilder
-    private var aiThinkingSection: some View {
-        Section {
-            Picker("思考强度", selection: $thinkingLevel) {
-                Text("关闭").tag("off")
-                Text("低").tag("low")
-                Text("中").tag("medium")
-                Text("高").tag("high")
-            }
-        } header: {
-            Text("AI 思考")
-        } footer: {
-            Text("思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置,不影响正常使用。")
-        }
-    }
-
-    @ViewBuilder
-    private var webSearchSection: some View {
-        Section {
-            SecureField("Tavily API Key", text: $tavilyKey)
-                .plainKeyboard()
-            Button(tavilyKeySaved ? "已保存" : "保存") {
-                KeychainHelper.save(tavilyKey, for: "Tavily")
-                tavilyKeySaved = true
-            }
-            .disabled(tavilyKeySaved)
-        } header: {
-            Text("联网搜索")
-        } footer: {
-            Text("配置后 AI 助手能在需要最新信息或回答一般问题时联网搜索;免费在 tavily.com 注册获取 API Key,不填则不启用联网搜索。")
-        }
     }
 
     // MARK: - 备份与恢复
@@ -429,16 +267,6 @@ struct SettingsView: View {
 }
 
 private extension View {
-    /// 关闭自动大写与纠错(macOS 无 textInputAutocapitalization)。
-    @ViewBuilder
-    func plainKeyboard() -> some View {
-        #if os(iOS)
-        self.textInputAutocapitalization(.never).autocorrectionDisabled()
-        #else
-        self.autocorrectionDisabled()
-        #endif
-    }
-
     /// 导出/导入备份用到的 fileImporter + 确认弹窗 + 三个提示 alert;拆成单独的
     /// modifier 是因为直接拼进 body 的修饰符链会让类型检查器超时
     /// (SettingsView 的 Form 本来就大)。
