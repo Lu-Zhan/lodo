@@ -71,6 +71,8 @@ struct TodoListView: View {
     @State private var now = Date()
     // consumeReschedule (TodoListView+Reschedule.swift) 需要跳日期,保持 internal。
     @State var selectedDate = Calendar.current.startOfDay(for: Date())
+    /// 日期条最前面的"总览"选中时为 true:不按日期筛选,待办区显示全部待办。
+    @State private var overviewMode = false
     @State var sheet: SheetMode?
     /// agent 解析出、等待用户确认的批量操作。
     @State var pendingActions: [AIAction] = []
@@ -127,6 +129,9 @@ struct TodoListView: View {
     private var dayTasks: [TaskItem] {
         upcoming.filter { Calendar.current.isDate($0.nextRemindAt, inSameDayAs: selectedDate) }
     }
+    /// "总览"选中时的待办区内容:不按日期筛选,全部未到期待办按提醒时间排列
+    /// (已经是 @Query 的排序)。
+    private var overviewTasks: [TaskItem] { upcoming }
     private var futureTasks: [TaskItem] {
         guard let nextDay = Calendar.current.date(byAdding: .day, value: 1,
                                                   to: selectedDate) else { return [] }
@@ -165,7 +170,7 @@ struct TodoListView: View {
                     dueSection
                 }
                 daySection
-                if !futureTasks.isEmpty {
+                if !overviewMode, !futureTasks.isEmpty {
                     futureSection
                 }
                 doneSection
@@ -173,6 +178,7 @@ struct TodoListView: View {
             .animation(.snappy, value: due.map(\.uuid))
             .animation(.snappy, value: askDurationQueue.map(\.title))
             .animation(.snappy, value: selectedDate)
+            .animation(.snappy, value: overviewMode)
             .animation(.snappy, value: doneExpanded)
             .navigationTitle("lodo")
             .toolbar {
@@ -296,6 +302,9 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-seed-data"), pending.isEmpty {
                     seedDemoData()
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-overview") {
+                    overviewMode = true
+                }
                 #endif
             }
         }
@@ -341,6 +350,7 @@ struct TodoListView: View {
         Section {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
+                    overviewCell
                     ForEach(0..<Self.stripDays, id: \.self) { offset in
                         if let date = Calendar.current.date(
                             byAdding: .day, value: offset,
@@ -356,12 +366,41 @@ struct TodoListView: View {
         .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
     }
 
+    /// 日期条最前面的"总览"格子,选中后待办区不按日期筛选,显示全部待办
+    /// (与 dayCell 同样的形状/尺寸,保持视觉一致)。
+    private var overviewCell: some View {
+        Button {
+            withAnimation(.snappy) { overviewMode = true }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.caption2)
+                Text("总览")
+                    .font(.headline)
+            }
+            .lineLimit(1)
+            .frame(minWidth: 46, minHeight: 54)
+            .background(overviewMode ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
+                        in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
+            .foregroundStyle(overviewMode ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+        }
+        .buttonStyle(.plain)
+        #if os(iOS)
+        .hoverEffect(.highlight)
+        #endif
+        .accessibilityLabel("总览,查看全部待办")
+        .accessibilityAddTraits(overviewMode ? .isSelected : [])
+    }
+
     private func dayCell(_ date: Date) -> some View {
         let calendar = Calendar.current
-        let selected = calendar.isDate(date, inSameDayAs: selectedDate)
+        let selected = !overviewMode && calendar.isDate(date, inSameDayAs: selectedDate)
         let weekdayIndex = (calendar.component(.weekday, from: date) + 5) % 7
         return Button {
-            withAnimation(.snappy) { selectedDate = date }
+            withAnimation(.snappy) {
+                overviewMode = false
+                selectedDate = date
+            }
         } label: {
             VStack(spacing: 2) {
                 Text(calendar.isDateInToday(date) ? "今天" : weekdayNames[weekdayIndex])
@@ -390,7 +429,9 @@ struct TodoListView: View {
         // (显示为问号方块),改用同语义的 SF Symbol 铃铛。
         Section {
             ForEach(due) { task in
-                VStack(alignment: .leading, spacing: 8) {
+                // 行高与待办 row(pendingRow)保持一致:同样的 spacing、不额外加
+                // vertical padding,只在改期候选展开时才会长高(功能性的,非样式差异)。
+                VStack(alignment: .leading, spacing: 2) {
                     // 标题行:完成/改期/稍等都改成左右滑手势,行内不再放按钮
                     HStack(alignment: .firstTextBaseline) {
                         Text(task.title).font(.headline)
@@ -426,7 +467,6 @@ struct TodoListView: View {
                         .transition(.scale(scale: 0.96).combined(with: .opacity))
                     }
                 }
-                .padding(.vertical, 4)
                 .swipeActions(edge: .leading) {
                     Button {
                         Haptics.success()
@@ -452,7 +492,8 @@ struct TodoListView: View {
                     Button {
                         NotificationManager.shared.snooze(task, context: context)
                     } label: {
-                        Text("+\(AppSettings.snoozeMinutes)M")
+                        // 与其他滑动按钮统一用 Label(图标+文字),不单独用纯文字
+                        Label("+\(AppSettings.snoozeMinutes)M", systemImage: "clock")
                     }
                     .tint(.orange)
                     .accessibilityLabel("稍等 \(AppSettings.snoozeMinutes) 分钟")
@@ -504,11 +545,20 @@ struct TodoListView: View {
                     Button("开始添加") { sheet = .agent(prefill: nil, autoStart: false) }
                         .glassProminentButton()
                 }
-            } else if dayTasks.isEmpty {
-                Text("当天暂无待办").foregroundStyle(.secondary)
-            }
-            ForEach(dayTasks) { task in
-                pendingRow(task)
+            } else if overviewMode {
+                if overviewTasks.isEmpty {
+                    Text("没有未到期的待办").foregroundStyle(.secondary)
+                }
+                ForEach(overviewTasks) { task in
+                    pendingRow(task)
+                }
+            } else {
+                if dayTasks.isEmpty {
+                    Text("当天暂无待办").foregroundStyle(.secondary)
+                }
+                ForEach(dayTasks) { task in
+                    pendingRow(task)
+                }
             }
         } header: {
             Text(dayHeaderTitle)
@@ -516,7 +566,8 @@ struct TodoListView: View {
     }
 
     private var dayHeaderTitle: String {
-        Calendar.current.isDateInToday(selectedDate)
+        if overviewMode { return "全部待办" }
+        return Calendar.current.isDateInToday(selectedDate)
             ? "今天待办"
             : "\(selectedDate.formatted(.dateTime.month().day()))待办"
     }
