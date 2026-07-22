@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lodo.app.LodoApp
 import com.lodo.app.ai.DurationMemory
+import com.lodo.app.ai.WebSearchClient
 import com.lodo.app.data.Settings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -23,6 +24,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var keySaved by mutableStateOf(false)
         private set
 
+    /** 联网搜索(Tavily)key,存取复用 apiKey(provider)/saveApiKey 那一套。 */
+    var tavilyKey by mutableStateOf("")
+    var tavilyKeySaved by mutableStateOf(false)
+        private set
+
     /** AI 记忆文件内容(编辑对话框用)。 */
     var memoryText by mutableStateOf("")
 
@@ -30,6 +36,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             apiKey = app.settings.apiKey() ?: ""
             keySaved = apiKey.isNotEmpty()
+            tavilyKey = app.settings.apiKey(WebSearchClient.PROVIDER_NAME) ?: ""
+            tavilyKeySaved = tavilyKey.isNotEmpty()
         }
         memoryText = DurationMemory.content(app) ?: ""
     }
@@ -56,6 +64,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setPersonaCustom(text: String) = viewModelScope.launch {
         app.settings.setPersonaCustom(text)
+    }
+
+    fun setThinkingLevel(level: String) = viewModelScope.launch {
+        app.settings.setThinkingLevel(level)
     }
 
     fun setSnoozeMinutes(value: Int) = viewModelScope.launch {
@@ -124,5 +136,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun saveApiKey() = viewModelScope.launch {
         app.settings.saveApiKey(apiKey, settings.value.aiProvider)
         keySaved = true
+    }
+
+    fun onTavilyKeyChange(value: String) {
+        tavilyKey = value
+        tavilyKeySaved = false
+    }
+
+    fun saveTavilyKey() = viewModelScope.launch {
+        app.settings.saveApiKey(tavilyKey, WebSearchClient.PROVIDER_NAME)
+        tavilyKeySaved = true
     }
 }

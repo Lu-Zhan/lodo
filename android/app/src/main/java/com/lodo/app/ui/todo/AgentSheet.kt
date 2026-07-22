@@ -77,6 +77,8 @@ fun AgentSheet(
     var errorText by remember { mutableStateOf<String?>(null) }
     var confirmLines by remember { mutableStateOf<List<String>?>(null) }
     var clarify by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
+    /** 纯文字回应(撤销结果/联网搜索后的一般性回答)。 */
+    var messageText by remember { mutableStateOf<String?>(null) }
     /** 反问时保留的原话,选候选后拼接重新提交。 */
     var clarifyBase by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -88,6 +90,7 @@ fun AgentSheet(
             busy = true
             errorText = null
             confirmLines = null
+            messageText = null
             try {
                 when (val reply = onSubmit(trimmed)) {
                     AgentReply.Routed -> {}
@@ -98,6 +101,11 @@ fun AgentSheet(
                     is AgentReply.Clarify -> {
                         clarifyBase = trimmed
                         clarify = reply.question to reply.options
+                    }
+                    is AgentReply.Message -> {
+                        clarify = null
+                        messageText = reply.text
+                        text = ""
                     }
                 }
             } catch (e: Exception) {
@@ -170,6 +178,22 @@ fun AgentSheet(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+            }
+            messageText?.let {
+                Card(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(12.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(it, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
 
             clarify?.let { (question, options) ->

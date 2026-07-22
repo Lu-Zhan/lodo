@@ -272,6 +272,37 @@ fun SettingsScreen(
             }
             FooterText("默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。")
 
+            SectionHeader("AI 思考")
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                listOf("off" to "关闭", "low" to "低", "medium" to "中", "high" to "高")
+                    .forEachIndexed { index, (level, label) ->
+                        SegmentedButton(
+                            selected = settings.thinkingLevel == level,
+                            onClick = { vm.setThinkingLevel(level) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 4),
+                        ) { Text(label) }
+                    }
+            }
+            FooterText("思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置。")
+
+            SectionHeader("联网搜索")
+            OutlinedTextField(
+                value = vm.tavilyKey,
+                onValueChange = vm::onTavilyKeyChange,
+                placeholder = { Text("Tavily API Key") },
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = vm::saveTavilyKey,
+                enabled = !vm.tavilyKeySaved,
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(if (vm.tavilyKeySaved) "已保存" else "保存")
+            }
+            FooterText("配置后 AI 助手能在需要最新信息或回答一般问题时联网搜索;免费在 tavily.com 注册获取 API Key,不填则不启用联网搜索。")
+
             SectionHeader("AI 个性")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (listOf("默认") + personaPresets.map { it.first } + "自定义").forEach { name ->

@@ -37,20 +37,34 @@ data class AIConfig(
     val model: String,
     /** AI 个性描述;null 为无个性。 */
     val persona: String? = null,
+    /** 思考强度:null/"off" = 不传;否则作为 reasoning_effort 传给支持推理的
+     * 服务商/模型(OpenAI 兼容接口的通用字段名),不支持的会忽略这个参数。 */
+    val reasoningEffort: String? = null,
 )
 
-/** AI 总入口解析出的单个操作。 */
+/** AI 总入口解析出的单个操作。answer 仅在 command(webSearchEnabled = true) 时会出现
+ * (配置了 Tavily key 才开启,和 iOS 同一个思路)。 */
 sealed interface AIAction {
     data class Create(val task: ParsedTask) : AIAction
     data class Update(val uuid: String, val task: ParsedTask) : AIAction
     data class Complete(val uuid: String) : AIAction
     data class Delete(val uuid: String) : AIAction
+    /** 与待办都无关的一般性问题,直接给用户的回答(可能是联网搜索后给出的)。 */
+    data class Answer(val text: String) : AIAction
 }
 
-/** AI 总入口的返回:操作列表,或关键信息缺失时的反问(附候选补充)。 */
+/** ReAct 循环里可调用的只读工具;只读是硬性要求——写操作永远只能是最终答案的
+ * 一部分,不能在推理过程中未经确认就被模型自己调用。 */
+sealed interface AITool {
+    data class WebSearch(val query: String) : AITool
+}
+
+/** AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或 ReAct
+ * 循环里的中间步骤(还没准备好给最终答案,先要执行一个只读工具)。 */
 sealed interface AICommandResult {
     data class Actions(val actions: List<AIAction>) : AICommandResult
     data class Clarify(val question: String, val options: List<String>) : AICommandResult
+    data class ToolCall(val thought: String, val tool: AITool) : AICommandResult
 }
 
 /** DeepSeek 自然语言创建/编辑,prompt 与 ios/Lodo/AI/DeepSeekClient.swift、web/lodo/ai.py 保持一致。 */
@@ -86,6 +100,22 @@ object DeepSeekClient {
 
     private val formatAndRules = "返回格式(不适用的字段用默认值):\n$taskSchema\n\n$taskRules"
 
+    /** 联网搜索 skill,概念与 iOS AgentSkillStore 的 webSearch skill 一致(Android
+     * 没有记忆功能,规则里去掉了"收藏/查记忆"相关的措辞);仅 webSearchEnabled
+     * (配置了 Tavily key)时拼进 command() 的 system prompt。 */
+    private val webSearchSkill = """
+        额外支持的操作:
+        - 直接回答:{"action": "answer", "text": "给用户的完整回答"}(用户的问题是一般性提问/最新信息查询,不是要新建/修改待办时用;可以是你已经确定知道答案、不需要查的情况,也可以是联网搜索后给出的)
+
+        额外支持的工具:
+        - 联网搜索:{"thought": "为什么需要搜", "tool": "web_search", "query": "要搜索的关键词"}(仅在需要查最新/实时/你不确定的信息时用;每次交流最多用一次,拿到搜索结果后必须在下一轮给出真正的最终答案——action 列表或反问,不能连续再搜、也不能一直用这个占位不给结果)
+
+        额外判断规则:
+        - 用户提出一般性问题(如"今天天气怎么样""XX最新价格""这个词是什么意思")且和新建/修改待办都无关 → answer,此时整个 actions 只放这一条,不与其他操作混用(如果一句话里同时有新建待办和提问,只处理新建待办,提问可以重新单独问)。
+        - 涉及待办本身的问题(如"我明天有什么安排""这个事项还有多久到期")按当前待办列表自己回答,不需要联网搜索。
+        - 需要最新/实时信息(新闻、天气、价格、赛事结果等)或你不确定答案是否过时时,先用 web_search 查,不要凭空编内容;已经拿到搜索结果的,直接用结果内容给最终答案,不要重复搜。
+    """.trimIndent()
+
     /** AI 个性块:只影响面向用户的文字(反问/汇总/洞察),不影响 JSON 结构。 */
     private fun personaBlock(config: AIConfig): String =
         config.persona?.let { "\n\n说话风格(仅影响面向用户的文字,不得改变 JSON 结构与字段值):$it" } ?: ""
@@ -116,12 +146,16 @@ object DeepSeekClient {
     /**
      * AI 总入口:给定当前待办列表,把用户的一句话解析成一组操作
      * (新建/修改/完成/删除,可多条),或在关键信息缺失时反问。
-     * prompt 与 iOS DeepSeekClient.command 逐字一致。
+     * prompt 与 iOS DeepSeekClient.command 逐字一致(webSearchEnabled 开启时
+     * 额外拼入联网搜索 skill,和 iOS 的拼接顺序一致)。这是"AI 助手"对话入口,
+     * 按设置里的思考强度传 reasoning_effort(thinking = true),不影响解析/
+     * 汇总等其他后台小请求的响应速度。
      */
     suspend fun command(
         config: AIConfig,
         text: String,
         allTasks: List<Pair<String, ParsedTask>>,
+        webSearchEnabled: Boolean = false,
     ): AICommandResult {
         // token 预算:按提醒时间取最近 50 条进 prompt
         val tasks = allTasks.sortedBy { it.second.remindAt }.take(50)
@@ -147,14 +181,34 @@ object DeepSeekClient {
             "返回格式(二选一):\n" +
             "{\"actions\": [操作, ...]}\n" +
             "{\"question\": \"...\", \"options\": [\"...\", \"...\"]}\n\n" +
-            "事项字段:\n$taskSchema\n\n$taskRules" + personaBlock(config)
-        val payload = complete(config, system, text)
+            "事项字段:\n$taskSchema\n\n$taskRules" +
+            (if (webSearchEnabled) "\n\n$webSearchSkill" else "") + personaBlock(config)
+        val payload = complete(config, system, text, thinking = true)
+        return parseCommandResult(payload, tasks.map { it.first }.toSet(), webSearchEnabled)
+    }
 
+    /** 从 payload 里解析总入口结果(单测入口)。webSearchEnabled == false 时
+     * web_search/answer 按未知工具/action 处理(即使模型幻觉出来,也保持旧行为)。 */
+    internal fun parseCommandResult(
+        payload: JSONObject, validUuids: Set<String>, webSearchEnabled: Boolean,
+    ): AICommandResult {
         payload.optString("question").takeIf { it.isNotEmpty() }?.let { question ->
             val options = payload.optJSONArray("options")?.let { arr ->
                 (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotEmpty) }
             } ?: emptyList()
             return AICommandResult.Clarify(question, options)
+        }
+        // ReAct 中间步骤:webSearchEnabled == false 时 prompt 里根本没提过这个
+        // 选项,模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions"。
+        if (webSearchEnabled) {
+            payload.optString("tool").takeIf { it == "web_search" }?.let {
+                val thought = payload.optString("thought")
+                val query = payload.optString("query")
+                if (query.isBlank()) {
+                    throw DeepSeekException("无法解析:返回格式异常:web_search 缺少 query")
+                }
+                return AICommandResult.ToolCall(thought, AITool.WebSearch(query))
+            }
         }
         val rawActions = payload.optJSONArray("actions")
             ?: throw DeepSeekException("无法解析:返回格式异常:缺少 actions")
@@ -163,17 +217,35 @@ object DeepSeekClient {
             val raw = rawActions.getJSONObject(i)
             fun validUuid(): String {
                 val uuid = raw.optString("uuid")
-                if (tasks.none { it.first == uuid }) {
+                if (uuid !in validUuids) {
                     throw DeepSeekException("无法解析:找不到要操作的事项")
                 }
                 return uuid
             }
-            when (raw.optString("action")) {
+            when (val action = raw.optString("action")) {
                 "create" -> AIAction.Create(parsePayload(raw))
                 "update" -> AIAction.Update(validUuid(), parsePayload(raw))
                 "complete" -> AIAction.Complete(validUuid())
                 "delete" -> AIAction.Delete(validUuid())
-                else -> throw DeepSeekException("无法解析:返回格式异常:未知 action")
+                "answer" -> if (webSearchEnabled) {
+                    val text2 = raw.optString("text").trim()
+                    if (text2.isEmpty()) throw DeepSeekException("无法解析:返回格式异常:回答内容为空")
+                    AIAction.Answer(text2)
+                } else {
+                    throw DeepSeekException("无法解析:返回格式异常:未知 action")
+                }
+                else -> throw DeepSeekException("无法解析:返回格式异常:未知 action $action")
+            }
+        }
+        // 归一化:prompt 已要求 answer 单独出现,这里是模型不守规矩时的确定性
+        // 兜底——回答与写操作混合时丢弃回答只留写操作(写操作是用户要落地的事
+        // 不能丢,提问可以重新问);全是回答时只留第一条。
+        val answers = actions.filterIsInstance<AIAction.Answer>()
+        if (answers.isNotEmpty()) {
+            return if (answers.size == actions.size) {
+                AICommandResult.Actions(listOf(actions[0]))
+            } else {
+                AICommandResult.Actions(actions.filterNot { it is AIAction.Answer })
             }
         }
         return AICommandResult.Actions(actions)
@@ -306,9 +378,12 @@ object DeepSeekClient {
     }
 
     /** 发起请求并取回模型返回的 JSON payload(含 error 检查)。
-     * timeoutSeconds:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。 */
+     * timeoutSeconds:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。
+     * thinking:true 时按设置里的思考强度带上 reasoning_effort(仅 command() 传
+     * true——AI 助手对话入口才需要深度推理,解析/汇总等后台小请求不需要多等)。 */
     private suspend fun complete(
         config: AIConfig, system: String, user: String, timeoutSeconds: Long = 20,
+        thinking: Boolean = false,
     ): JSONObject =
         withContext(Dispatchers.IO) {
             if (config.apiKey.isNullOrBlank()) {
@@ -327,6 +402,11 @@ object DeepSeekClient {
                 )
                 .put("response_format", JSONObject().put("type", "json_object"))
                 .put("temperature", 0)
+            // reasoning_effort:OpenAI 兼容接口里推理强度的通用字段名,支持推理的
+            // 服务商/模型会据此调整思考深度,不支持的会直接忽略这个多余字段。
+            if (thinking && !config.reasoningEffort.isNullOrBlank() && config.reasoningEffort != "off") {
+                body.put("reasoning_effort", config.reasoningEffort)
+            }
             val request = Request.Builder()
                 .url(config.endpoint)
                 .header("Authorization", "Bearer ${config.apiKey}")

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lodo.app.ai.AIConfig
 import com.lodo.app.ai.KeystoreCipher
+import com.lodo.app.ai.WebSearchClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -62,6 +63,9 @@ data class Settings(
     /** AI 个性:"默认"=无个性,"自定义"用 personaCustom,其余取预设。 */
     val personaStyle: String = "默认",
     val personaCustom: String = "",
+    /** AI 助手的思考强度:off/low/medium/high,默认 medium。只作用于 AI 助手
+     * 对话入口,不影响解析/汇总等后台小请求。 */
+    val thinkingLevel: String = "medium",
 )
 
 /** 应用设置(Preferences DataStore);API key 经 AndroidKeyStore 加密后存储,对应 iOS 钥匙串。 */
@@ -83,6 +87,7 @@ class SettingsRepository(private val context: Context) {
         val AI_CUSTOM_ENDPOINT = stringPreferencesKey("aiCustomEndpoint")
         val PERSONA_STYLE = stringPreferencesKey("agentPersonaStyle")
         val PERSONA_CUSTOM = stringPreferencesKey("agentPersonaCustom")
+        val THINKING_LEVEL = stringPreferencesKey("thinkingLevel")
         /** 旧版单一 DeepSeek key,读取时兼容。 */
         val API_KEY_ENCRYPTED = stringPreferencesKey("apiKeyEncrypted")
 
@@ -112,6 +117,7 @@ class SettingsRepository(private val context: Context) {
             aiCustomEndpoint = p[Keys.AI_CUSTOM_ENDPOINT] ?: "",
             personaStyle = p[Keys.PERSONA_STYLE] ?: "默认",
             personaCustom = p[Keys.PERSONA_CUSTOM] ?: "",
+            thinkingLevel = p[Keys.THINKING_LEVEL] ?: "medium",
         )
     }
 
@@ -181,6 +187,10 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[Keys.PERSONA_CUSTOM] = text }
     }
 
+    suspend fun setThinkingLevel(level: String) {
+        context.dataStore.edit { it[Keys.THINKING_LEVEL] = level }
+    }
+
     /** 指定服务商的 key;DeepSeek 读不到新存储时回退旧字段。 */
     suspend fun apiKey(provider: String): String? {
         val p = context.dataStore.data.first()
@@ -213,6 +223,10 @@ class SettingsRepository(private val context: Context) {
             endpoint = endpoint,
             model = model,
             persona = persona,
+            reasoningEffort = s.thinkingLevel.takeIf { it != "off" },
         )
     }
+
+    /** 是否已配置 Tavily key;command() 据此决定要不要拼入联网搜索 skill。 */
+    suspend fun webSearchConfigured(): Boolean = !apiKey(WebSearchClient.PROVIDER_NAME).isNullOrBlank()
 }

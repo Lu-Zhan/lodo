@@ -51,5 +51,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
     testImplementation(libs.junit)
+    // 纯 JVM 单测(不经 Robolectric/仪器化)链接的是 android.jar 里 org.json 的桩实现
+    // (所有方法 throw "Stub!"),DeepSeekClient 的 JSON 解析逻辑要测就得在测试
+    // classpath 上换成真实实现覆盖掉桩版本。
+    testImplementation("org.json:json:20240303")
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

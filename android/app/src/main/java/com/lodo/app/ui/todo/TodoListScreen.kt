@@ -48,6 +48,10 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -57,6 +61,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,6 +96,25 @@ fun TodoListScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
 
+    // 批量 agent 操作执行完弹一条带"撤销"按钮的 Snackbar——Android 没有 iOS 那种
+    // 持久聊天气泡,撤销入口走系统 Snackbar 更符合平台习惯(Gmail 归档同款交互)。
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        // token:这条 Snackbar 对应哪一批操作;如果它还没消失、新的一批又执行完
+        // 覆盖了 lastUndo,点这条陈旧 Snackbar 的撤销不能误撤销新的那批
+        // (vm.performUndo 会核对 token,对不上就拒绝)。
+        vm.undoAvailableEvents.collect { token ->
+            val result = snackbarHostState.showSnackbar(
+                message = "已完成执行",
+                actionLabel = "撤销",
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                vm.performUndo(token)
+            }
+        }
+    }
+
     // App Shortcuts / 通知"改期"按钮打开 App 后要消费的路由(对应 iOS 的
     // agentRequest 深链/Siri handoff 消费模式),消费一次即清空。
     val app = LocalContext.current.applicationContext as LodoApp
@@ -111,6 +135,7 @@ fun TodoListScreen(
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("lodo") },
