@@ -59,6 +59,9 @@ public final class MemoryItem {
     public var relativeFilePath: String?
     public var statusRaw: String = "ready"
     public var createdAt: Date = Date.now
+    /// 资产条目(tags 含 assetTagName)的金额;非资产条目为 nil。资产不是独立
+    /// 模型,就是打了保留标签的记忆条目,这个字段只在那种情况下有意义。
+    public var assetValue: Double?
 
     public init(
         kind: MemoryKind,
@@ -69,7 +72,8 @@ public final class MemoryItem {
         urlString: String? = nil,
         originalFileName: String? = nil,
         relativeFilePath: String? = nil,
-        status: MemoryStatus = .processing
+        status: MemoryStatus = .processing,
+        assetValue: Double? = nil
     ) {
         self.uuid = UUID()
         self.kindRaw = kind.rawValue
@@ -82,10 +86,15 @@ public final class MemoryItem {
         self.relativeFilePath = relativeFilePath
         self.statusRaw = status.rawValue
         self.createdAt = Date()
+        self.assetValue = assetValue
     }
 
     public var kind: MemoryKind { MemoryKind(rawValue: kindRaw) ?? .text }
     public var status: MemoryStatus { MemoryStatus(rawValue: statusRaw) ?? .ready }
+    /// 保留标签:打了这个标签的记忆条目按"资产"对待(默认从记忆列表隐藏,
+    /// 筛选里显式选中才显示,并在列表顶部汇总)。
+    public static let assetTagName = "资产"
+    public var isAsset: Bool { tags.contains(Self.assetTagName) }
 
     /// 本地即时过滤的匹配:标题/摘要/标签/原文任一命中即可。
     public func matches(_ query: String) -> Bool {

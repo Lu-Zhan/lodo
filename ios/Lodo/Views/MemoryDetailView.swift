@@ -11,6 +11,7 @@ struct MemoryDetailView: View {
     @Bindable var item: MemoryItem
 
     @State private var tagsText: String
+    @State private var assetValueText: String
     @State private var previewURL: URL?
     @State private var confirmDelete = false
     /// 已删除后 onDisappear 不再回写(避免访问已删除的模型)。
@@ -19,6 +20,7 @@ struct MemoryDetailView: View {
     init(item: MemoryItem) {
         self.item = item
         _tagsText = State(initialValue: item.tags.joined(separator: "、"))
+        _assetValueText = State(initialValue: item.assetValue.map { String($0) } ?? "")
     }
 
     var body: some View {
@@ -46,6 +48,18 @@ struct MemoryDetailView: View {
                 }
                 LabeledContent("类型", value: item.kind.label)
                 LabeledContent("收藏于", value: TaskItem.format(item.createdAt))
+            }
+
+            if currentTags.contains(MemoryItem.assetTagName) {
+                Section("资产金额") {
+                    HStack {
+                        Text("¥").foregroundStyle(.secondary)
+                        TextField("金额", text: $assetValueText)
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
+                    }
+                }
             }
 
             if item.status == .failed {
@@ -135,10 +149,20 @@ struct MemoryDetailView: View {
     }
 
     /// 标题直接双向绑定;标签从"、分隔文本"解析回数组,离开页面时一并保存。
+    /// 资产金额只在还打着资产标签时回写——如果编辑时把标签摘掉了,金额随之
+    /// 清空(不再是资产,金额字段也不该继续占着)。金额框留空是"我要清掉这个
+    /// 数"的明确表达,清成 nil;非空但解析不出数字(手滑打了几个字母)不能
+    /// 也当清空处理,那样会悄悄丢掉用户原来存的金额,保留原值更安全。
     private func commitEdits() {
         guard !deleted else { return }
         let tags = Self.parseTags(tagsText)
         if tags != item.tags { item.tags = tags }
+        if tags.contains(MemoryItem.assetTagName) {
+            let trimmed = assetValueText.trimmingCharacters(in: .whitespaces)
+            item.assetValue = trimmed.isEmpty ? nil : (Double(trimmed) ?? item.assetValue)
+        } else {
+            item.assetValue = nil
+        }
         try? context.save()
     }
 

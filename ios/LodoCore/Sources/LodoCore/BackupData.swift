@@ -113,11 +113,12 @@ public struct BackupMemoryItem: Codable {
     public var relativeFilePath: String?
     public var statusRaw: String
     public var createdAt: Date
+    public var assetValue: Double?
 
     public init(
         uuid: UUID, kindRaw: String, title: String, summary: String, tags: [String],
         sourceText: String, urlString: String?, originalFileName: String?,
-        relativeFilePath: String?, statusRaw: String, createdAt: Date
+        relativeFilePath: String?, statusRaw: String, createdAt: Date, assetValue: Double? = nil
     ) {
         self.uuid = uuid
         self.kindRaw = kindRaw
@@ -130,6 +131,7 @@ public struct BackupMemoryItem: Codable {
         self.relativeFilePath = relativeFilePath
         self.statusRaw = statusRaw
         self.createdAt = createdAt
+        self.assetValue = assetValue
     }
 }
 
@@ -138,7 +140,8 @@ extension MemoryItem {
         BackupMemoryItem(
             uuid: uuid, kindRaw: kindRaw, title: title, summary: summary, tags: tags,
             sourceText: sourceText, urlString: urlString, originalFileName: originalFileName,
-            relativeFilePath: relativeFilePath, statusRaw: statusRaw, createdAt: createdAt)
+            relativeFilePath: relativeFilePath, statusRaw: statusRaw, createdAt: createdAt,
+            assetValue: assetValue)
     }
 }
 
@@ -155,6 +158,7 @@ extension BackupMemoryItem {
         item.relativeFilePath = relativeFilePath
         item.statusRaw = statusRaw
         item.createdAt = createdAt
+        item.assetValue = assetValue
     }
 }
 
@@ -216,12 +220,12 @@ public struct BackupAgentMessage: Codable {
     public var content: String
     public var relatedTitles: [String]
     public var clarifyOptions: [String]
-    public var attachmentMemoryUUID: UUID?
+    public var attachmentMemoryUUIDs: [UUID]
     public var createdAt: Date
 
     public init(
         uuid: UUID, threadUUID: UUID, roleRaw: String, kindRaw: String, content: String,
-        relatedTitles: [String], clarifyOptions: [String], attachmentMemoryUUID: UUID?,
+        relatedTitles: [String], clarifyOptions: [String], attachmentMemoryUUIDs: [UUID],
         createdAt: Date
     ) {
         self.uuid = uuid
@@ -231,7 +235,7 @@ public struct BackupAgentMessage: Codable {
         self.content = content
         self.relatedTitles = relatedTitles
         self.clarifyOptions = clarifyOptions
-        self.attachmentMemoryUUID = attachmentMemoryUUID
+        self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         self.createdAt = createdAt
     }
 }
@@ -241,7 +245,7 @@ extension AgentMessage {
         BackupAgentMessage(
             uuid: uuid, threadUUID: threadUUID, roleRaw: roleRaw, kindRaw: kindRaw,
             content: content, relatedTitles: relatedTitles, clarifyOptions: clarifyOptions,
-            attachmentMemoryUUID: attachmentMemoryUUID, createdAt: createdAt)
+            attachmentMemoryUUIDs: attachmentMemoryUUIDs, createdAt: createdAt)
     }
 }
 
@@ -254,7 +258,7 @@ extension BackupAgentMessage {
         message.content = content
         message.relatedTitles = relatedTitles
         message.clarifyOptions = clarifyOptions
-        message.attachmentMemoryUUID = attachmentMemoryUUID
+        message.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         message.createdAt = createdAt
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import LodoCore
 
 /// 一条消息的气泡渲染;confirm 的按钮只在 isLatest(这条是当前 thread 最新
@@ -8,6 +9,9 @@ struct AgentMessageBubble: View {
     let isLatest: Bool
     var onConfirm: () -> Void = {}
     var onCancelConfirm: () -> Void = {}
+    var onUndo: () -> Void = {}
+
+    @Environment(\.modelContext) private var context
 
     var body: some View {
         switch message.role {
@@ -18,20 +22,35 @@ struct AgentMessageBubble: View {
         }
     }
 
+    /// 按 attachmentMemoryUUIDs 原有顺序查出条目;条目已被删除的 uuid 直接跳过
+    /// (不阻塞气泡渲染,只是那个附件不再显示)。
+    private var attachments: [MemoryItem] {
+        guard !message.attachmentMemoryUUIDs.isEmpty else { return [] }
+        let uuids = message.attachmentMemoryUUIDs
+        let fetched = (try? context.fetch(FetchDescriptor<MemoryItem>(
+            predicate: #Predicate<MemoryItem> { uuids.contains($0.uuid) }))) ?? []
+        let byUUID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.uuid, $0) })
+        return uuids.compactMap { byUUID[$0] }
+    }
+
     private var userBubble: some View {
         HStack {
             Spacer(minLength: 40)
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 6) {
+                if !attachments.isEmpty {
+                    ForEach(attachments, id: \.uuid) { item in
+                        Label(item.title.isEmpty ? (item.originalFileName ?? "附件") : item.title,
+                              systemImage: item.kind.symbol)
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
+                }
                 if !message.content.isEmpty {
                     Text(message.content)
                 }
-                if message.attachmentMemoryUUID != nil {
-                    Label("附件", systemImage: "paperclip")
-                        .font(.caption)
-                }
             }
             .padding(12)
-            .background(.tint, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(.tint, in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             .foregroundStyle(.white)
         }
     }
@@ -41,7 +60,7 @@ struct AgentMessageBubble: View {
             content
                 .padding(12)
                 .background(.fill.quaternary,
-                            in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             Spacer(minLength: 40)
         }
     }
@@ -57,6 +76,24 @@ struct AgentMessageBubble: View {
             Label(message.content, systemImage: "questionmark.circle").font(.subheadline)
         case .answer:
             answerContent
+        case .executed:
+            executedContent
+        }
+    }
+
+    private var executedContent: some View {
+        HStack(spacing: 10) {
+            Label(message.content, systemImage: "checkmark.circle").font(.subheadline)
+            if isLatest {
+                Spacer(minLength: 12)
+                Button {
+                    onUndo()
+                } label: {
+                    Label("撤销", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.bordered)
+                .font(.footnote)
+            }
         }
     }
 

@@ -8,22 +8,26 @@ import LodoCore
 @MainActor
 enum MemoryPipeline {
 
-    /// 收藏纯文字;文字本身就是一条 URL 时按链接收藏。
-    static func saveText(_ text: String, context: ModelContext) {
+    /// 收藏纯文字;文字本身就是一条 URL 时按链接收藏。返回新建的条目(agent
+    /// 批量操作的撤销要记它的 uuid;其余调用方多数不关心,可丢弃)。
+    @discardableResult
+    static func saveText(_ text: String, context: ModelContext) -> MemoryItem? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return nil }
         if let url = detectedURL(in: trimmed) {
-            saveURL(url, context: context)
-            return
+            return saveURL(url, context: context)
         }
         let item = MemoryItem(kind: .text, sourceText: MemorySearch.truncate(trimmed))
         insertAndOrganize(item, context: context)
+        return item
     }
 
     /// 收藏链接。
-    static func saveURL(_ url: URL, context: ModelContext) {
+    @discardableResult
+    static func saveURL(_ url: URL, context: ModelContext) -> MemoryItem? {
         let item = MemoryItem(kind: .link, urlString: url.absoluteString)
         insertAndOrganize(item, context: context)
+        return item
     }
 
     /// 收藏本地文件:先拷进 App Group 的 Memory/ 再走整理。
@@ -50,6 +54,29 @@ enum MemoryPipeline {
         item.relativeFilePath = "Memory/\(target.lastPathComponent)"
         insertAndOrganize(item, context: context)
         return item
+    }
+
+    /// 记一笔资产:字段已经是结构化的(名称/金额/分类/备注),不需要像文字/
+    /// 文件收藏那样靠 AI 提炼标题摘要,直接落成 ready 状态;仍然跑分片 + 向量
+    /// 索引,备注也能被"问 AI"检索到。category 非空时额外打一个子分类标签,
+    /// 和保留的 assetTagName 一起构成 tags,列表页据此归到"资产"分组里隐藏。
+    static func saveAsset(
+        title: String, value: Double?, category: String, note: String, context: ModelContext
+    ) {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+        var tags = [MemoryItem.assetTagName]
+        let trimmedCategory = category.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedCategory.isEmpty { tags.append(trimmedCategory) }
+        let item = MemoryItem(
+            kind: .text, title: trimmedTitle, summary: note, tags: tags,
+            sourceText: MemorySearch.truncate(note), status: .ready, assetValue: value)
+        context.insert(item)
+        try? context.save()
+        Task { @MainActor in
+            await reindexChunks(item, context: context)
+            try? context.save()
+        }
     }
 
     /// 整理失败的条目重试:重跑提取 + AI 整理。

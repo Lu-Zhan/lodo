@@ -12,11 +12,17 @@ struct AgentView: View {
     let autoStart: Bool
     /// 解析并路由输入文本 + 最近对话历史;onThought 在 ReAct 循环中间步骤时被调用
     /// (如"正在查记忆…"),驱动 thinkingText 那条轻量提示。返回本页要展示的回应形态。
+    /// 带上当前 thread 的 uuid——同时开着好几个 thread 时,批量操作确认/撤销
+    /// 都要认清是哪个 thread 发起的,不能被另一个 thread 后来居上的一批覆盖。
     let submit: (
-        String, [(role: String, content: String)], @escaping (String) -> Void
+        String, UUID, [(role: String, content: String)], @escaping (String) -> Void
     ) async throws -> AgentReply
-    /// 用户确认执行批量操作(操作暂存在 TodoListView)。
-    let onConfirm: () -> Void
+    /// 用户确认执行批量操作(操作暂存在 TodoListView),带上当前 thread uuid。
+    let onConfirm: (UUID) -> Void
+    /// 撤销上一批已执行的操作(TodoListView.performUndo),带上当前 thread uuid
+    /// (核对撤销的是不是这个 thread 留下的那批),返回要展示给用户的回应文案;
+    /// "已完成执行"气泡上的撤销按钮直接调这个,不用再走一遍文字指令。
+    let onUndo: (UUID) -> AgentReply
     /// 单条新建/修改保存,existing 为 nil 表示新建。
     let saveTask: (TaskItem?, ParsedTask) -> Void
 
@@ -42,21 +48,24 @@ struct AgentView: View {
     @State private var typedPrefix = ""
 
     @State private var showThreads = false
-    @State private var pendingAttachment: PendingAttachment?
+    @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showFileImporter = false
+    @State private var showMemoryPicker = false
     @State private var photoSelection: PhotosPickerItem?
     @State private var formTarget: FormTarget?
 
     init(prefill: String? = nil,
          autoStart: Bool = false,
          submit: @escaping (
-            String, [(role: String, content: String)], @escaping (String) -> Void
+            String, UUID, [(role: String, content: String)], @escaping (String) -> Void
          ) async throws -> AgentReply,
-         onConfirm: @escaping () -> Void,
+         onConfirm: @escaping (UUID) -> Void,
+         onUndo: @escaping (UUID) -> AgentReply,
          saveTask: @escaping (TaskItem?, ParsedTask) -> Void) {
         self.autoStart = autoStart
         self.submit = submit
         self.onConfirm = onConfirm
+        self.onUndo = onUndo
         self.saveTask = saveTask
         _text = State(initialValue: prefill ?? "")
     }
@@ -68,18 +77,36 @@ struct AgentView: View {
         return threads.first
     }
 
+    /// 标题下面那行小字:服务商 + 思考强度(关闭时不提)+ 联网搜索是否已配置。
+    private var aiModeSummary: String {
+        var parts = [AppSettings.aiProvider]
+        if AppSettings.thinkingLevel != "off" {
+            // 不能简写成"思考+强度"("思考中"会被读成"正在思考"这个进行时状态,
+            // 和思考强度=中撞了),用"强度思考"的顺序避开这个歧义。
+            let label: String
+            switch AppSettings.thinkingLevel {
+            case "low": label = "低强度"
+            case "high": label = "高强度"
+            default: label = "中等"
+            }
+            parts.append("\(label)思考")
+        }
+        if WebSearchClient.isConfigured { parts.append("联网搜索") }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         NavigationStack {
             Group {
                 if let thread = activeThread {
                     VStack(spacing: 0) {
-                        AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction)
+                        AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
+                                            onUndo: handleUndo,
+                                            onExamplePrompt: { send(overrideText: $0) })
                             .id(thread.uuid)
                         thinkingRow
                         suggestionRow
-                        if let pendingAttachment {
-                            attachmentChip(pendingAttachment)
-                        }
+                        attachmentChipsRow
                         if let error = errorText ?? speech.errorText {
                             Text(error).font(.footnote).foregroundStyle(.red)
                                 .padding(.horizontal)
@@ -95,6 +122,18 @@ struct AgentView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                // 自定义 principal:标题下加一行当前 AI 模式(服务商/思考强度/
+                // 联网搜索),不然用户在对话里完全看不出现在到底是哪个服务商、
+                // 思考开没开、能不能联网搜索——这些都要跳回设置页才看得到。
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 1) {
+                        Text(activeThread?.title.isEmpty == false ? activeThread!.title : "AI 助手")
+                            .font(.headline)
+                        Text(aiModeSummary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 ToolbarItem(placement: .navigation) {
                     Button {
                         showThreads = true
@@ -135,10 +174,9 @@ struct AgentView: View {
             .fileImporter(
                 isPresented: $showFileImporter,
                 allowedContentTypes: [.pdf, .image, .plainText, .presentation, .data],
-                allowsMultipleSelection: false
+                allowsMultipleSelection: true
             ) { result in
-                guard let url = try? result.get().first else { return }
-                handlePickedFile(url)
+                for url in (try? result.get()) ?? [] { handlePickedFile(url) }
             }
             .onChange(of: photoSelection) { _, item in
                 guard let item else { return }
@@ -147,6 +185,15 @@ struct AgentView: View {
                         handlePickedImage(data)
                     }
                     photoSelection = nil
+                }
+            }
+            .sheet(isPresented: $showMemoryPicker) {
+                MemoryPickerView(excluding: Set(pendingAttachments.compactMap(\.memoryUUID))) { picked in
+                    for item in picked {
+                        pendingAttachments.append(PendingAttachment(
+                            displayName: item.title.isEmpty ? (item.originalFileName ?? "记忆条目") : item.title,
+                            extractedText: item.sourceText, memoryUUID: item.uuid, symbol: item.kind.symbol))
+                    }
                 }
             }
             .onChange(of: speech.transcript) { _, transcript in
@@ -162,7 +209,10 @@ struct AgentView: View {
                 }
             }
             .onChange(of: currentThreadUUID) { _, _ in refreshLatestMessage() }
-            .onDisappear { speech.stop() }
+            .onDisappear {
+                speech.stop()
+                discardUnsentAttachments()
+            }
             .task {
                 ensureThreadExists()
                 refreshLatestMessage()
@@ -223,14 +273,27 @@ struct AgentView: View {
 
     // MARK: - 输入栏
 
+    /// 多附件横向胶囊行(文件/照片/从记忆库选的条目都可以并存),每个单独可移除。
+    @ViewBuilder
+    private var attachmentChipsRow: some View {
+        if !pendingAttachments.isEmpty {
+            HorizontalChipRow {
+                ForEach(pendingAttachments) { attachment in
+                    attachmentChip(attachment)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
+    }
+
     private func attachmentChip(_ attachment: PendingAttachment) -> some View {
-        HStack {
-            Label(attachment.displayName, systemImage: "paperclip")
+        HStack(spacing: 4) {
+            Label(attachment.displayName, systemImage: attachment.symbol)
                 .font(.footnote)
                 .lineLimit(1)
-            Spacer()
             Button {
-                pendingAttachment = nil
+                removeAttachment(attachment)
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.secondary)
@@ -239,9 +302,7 @@ struct AgentView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .padding(.horizontal)
-        .padding(.top, 8)
+        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
     }
 
     /// 参考 iMessage 的输入栏:+ 号独立圆按钮;文本框是一个玻璃胶囊,没在打字/
@@ -259,6 +320,11 @@ struct AgentView: View {
                     showFileImporter = true
                 } label: {
                     Label("文件", systemImage: "doc")
+                }
+                Button {
+                    showMemoryPicker = true
+                } label: {
+                    Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
                 }
             } label: {
                 Image(systemName: "plus")
@@ -337,7 +403,7 @@ struct AgentView: View {
     }
 
     private var hasComposedContent: Bool {
-        !text.trimmingCharacters(in: .whitespaces).isEmpty || pendingAttachment != nil
+        !text.trimmingCharacters(in: .whitespaces).isEmpty || !pendingAttachments.isEmpty
     }
 
     // MARK: - Thread/消息
@@ -389,10 +455,21 @@ struct AgentView: View {
     private func handleConfirmAction(_ message: AgentMessage, execute: Bool) {
         guard let thread = activeThread else { return }
         if execute {
-            onConfirm()
-            appendAssistant(thread: thread, kind: .text, content: "已完成执行。回复「撤销」可以撤回这次操作。")
+            onConfirm(thread.uuid)
+            appendAssistant(thread: thread, kind: .executed, content: "已完成执行")
         } else {
             appendAssistant(thread: thread, kind: .text, content: "已取消这次操作。")
+        }
+    }
+
+    /// "已完成执行"气泡上的撤销按钮;结果(成功/没有可撤销的操作)追加成一条
+    /// 新的回答消息,和用户直接打字"撤销"走同一条展示路径。传当前 thread 的
+    /// uuid 给 onUndo 核对——这条按钮所在的气泡固然是"当前 thread 最新一条",
+    /// 但 lastUndo 记的可能是别的 thread 后来执行的一批,对不上就不会真撤销。
+    private func handleUndo() {
+        guard let thread = activeThread else { return }
+        if case .answer(let text, let related) = onUndo(thread.uuid) {
+            appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
         }
     }
 
@@ -404,9 +481,9 @@ struct AgentView: View {
             let extraction = await ContentExtractor.extract(fileURL: url)
             let item = MemoryPipeline.saveFile(url, context: context)
             if scoped { url.stopAccessingSecurityScopedResource() }
-            pendingAttachment = PendingAttachment(
+            pendingAttachments.append(PendingAttachment(
                 displayName: url.lastPathComponent, extractedText: extraction.text,
-                memoryUUID: item?.uuid)
+                memoryUUID: item?.uuid, symbol: item?.kind.symbol ?? "doc", isNewlyCreated: true))
         }
     }
 
@@ -417,16 +494,40 @@ struct AgentView: View {
             if let item, let url = MemoryPipeline.fileURL(of: item) {
                 extractedText = await ContentExtractor.extract(fileURL: url).text
             }
-            pendingAttachment = PendingAttachment(
-                displayName: "图片", extractedText: extractedText, memoryUUID: item?.uuid)
+            pendingAttachments.append(PendingAttachment(
+                displayName: "图片", extractedText: extractedText, memoryUUID: item?.uuid,
+                symbol: "photo", isNewlyCreated: true))
         }
+    }
+
+    /// 移除一个待发送附件;如果它是刚为这次附件才存的记忆(拍照/选文件,
+    /// 不是从记忆库里挑的已有条目),连同这条孤儿记忆一起删掉。
+    private func removeAttachment(_ attachment: PendingAttachment) {
+        pendingAttachments.removeAll { $0.id == attachment.id }
+        guard attachment.isNewlyCreated, let uuid = attachment.memoryUUID,
+              let item = (try? context.fetch(FetchDescriptor<MemoryItem>(
+                predicate: #Predicate<MemoryItem> { $0.uuid == uuid }))).flatMap(\.first) else { return }
+        MemoryPipeline.delete(item, context: context)
+    }
+
+    /// 页面关闭时清掉还没发送就留下的孤儿记忆(拍了照/选了文件但没点发送、
+    /// 也没手动移除 chip 就直接关掉了聊天页);从记忆库选的已有条目不受影响。
+    private func discardUnsentAttachments() {
+        for attachment in pendingAttachments where attachment.isNewlyCreated {
+            guard let uuid = attachment.memoryUUID,
+                  let item = (try? context.fetch(FetchDescriptor<MemoryItem>(
+                    predicate: #Predicate<MemoryItem> { $0.uuid == uuid }))).flatMap(\.first)
+            else { continue }
+            MemoryPipeline.delete(item, context: context)
+        }
+        pendingAttachments = []
     }
 
     // MARK: - 提交
 
     private func send(overrideText: String? = nil) {
         let trimmed = (overrideText ?? text).trimmingCharacters(in: .whitespaces)
-        guard trimmed.count > 0 || pendingAttachment != nil, !busy else { return }
+        guard trimmed.count > 0 || !pendingAttachments.isEmpty, !busy else { return }
         let thread = activeThread ?? {
             let new = AgentThread()
             context.insert(new)
@@ -437,19 +538,19 @@ struct AgentView: View {
         busy = true
         errorText = nil
 
-        let attachment = pendingAttachment
-        pendingAttachment = nil
+        let attachments = pendingAttachments
+        pendingAttachments = []
         text = ""
 
         let userMessage = AgentMessage(
             threadUUID: thread.uuid, role: .user, content: trimmed,
-            attachmentMemoryUUID: attachment?.memoryUUID)
+            attachmentMemoryUUIDs: attachments.compactMap(\.memoryUUID))
         context.insert(userMessage)
         // 首轮对话:先用截断兜底,立刻有个标题;拿到 AI 回复后再尝试换成真正的总结标题
         // (刚打开时导航栏显示"AI 助手",这里是它第一次变成 thread 标题的地方)。
         let isFirstMessage = thread.title.isEmpty
         if isFirstMessage {
-            let seed = trimmed.isEmpty ? (attachment?.displayName ?? "") : trimmed
+            let seed = trimmed.isEmpty ? (attachments.first?.displayName ?? "") : trimmed
             thread.title = MemorySearch.truncate(seed, limit: 20)
         }
         thread.updatedAt = Date()
@@ -458,7 +559,7 @@ struct AgentView: View {
 
         let history = recentHistory(in: thread, excluding: userMessage)
         var outgoing = trimmed
-        if let attachment {
+        for attachment in attachments {
             outgoing += "\n\n[附件:\(attachment.displayName)]\n\(attachment.extractedText)"
         }
 
@@ -473,7 +574,7 @@ struct AgentView: View {
                 thinkingText = nil
             }
             do {
-                let reply = try await submit(outgoing, history) { thought in
+                let reply = try await submit(outgoing, thread.uuid, history) { thought in
                     thinkingText = thought
                 }
                 switch reply {
@@ -536,6 +637,10 @@ struct AgentView: View {
             appendAssistant(thread: thread, kind: .answer, content: "你收藏的 wifi 密码是 8888。",
                             relatedTitles: ["家里 wifi 密码"])
         }
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-executed") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "把开会删了"))
+            appendAssistant(thread: thread, kind: .executed, content: "已完成执行")
+        }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-threads") {
             for title in ["记住wifi密码是8888", "我想去香山爬山"] {
                 let extra = AgentThread()
@@ -553,12 +658,20 @@ struct AgentView: View {
     #endif
 }
 
-/// 待发送的附件暂存;发送前已经落进"记忆"(memoryUUID),extractedText 是
-/// 已经跑过 ContentExtractor 的结果,发送时拼进这一轮请求。
-private struct PendingAttachment {
+/// 待发送的附件暂存(可以有多个);新拍的文件/照片发送前已经落进"记忆"
+/// (memoryUUID),从记忆库里选的本来就有 uuid——两种来源统一走这一份载体。
+/// extractedText 是已经跑过 ContentExtractor 提取或记忆条目自带的原文,
+/// 发送时拼进这一轮请求。
+private struct PendingAttachment: Identifiable {
+    let id = UUID()
     var displayName: String
     var extractedText: String
     var memoryUUID: UUID?
+    var symbol: String = "paperclip"
+    /// true = 这条记忆是刚为这次附件才存的(拍照/选文件);移除这个 chip 时
+    /// 要把这条孤儿记忆一并删掉,不然用户没发送就把它删了,记忆库里却平白
+    /// 多出一条。false = 从记忆库里选的已有条目,移除 chip 不影响原条目。
+    var isNewlyCreated: Bool = false
 }
 
 /// 单条新建/修改弹出的表单目标。
@@ -573,12 +686,17 @@ private struct FormTarget: Identifiable {
 private struct AgentMessageListView: View {
     let thread: AgentThread
     let onConfirmAction: (AgentMessage, Bool) -> Void
+    let onUndo: () -> Void
+    let onExamplePrompt: (String) -> Void
 
     @Query private var messages: [AgentMessage]
 
-    init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void) {
+    init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
+         onUndo: @escaping () -> Void, onExamplePrompt: @escaping (String) -> Void) {
         self.thread = thread
         self.onConfirmAction = onConfirmAction
+        self.onUndo = onUndo
+        self.onExamplePrompt = onExamplePrompt
         let uuid = thread.uuid
         _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == uuid },
                           sort: [SortDescriptor(\.createdAt)])
@@ -595,7 +713,8 @@ private struct AgentMessageListView: View {
                         AgentMessageBubble(
                             message: message, isLatest: message.uuid == messages.last?.uuid,
                             onConfirm: { onConfirmAction(message, true) },
-                            onCancelConfirm: { onConfirmAction(message, false) })
+                            onCancelConfirm: { onConfirmAction(message, false) },
+                            onUndo: onUndo)
                         .id(message.uuid)
                     }
                 }
@@ -613,10 +732,24 @@ private struct AgentMessageListView: View {
         }
     }
 
+    private static let examplePrompts = [
+        "明天下午3点开会", "我之前存的 wifi 密码是多少", "帮我整理一下今天的安排",
+    ]
+
     private var emptyState: some View {
-        ContentUnavailableView(
-            "开始对话", systemImage: "sparkles",
-            description: Text("说一句话或打字,新建/修改/完成/删除事项,收藏内容或问问你存过的记忆。"))
+        VStack(spacing: 16) {
+            ContentUnavailableView(
+                "开始对话", systemImage: "sparkles",
+                description: Text("说一句话或打字,新建/修改/完成/删除事项,收藏内容或问问你存过的记忆。"))
+            VStack(spacing: 8) {
+                ForEach(Self.examplePrompts, id: \.self) { prompt in
+                    Button(prompt) { onExamplePrompt(prompt) }
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                        .font(.footnote)
+                }
+            }
+        }
         .frame(maxWidth: .infinity)
         .padding(.top, 60)
     }

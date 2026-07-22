@@ -35,6 +35,9 @@ enum UndoOp {
     /// insertedHistoryUUID:重复事项完成一次时插入的历史记录,撤销要连它一起删掉。
     case completed(before: BackupTask, insertedHistoryUUID: UUID?)
     case deleted(before: BackupTask)
+    /// 批次里混了 memorize 时新建的记忆条目;撤销把它删掉(连同它的向量分片,
+    /// 走 MemoryPipeline.delete 同一套清理)。
+    case memorized(uuid: UUID)
 }
 
 /// 待办页:横滑日期条(默认今天)、到期卡片(完成/稍等)、
@@ -73,6 +76,11 @@ struct TodoListView: View {
     @State var pendingActions: [AIAction] = []
     /// 上一批 AI 执行完的操作,供"撤销"用;见 TodoListView+Agent.swift。
     @State var lastUndo: [UndoOp]?
+    /// lastUndo 是哪个 thread 的批量操作留下的;AI 助手可以同时开好几个 thread,
+    /// 在 thread A 执行完切到 thread B 又执行一批,thread A 那条"已完成执行"
+    /// 气泡的撤销按钮还在(它在自己 thread 里仍是最新消息),但不能真的撤销
+    /// thread B 的操作——撤销前先核对这个 uuid 对不对。
+    @State var lastUndoThreadUUID: UUID?
     /// 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误 / 进行中的请求。
     @State var rescheduleLoading: String?
     @State var reschedule: (uuid: String, candidates: [(label: String, date: Date)])?
@@ -201,10 +209,12 @@ struct TodoListView: View {
                 switch mode {
                 case .agent(let prefill, let autoStart):
                     AgentView(prefill: prefill, autoStart: autoStart,
-                              submit: { text, history, onThought in
-                                  try await route(text, history: history, onThought: onThought)
+                              submit: { text, threadUUID, history, onThought in
+                                  try await route(text, threadUUID: threadUUID,
+                                                  history: history, onThought: onThought)
                               },
-                              onConfirm: { performPendingActions() },
+                              onConfirm: { performPendingActions(threadUUID: $0) },
+                              onUndo: { performUndo(threadUUID: $0) },
                               saveTask: { existing, parsed in
                                   if let existing {
                                       apply(parsed, to: existing)
@@ -359,7 +369,7 @@ struct TodoListView: View {
             .lineLimit(1)
             .frame(minWidth: 46, minHeight: 54)
             .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
             .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
         }
         .buttonStyle(.plain)
@@ -483,7 +493,14 @@ struct TodoListView: View {
     private var daySection: some View {
         Section {
             if upcoming.isEmpty && due.isEmpty {
-                ContentUnavailableView("暂无待办事项", systemImage: "checkmark.circle")
+                ContentUnavailableView {
+                    Label("暂无待办事项", systemImage: "checkmark.circle")
+                } description: {
+                    Text("跟 AI 说一句话就能新建,比如「明天下午3点开会」。")
+                } actions: {
+                    Button("开始添加") { sheet = .agent(prefill: nil, autoStart: false) }
+                        .glassProminentButton()
+                }
             } else if dayTasks.isEmpty {
                 Text("当天暂无待办").foregroundStyle(.secondary)
             }

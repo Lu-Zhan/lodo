@@ -16,6 +16,9 @@ public enum AgentMessageKind: String {
     case clarify
     /// 记忆问答的回答,relatedTitles 附相关条目标题。
     case answer
+    /// 批量操作执行完的回执;只在"当前 thread 最新一条"时气泡上带"撤销"按钮,
+    /// 和 confirm 的按钮只在最新一条生效同一个道理。
+    case executed
 }
 
 /// 对话里的一条消息。不建 SwiftData 关系,按 threadUUID 过滤查询即可
@@ -32,14 +35,15 @@ public final class AgentMessage {
     public var relatedTitles: [String] = []
     /// clarify 消息的候选补充;由输入栏上方的建议行读取,不嵌进气泡里。
     public var clarifyOptions: [String] = []
-    /// 这条消息带了附件时指向对应 MemoryItem;没带附件为 nil。
-    public var attachmentMemoryUUID: UUID?
+    /// 这条消息带的附件,按顺序指向对应的 MemoryItem;没带附件为空数组。
+    /// 每个附件既可能是发送前临时收藏的新内容,也可能是从记忆库里选的已有条目。
+    public var attachmentMemoryUUIDs: [UUID] = []
     public var createdAt: Date = Date.now
 
     public init(
         threadUUID: UUID, role: AgentMessageRole, kind: AgentMessageKind = .text,
         content: String, relatedTitles: [String] = [], clarifyOptions: [String] = [],
-        attachmentMemoryUUID: UUID? = nil
+        attachmentMemoryUUIDs: [UUID] = []
     ) {
         self.uuid = UUID()
         self.threadUUID = threadUUID
@@ -48,7 +52,7 @@ public final class AgentMessage {
         self.content = content
         self.relatedTitles = relatedTitles
         self.clarifyOptions = clarifyOptions
-        self.attachmentMemoryUUID = attachmentMemoryUUID
+        self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         self.createdAt = Date()
     }
 

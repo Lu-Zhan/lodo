@@ -22,7 +22,7 @@ final class BackupDataTests: XCTestCase {
             agentMessages: [BackupAgentMessage(
                 uuid: UUID(), threadUUID: UUID(), roleRaw: "user", kindRaw: "text",
                 content: "你好", relatedTitles: [], clarifyOptions: [],
-                attachmentMemoryUUID: nil, createdAt: Date())],
+                attachmentMemoryUUIDs: [], createdAt: Date())],
             skillOverrides: [BackupSkillOverride(id: "agent", content: "自定义总则")],
             settings: BackupSettings(
                 snoozeMinutes: 15, allDayTime: "09:00", digestEnabled: true,

@@ -12,6 +12,14 @@ struct AgentThreadListView: View {
     /// 选中/新建一个 thread 后调用,外层用来关掉 popover。
     let onSelect: () -> Void
 
+    /// AgentView 里 currentThreadUUID 为 nil 时会回退到 threads.first,
+    /// 这里的"当前"判断要跟那边一致,不然明明在看第一条却没打勾。
+    private var effectiveCurrentUUID: UUID? {
+        currentThreadUUID ?? threads.first?.uuid
+    }
+
+    @State private var pendingDelete: AgentThread?
+
     var body: some View {
         List {
             Button {
@@ -29,6 +37,11 @@ struct AgentThreadListView: View {
                     onSelect()
                 } label: {
                     HStack {
+                        if thread.uuid == effectiveCurrentUUID {
+                            Image(systemName: "checkmark")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tint)
+                        }
                         Text(thread.title.isEmpty ? "新对话" : thread.title)
                             .lineLimit(1)
                             .foregroundStyle(.primary)
@@ -40,7 +53,7 @@ struct AgentThreadListView: View {
                 }
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
-                        delete(thread)
+                        pendingDelete = thread
                     } label: {
                         Label("删除", systemImage: "trash")
                     }
@@ -49,6 +62,18 @@ struct AgentThreadListView: View {
         }
         .listStyle(.plain)
         .frame(width: 280, height: 360)
+        .confirmationDialog(
+            "删除这段对话?", isPresented: Binding(
+                get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }
+            ), titleVisibility: .visible
+        ) {
+            Button("删除", role: .destructive) {
+                if let thread = pendingDelete { delete(thread) }
+                pendingDelete = nil
+            }
+        } message: {
+            Text("对话记录会一并删除,不可恢复。")
+        }
     }
 
     /// 连带删掉这个 thread 下的全部消息,避免孤儿数据。
