@@ -122,6 +122,9 @@ struct MemoryListView: View {
                         showFilters = true
                     }
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-seed-memory"), items.isEmpty {
+                    seedDemoMemory()
+                }
                 #endif
             }
             .searchable(text: $query, prompt: "搜索收藏")
@@ -306,6 +309,57 @@ struct MemoryListView: View {
         } else if let text = pasteboard.string(forType: .string) {
             MemoryPipeline.saveText(text, context: context)
         }
+    }
+    #endif
+
+    #if DEBUG
+    // MARK: - 测试数据(--demo-seed-memory,仅在收藏为空时插入)
+
+    /// 截图/测试用:文字、链接、资产几种典型场景,status 直接给 ready,
+    /// 不经过 AI 整理请求。
+    private func seedDemoMemory() {
+        context.insert(MemoryItem(
+            kind: .text, title: "读书笔记:原子习惯",
+            summary: "习惯养成的四条定律:让提示显而易见、让渴望有吸引力、让行动简便易行、让奖励令人满意。",
+            tags: ["读书"],
+            sourceText: "《原子习惯》核心观点:微小的改变经过时间复利会带来巨大成果,关键在于打造让好习惯"
+                + "显而易见、有吸引力、简便易行、令人满意的系统。",
+            status: .ready))
+
+        context.insert(MemoryItem(
+            kind: .link, title: "如何做好周计划",
+            summary: "一篇关于每周复盘与计划方法的文章,建议按角色划分任务优先级。",
+            tags: ["效率", "文章"],
+            sourceText: "文章提到每周日晚上花 20 分钟复盘上周、规划下周,按工作/生活/成长三个角色"
+                + "分别列出本周重点。",
+            urlString: "https://example.com/weekly-planning",
+            status: .ready))
+
+        context.insert(MemoryItem(
+            kind: .link, title: "番茄炒蛋菜谱",
+            summary: "经典家常菜做法,番茄先炒出汁再放鸡蛋。",
+            tags: ["菜谱"],
+            sourceText: "食材:番茄 2 个、鸡蛋 3 个、葱花少许、盐糖适量。做法:鸡蛋打散炒熟盛出,"
+                + "番茄炒出汁后倒回鸡蛋翻炒均匀。",
+            urlString: "https://example.com/recipe/tomato-egg",
+            status: .ready))
+
+        context.insert(MemoryItem(
+            kind: .text, title: "产品评审会记录",
+            summary: "确定下个版本优先做提醒稍等间隔的自定义,UI 细节待设计定稿。",
+            tags: ["工作", "会议"],
+            sourceText: "参会人:产品、设计、研发。结论:优先支持稍等间隔自定义,其次是标签管理;"
+                + "UI 细节下周三前定稿。",
+            status: .ready))
+
+        context.insert(MemoryItem(
+            kind: .text, title: "本月信用卡账单",
+            summary: "本月信用消费汇总。",
+            tags: [MemoryItem.assetTagName],
+            sourceText: "账单周期:本月 1 日至月底,合计支出 1280.5 元,含餐饮、交通、日用品。",
+            status: .ready, assetValue: 1280.5))
+
+        try? context.save()
     }
     #endif
 }
