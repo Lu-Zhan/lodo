@@ -5,12 +5,12 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var selection: AppTab = .todo
+    @State private var selection: AppTab = .overview
     /// 非 nil 时由待办页弹出全局 agent 并预填文本(lodo://agent 深链触发,空串=无预填)。
     @State private var agentRequest: String?
     /// tab 栏"添加"按钮触发 agent 时置 true,弹出后自动开始语音(区别于深链/Siri 交接)。
     @State private var agentAutoStart = false
-    /// 非 nil 时由待办页跳到该事项并自动发起改期请求(通知"改期"按钮交接)。
+    /// 非 nil 时由总览页跳到该事项并自动发起改期请求(通知"改期"按钮交接)。
     @State private var rescheduleRequestUUID: String?
     /// 非 nil 时由待办页弹出新建表单并预填标题+内容附件(记忆条目"转为待办"交接)。
     @State private var convertToTodoRequest: ConvertToTodoRequest?
@@ -20,7 +20,7 @@ struct ContentView: View {
     #endif
 
     enum AppTab: Hashable {
-        case todo, memory, add
+        case overview, todo, memory, add
     }
 
     /// 上次前台全量重排的时间,30 秒内重复 active 不再触发(避免频繁切换的重排风暴)。
@@ -36,6 +36,21 @@ struct ContentView: View {
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-memory-tab") {
                     selection = .memory
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-overview-tab") {
+                    selection = .overview
+                }
+                // 默认落地页从待办改成总览后,这几个 --demo-* 参数原本靠
+                // TodoListView.onAppear 生效,得先把 tab 切过去才挂载得到。
+                // (--demo-reschedule/--demo-settings 现在是总览页自己的东西,
+                // 总览已是默认 tab,不用切。)
+                let todoDemoFlags = [
+                    "--demo-agent",
+                    "--demo-ask-duration", "--demo-seed-data",
+                    "--demo-filter-all", "--demo-filter-done",
+                ]
+                if todoDemoFlags.contains(where: { ProcessInfo.processInfo.arguments.contains($0) }) {
+                    selection = .todo
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-skills") {
                     showAgentSkillsDemo = true
@@ -88,7 +103,7 @@ struct ContentView: View {
                 for: NotificationManager.rescheduleHandoff)) { note in
                 UserDefaults.standard.removeObject(
                     forKey: NotificationManager.pendingRescheduleUUIDKey)
-                selection = .todo
+                selection = .overview
                 rescheduleRequestUUID = note.userInfo?["uuid"] as? String
             }
             // 深链:lodo://add(小组件"+")弹全局 agent;lodo://agent?text=…
@@ -144,9 +159,11 @@ struct ContentView: View {
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
         TabView(selection: $selection) {
+            Tab("总览", systemImage: "square.stack.3d.up", value: AppTab.overview) {
+                OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
+            }
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
                 TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            rescheduleRequestUUID: $rescheduleRequestUUID,
                             convertToTodoRequest: $convertToTodoRequest)
             }
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
@@ -173,9 +190,11 @@ struct ContentView: View {
     @available(iOS 26.0, *)
     private var modernTabsWithSearchAI: some View {
         TabView(selection: $selection) {
+            Tab("总览", systemImage: "square.stack.3d.up", value: AppTab.overview) {
+                OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
+            }
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
                 TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            rescheduleRequestUUID: $rescheduleRequestUUID,
                             convertToTodoRequest: $convertToTodoRequest)
             }
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
@@ -240,7 +259,7 @@ struct ContentView: View {
         guard let uuid = UserDefaults.standard.string(
             forKey: NotificationManager.pendingRescheduleUUIDKey) else { return }
         UserDefaults.standard.removeObject(forKey: NotificationManager.pendingRescheduleUUIDKey)
-        selection = .todo
+        selection = .overview
         rescheduleRequestUUID = uuid
     }
 
@@ -260,15 +279,17 @@ struct ContentView: View {
                 get: { selection },
                 set: { if let new = $0 { selection = new } }
             )) {
+                Label("总览", systemImage: "square.stack.3d.up").tag(AppTab.overview)
                 Label("待办", systemImage: "checklist").tag(AppTab.todo)
                 Label("记忆", systemImage: "sparkles.rectangle.stack").tag(AppTab.memory)
             }
             .navigationTitle("lodo")
         } detail: {
             switch selection {
+            case .overview:
+                OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
             case .todo:
                 TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            rescheduleRequestUUID: $rescheduleRequestUUID,
                             convertToTodoRequest: $convertToTodoRequest)
             case .memory:
                 MemoryListView(onConvertToTodo: convertToTodo)
@@ -280,8 +301,10 @@ struct ContentView: View {
 
     private var legacyTabs: some View {
         TabView(selection: $selection) {
+            OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
+                .tabItem { Label("总览", systemImage: "square.stack.3d.up") }
+                .tag(AppTab.overview)
             TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                        rescheduleRequestUUID: $rescheduleRequestUUID,
                         convertToTodoRequest: $convertToTodoRequest)
                 .tabItem { Label("待办", systemImage: "checklist") }
                 .tag(AppTab.todo)

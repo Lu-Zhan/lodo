@@ -40,19 +40,17 @@ enum UndoOp {
     case memorized(uuid: UUID)
 }
 
-/// 待办页:横滑日期条(默认今天)、到期卡片(完成/稍等)、
-/// 选中日待办与未来待办分组、已完成列表。
+/// 待办页:顶部 4 个筛选胶囊(今天/未来/全部/已完成)、到期卡片(完成/稍等,
+/// 不受筛选影响永远显示)、按筛选态切换的待办/已完成列表。
 struct TodoListView: View {
     /// 非 nil 时弹出全局 agent 并预填文本(lodo://agent 深链,见 ContentView)。
     @Binding var agentRequest: String?
     /// tab 栏"添加"按钮触发时置 true:agent 弹出后自动开始语音。
     @Binding var agentAutoStart: Bool
-    /// 非 nil 时跳到该事项并自动发起改期请求(通知"改期"按钮交接,见 ContentView)。
-    @Binding var rescheduleRequestUUID: String?
     /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,见 ContentView)。
     @Binding var convertToTodoRequest: ConvertToTodoRequest?
 
-    // 以下几个跨 extension 文件(TodoListView+Agent/+Reschedule/+CRUD)被读写,
+    // 以下几个跨 extension 文件(TodoListView+Agent/+CRUD)被读写,
     // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
     @Environment(\.modelContext) var context
     @Environment(\.scenePhase) private var scenePhase
@@ -69,10 +67,8 @@ struct TodoListView: View {
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
     @State private var now = Date()
-    // consumeReschedule (TodoListView+Reschedule.swift) 需要跳日期,保持 internal。
-    @State var selectedDate = Calendar.current.startOfDay(for: Date())
-    /// 日期条最前面的"总览"选中时为 true:不按日期筛选,待办区显示全部待办。
-    @State private var overviewMode = false
+    /// 顶部 4 个筛选胶囊(今天/未来/全部/已完成)当前选中的态。
+    @State var filter: TodoFilter = .today
     @State var sheet: SheetMode?
     /// agent 解析出、等待用户确认的批量操作。
     @State var pendingActions: [AIAction] = []
@@ -83,27 +79,30 @@ struct TodoListView: View {
     /// 气泡的撤销按钮还在(它在自己 thread 里仍是最新消息),但不能真的撤销
     /// thread B 的操作——撤销前先核对这个 uuid 对不对。
     @State var lastUndoThreadUUID: UUID?
-    /// 到期卡改期:请求中的事项 uuid / 已返回的候选 / 错误 / 进行中的请求。
-    @State var rescheduleLoading: String?
-    @State var reschedule: (uuid: String, candidates: [(label: String, date: Date)])?
-    @State var rescheduleError: String?
-    @State var rescheduleTask: Task<Void, Never>?
     /// 完成后询问实际耗时的轻量条(队列,连续完成不互相覆盖)。
     @State var askDurationQueue: [(title: String, planned: Int)] = []
     /// 通知权限被拒绝(app 内唯一提醒渠道失效)时提示用户去系统设置开启。
     @State private var notificationsDenied = false
     /// 批量 agent 操作里有目标事项在确认期间被别处改动/删除时的提示。
     @State var actionsWarning: String?
-    @State private var doneExpanded = false
-    @State private var expandedDoneDays: Set<Date> = []
     @State private var insight: String?
 
-    /// 日期条展示的天数(从今天起,未来)。
-    private static let stripDays = 30
-    /// 日期条今天之前展示的天数(方便回看最近几天,如"昨天"完成了什么)。
-    private static let stripPastDays = 3
     private static let insightWeekKey = "insightWeek"
     private static let insightTextKey = "insightText"
+
+    /// 顶部筛选胶囊的 4 个态;"全部"/"已完成"按日期分 Section,其余两个是平铺列表。
+    enum TodoFilter: CaseIterable {
+        case today, future, all, done
+
+        var title: String {
+            switch self {
+            case .today: return "今天"
+            case .future: return "未来"
+            case .all: return "全部"
+            case .done: return "已完成"
+            }
+        }
+    }
 
     enum SheetMode: Identifiable {
         /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,
@@ -113,41 +112,47 @@ struct TodoListView: View {
         case create(ParsedTask?, TaskAttachment?)
         /// 编辑事项;agent 路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
-        case settings
 
         var id: String {
             switch self {
             case .agent: return "agent"
             case .create: return "create"
             case .edit(let task, _): return task.uuid.uuidString
-            case .settings: return "settings"
             }
         }
     }
 
     private var due: [TaskItem] { pending.filter { $0.nextRemindAt <= now } }
-    /// 尚未到期的待办(已到期的在到期卡片区)。
+    /// 尚未到期的待办。
     private var upcoming: [TaskItem] { pending.filter { $0.nextRemindAt > now } }
-    private var dayTasks: [TaskItem] {
-        upcoming.filter { Calendar.current.isDate($0.nextRemindAt, inSameDayAs: selectedDate) }
-    }
-    /// "总览"选中时的待办区内容:不按日期筛选,全部未到期待办按提醒时间排列
-    /// (已经是 @Query 的排序)。
-    private var overviewTasks: [TaskItem] { upcoming }
-    private var futureTasks: [TaskItem] {
-        guard let nextDay = Calendar.current.date(byAdding: .day, value: 1,
-                                                  to: selectedDate) else { return [] }
-        return upcoming.filter { $0.nextRemindAt >= nextDay }
-    }
-    /// 今天完成的事项:保持平铺展示,不参与日期折叠。
-    private var todayDone: [TaskItem] {
-        doneTasks.filter { Calendar.current.isDateInToday($0.doneAt ?? .distantPast) }
-    }
-    /// 其他日期完成的事项:按完成日分组,日期倒序,默认折叠。
-    private var otherDoneGroups: [(date: Date, tasks: [TaskItem])] {
+    /// 待办分组时算作哪一天:到期未处理的(不管原定哪天,含昨天及更早遗漏的)
+    /// 一律冒泡算作"今天"——过期的待办不该被埋没在过去的日期分组里没人看见;
+    /// 没到期的按 `nextRemindAt` 本身的日期算。行内时间靠这个信号标红,见 taskRow。
+    private func effectiveDay(_ task: TaskItem) -> Date {
         let calendar = Calendar.current
-        let others = doneTasks.filter { !calendar.isDateInToday($0.doneAt ?? .distantPast) }
-        let groups = Dictionary(grouping: others) { calendar.startOfDay(for: $0.doneAt ?? .distantPast) }
+        if task.nextRemindAt <= now { return calendar.startOfDay(for: now) }
+        return calendar.startOfDay(for: task.nextRemindAt)
+    }
+    /// "今天"筛选态的内容:今天该做的 + 全部到期未处理的,按提醒时间升序——
+    /// 到期项 nextRemindAt 更早,自然排在前面,不用额外排序。
+    private var todayTasks: [TaskItem] {
+        let today = Calendar.current.startOfDay(for: now)
+        return pending.filter { effectiveDay($0) == today }
+    }
+    /// "未来"筛选态的内容:今天以后,平铺不分组(每行自带日期,见 TaskItem.caption)。
+    private var futureTasks: [TaskItem] {
+        upcoming.filter { !Calendar.current.isDateInToday($0.nextRemindAt) }
+    }
+    /// "全部"筛选态的内容:全部待办(含到期未处理的)按天分组、升序;
+    /// 到期项同样冒泡进"今天"那组。
+    private var allGroupedByDay: [(date: Date, tasks: [TaskItem])] {
+        let groups = Dictionary(grouping: pending) { effectiveDay($0) }
+        return groups.sorted { $0.key < $1.key }.map { (date: $0.key, tasks: $0.value) }
+    }
+    /// "已完成"筛选态的内容:全部已完成事项按完成日分组、降序(最近完成的在前)。
+    private var doneGroupedByDay: [(date: Date, tasks: [TaskItem])] {
+        let calendar = Calendar.current
+        let groups = Dictionary(grouping: doneTasks) { calendar.startOfDay(for: $0.doneAt ?? .distantPast) }
         return groups.sorted { $0.key > $1.key }.map { (date: $0.key, tasks: $0.value) }
     }
     /// 下一次需要唤醒刷新 `now` 的时刻:最近一个未到期事项或明天零点,取早者。
@@ -163,26 +168,22 @@ struct TodoListView: View {
                 if notificationsDenied {
                     notificationDeniedSection
                 }
-                dateStrip
+                filterBar
                 if let ask = askDurationQueue.first {
                     askDurationSection(ask)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                if !due.isEmpty {
-                    dueSection
+                switch filter {
+                case .today: todaySection
+                case .future: futureSection
+                case .all: allSections
+                case .done: doneSections
                 }
-                daySection
-                if !overviewMode, !futureTasks.isEmpty {
-                    futureSection
-                }
-                doneSection
             }
             .animation(.snappy, value: due.map(\.uuid))
             .animation(.snappy, value: askDurationQueue.map(\.title))
-            .animation(.snappy, value: selectedDate)
-            .animation(.snappy, value: overviewMode)
-            .animation(.snappy, value: doneExpanded)
-            .navigationTitle("lodo")
+            .animation(.snappy, value: filter)
+            .navigationTitle("待办")
             .toolbar {
                 #if os(macOS)
                 // macOS 没有下拉手势,agent 入口放工具栏;短按打开/回到最近对话,
@@ -200,13 +201,6 @@ struct TodoListView: View {
                     )
                 }
                 #endif
-                ToolbarItem {
-                    Button {
-                        sheet = .settings
-                    } label: {
-                        Label("设置", systemImage: "gearshape")
-                    }
-                }
             }
             .sheet(item: $sheet, onDismiss: {
                 // 清掉 agent 会话残留,避免旧的批量操作被后续"确认执行";
@@ -238,8 +232,6 @@ struct TodoListView: View {
                     TaskEditView(existing: task, parsed: parsed, attachment: task.attachment) {
                         apply($0, to: task)
                     }
-                case .settings:
-                    SettingsView()
                 }
             }
             // 按需唤醒:睡到下一个到期时刻/明天零点再刷新 now,替代固定 10 秒轮询
@@ -254,17 +246,14 @@ struct TodoListView: View {
             .onChange(of: agentRequest) { _, request in
                 if request != nil { consumeRoutes() }
             }
-            .onChange(of: rescheduleRequestUUID) { _, uuid in
-                consumeReschedule(uuid)
-            }
             .onChange(of: convertToTodoRequest) { _, request in
                 consumeConvertToTodo(request)
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { checkNotificationAuthorization() }
             }
-            .onChange(of: doneExpanded) { _, expanded in
-                if expanded {
+            .onChange(of: filter) { _, new in
+                if new == .done {
                     Task { await loadInsight() }
                 }
             }
@@ -279,7 +268,6 @@ struct TodoListView: View {
             .onAppear {
                 // 冷启动时深链可能先于本视图出现,补一次检查
                 consumeRoutes()
-                consumeReschedule(rescheduleRequestUUID)
                 consumeConvertToTodo(convertToTodoRequest)
                 checkNotificationAuthorization()
                 #if DEBUG
@@ -287,25 +275,17 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent") {
                     sheet = .agent(prefill: nil, autoStart: false)
                 }
-                if ProcessInfo.processInfo.arguments.contains("--demo-settings") {
-                    sheet = .settings
-                }
-                if ProcessInfo.processInfo.arguments.contains("--demo-reschedule"),
-                   let first = due.first {
-                    reschedule = (first.uuid.uuidString, [
-                        (label: "今晚 20:00", date: Date().addingTimeInterval(6 * 3600)),
-                        (label: "明早 9:00", date: Date().addingTimeInterval(19 * 3600)),
-                        (label: "周六上午", date: Date().addingTimeInterval(48 * 3600)),
-                    ])
-                }
                 if ProcessInfo.processInfo.arguments.contains("--demo-ask-duration") {
                     askDurationQueue.append((title: "开周会", planned: 60))
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-seed-data"), pending.isEmpty {
                     seedDemoData()
                 }
-                if ProcessInfo.processInfo.arguments.contains("--demo-overview") {
-                    overviewMode = true
+                if ProcessInfo.processInfo.arguments.contains("--demo-filter-all") {
+                    filter = .all
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-filter-done") {
+                    filter = .done
                 }
                 #endif
             }
@@ -345,209 +325,74 @@ struct TodoListView: View {
     }
     #endif
 
-    // MARK: - 日期条
+    // MARK: - 筛选胶囊
 
-    /// "总览"固定在最前面不随横滑滚动;日期部分从前几天(含昨天)到未来
-    /// 30 天,默认滚动定位到今天。
-    private var dateStrip: some View {
+    /// 顶部常驻的 4 个大号筛选胶囊,替代原来的横滑日期条;单选,选中态用
+    /// .borderedProminent 填充色,未选中用 .bordered 描边——与 MemoryListView
+    /// 筛选弹层的 tag 胶囊(.buttonBorderShape(.capsule))同一视觉语言,只是
+    /// 这里是主导航控件,字号/触控区域做大一档。不铺白色卡片背景、不撑满
+    /// 横向宽度,胶囊挨着排、按自然宽度靠左,右侧留空。
+    private var filterBar: some View {
         Section {
-            HStack(spacing: 6) {
-                overviewCell
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(-Self.stripPastDays..<Self.stripDays, id: \.self) { offset in
-                                if let date = Calendar.current.date(
-                                    byAdding: .day, value: offset,
-                                    to: Calendar.current.startOfDay(for: now)) {
-                                    dayCell(date).id(offset)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .onAppear {
-                        proxy.scrollTo(0, anchor: .leading)
-                    }
+            HStack(spacing: 8) {
+                ForEach(TodoFilter.allCases, id: \.self) { option in
+                    filterButton(option)
                 }
             }
         }
-        // 用默认列表行背景铺白色卡片,圆角与下方模块一致
         .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+        .listRowBackground(Color.clear)
     }
 
-    /// 日期条最前面的"总览"格子,选中后待办区不按日期筛选,显示全部待办
-    /// (与 dayCell 同样的形状/尺寸,保持视觉一致)。
-    private var overviewCell: some View {
-        Button {
-            withAnimation(.snappy) { overviewMode = true }
-        } label: {
-            VStack(spacing: 2) {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.caption2)
-                Text("总览")
-                    .font(.headline)
+    /// 单个筛选胶囊;选中/未选中是两种不同的具体 PrimitiveButtonStyle 类型,
+    /// 不能用三元表达式在 .buttonStyle() 里混用,拆成 @ViewBuilder 两个分支。
+    @ViewBuilder
+    private func filterButton(_ option: TodoFilter) -> some View {
+        if filter == option {
+            Button(option.title) {
+                withAnimation(.snappy) { filter = option }
             }
-            .lineLimit(1)
-            .frame(minWidth: 46, minHeight: 54)
-            .background(overviewMode ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
-                        in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
-            .foregroundStyle(overviewMode ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .font(.subheadline.weight(.semibold))
+            .accessibilityAddTraits(.isSelected)
+        } else {
+            Button(option.title) {
+                withAnimation(.snappy) { filter = option }
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .font(.subheadline.weight(.semibold))
         }
-        .buttonStyle(.plain)
-        #if os(iOS)
-        .hoverEffect(.highlight)
-        #endif
-        .accessibilityLabel("总览,查看全部待办")
-        .accessibilityAddTraits(overviewMode ? .isSelected : [])
     }
 
-    private func dayCell(_ date: Date) -> some View {
+    /// 按天分组的 Section 标题(全部/已完成共用):今天/明天/昨天,其余按
+    /// "月日 周X" 格式,跨过去/今天/未来都覆盖到。
+    private func dayLabel(_ date: Date) -> String {
         let calendar = Calendar.current
-        let selected = !overviewMode && calendar.isDate(date, inSameDayAs: selectedDate)
-        let weekdayIndex = (calendar.component(.weekday, from: date) + 5) % 7
-        return Button {
-            withAnimation(.snappy) {
-                overviewMode = false
-                selectedDate = date
-            }
-        } label: {
-            VStack(spacing: 2) {
-                Text(calendar.isDateInToday(date) ? "今天"
-                     : calendar.isDateInYesterday(date) ? "昨天" : weekdayNames[weekdayIndex])
-                    .font(.caption2)
-                Text("\(calendar.component(.day, from: date))")
-                    .font(.headline)
-            }
-            .lineLimit(1)
-            .frame(minWidth: 46, minHeight: 54)
-            .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
-                        in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
-            .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-        }
-        .buttonStyle(.plain)
-        #if os(iOS)
-        .hoverEffect(.highlight)
-        #endif
-        .accessibilityLabel(date.formatted(.dateTime.month().day().weekday()))
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        if calendar.isDateInToday(date) { return "今天" }
+        if calendar.isDateInTomorrow(date) { return "明天" }
+        if calendar.isDateInYesterday(date) { return "昨天" }
+        return date.formatted(.dateTime.month().day().weekday())
     }
 
     // MARK: - 区块
 
-    private var dueSection: some View {
-        // 与 web/android 的 "🔔 到期提醒" 对应;iOS 26 区块标题渲染不了 emoji
-        // (显示为问号方块),改用同语义的 SF Symbol 铃铛。
-        Section {
-            ForEach(due) { task in
-                // 行高与待办 row(pendingRow)保持一致:同样的 spacing、不额外加
-                // vertical padding,只在改期候选展开时才会长高(功能性的,非样式差异)。
-                VStack(alignment: .leading, spacing: 2) {
-                    // 标题行:完成/改期/稍等都改成左右滑手势,行内不再放按钮
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(task.title).font(.headline)
-                        if rescheduleLoading == task.uuid.uuidString {
-                            Spacer()
-                            ProgressView().controlSize(.small)
-                                .accessibilityLabel("正在改期")
-                        }
-                    }
-                    Text(dueCaption(task)).font(.footnote).foregroundStyle(.secondary)
-                    if let reschedule, reschedule.uuid == task.uuid.uuidString {
-                        HorizontalChipRow {
-                            ForEach(reschedule.candidates, id: \.label) { candidate in
-                                Button(candidate.label) {
-                                    applyReschedule(task, to: candidate.date)
-                                }
-                                .buttonStyle(.bordered)
-                                .font(.footnote)
-                                .tint(.accentColor)
-                            }
-                            Button {
-                                withAnimation(.snappy) { self.reschedule = nil }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            #if os(iOS)
-                            .hoverEffect(.highlight)
-                            #endif
-                            .accessibilityLabel("收起改期候选")
-                        }
-                        .transition(.scale(scale: 0.96).combined(with: .opacity))
-                    }
-                }
-                .swipeActions(edge: .leading) {
-                    Button {
-                        Haptics.success()
-                        completeWithSampling(task)
-                    } label: {
-                        Label(task.phase == .start && task.durationMinutes > 0
-                              ? "开始了" : "完成",
-                              systemImage: task.phase == .start && task.durationMinutes > 0
-                              ? "play.fill" : "checkmark")
-                    }
-                    .tint(.green)
-                }
-                .swipeActions(edge: .trailing) {
-                    // 改期是第一个 action:长滑(full swipe)直接触发它;
-                    // 稍等作为第二个 action,短滑露出后需要点按。
-                    Button {
-                        requestReschedule(task)
-                    } label: {
-                        Label("改期", systemImage: "calendar.badge.clock")
-                    }
-                    .tint(.blue)
-                    .disabled(rescheduleLoading != nil)
-                    Button {
-                        NotificationManager.shared.snooze(task, context: context)
-                    } label: {
-                        // 与其他滑动按钮统一用 Label(图标+文字),不单独用纯文字
-                        Label("+\(AppSettings.snoozeMinutes)M", systemImage: "clock")
-                    }
-                    .tint(.orange)
-                    .accessibilityLabel("稍等 \(AppSettings.snoozeMinutes) 分钟")
-                }
-            }
-            if let rescheduleError {
-                Text(rescheduleError).font(.footnote).foregroundStyle(.red)
-            }
-        } header: {
-            Label("到期提醒", systemImage: "bell.fill")
-        }
-    }
-
     /// 完成后的实际耗时轻量条(智能采样,队列化;选择/跳过后出下一条)。
     private func askDurationSection(_ ask: (title: String, planned: Int)) -> some View {
         Section {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("「\(ask.title)」实际用了多久?").font(.subheadline)
-                HorizontalChipRow {
-                    ForEach(durationChips(planned: ask.planned), id: \.self) { minutes in
-                        Button("\(minutes) 分钟") {
-                            Haptics.success()
-                            DurationMemory.recordActual(
-                                title: ask.title, planned: ask.planned, minutes: minutes)
-                            popAskDuration()
-                        }
-                        .buttonStyle(.bordered)
-                        .font(.footnote)
-                    }
-                    Button("跳过") { popAskDuration() }
-                        .buttonStyle(.plain)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 2)
+            AskDurationBanner(
+                title: ask.title, planned: ask.planned,
+                onPick: { _ in popAskDuration() },
+                onSkip: { popAskDuration() })
         }
     }
 
-    /// 选中日期的待办;与未来待办分开成组。
-    private var daySection: some View {
+    /// "今天"筛选态:今天该做的 + 全部到期未处理的(含遗漏的过去几天,冒泡到
+    /// 这里、时间标红,见 effectiveDay/taskRow),不再单独有一个"到期提醒"区块。
+    private var todaySection: some View {
         Section {
-            if upcoming.isEmpty && due.isEmpty {
+            if pending.isEmpty {
                 ContentUnavailableView {
                     Label("暂无待办事项", systemImage: "checkmark.circle")
                 } description: {
@@ -556,100 +401,93 @@ struct TodoListView: View {
                     Button("开始添加") { sheet = .agent(prefill: nil, autoStart: false) }
                         .glassProminentButton()
                 }
-            } else if overviewMode {
-                if overviewTasks.isEmpty {
-                    Text("没有未到期的待办").foregroundStyle(.secondary)
-                }
-                ForEach(overviewTasks) { task in
-                    pendingRow(task)
-                }
-            } else {
-                if dayTasks.isEmpty {
-                    Text("当天暂无待办").foregroundStyle(.secondary)
-                }
-                ForEach(dayTasks) { task in
-                    pendingRow(task)
-                }
+            } else if todayTasks.isEmpty {
+                Text("今天暂无待办").foregroundStyle(.secondary)
+            }
+            ForEach(todayTasks) { task in
+                TaskRowView(task: task, now: now,
+                            onEdit: { sheet = .edit(task, nil) },
+                            onAskDuration: { title, planned in
+                                askDurationQueue.append((title, planned))
+                            })
             }
         } header: {
-            Text(dayHeaderTitle)
+            Text("今天待办")
         }
     }
 
-    private var dayHeaderTitle: String {
-        if overviewMode { return "全部待办" }
-        return Calendar.current.isDateInToday(selectedDate)
-            ? "今天待办"
-            : "\(selectedDate.formatted(.dateTime.month().day()))待办"
+    /// "未来"筛选态:明天及以后,平铺一个列表(每行自带日期,见 TaskItem.caption)。
+    private var futureSection: some View {
+        Section {
+            if futureTasks.isEmpty {
+                Text("没有未来待办").foregroundStyle(.secondary)
+            }
+            ForEach(futureTasks) { task in
+                TaskRowView(task: task, now: now,
+                            onEdit: { sheet = .edit(task, nil) },
+                            onAskDuration: { title, planned in
+                                askDurationQueue.append((title, planned))
+                            })
+            }
+        } header: {
+            Text("未来待办")
+        }
     }
 
-    private var futureSection: some View {
-        Section("未来待办") {
-            ForEach(futureTasks) { task in
-                pendingRow(task)
+    /// "全部"筛选态:全部待办(含到期未处理的)按天分 Section,上下滑动浏览。
+    @ViewBuilder
+    private var allSections: some View {
+        if pending.isEmpty {
+            Section {
+                Text("没有待办").foregroundStyle(.secondary)
+            } header: {
+                Text("全部待办")
+            }
+        } else {
+            ForEach(allGroupedByDay, id: \.date) { group in
+                Section(dayLabel(group.date)) {
+                    ForEach(group.tasks) { task in
+                        TaskRowView(task: task, now: now,
+                                    onEdit: { sheet = .edit(task, nil) },
+                                    onAskDuration: { title, planned in
+                                        askDurationQueue.append((title, planned))
+                                    })
+                    }
+                }
             }
         }
     }
 
-    private var doneSection: some View {
-        Section {
-            DisclosureGroup(isExpanded: $doneExpanded) {
-                if insightEnabled, let insight {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("本周洞察")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Label(insight, systemImage: "sparkles")
-                            .font(.subheadline)
-                    }
-                    .padding(.vertical, 2)
-                }
-                if doneTasks.isEmpty {
-                    ContentUnavailableView("还没有完成的事项", systemImage: "tray")
-                }
-                if !todayDone.isEmpty {
-                    Text("今天")
+    /// "已完成"筛选态:与"全部"同一套按天分 Section 的范式,周洞察卡片放最前面。
+    @ViewBuilder
+    private var doneSections: some View {
+        if insightEnabled, let insight {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("本周洞察")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    ForEach(todayDone) { task in
+                    Label(insight, systemImage: "sparkles")
+                        .font(.subheadline)
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        if doneTasks.isEmpty {
+            Section {
+                ContentUnavailableView("还没有完成的事项", systemImage: "tray")
+            } header: {
+                Text("已完成")
+            }
+        } else {
+            ForEach(doneGroupedByDay, id: \.date) { group in
+                Section(dayLabel(group.date)) {
+                    ForEach(group.tasks) { task in
                         doneRow(task)
                     }
                 }
-                ForEach(otherDoneGroups, id: \.date) { group in
-                    DisclosureGroup(dayGroupTitle(group.date),
-                                    isExpanded: doneDayExpandedBinding(for: group.date)) {
-                        ForEach(group.tasks) { task in
-                            doneRow(task)
-                        }
-                    }
-                }
-            } label: {
-                Label("已完成", systemImage: "checkmark.circle")
             }
         }
-    }
-
-    private func pendingRow(_ task: TaskItem) -> some View {
-        Button {
-            sheet = .edit(task, nil)
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(task.title)
-                Text(task.caption).font(.footnote).foregroundStyle(.secondary)
-            }
-        }
-        .buttonStyle(.plain)
-        .nagSwipeActions(
-            leadingLabel: "完成", leadingSystemImage: "checkmark", leadingTint: .green,
-            onLeading: { completeWithSampling(task) },
-            onDelete: {
-                NotificationManager.shared.cancelChain(for: task.uuid)
-                withAnimation(.snappy) {
-                    context.delete(task)
-                }
-                try? context.save()
-                WidgetBridge.sync(context: context)
-            })
     }
 
     private func doneRow(_ task: TaskItem) -> some View {
@@ -668,25 +506,6 @@ struct TodoListView: View {
                 context.delete(task)
                 try? context.save()
             })
-    }
-
-    private func doneDayExpandedBinding(for date: Date) -> Binding<Bool> {
-        Binding(
-            get: { expandedDoneDays.contains(date) },
-            set: { isExpanded in
-                if isExpanded {
-                    expandedDoneDays.insert(date)
-                } else {
-                    expandedDoneDays.remove(date)
-                }
-            }
-        )
-    }
-
-    private func dayGroupTitle(_ date: Date) -> String {
-        Calendar.current.isDateInYesterday(date)
-            ? "昨天"
-            : date.formatted(.dateTime.month().day())
     }
 
     /// 恢复为待办:回到 start 阶段,提醒时间取原定时间(已过期会直接进到期卡)。

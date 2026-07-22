@@ -366,6 +366,38 @@ public enum DeepSeekClient {
         return insight
     }
 
+    /// "总览" tab 用:给一句今天待办的处理建议(到期未处理的 + 今天该做的都算,
+    /// 调用方把列表格式化成 summary 传进来)。
+    public static func suggestTodayHandling(summary: String) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的今日助手。根据今天的待办列表(可能含到期未处理的),\
+        给一句不超过 60 个字的处理建议:侧重优先级和取舍,具体可执行,\
+        不要"合理安排时间"这类空话。只返回 JSON:{"suggestion": "一句话"},不要任何其他文字。\(personaBlock)
+        """
+        let payload = try await payload(system: system, user: summary, timeout: 60)
+        guard let suggestion = payload["suggestion"] as? String,
+              !suggestion.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 suggestion")
+        }
+        return suggestion
+    }
+
+    /// "总览" tab 用:给一句今天新收藏的记忆总结(调用方把标题+摘要格式化成
+    /// summary 传进来)。
+    public static func summarizeTodayMemories(summary: String) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的记忆助手。根据今天新收藏的记忆条目(标题+摘要),\
+        用一句不超过 60 个字的话总结今天收藏了什么、有没有共同点或值得注意的地方。\
+        只返回 JSON:{"summary": "一句话"},不要任何其他文字。\(personaBlock)
+        """
+        let payload = try await payload(system: system, user: summary, timeout: 60)
+        guard let text = payload["summary"] as? String,
+              !text.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 summary")
+        }
+        return text
+    }
+
     /// 把 agent 对话的首轮内容总结成一个简短标题(thread 列表/导航栏用)。
     /// 不拼 personaBlock:标题要客观简洁,不需要说话风格。
     public static func summarizeThreadTitle(_ text: String) async throws -> String {
