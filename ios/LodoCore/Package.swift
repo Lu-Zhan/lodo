@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "LodoCore", targets: ["LodoCore"]),
     ],
     targets: [
-        .target(name: "LodoCore"),
+        .target(name: "LodoCore", exclude: ["BuiltInAPIKey.swift.example"]),
         .testTarget(name: "LodoCoreTests", dependencies: ["LodoCore"]),
     ]
 )

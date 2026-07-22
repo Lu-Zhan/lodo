@@ -1,5 +1,6 @@
 # secrets
 web/.env
+ios/LodoCore/Sources/LodoCore/BuiltInAPIKey.swift
 
 # data
 web/data/

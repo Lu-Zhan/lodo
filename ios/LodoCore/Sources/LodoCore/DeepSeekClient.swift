@@ -555,7 +555,7 @@ public enum DeepSeekClient {
             #endif
             return false
         }
-        return KeychainHelper.apiKey != nil
+        return KeychainHelper.effectiveAPIKey != nil
     }
 
     /// 模型输出文本 → JSON payload:剥 markdown 围栏、从首个 { 截到末个 },
@@ -596,9 +596,11 @@ public enum DeepSeekClient {
                 if FoundationModelsClient.isAvailable {
                     return try await FoundationModelsClient.payload(system: system, user: user)
                 }
-                // 设备不支持/未开启/模型未就绪:有 DeepSeek key 就自动退回云端
-                // 完成这一次请求(不改用户在设置里选的服务商),没有才报不可用原因。
-                if let key = KeychainHelper.apiKey(for: "DeepSeek"),
+                // 设备不支持/未开启/模型未就绪:有 DeepSeek key(内置的优先,
+                // 没开或没内置就用钥匙串里存的)就自动退回云端完成这一次请求
+                // (不改用户在设置里选的服务商),没有才报不可用原因。
+                if let key = (AppSettings.useBuiltInKey ? BuiltInAPIKey.deepSeek : nil)
+                    ?? KeychainHelper.apiKey(for: "DeepSeek"),
                    let preset = AppSettings.aiProviders.first(where: { $0.name == "DeepSeek" }),
                    let endpoint = URL(string: preset.endpoint) {
                     return try await cloudRequest(endpoint: endpoint, apiKey: key,
@@ -611,7 +613,7 @@ public enum DeepSeekClient {
             throw DeepSeekError.api("苹果智能需要 iOS 26 及以上系统。")
         }
 
-        guard let apiKey = KeychainHelper.apiKey else { throw DeepSeekError.noKey }
+        guard let apiKey = KeychainHelper.effectiveAPIKey else { throw DeepSeekError.noKey }
         guard let endpoint = AppSettings.aiEndpoint else {
             throw DeepSeekError.api("无效的服务地址,请到「设置」里检查 AI 服务商配置。")
         }

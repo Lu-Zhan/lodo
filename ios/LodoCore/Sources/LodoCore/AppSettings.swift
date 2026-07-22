@@ -23,6 +23,7 @@ public enum AppSettings {
     public static let aiCustomEndpointKey = "aiCustomEndpoint"
     public static let icloudSyncEnabledKey = "icloudSyncEnabled"
     public static let thinkingLevelKey = "thinkingLevel"
+    public static let useBuiltInKeyKey = "useBuiltInKey"
 
     public static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -123,6 +124,14 @@ public enum AppSettings {
 
     public static var usesAppleIntelligence: Bool {
         aiProvider == appleIntelligenceProvider
+    }
+
+    /// "使用内置 API Key"开关(设置页,仅 DeepSeek 服务商下出现);实际是否
+    /// 生效还要看 BuiltInAPIKey.deepSeek 是否真的内置了 key,由
+    /// KeychainHelper.effectiveAPIKey 兜底判断。默认关——内置 key 是否可用
+    /// 因构建环境而异(见 BuiltInAPIKey.swift.example),不能默认开。
+    public static var useBuiltInKey: Bool {
+        UserDefaults.standard.bool(forKey: useBuiltInKeyKey)
     }
 
     /// 当前服务商的接口地址;自定义地址无效时返回 nil。

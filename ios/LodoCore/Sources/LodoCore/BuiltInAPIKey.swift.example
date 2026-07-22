@@ -1,0 +1,8 @@
+import Foundation
+
+/// 模板文件——复制成同目录下的 BuiltInAPIKey.swift(会被 .gitignore 排除)并填入
+/// 真实 key 才会生效;不改的话 deepSeek 为 nil,设置页"使用内置 API Key"这个
+/// 开关不会出现,不影响其他功能。
+public enum BuiltInAPIKey {
+    public static let deepSeek: String? = nil
+}
