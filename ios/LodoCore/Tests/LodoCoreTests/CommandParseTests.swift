@@ -260,6 +260,36 @@ final class CommandParseTests: XCTestCase {
             payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: false))
     }
 
+    // MARK: - ReAct 工具调用(web_fetch)
+
+    func testToolCallWebFetch() throws {
+        let payload: [String: Any] = [
+            "thought": "用户给了链接,需要看内容", "tool": "web_fetch",
+            "url": "https://example.com/article"
+        ]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true)
+        guard case .toolCall(let thought, .webFetch(let url)) = result else {
+            XCTFail("expected toolCall(.webFetch)")
+            return
+        }
+        XCTAssertEqual(thought, "用户给了链接,需要看内容")
+        XCTAssertEqual(url, "https://example.com/article")
+    }
+
+    func testToolCallWebFetchMissingURLThrows() {
+        let payload: [String: Any] = ["thought": "…", "tool": "web_fetch"]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true))
+    }
+
+    /// webSearchEnabled == false 时 prompt 里没提过这个选项,模型幻觉出来也不认。
+    func testToolCallWebFetchIgnoredWhenDisabled() {
+        let payload: [String: Any] = ["tool": "web_fetch", "url": "https://example.com"]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: false))
+    }
+
     func testAnswerActionAlone() throws {
         let payload: [String: Any] = ["actions": [["action": "answer", "text": "今天多云转晴"]]]
         let result = try DeepSeekClient.parseCommand(

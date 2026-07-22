@@ -59,6 +59,18 @@ extension TodoListView {
                 reasoningHistory.append((role: "assistant", content: "思考:\(thought);联网搜索:\(query)"))
                 reasoningHistory.append((role: "user", content: "搜索结果:\n\(observation)"))
                 currentText = "(请基于以上搜索结果继续处理最初的请求:\(text))"
+            case .toolCall(let thought, .webFetch(let urlString)):
+                onThought(thought)
+                let observation: String
+                if let url = URL(string: urlString), url.scheme?.hasPrefix("http") == true {
+                    let extraction = await ContentExtractor.extract(url: url)
+                    observation = extraction.text.isEmpty ? "抓取失败或页面无正文内容" : extraction.text
+                } else {
+                    observation = "无效链接:\(urlString)"
+                }
+                reasoningHistory.append((role: "assistant", content: "思考:\(thought);抓取链接:\(urlString)"))
+                reasoningHistory.append((role: "user", content: "链接内容:\n\(observation)"))
+                currentText = "(请基于以上链接内容继续处理最初的请求:\(text))"
             case .actions(let actions):
                 if actions.count == 1 {
                     if case .create(let parsed) = actions[0] {

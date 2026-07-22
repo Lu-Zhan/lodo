@@ -57,6 +57,9 @@ sealed interface AIAction {
  * 一部分,不能在推理过程中未经确认就被模型自己调用。 */
 sealed interface AITool {
     data class WebSearch(val query: String) : AITool
+    /** 用户直接给了一个链接、需要看链接内容本身(而不是搜关键词)时用;
+     * 与 WebSearch 共用 webSearchEnabled 开关与 skill 文案。 */
+    data class WebFetch(val url: String) : AITool
 }
 
 /** AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或 ReAct
@@ -109,11 +112,13 @@ object DeepSeekClient {
 
         额外支持的工具:
         - 联网搜索:{"thought": "为什么需要搜", "tool": "web_search", "query": "要搜索的关键词"}(仅在需要查最新/实时/你不确定的信息时用;每次交流最多用一次,拿到搜索结果后必须在下一轮给出真正的最终答案——action 列表或反问,不能连续再搜、也不能一直用这个占位不给结果)
+        - 抓取链接内容:{"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "用户给的链接原样"}(用户直接给了一个具体链接、要你总结/回答链接里的内容时用,直接抓取该链接本身,不要把链接当关键词去 web_search;同样每次交流最多用一次,拿到页面内容后必须在下一轮给出真正的最终答案)
 
         额外判断规则:
         - 用户提出一般性问题(如"今天天气怎么样""XX最新价格""这个词是什么意思")且和新建/修改待办都无关 → answer,此时整个 actions 只放这一条,不与其他操作混用(如果一句话里同时有新建待办和提问,只处理新建待办,提问可以重新单独问)。
         - 涉及待办本身的问题(如"我明天有什么安排""这个事项还有多久到期")按当前待办列表自己回答,不需要联网搜索。
-        - 需要最新/实时信息(新闻、天气、价格、赛事结果等)或你不确定答案是否过时时,先用 web_search 查,不要凭空编内容;已经拿到搜索结果的,直接用结果内容给最终答案,不要重复搜。
+        - 用户消息里包含具体链接(http/https 开头)且意图是了解/总结该链接内容时,用 web_fetch 直接抓取那个链接,不要用 web_search 搜链接文字本身。
+        - 需要最新/实时信息(新闻、天气、价格、赛事结果等)但没有具体链接、或你不确定答案是否过时时,用 web_search 查关键词,不要凭空编内容;已经拿到搜索/抓取结果的,直接用结果内容给最终答案,不要重复搜/重复抓。
     """.trimIndent()
 
     /** AI 个性块:只影响面向用户的文字(反问/汇总/洞察),不影响 JSON 结构。 */
@@ -208,6 +213,14 @@ object DeepSeekClient {
                     throw DeepSeekException("无法解析:返回格式异常:web_search 缺少 query")
                 }
                 return AICommandResult.ToolCall(thought, AITool.WebSearch(query))
+            }
+            payload.optString("tool").takeIf { it == "web_fetch" }?.let {
+                val thought = payload.optString("thought")
+                val url = payload.optString("url")
+                if (url.isBlank()) {
+                    throw DeepSeekException("无法解析:返回格式异常:web_fetch 缺少 url")
+                }
+                return AICommandResult.ToolCall(thought, AITool.WebFetch(url))
             }
         }
         val rawActions = payload.optJSONArray("actions")

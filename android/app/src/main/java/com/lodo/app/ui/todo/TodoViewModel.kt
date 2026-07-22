@@ -186,17 +186,34 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             )) {
                 is AICommandResult.Clarify -> return AgentReply.Clarify(result.question, result.options)
                 is AICommandResult.ToolCall -> {
-                    val query = (result.tool as AITool.WebSearch).query
-                    val observation = try {
-                        val key = app.settings.apiKey(WebSearchClient.PROVIDER_NAME).orEmpty()
-                        val results = WebSearchClient.search(key, query)
-                        if (results.isEmpty()) "没有搜到相关结果"
-                        else results.joinToString("\n\n") { "「${it.title}」${it.snippet}\n来源:${it.url}" }
-                    } catch (e: Exception) {
-                        "联网搜索失败:${e.message}"
+                    currentText = when (val tool = result.tool) {
+                        is AITool.WebSearch -> {
+                            val query = tool.query
+                            val observation = try {
+                                val key = app.settings.apiKey(WebSearchClient.PROVIDER_NAME).orEmpty()
+                                val results = WebSearchClient.search(key, query)
+                                if (results.isEmpty()) "没有搜到相关结果"
+                                else results.joinToString("\n\n") {
+                                    "「${it.title}」${it.snippet}\n来源:${it.url}"
+                                }
+                            } catch (e: Exception) {
+                                "联网搜索失败:${e.message}"
+                            }
+                            "$text\n\n[联网搜索“$query”的结果]\n$observation\n\n" +
+                                "请基于以上结果继续处理最初的请求。"
+                        }
+                        is AITool.WebFetch -> {
+                            val url = tool.url
+                            val observation = try {
+                                val fetched = WebSearchClient.fetchUrl(url)
+                                if (fetched.isEmpty()) "抓取失败或页面无正文内容" else fetched
+                            } catch (e: Exception) {
+                                "抓取链接失败:${e.message}"
+                            }
+                            "$text\n\n[抓取链接 $url 的内容]\n$observation\n\n" +
+                                "请基于以上内容继续处理最初的请求。"
+                        }
                     }
-                    currentText = "$text\n\n[联网搜索“$query”的结果]\n$observation\n\n" +
-                        "请基于以上结果继续处理最初的请求。"
                 }
                 is AICommandResult.Actions -> {
                     val actions = result.actions

@@ -60,6 +60,9 @@ public enum AICommandResult {
 public enum AITool {
     case searchMemory(question: String)
     case webSearch(query: String)
+    /// 用户直接给了一个链接、需要看链接内容本身(而不是搜关键词)时用;
+    /// 与 webSearch 共用 webSearchEnabled 开关与 skill 文案。
+    case webFetch(url: String)
 }
 
 public enum DeepSeekError: LocalizedError {
@@ -219,6 +222,12 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:web_search 缺少 query")
                 }
                 return .toolCall(thought: thought, tool: .webSearch(query: query))
+            case "web_fetch" where webSearchEnabled:
+                guard let url = (payload["url"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !url.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:web_fetch 缺少 url")
+                }
+                return .toolCall(thought: thought, tool: .webFetch(url: url))
             default:
                 throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
             }

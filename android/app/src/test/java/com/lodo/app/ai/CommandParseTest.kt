@@ -115,6 +115,32 @@ class CommandParseTest {
         DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false)
     }
 
+    // ---- ReAct 工具调用(web_fetch)----
+
+    @Test
+    fun toolCallWebFetch() {
+        val payload = JSONObject()
+            .put("thought", "用户给了链接,需要看内容")
+            .put("tool", "web_fetch")
+            .put("url", "https://example.com/article")
+        val result = DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = true)
+        val toolCall = result as? AICommandResult.ToolCall ?: return fail("expected toolCall")
+        assertEquals("用户给了链接,需要看内容", toolCall.thought)
+        assertEquals("https://example.com/article", (toolCall.tool as AITool.WebFetch).url)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun toolCallWebFetchMissingUrlThrows() {
+        val payload = JSONObject().put("thought", "…").put("tool", "web_fetch")
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = true)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun toolCallIgnoredWhenWebFetchDisabled() {
+        val payload = JSONObject().put("tool", "web_fetch").put("url", "https://example.com")
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false)
+    }
+
     // ---- answer 操作 ----
 
     @Test
