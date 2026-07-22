@@ -98,8 +98,10 @@ struct TodoListView: View {
     @State private var expandedDoneDays: Set<Date> = []
     @State private var insight: String?
 
-    /// 日期条展示的天数(从今天起)。
+    /// 日期条展示的天数(从今天起,未来)。
     private static let stripDays = 30
+    /// 日期条今天之前展示的天数(方便回看最近几天,如"昨天"完成了什么)。
+    private static let stripPastDays = 3
     private static let insightWeekKey = "insightWeek"
     private static let insightTextKey = "insightText"
 
@@ -345,21 +347,29 @@ struct TodoListView: View {
 
     // MARK: - 日期条
 
-    /// 从今天起横向滑动选择日期,默认选中今天。
+    /// "总览"固定在最前面不随横滑滚动;日期部分从前几天(含昨天)到未来
+    /// 30 天,默认滚动定位到今天。
     private var dateStrip: some View {
         Section {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    overviewCell
-                    ForEach(0..<Self.stripDays, id: \.self) { offset in
-                        if let date = Calendar.current.date(
-                            byAdding: .day, value: offset,
-                            to: Calendar.current.startOfDay(for: now)) {
-                            dayCell(date)
+            HStack(spacing: 6) {
+                overviewCell
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(-Self.stripPastDays..<Self.stripDays, id: \.self) { offset in
+                                if let date = Calendar.current.date(
+                                    byAdding: .day, value: offset,
+                                    to: Calendar.current.startOfDay(for: now)) {
+                                    dayCell(date).id(offset)
+                                }
+                            }
                         }
+                        .padding(.vertical, 4)
+                    }
+                    .onAppear {
+                        proxy.scrollTo(0, anchor: .leading)
                     }
                 }
-                .padding(.vertical, 4)
             }
         }
         // 用默认列表行背景铺白色卡片,圆角与下方模块一致
@@ -403,7 +413,8 @@ struct TodoListView: View {
             }
         } label: {
             VStack(spacing: 2) {
-                Text(calendar.isDateInToday(date) ? "今天" : weekdayNames[weekdayIndex])
+                Text(calendar.isDateInToday(date) ? "今天"
+                     : calendar.isDateInYesterday(date) ? "昨天" : weekdayNames[weekdayIndex])
                     .font(.caption2)
                 Text("\(calendar.component(.day, from: date))")
                     .font(.headline)
