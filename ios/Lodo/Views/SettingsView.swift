@@ -7,14 +7,6 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
 
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
-
-    @AppStorage(AppSettings.snoozeMinutesKey) private var snoozeMinutes = 15
-    @AppStorage(AppSettings.allDayTimeKey) private var allDayTime = "09:00"
-    @AppStorage(AppSettings.digestEnabledKey) private var digestEnabled = false
-    @AppStorage(AppSettings.digestTimesKey) private var digestTimesRaw = ""
-    @AppStorage(AppSettings.digestRepeatTypeKey) private var digestRepeatType = "daily"
-    @AppStorage(AppSettings.digestDaysKey) private var digestDaysRaw = "0,1,2,3,4"
-
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
 
     // ---- 备份与恢复 ----
@@ -30,65 +22,26 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // ---- iCloud ----
+                // ---- AI:服务商/API Key、思考、联网搜索、个性、语音、洞察、记忆、Skill 统一入口 ----
                 Section {
-                    Toggle("iCloud 同步", isOn: $icloudSyncEnabled)
-                } footer: {
-                    Text("开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
-                }
-
-                // ---- 备份与恢复 ----
-                backupRestoreSection
-
-                // ---- 提醒 ----
-                Section {
-                    Stepper("稍等间隔:\(snoozeMinutes) 分钟",
-                            value: $snoozeMinutes, in: 1...240, step: 5)
-                    DatePicker("全天事项提醒时间", selection: timeBinding($allDayTime),
-                               displayedComponents: .hourAndMinute)
-                } header: {
-                    Text("提醒")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
-                        Text("只有日期、没有时间的事项,当天几点提醒。")
-                    }
-                }
-
-                Section {
-                    Toggle("每日待办汇总", isOn: $digestEnabled)
-                    if digestEnabled {
-                        Picker("重复", selection: $digestRepeatType) {
-                            Text("每天").tag("daily")
-                            Text("每周").tag("weekly")
-                        }
-                        .pickerStyle(.segmented)
-                        if digestRepeatType == "weekly" {
-                            HStack {
-                                ForEach(0..<7, id: \.self) { i in
-                                    Toggle(String(weekdayNames[i].dropFirst()),
-                                           isOn: digestDayBinding(i))
-                                        .toggleStyle(.button)
-                                }
-                            }
-                        }
-                        ForEach(digestTimes.indices, id: \.self) { i in
-                            DatePicker("时间 \(i + 1)", selection: digestTimeBinding(i),
-                                       displayedComponents: .hourAndMinute)
-                        }
-                        .onDelete { offsets in
-                            var times = digestTimes
-                            times.remove(atOffsets: offsets)
-                            setDigestTimes(times)
-                        }
-                        Button {
-                            setDigestTimes(digestTimes + ["09:00"])
-                        } label: {
-                            Label("添加时间点", systemImage: "plus")
-                        }
+                    NavigationLink {
+                        AISettingsView()
+                    } label: {
+                        Label("AI 设置", systemImage: "sparkles")
                     }
                 } footer: {
-                    Text("在设定时间提醒今天开始或到期的事项。")
+                    Text("服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。")
+                }
+
+                // ---- 提醒:稍等间隔/全天提醒时间 + 每日待办汇总统一入口 ----
+                Section {
+                    NavigationLink {
+                        ReminderSettingsView()
+                    } label: {
+                        Label("提醒", systemImage: "bell")
+                    }
+                } footer: {
+                    Text("稍等间隔、全天事项提醒时间、每日待办汇总都在这里。")
                 }
 
                 // ---- 通用 ----
@@ -100,16 +53,15 @@ struct SettingsView: View {
                 }
                 #endif
 
-                // ---- AI:服务商/API Key、思考、联网搜索、个性、语音、洞察、记忆、Skill 统一入口 ----
+                // ---- iCloud ----
                 Section {
-                    NavigationLink {
-                        AISettingsView()
-                    } label: {
-                        Label("AI 设置", systemImage: "sparkles")
-                    }
+                    Toggle("iCloud 同步", isOn: $icloudSyncEnabled)
                 } footer: {
-                    Text("服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。")
+                    Text("开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
                 }
+
+                // ---- 备份与恢复 ----
+                backupRestoreSection
             }
             .formStyle(.grouped)
             .navigationTitle("设置")
@@ -118,10 +70,6 @@ struct SettingsView: View {
                     Button("完成") { dismiss() }
                 }
             }
-            .onChange(of: digestEnabled) { refreshDigest() }
-            .onChange(of: digestTimesRaw) { refreshDigest() }
-            .onChange(of: digestRepeatType) { refreshDigest() }
-            .onChange(of: digestDaysRaw) { refreshDigest() }
             .backupRestoreHandlers(
                 showImportPicker: $showImportPicker,
                 showImportConfirm: $showImportConfirm,
@@ -141,10 +89,6 @@ struct SettingsView: View {
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
         #endif
-    }
-
-    private func refreshDigest() {
-        Task { @MainActor in NotificationManager.shared.refreshAll() }
     }
 
     // MARK: - 备份与恢复
@@ -216,54 +160,6 @@ struct SettingsView: View {
         return "导出于 \(date) · \(manifest.taskCount) 条待办 · \(manifest.memoryCount) 条记忆 · \(manifest.agentThreadCount) 个 AI 对话"
     }
 
-    // MARK: - 汇总设置的存取辅助
-
-    /// 当前时间点列表(空值回退见 AppSettings.digestTimes)。
-    private var digestTimes: [String] {
-        let times = digestTimesRaw.split(separator: ",").map(String.init)
-            .filter { !$0.isEmpty }
-        return times.isEmpty ? AppSettings.digestTimes : times
-    }
-
-    private func setDigestTimes(_ times: [String]) {
-        digestTimesRaw = times.joined(separator: ",")
-    }
-
-    private func digestTimeBinding(_ index: Int) -> Binding<Date> {
-        Binding(
-            get: {
-                let times = digestTimes
-                return AppSettings.time(index < times.count ? times[index] : "09:00",
-                                        on: Date())
-            },
-            set: { date in
-                var times = digestTimes
-                guard index < times.count else { return }
-                times[index] = AppSettings.hhmm(from: date)
-                setDigestTimes(times)
-            }
-        )
-    }
-
-    private func digestDayBinding(_ day: Int) -> Binding<Bool> {
-        Binding(
-            get: { AppSettings.digestDays.contains(day) },
-            set: { on in
-                var days = Set(digestDaysRaw.split(separator: ",").compactMap { Int($0) })
-                if days.isEmpty { days = Set(AppSettings.digestDays) }
-                if on { days.insert(day) } else { days.remove(day) }
-                digestDaysRaw = days.sorted().map(String.init).joined(separator: ",")
-            }
-        )
-    }
-
-    /// "HH:MM" 字符串 ↔ DatePicker 的 Date 绑定。
-    private func timeBinding(_ storage: Binding<String>) -> Binding<Date> {
-        Binding(
-            get: { AppSettings.time(storage.wrappedValue, on: Date()) },
-            set: { storage.wrappedValue = AppSettings.hhmm(from: $0) }
-        )
-    }
 }
 
 private extension View {
