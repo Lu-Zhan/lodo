@@ -67,47 +67,52 @@ struct MemoryListView: View {
         NavigationStack {
             List {
                 if let overview = assetOverview, !filtered.isEmpty {
-                    AssetOverviewCard(overview: overview)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-                if items.isEmpty {
-                    ContentUnavailableView {
-                        Label("还没有收藏", systemImage: "sparkles.rectangle.stack")
-                    } description: {
-                        Text("粘贴文字或链接、导入文件,AI 会整理成记忆条目。")
-                    } actions: {
-                        Button("输入文字收藏") { showCompose = true }
-                            .glassProminentButton()
+                    // 单独一个 Section,和下面的条目列表分开——不然共用同一个隐式
+                    // 分组时,条目那块顶部拿不到系统给的圆角(两块会贴在一起、
+                    // 顶部变成直角)。不再自己画背景/边距,让系统给的行样式和
+                    // 下面的条目卡片一样(同一套边距/圆角,大小才能对得上)。
+                    Section {
+                        AssetOverviewCard(overview: overview)
                     }
-                } else if filtered.isEmpty {
-                    ContentUnavailableView(
-                        showAssets ? "还没有资产记录" : "没有匹配的收藏",
-                        systemImage: showAssets ? "creditcard" : "magnifyingglass",
-                        description: Text(showAssets ? "点右上角「+」记一笔资产。" : "换个关键词,或取消选中的筛选。"))
-                } else {
-                    ForEach(filtered) { item in
-                        NavigationLink {
-                            MemoryDetailView(item: item)
-                        } label: {
-                            MemoryRow(item: item)
+                }
+                Section {
+                    if items.isEmpty {
+                        ContentUnavailableView {
+                            Label("还没有收藏", systemImage: "sparkles.rectangle.stack")
+                        } description: {
+                            Text("粘贴文字或链接、导入文件,AI 会整理成记忆条目。")
+                        } actions: {
+                            Button("输入文字收藏") { showCompose = true }
+                                .glassProminentButton()
                         }
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                pendingDelete = item
+                    } else if filtered.isEmpty {
+                        ContentUnavailableView(
+                            showAssets ? "还没有资产记录" : "没有匹配的收藏",
+                            systemImage: showAssets ? "creditcard" : "magnifyingglass",
+                            description: Text(showAssets ? "点右上角「+」记一笔资产。" : "换个关键词,或取消选中的筛选。"))
+                    } else {
+                        ForEach(filtered) { item in
+                            NavigationLink {
+                                MemoryDetailView(item: item)
                             } label: {
-                                Label("删除", systemImage: "trash")
+                                MemoryRow(item: item)
                             }
-                        }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                let attachment = MemoryPipeline.makeAttachment(from: item)
-                                onConvertToTodo(attachment.title, attachment)
-                            } label: {
-                                Label("转为待办", systemImage: "checklist")
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    pendingDelete = item
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
                             }
-                            .tint(.accentColor)
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    let attachment = MemoryPipeline.makeAttachment(from: item)
+                                    onConvertToTodo(attachment.title, attachment)
+                                } label: {
+                                    Label("转为待办", systemImage: "checklist")
+                                }
+                                .tint(.accentColor)
+                            }
                         }
                     }
                 }
@@ -124,6 +129,9 @@ struct MemoryListView: View {
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-seed-memory"), items.isEmpty {
                     seedDemoMemory()
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-assets-view") {
+                    showAssets = true
                 }
                 #endif
             }
@@ -485,11 +493,7 @@ private struct AssetOverviewCard: View {
                 }
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
-        .padding(.horizontal)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 }
 
