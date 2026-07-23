@@ -8,7 +8,7 @@ import LodoCore
 /// 单条新建/修改叠一个 TaskEditView 在本页上面("表单即确认"这个体验保留),
 /// 保存后往当前 thread 追加一条结果消息,不关掉聊天页。
 struct AgentView: View {
-    /// 弹出后是否自动开始语音(右下角键长按触发时为 true)。
+    /// 弹出后是否尝试自动开始语音(还要看"点击添加自动开始语音"设置项,见 send() 前的判断)。
     let autoStart: Bool
     /// 解析并路由输入文本 + 最近对话历史;onThought 在 ReAct 循环中间步骤时被调用
     /// (如"正在查记忆…"),驱动 thinkingText 那条轻量提示。返回本页要展示的回应形态。
@@ -44,7 +44,7 @@ struct AgentView: View {
     @State private var sendTask: Task<Void, Never>?
     @State private var errorText: String?
     @State private var speech = SpeechInput()
-    /// 打开页面默认唤起键盘,方便直接打字;长按触发的自动语音不需要键盘,不抢焦点。
+    /// 打开页面默认唤起键盘,方便直接打字;autoStart 触发的自动语音不需要键盘,不抢焦点。
     @FocusState private var isInputFocused: Bool
     /// 开始录音时已输入的文字,听写结果追加在其后。
     @State private var typedPrefix = ""

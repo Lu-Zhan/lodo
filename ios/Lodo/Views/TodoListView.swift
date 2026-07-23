@@ -107,8 +107,8 @@ struct TodoListView: View {
     }
 
     enum SheetMode: Identifiable {
-        /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,
-        /// autoStart 为 true 时弹出后自动开始语音(仅 tab 按钮/小组件"+"触发)。
+        /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,autoStart 为 true
+        /// 时弹出后尝试自动开始语音(具体是否开还看"点击添加自动开始语音"设置项)。
         case agent(prefill: String?, autoStart: Bool)
         /// attachment 非 nil 时来自记忆条目"转为待办"。
         case create(ParsedTask?, TaskAttachment?)
@@ -188,19 +188,14 @@ struct TodoListView: View {
             .navigationTitle("待办")
             .toolbar {
                 #if os(macOS)
-                // macOS 没有下拉手势,agent 入口放工具栏;短按打开/回到最近对话,
-                // 长按直接开语音(与 iOS 悬浮按钮同一套交互,见 ContentView.swift)。
+                // macOS 没有下拉手势,agent 入口放工具栏;是否自动开语音由"点击添加
+                // 自动开始语音"设置项决定(与 iOS 悬浮按钮同一套交互,见 ContentView.swift)。
                 ToolbarItem {
                     Button {
-                        sheet = .agent(prefill: nil, autoStart: false)
+                        sheet = .agent(prefill: nil, autoStart: true)
                     } label: {
                         Label("AI 助手", systemImage: "sparkles")
                     }
-                    .simultaneousGesture(
-                        LongPressGesture(minimumDuration: 0.4).onEnded { _ in
-                            sheet = .agent(prefill: nil, autoStart: true)
-                        }
-                    )
                 }
                 #endif
             }

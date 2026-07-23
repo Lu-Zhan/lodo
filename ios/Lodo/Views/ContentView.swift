@@ -156,10 +156,10 @@ struct ContentView: View {
     /// iOS 18 / macOS 15 起的新 Tab 写法,iOS 18+ 与 macOS 统一走这条路径。
     /// sidebarAdaptable:iPhone 仍是标签栏,iPad 可展开成侧边栏,macOS 呈现为
     /// 系统「提醒事项」式的侧边栏,是待办类 app 在大屏上的标准形态。
-    /// AI 入口(iOS/iPadOS)用叠在 TabView 上的自绘悬浮按钮:短按打开/回到最近
-    /// 对话,长按自动开语音——系统 Tab(role: .search) 拿不到长按手势(系统 tab
-    /// bar chrome 接管手势,挂不上真正生效的 onLongPressGesture),iOS 26 上
-    /// 还发现它跟 TabView(selection:) 共享状态不可靠,遂统一不用。
+    /// AI 入口(iOS/iPadOS)用叠在 TabView 上的自绘悬浮按钮(右下角):点击打开/
+    /// 回到最近对话——曾试过系统 Tab(role: .search)承载这个入口,但它跟
+    /// TabView(selection:) 共享状态在 iOS 26 上不可靠(切普通 tab 会被误当成
+    /// 选中了它,详见 openAgent 调用处历史),遂统一用这个自绘按钮。
     /// macOS 用的是 TodoListView 工具栏里的"AI 助手"按钮(见该文件),不走这里。
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
@@ -186,10 +186,11 @@ struct ContentView: View {
     }
 
     #if os(iOS)
-    /// AI 入口悬浮按钮(iOS 18+):短按打开/回到最近一次对话,不自动开语音。长按:同时自动开语音。
+    /// AI 入口悬浮按钮(iOS 18+,右下角):点击打开/回到最近一次对话;是否自动开
+    /// 语音由"点击添加自动开始语音"设置项(默认开)决定,不再靠长按区分。
     private var agentQuickButton: some View {
         Button {
-            openAgent(autoStart: false)
+            openAgent(autoStart: true)
         } label: {
             Image(systemName: "sparkles")
                 .font(.title2)
@@ -199,13 +200,7 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .hoverEffect(.highlight)
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
-                openAgent(autoStart: true)
-            }
-        )
         .accessibilityLabel("AI 助手")
-        .accessibilityHint("长按直接开始语音")
     }
     #endif
 
