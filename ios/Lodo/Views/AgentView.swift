@@ -346,6 +346,7 @@ struct AgentView: View {
                 .onSubmit { send() }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+                .frame(minHeight: 36)
                 .glassBackground(Capsule())
 
             if showsInlineMic {
@@ -402,8 +403,8 @@ struct AgentView: View {
             }
         } label: {
             Image(systemName: busy ? "stop.fill" : "arrow.up")
-                .font(.system(size: busy ? 13 : 15, weight: .bold))
-                .frame(width: 32, height: 32)
+                .font(.system(size: busy ? 15 : 17, weight: .bold))
+                .frame(width: 36, height: 36)
         }
         .glassProminentButton()
         .buttonBorderShape(.circle)
