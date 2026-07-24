@@ -310,11 +310,10 @@ struct AgentView: View {
         .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
     }
 
-    /// 参考 iMessage 的输入栏:+ 号独立圆按钮;文本框是一个玻璃胶囊,没在打字/
-    /// 正在录音时右侧嵌一个麦克风(点了直接开始/停止录音);一旦有内容待发送
-    /// (打字或已选好附件),麦克风让位,胶囊外侧另弹出一个独立的蓝色圆形发送
-    /// 按钮——这正是 iMessage 输入框"麦克风 ↔ 独立发送按钮"的切换方式,
-    /// 不是同一个位置换图标。
+    /// 参考 iMessage 的输入栏,三个独立玻璃控件一字排开:+ 号圆按钮、文本框
+    /// 胶囊、麦克风/发送圆按钮。没在打字/正在录音时最右是麦克风(点了直接
+    /// 开始/停止录音);一旦有内容待发送(打字或已选好附件),同一个槽位换成
+    /// 蓝色发送按钮——是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标。
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 8) {
             Menu {
@@ -340,23 +339,18 @@ struct AgentView: View {
             .disabled(busy)
             .accessibilityLabel("添加附件")
 
-            HStack(spacing: 8) {
-                TextField("说点什么…", text: $text, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...5)
-                    .focused($isInputFocused)
-                    .onSubmit { send() }
+            TextField("说点什么…", text: $text, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...5)
+                .focused($isInputFocused)
+                .onSubmit { send() }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .glassBackground(Capsule())
 
-                if showsInlineMic {
-                    inlineMicButton
-                }
-            }
-            .padding(.leading, 16)
-            .padding(.trailing, showsInlineMic ? 8 : 16)
-            .padding(.vertical, 8)
-            .glassBackground(Capsule())
-
-            if !showsInlineMic {
+            if showsInlineMic {
+                inlineMicButton
+            } else {
                 sendButton
                     .transition(.scale.combined(with: .opacity))
             }
@@ -384,8 +378,10 @@ struct AgentView: View {
             }
         } label: {
             Image(systemName: speech.isRecording ? "stop.fill" : "mic.fill")
-                .font(.system(size: 18))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(speech.isRecording ? Color.red : Color.accentColor)
+                .frame(width: 36, height: 36)
+                .glassBackground(Circle())
         }
         .buttonStyle(.plain)
         #if os(iOS)
