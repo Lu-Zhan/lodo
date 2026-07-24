@@ -8,8 +8,6 @@ struct ContentView: View {
     @State private var selection: AppTab = .overview
     /// 非 nil 时由待办页弹出全局 agent 并预填文本(lodo://agent 深链触发,空串=无预填)。
     @State private var agentRequest: String?
-    /// tab 栏"添加"按钮触发 agent 时置 true,弹出后自动开始语音(区别于深链/Siri 交接)。
-    @State private var agentAutoStart = false
     /// 非 nil 时由总览页跳到该事项并自动发起改期请求(通知"改期"按钮交接)。
     @State private var rescheduleRequestUUID: String?
     /// 非 nil 时由待办页弹出新建表单并预填标题+内容附件(记忆条目"转为待办"交接)。
@@ -112,7 +110,7 @@ struct ContentView: View {
                 guard url.scheme == "lodo" else { return }
                 switch url.host {
                 case "add":
-                    openAgent(autoStart: true)
+                    openAgent()
                 case "agent":
                     let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                         .queryItems?.first { $0.name == "text" }?.value
@@ -170,8 +168,7 @@ struct ContentView: View {
                 OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
             }
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
-                TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            convertToTodoRequest: $convertToTodoRequest)
+                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
             }
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
                 MemoryListView(onConvertToTodo: convertToTodo)
@@ -188,11 +185,11 @@ struct ContentView: View {
     }
 
     #if os(iOS)
-    /// AI 入口悬浮按钮(iOS 18-25,右下角):点击打开/回到最近一次对话;是否自动开
-    /// 语音由"点击添加自动开始语音"设置项(默认开)决定,不经过长按区分。
+    /// AI 入口悬浮按钮(iOS 18-25,右下角):点击打开/回到最近一次对话,打开后
+    /// 统一唤起键盘(语音改成手动点麦克风图标触发)。
     private var agentQuickButton: some View {
         Button {
-            openAgent(autoStart: true)
+            openAgent()
         } label: {
             Image(systemName: "sparkles")
                 .font(.title2)
@@ -208,9 +205,8 @@ struct ContentView: View {
     /// iOS 26+ 专用:AI 入口用系统 Tab(role: .search)——Liquid Glass 标签栏会把它
     /// 渲成独立于总览/待办/记忆那组之外、贴在最右边的浮动胶囊,是系统给"搜索/
     /// 万能输入"类入口的标准视觉,和其余三个 tab 同一种控件类型但视觉上天然分离。
-    /// 选中这个 tab 不真正停留,onChange 里立刻切回待办并弹出 agent;系统 tab bar
-    /// chrome 接管了手势,这个控件挂不上长按,因此不区分短按/长按,统一按
-    /// "点击添加自动开始语音"设置项(默认开)决定是否自动开语音。
+    /// 选中这个 tab 不真正停留,onChange 里立刻切回待办并弹出 agent,打开后统一
+    /// 唤起键盘。
     @available(iOS 26.0, *)
     private var modernTabsWithSearchAI: some View {
         TabView(selection: $selection) {
@@ -218,8 +214,7 @@ struct ContentView: View {
                 OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
             }
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
-                TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            convertToTodoRequest: $convertToTodoRequest)
+                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
             }
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
                 MemoryListView(onConvertToTodo: convertToTodo)
@@ -231,16 +226,15 @@ struct ContentView: View {
         .tabViewStyle(.sidebarAdaptable)
         .onChange(of: selection) { _, newValue in
             if newValue == .add {
-                openAgent(autoStart: true)
+                openAgent()
             }
         }
     }
     #endif
 
-    private func openAgent(autoStart: Bool) {
+    private func openAgent() {
         selection = .todo
         agentRequest = ""
-        agentAutoStart = autoStart
     }
 
     #if os(iOS)
@@ -289,8 +283,7 @@ struct ContentView: View {
             case .overview:
                 OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
             case .todo:
-                TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                            convertToTodoRequest: $convertToTodoRequest)
+                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
             case .memory:
                 MemoryListView(onConvertToTodo: convertToTodo)
             case .add:
@@ -304,8 +297,7 @@ struct ContentView: View {
             OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
                 .tabItem { Label("总览", systemImage: "square.stack.3d.up") }
                 .tag(AppTab.overview)
-            TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
-                        convertToTodoRequest: $convertToTodoRequest)
+            TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
                 .tabItem { Label("待办", systemImage: "checklist") }
                 .tag(AppTab.todo)
             MemoryListView(onConvertToTodo: convertToTodo)

@@ -14,7 +14,6 @@ public enum AppSettings {
     public static let digestDaysKey = "digestDays"
     public static let hapticsEnabledKey = "hapticsEnabled"
     public static let insightEnabledKey = "insightEnabled"
-    public static let agentAutoRecordOnOpenKey = "agentAutoRecordOnOpen"
     public static let agentSilenceTimeoutSecondsKey = "agentSilenceTimeoutSeconds"
     public static let agentPersonaStyleKey = "agentPersonaStyle"
     public static let agentPersonaCustomKey = "agentPersonaCustom"
@@ -89,13 +88,6 @@ public enum AppSettings {
         UserDefaults.standard.object(forKey: insightEnabledKey) == nil
             ? true
             : UserDefaults.standard.bool(forKey: insightEnabledKey)
-    }
-
-    /// 点击"添加"弹出 AI 助手时自动开始语音,默认开。
-    public static var agentAutoRecordOnOpen: Bool {
-        UserDefaults.standard.object(forKey: agentAutoRecordOnOpenKey) == nil
-            ? true
-            : UserDefaults.standard.bool(forKey: agentAutoRecordOnOpenKey)
     }
 
     /// 语音录音静音多少秒后自动停止,默认 3 秒;0 = 关闭,不自动停止。

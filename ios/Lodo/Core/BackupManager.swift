@@ -233,7 +233,6 @@ enum BackupManager {
             digestDays: AppSettings.digestDays.map(String.init).joined(separator: ","),
             hapticsEnabled: AppSettings.hapticsEnabled,
             insightEnabled: AppSettings.insightEnabled,
-            agentAutoRecordOnOpen: AppSettings.agentAutoRecordOnOpen,
             agentSilenceTimeoutSeconds: AppSettings.agentSilenceTimeoutSeconds,
             agentPersonaStyle: AppSettings.agentPersonaStyle,
             agentPersonaCustom: UserDefaults.standard.string(
@@ -259,7 +258,6 @@ enum BackupManager {
         d.set(s.digestDays, forKey: AppSettings.digestDaysKey)
         d.set(s.hapticsEnabled, forKey: AppSettings.hapticsEnabledKey)
         d.set(s.insightEnabled, forKey: AppSettings.insightEnabledKey)
-        d.set(s.agentAutoRecordOnOpen, forKey: AppSettings.agentAutoRecordOnOpenKey)
         d.set(s.agentSilenceTimeoutSeconds, forKey: AppSettings.agentSilenceTimeoutSecondsKey)
         d.set(s.agentPersonaStyle, forKey: AppSettings.agentPersonaStyleKey)
         d.set(s.agentPersonaCustom, forKey: AppSettings.agentPersonaCustomKey)

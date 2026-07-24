@@ -370,9 +370,7 @@ extension TodoListView {
         guard sheet == nil else { return }
         if let request = agentRequest {
             agentRequest = nil
-            let autoStart = agentAutoStart
-            agentAutoStart = false
-            sheet = .agent(prefill: request.isEmpty ? nil : request, autoStart: autoStart)
+            sheet = .agent(prefill: request.isEmpty ? nil : request)
         }
     }
 }

@@ -47,8 +47,6 @@ enum UndoOp {
 struct TodoListView: View {
     /// 非 nil 时弹出全局 agent 并预填文本(lodo://agent 深链,见 ContentView)。
     @Binding var agentRequest: String?
-    /// tab 栏"添加"按钮触发时置 true:agent 弹出后自动开始语音。
-    @Binding var agentAutoStart: Bool
     /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,见 ContentView)。
     @Binding var convertToTodoRequest: ConvertToTodoRequest?
 
@@ -107,9 +105,9 @@ struct TodoListView: View {
     }
 
     enum SheetMode: Identifiable {
-        /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,autoStart 为 true
-        /// 时弹出后尝试自动开始语音(具体是否开还看"点击添加自动开始语音"设置项)。
-        case agent(prefill: String?, autoStart: Bool)
+        /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,打开后统一
+        /// 唤起键盘(语音改成手动点麦克风图标触发)。
+        case agent(prefill: String?)
         /// attachment 非 nil 时来自记忆条目"转为待办"。
         case create(ParsedTask?, TaskAttachment?)
         /// 编辑事项;agent 路由到修改时带上解析出的新字段预填表单。
@@ -188,11 +186,11 @@ struct TodoListView: View {
             .navigationTitle("待办")
             .toolbar {
                 #if os(macOS)
-                // macOS 没有下拉手势,agent 入口放工具栏;是否自动开语音由"点击添加
-                // 自动开始语音"设置项决定(与 iOS 悬浮按钮同一套交互,见 ContentView.swift)。
+                // macOS 没有下拉手势,agent 入口放工具栏(与 iOS 悬浮按钮同一套交互,
+                // 见 ContentView.swift)。
                 ToolbarItem {
                     Button {
-                        sheet = .agent(prefill: nil, autoStart: true)
+                        sheet = .agent(prefill: nil)
                     } label: {
                         Label("AI 助手", systemImage: "sparkles")
                     }
@@ -206,8 +204,8 @@ struct TodoListView: View {
                 DispatchQueue.main.async { consumeRoutes() }
             }) { mode in
                 switch mode {
-                case .agent(let prefill, let autoStart):
-                    AgentView(prefill: prefill, autoStart: autoStart,
+                case .agent(let prefill):
+                    AgentView(prefill: prefill,
                               submit: { text, threadUUID, history, onThought in
                                   try await route(text, threadUUID: threadUUID,
                                                   history: history, onThought: onThought)
@@ -270,7 +268,7 @@ struct TodoListView: View {
                 #if DEBUG
                 // 截图验证用:--demo-agent 启动参数直接弹出 AI 助手
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent") {
-                    sheet = .agent(prefill: nil, autoStart: false)
+                    sheet = .agent(prefill: nil)
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-ask-duration") {
                     askDurationQueue.append((title: "开周会", planned: 60))
@@ -395,7 +393,7 @@ struct TodoListView: View {
                 } description: {
                     Text("跟 AI 说一句话就能新建,比如「明天下午3点开会」。")
                 } actions: {
-                    Button("开始添加") { sheet = .agent(prefill: nil, autoStart: false) }
+                    Button("开始添加") { sheet = .agent(prefill: nil) }
                         .glassProminentButton()
                 }
             } else if todayTasks.isEmpty {

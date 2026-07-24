@@ -11,7 +11,6 @@ struct AISettingsView: View {
     @AppStorage(AppSettings.useBuiltInKeyKey) private var useBuiltInKey = true
     @AppStorage(AppSettings.agentPersonaStyleKey) private var personaStyle = "默认"
     @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
-    @AppStorage(AppSettings.agentAutoRecordOnOpenKey) private var agentAutoRecordOnOpen = true
     @AppStorage(AppSettings.agentSilenceTimeoutSecondsKey) private var agentSilenceTimeoutSeconds = 3
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
@@ -107,16 +106,12 @@ struct AISettingsView: View {
             }
 
             Section {
-                Toggle("点击添加自动开始语音", isOn: $agentAutoRecordOnOpen)
                 Stepper("静音自动停止:\(agentSilenceTimeoutSeconds) 秒",
                         value: $agentSilenceTimeoutSeconds, in: 0...30, step: 1)
             } header: {
                 Text("语音交互")
             } footer: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。")
-                    Text("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
-                }
+                Text("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
             }
 
             Section {

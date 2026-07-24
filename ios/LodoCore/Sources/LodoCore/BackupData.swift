@@ -287,7 +287,6 @@ public struct BackupSettings: Codable {
     public var digestDays: String
     public var hapticsEnabled: Bool
     public var insightEnabled: Bool
-    public var agentAutoRecordOnOpen: Bool
     public var agentSilenceTimeoutSeconds: Int
     public var agentPersonaStyle: String
     public var agentPersonaCustom: String
@@ -300,7 +299,7 @@ public struct BackupSettings: Codable {
     public init(
         snoozeMinutes: Int, allDayTime: String, digestEnabled: Bool, digestTime: String,
         digestTimes: String, digestRepeatType: String, digestDays: String, hapticsEnabled: Bool,
-        insightEnabled: Bool, agentAutoRecordOnOpen: Bool, agentSilenceTimeoutSeconds: Int,
+        insightEnabled: Bool, agentSilenceTimeoutSeconds: Int,
         agentPersonaStyle: String, agentPersonaCustom: String, aiProvider: String,
         aiModel: String, aiCustomEndpoint: String, icloudSyncEnabled: Bool,
         thinkingLevel: String = "medium"
@@ -314,7 +313,6 @@ public struct BackupSettings: Codable {
         self.digestDays = digestDays
         self.hapticsEnabled = hapticsEnabled
         self.insightEnabled = insightEnabled
-        self.agentAutoRecordOnOpen = agentAutoRecordOnOpen
         self.agentSilenceTimeoutSeconds = agentSilenceTimeoutSeconds
         self.agentPersonaStyle = agentPersonaStyle
         self.agentPersonaCustom = agentPersonaCustom

@@ -28,7 +28,7 @@ final class BackupDataTests: XCTestCase {
                 snoozeMinutes: 15, allDayTime: "09:00", digestEnabled: true,
                 digestTime: "21:00", digestTimes: "09:00,21:00", digestRepeatType: "daily",
                 digestDays: "0,1,2,3,4", hapticsEnabled: true, insightEnabled: true,
-                agentAutoRecordOnOpen: true, agentSilenceTimeoutSeconds: 3,
+                agentSilenceTimeoutSeconds: 3,
                 agentPersonaStyle: "默认", agentPersonaCustom: "", aiProvider: "DeepSeek",
                 aiModel: "", aiCustomEndpoint: "", icloudSyncEnabled: true))
 
