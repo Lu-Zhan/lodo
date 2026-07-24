@@ -131,11 +131,13 @@ struct ContentView: View {
     private var tabs: some View {
         if #available(iOS 26.0, macOS 26.0, *) {
             // iOS 26+:标签栏随内容下滑收起(仅 iOS);AI 入口仍用 modernTabs 里
-            // 那个悬浮按钮——曾经改用系统 Tab(role: .search)承载 AI 入口,
-            // 但它和 TabView(selection:) 共享同一个 selection 状态在 iOS 26
-            // 上并不可靠(切换普通 tab 时会被系统偶发误置为 search tab 被选中,
-            // 导致 onChange 误触发弹出 AI 助手,即使用户完全没点过那个按钮),
-            // 遂放弃这个写法,统一回悬浮按钮方案。
+            // 那个悬浮按钮——试过两版系统原生 .search 控件承载这个入口:
+            // Tab(role: .search) 和 TabView(selection:) 共享 selection 状态,
+            // 切普通 tab 会被偶发误置为选中 search tab,导致自动弹出 AI;
+            // DefaultToolbarItem(kind: .search, placement: .bottomBar) 则在
+            // TabView 里根本不会浮到右下角(那个 placement 只在独立 NavigationStack
+            // 的场景生效),实测会跑到顶部工具栏、还在底部留一条空白残影。
+            // 两条路都验证过不可行,遂放弃,统一用这个自绘悬浮按钮。
             #if os(iOS)
             modernTabs.tabBarMinimizeBehavior(.onScrollDown)
             #else
@@ -157,9 +159,8 @@ struct ContentView: View {
     /// sidebarAdaptable:iPhone 仍是标签栏,iPad 可展开成侧边栏,macOS 呈现为
     /// 系统「提醒事项」式的侧边栏,是待办类 app 在大屏上的标准形态。
     /// AI 入口(iOS/iPadOS)用叠在 TabView 上的自绘悬浮按钮(右下角):点击打开/
-    /// 回到最近对话——曾试过系统 Tab(role: .search)承载这个入口,但它跟
-    /// TabView(selection:) 共享状态在 iOS 26 上不可靠(切普通 tab 会被误当成
-    /// 选中了它,详见 openAgent 调用处历史),遂统一用这个自绘按钮。
+    /// 回到最近对话——系统原生 .search 控件试过两种写法都不可靠/不达预期
+    /// (见 tabs 属性上的注释),遂统一用这个自绘按钮。
     /// macOS 用的是 TodoListView 工具栏里的"AI 助手"按钮(见该文件),不走这里。
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
@@ -186,8 +187,8 @@ struct ContentView: View {
     }
 
     #if os(iOS)
-    /// AI 入口悬浮按钮(iOS 18+,右下角):点击打开/回到最近一次对话;是否自动开
-    /// 语音由"点击添加自动开始语音"设置项(默认开)决定,不再靠长按区分。
+    /// AI 入口悬浮按钮(iOS 18-25,右下角):点击打开/回到最近一次对话;是否自动开
+    /// 语音由"点击添加自动开始语音"设置项(默认开)决定,不经过长按区分。
     private var agentQuickButton: some View {
         Button {
             openAgent(autoStart: true)
