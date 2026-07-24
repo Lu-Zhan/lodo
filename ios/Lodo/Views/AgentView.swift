@@ -97,24 +97,31 @@ struct AgentView: View {
         NavigationStack {
             Group {
                 if let thread = activeThread {
-                    VStack(spacing: 0) {
-                        AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
-                                            onUndo: handleUndo,
-                                            onMemorizeSuggestion: handleMemorizeSuggestion,
-                                            onTaskProposalConfirm: handleTaskProposalConfirm,
-                                            onTaskProposalCancel: handleTaskProposalCancel,
-                                            onTaskProposalTap: handleTaskProposalTap,
-                                            onExamplePrompt: { send(overrideText: $0) })
-                            .id(thread.uuid)
-                        thinkingRow
-                        suggestionRow
-                        attachmentChipsRow
-                        if let error = errorText ?? speech.errorText {
-                            Text(error).font(.footnote).foregroundStyle(.red)
-                                .padding(.horizontal)
+                    // 输入栏这坨挂在 ScrollView 的 safeAreaInset(而不是跟消息列表
+                    // 平铺在同一个 VStack 里),消息才会真的滚到它背后——玻璃
+                    // 材质需要背后有内容衬着才会显出模糊透光的效果,平铺布局下
+                    // 输入栏后面只有纯色页面背景,glassBackground 看起来就跟实心
+                    // 胶囊没区别。
+                    AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
+                                        onUndo: handleUndo,
+                                        onMemorizeSuggestion: handleMemorizeSuggestion,
+                                        onTaskProposalConfirm: handleTaskProposalConfirm,
+                                        onTaskProposalCancel: handleTaskProposalCancel,
+                                        onTaskProposalTap: handleTaskProposalTap,
+                                        onExamplePrompt: { send(overrideText: $0) })
+                        .id(thread.uuid)
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            VStack(spacing: 0) {
+                                thinkingRow
+                                suggestionRow
+                                attachmentChipsRow
+                                if let error = errorText ?? speech.errorText {
+                                    Text(error).font(.footnote).foregroundStyle(.red)
+                                        .padding(.horizontal)
+                                }
+                                inputBar
+                            }
                         }
-                        inputBar
-                    }
                 } else {
                     ProgressView()
                 }
