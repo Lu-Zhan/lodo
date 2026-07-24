@@ -400,11 +400,11 @@ struct AgentView: View {
         } label: {
             Image(systemName: busy ? "stop.fill" : "arrow.up")
                 .font(.system(size: busy ? 13 : 15, weight: .bold))
-                .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
-                .background(busy ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor), in: Circle())
         }
-        .buttonStyle(.plain)
+        .glassProminentButton()
+        .buttonBorderShape(.circle)
+        .tint(busy ? Color.secondary : Color.accentColor)
         .accessibilityLabel(busy ? "取消" : "发送")
     }
 

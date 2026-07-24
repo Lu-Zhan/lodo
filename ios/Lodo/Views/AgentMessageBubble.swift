@@ -163,9 +163,7 @@ struct AgentMessageBubble: View {
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.background, in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous)
-                    .strokeBorder(.separator))
+                .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             }
         }
     }
@@ -263,9 +261,7 @@ private struct AgentTaskCard: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background, in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous)
-                .strokeBorder(.separator))
+            .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(onTap == nil)
