@@ -20,7 +20,7 @@ struct ContentView: View {
     #endif
 
     enum AppTab: Hashable {
-        case overview, todo, memory
+        case overview, todo, memory, add
     }
 
     /// 上次前台全量重排的时间,30 秒内重复 active 不再触发(避免频繁切换的重排风暴)。
@@ -130,16 +130,17 @@ struct ContentView: View {
     @ViewBuilder
     private var tabs: some View {
         if #available(iOS 26.0, macOS 26.0, *) {
-            // iOS 26+:标签栏随内容下滑收起(仅 iOS);AI 入口仍用 modernTabs 里
-            // 那个悬浮按钮——试过两版系统原生 .search 控件承载这个入口:
-            // Tab(role: .search) 和 TabView(selection:) 共享 selection 状态,
-            // 切普通 tab 会被偶发误置为选中 search tab,导致自动弹出 AI;
-            // DefaultToolbarItem(kind: .search, placement: .bottomBar) 则在
-            // TabView 里根本不会浮到右下角(那个 placement 只在独立 NavigationStack
-            // 的场景生效),实测会跑到顶部工具栏、还在底部留一条空白残影。
-            // 两条路都验证过不可行,遂放弃,统一用这个自绘悬浮按钮。
+            // iOS 26+:AI 入口用系统 Tab(role: .search)承载(见
+            // modernTabsWithSearchAI),标签栏随内容下滑收起(仅 iOS)。
+            // 已知风险:这个控件跟 TabView(selection:) 共享同一个 selection
+            // 状态,在 iOS 26 上被观察到不可靠——切换普通 tab 时可能被系统
+            // 偶发误置为选中了 search tab,导致 onChange 误触发自动弹出 AI
+            // 助手(即使用户完全没点过这个按钮)。之前因为这个 bug 改回过自绘
+            // 悬浮按钮,这版是应要求重新换回来的,如果"切 tab 自动弹出 AI"
+            // 的问题复现,先看这里。DefaultToolbarItem(kind: .search) 试过
+            // 不是解法——那个 placement 在 TabView 里根本不会浮到右下角。
             #if os(iOS)
-            modernTabs.tabBarMinimizeBehavior(.onScrollDown)
+            modernTabsWithSearchAI.tabBarMinimizeBehavior(.onScrollDown)
             #else
             modernTabs
             #endif
@@ -155,13 +156,13 @@ struct ContentView: View {
         }
     }
 
-    /// iOS 18 / macOS 15 起的新 Tab 写法,iOS 18+ 与 macOS 统一走这条路径。
+    /// iOS 18 / macOS 15 起的新 Tab 写法,iOS 18-25 与 macOS 走这条路径。
     /// sidebarAdaptable:iPhone 仍是标签栏,iPad 可展开成侧边栏,macOS 呈现为
     /// 系统「提醒事项」式的侧边栏,是待办类 app 在大屏上的标准形态。
     /// AI 入口(iOS/iPadOS)用叠在 TabView 上的自绘悬浮按钮(右下角):点击打开/
-    /// 回到最近对话——系统原生 .search 控件试过两种写法都不可靠/不达预期
-    /// (见 tabs 属性上的注释),遂统一用这个自绘按钮。
-    /// macOS 用的是 TodoListView 工具栏里的"AI 助手"按钮(见该文件),不走这里。
+    /// 回到最近对话。iOS 26 改走 modernTabsWithSearchAI 的 Tab(role: .search),
+    /// 不经过这里。macOS 用的是 TodoListView 工具栏里的"AI 助手"按钮
+    /// (见该文件),也不走这里。
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
         TabView(selection: $selection) {
@@ -202,6 +203,37 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .hoverEffect(.highlight)
         .accessibilityLabel("AI 助手")
+    }
+
+    /// iOS 26+ 专用:AI 入口用系统 Tab(role: .search)——Liquid Glass 标签栏会把它
+    /// 渲成独立于总览/待办/记忆那组之外、贴在最右边的浮动胶囊,是系统给"搜索/
+    /// 万能输入"类入口的标准视觉,和其余三个 tab 同一种控件类型但视觉上天然分离。
+    /// 选中这个 tab 不真正停留,onChange 里立刻切回待办并弹出 agent;系统 tab bar
+    /// chrome 接管了手势,这个控件挂不上长按,因此不区分短按/长按,统一按
+    /// "点击添加自动开始语音"设置项(默认开)决定是否自动开语音。
+    @available(iOS 26.0, *)
+    private var modernTabsWithSearchAI: some View {
+        TabView(selection: $selection) {
+            Tab("总览", systemImage: "square.stack.3d.up", value: AppTab.overview) {
+                OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
+            }
+            Tab("待办", systemImage: "checklist", value: AppTab.todo) {
+                TodoListView(agentRequest: $agentRequest, agentAutoStart: $agentAutoStart,
+                            convertToTodoRequest: $convertToTodoRequest)
+            }
+            Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
+                MemoryListView(onConvertToTodo: convertToTodo)
+            }
+            Tab("AI 助手", systemImage: "sparkles", value: AppTab.add, role: .search) {
+                Color.clear
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+        .onChange(of: selection) { _, newValue in
+            if newValue == .add {
+                openAgent(autoStart: true)
+            }
+        }
     }
     #endif
 
@@ -261,6 +293,8 @@ struct ContentView: View {
                             convertToTodoRequest: $convertToTodoRequest)
             case .memory:
                 MemoryListView(onConvertToTodo: convertToTodo)
+            case .add:
+                Color.clear
             }
         }
     }
