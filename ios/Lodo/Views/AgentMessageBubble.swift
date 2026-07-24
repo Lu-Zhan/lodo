@@ -76,9 +76,6 @@ struct AgentMessageBubble: View {
     private var assistantBubble: some View {
         HStack {
             content
-                .padding(12)
-                .background(.fill.quaternary,
-                            in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             Spacer(minLength: 40)
         }
     }
