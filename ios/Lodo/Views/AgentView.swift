@@ -101,6 +101,9 @@ struct AgentView: View {
                         AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
                                             onUndo: handleUndo,
                                             onMemorizeSuggestion: handleMemorizeSuggestion,
+                                            onTaskProposalConfirm: handleTaskProposalConfirm,
+                                            onTaskProposalCancel: handleTaskProposalCancel,
+                                            onTaskProposalTap: handleTaskProposalTap,
                                             onExamplePrompt: { send(overrideText: $0) })
                             .id(thread.uuid)
                         thinkingRow
@@ -163,10 +166,9 @@ struct AgentView: View {
                              attachment: target.existing?.attachment) { savedParsed in
                     saveTask(target.existing, savedParsed)
                     if let thread = activeThread {
-                        let verb = target.existing == nil ? "已新建" : "已修改"
-                        appendAssistant(
-                            thread: thread, kind: .text,
-                            content: "\(verb):\(savedParsed.title)(\(TaskItem.format(savedParsed.remindAt)))")
+                        appendTaskResult(
+                            thread: thread, existingUUID: target.existing?.uuid,
+                            parsed: savedParsed)
                     }
                 }
             }
@@ -241,13 +243,10 @@ struct AgentView: View {
     @ViewBuilder
     private var thinkingRow: some View {
         if let thinkingText {
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text(thinkingText).font(.footnote).foregroundStyle(.secondary)
-            }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .transition(.opacity)
+            ShimmerText(text: thinkingText)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .transition(.opacity)
         }
     }
 
@@ -447,16 +446,69 @@ struct AgentView: View {
     @discardableResult
     private func appendAssistant(
         thread: AgentThread, kind: AgentMessageKind, content: String,
-        relatedTitles: [String] = [], clarifyOptions: [String] = []
+        relatedTitles: [String] = [], clarifyOptions: [String] = [],
+        taskSnapshotData: Data? = nil, resultMemoryUUID: UUID? = nil
     ) -> AgentMessage {
         let message = AgentMessage(threadUUID: thread.uuid, role: .assistant, kind: kind,
                                    content: content, relatedTitles: relatedTitles,
-                                   clarifyOptions: clarifyOptions)
+                                   clarifyOptions: clarifyOptions, taskSnapshotData: taskSnapshotData,
+                                   resultMemoryUUID: resultMemoryUUID)
         context.insert(message)
         thread.updatedAt = Date()
         try? context.save()
         latestMessage = message
         return message
+    }
+
+    /// 单条新建/修改:AI 一解析完就追加一条待确认气泡(内联卡片 + Cancel/Confirm),
+    /// 不再自动弹表单——点卡片本身才跳到 TaskEditView(见 handleTaskProposalTap)。
+    private func appendTaskProposal(thread: AgentThread, existingUUID: UUID?, parsed: ParsedTask) {
+        let snapshot = AgentTaskSnapshot(existingUUID: existingUUID, parsed: parsed)
+        appendAssistant(thread: thread, kind: .taskProposal,
+                        content: existingUUID == nil ? "新建" : "修改",
+                        taskSnapshotData: try? JSONEncoder().encode(snapshot))
+    }
+
+    /// 确认(直接点 Confirm,或点卡片进表单改完保存)后的最终态,只读卡片。
+    private func appendTaskResult(thread: AgentThread, existingUUID: UUID?, parsed: ParsedTask) {
+        let snapshot = AgentTaskSnapshot(existingUUID: existingUUID, parsed: parsed)
+        appendAssistant(thread: thread, kind: .taskResult,
+                        content: existingUUID == nil ? "已新建" : "已修改",
+                        taskSnapshotData: try? JSONEncoder().encode(snapshot))
+    }
+
+    /// 按 taskSnapshotData 里的 existingUUID 查出对应的既有事项(修改时用于
+    /// 预填/落库定位;新建时恒为 nil)。
+    private func existingTask(for uuid: UUID?) -> TaskItem? {
+        guard let uuid else { return nil }
+        return try? context.fetch(FetchDescriptor<TaskItem>(
+            predicate: #Predicate<TaskItem> { $0.uuid == uuid })).first
+    }
+
+    /// taskProposal 气泡的"确认新建/确认修改"按钮:原样按 AI 解析出的字段保存,
+    /// 不弹表单。
+    private func handleTaskProposalConfirm(_ message: AgentMessage) {
+        guard let thread = activeThread,
+              let data = message.taskSnapshotData,
+              let snapshot = try? JSONDecoder().decode(AgentTaskSnapshot.self, from: data)
+        else { return }
+        saveTask(existingTask(for: snapshot.existingUUID), snapshot.parsed)
+        appendTaskResult(thread: thread, existingUUID: snapshot.existingUUID, parsed: snapshot.parsed)
+    }
+
+    private func handleTaskProposalCancel(_ message: AgentMessage) {
+        guard let thread = activeThread else { return }
+        appendAssistant(thread: thread, kind: .text, content: "已取消这次操作。")
+    }
+
+    /// 点卡片本身:AI 解析偶尔会错,跳到现有的 TaskEditView 表单微调后再保存
+    /// (复用 formTarget 这套既有 sheet 机制,只是触发时机从"一解析完自动弹"
+    /// 改成"用户主动点卡片")。
+    private func handleTaskProposalTap(_ message: AgentMessage) {
+        guard let data = message.taskSnapshotData,
+              let snapshot = try? JSONDecoder().decode(AgentTaskSnapshot.self, from: data)
+        else { return }
+        formTarget = FormTarget(existing: existingTask(for: snapshot.existingUUID), parsed: snapshot.parsed)
     }
 
     private func handleConfirmAction(_ message: AgentMessage, execute: Bool) {
@@ -480,13 +532,13 @@ struct AgentView: View {
         }
     }
 
-    /// "收藏这条"按钮:AI 主动建议、用户确认后才真正落库,回执文案和用户直接
-    /// 说"记住这个"走的 memorize 分支保持一致。
+    /// "收藏这条"按钮:AI 主动建议、用户确认后才真正落库,展示形态和 memorize
+    /// 分支(route() 里)一致的记忆结果卡片。
     private func handleMemorizeSuggestion(_ message: AgentMessage) {
         guard let thread = activeThread else { return }
-        MemoryPipeline.saveText(message.content, context: context)
-        appendAssistant(thread: thread, kind: .text,
-                        content: "已收藏「\(MemorySearch.truncate(message.content, limit: 20))」,AI 正在整理成记忆条目。")
+        let item = MemoryPipeline.saveText(message.content, context: context)
+        appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
+                        resultMemoryUUID: item?.uuid)
     }
 
     // MARK: - 附件
@@ -599,7 +651,7 @@ struct AgentView: View {
                 guard !Task.isCancelled else { return }
                 switch reply {
                 case .routeToForm(let existing, let parsed):
-                    formTarget = FormTarget(existing: existing, parsed: parsed)
+                    appendTaskProposal(thread: thread, existingUUID: existing?.uuid, parsed: parsed)
                 case .confirm(let lines):
                     appendAssistant(thread: thread, kind: .confirm, content: lines.joined(separator: "\n"))
                 case .clarify(let question, let options):
@@ -609,6 +661,9 @@ struct AgentView: View {
                     appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
                 case .suggestMemorize(let text):
                     appendAssistant(thread: thread, kind: .memorizeSuggestion, content: text)
+                case .memorized(let uuid):
+                    appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
+                                    resultMemoryUUID: uuid)
                 }
                 if isFirstMessage {
                     refineThreadTitle(thread: thread, userText: trimmed, reply: reply)
@@ -650,6 +705,7 @@ struct AgentView: View {
         case .clarify(let question, _): return question
         case .answer(let text, _): return text
         case .suggestMemorize(let text): return text
+        case .memorized: return "已收藏一条记忆"
         }
     }
 
@@ -679,6 +735,20 @@ struct AgentView: View {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "我周三下午一般没空"))
             appendAssistant(thread: thread, kind: .memorizeSuggestion, content: "用户周三下午通常没有空闲时间")
         }
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-proposal") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
+            appendTaskProposal(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask)
+        }
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
+            appendTaskResult(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask)
+        }
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-memory-result") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "记住wifi密码是8888"))
+            let item = MemoryPipeline.saveText("wifi密码是8888", context: context)
+            appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
+                            resultMemoryUUID: item?.uuid)
+        }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-threads") {
             for title in ["记住wifi密码是8888", "我想去香山爬山"] {
                 let extra = AgentThread()
@@ -693,6 +763,12 @@ struct AgentView: View {
                 showThreads = true
             }
         }
+    }
+
+    private static var demoParsedTask: ParsedTask {
+        ParsedTask(title: "开会", remindAt: Date().addingTimeInterval(3600),
+                   allDay: false, durationMinutes: 60, repeatType: .none,
+                   repeatDays: [], repeatTimes: [])
     }
     #endif
 }
@@ -727,17 +803,26 @@ private struct AgentMessageListView: View {
     let onConfirmAction: (AgentMessage, Bool) -> Void
     let onUndo: () -> Void
     let onMemorizeSuggestion: (AgentMessage) -> Void
+    let onTaskProposalConfirm: (AgentMessage) -> Void
+    let onTaskProposalCancel: (AgentMessage) -> Void
+    let onTaskProposalTap: (AgentMessage) -> Void
     let onExamplePrompt: (String) -> Void
 
     @Query private var messages: [AgentMessage]
 
     init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
          onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
+         onTaskProposalConfirm: @escaping (AgentMessage) -> Void,
+         onTaskProposalCancel: @escaping (AgentMessage) -> Void,
+         onTaskProposalTap: @escaping (AgentMessage) -> Void,
          onExamplePrompt: @escaping (String) -> Void) {
         self.thread = thread
         self.onConfirmAction = onConfirmAction
         self.onUndo = onUndo
         self.onMemorizeSuggestion = onMemorizeSuggestion
+        self.onTaskProposalConfirm = onTaskProposalConfirm
+        self.onTaskProposalCancel = onTaskProposalCancel
+        self.onTaskProposalTap = onTaskProposalTap
         self.onExamplePrompt = onExamplePrompt
         let uuid = thread.uuid
         _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == uuid },
@@ -757,7 +842,10 @@ private struct AgentMessageListView: View {
                             onConfirm: { onConfirmAction(message, true) },
                             onCancelConfirm: { onConfirmAction(message, false) },
                             onUndo: onUndo,
-                            onMemorizeSuggestion: { onMemorizeSuggestion(message) })
+                            onMemorizeSuggestion: { onMemorizeSuggestion(message) },
+                            onTaskProposalConfirm: { onTaskProposalConfirm(message) },
+                            onTaskProposalCancel: { onTaskProposalCancel(message) },
+                            onTaskProposalTap: { onTaskProposalTap(message) })
                         .id(message.uuid)
                     }
                 }

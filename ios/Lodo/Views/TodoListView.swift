@@ -8,17 +8,19 @@ import UIKit
 
 /// 全局 agent 一次解析后的回应形态(AgentView 据此展示)。
 enum AgentReply {
-    /// 单条新建/修改:AgentView 叠一个 TaskEditView 在聊天页上面,
-    /// 保存后由 AgentView 自己往当前 thread 追加一条结果消息。
+    /// 单条新建/修改:AgentView 追加一条待确认的 taskProposal 气泡(内联卡片 +
+    /// Cancel/Confirm),点卡片本身可跳到 TaskEditView 微调。
     case routeToForm(existing: TaskItem?, parsed: ParsedTask)
     /// 需要确认的操作清单(批量或含完成/删除),元素为中文描述。
     case confirm([String])
     /// 关键信息缺失,反问 + 候选补充。
     case clarify(question: String, options: [String])
-    /// 记忆问答的回答,或收藏回执;related 为相关条目标题(可为空),不做跳转。
+    /// 记忆问答的回答;related 为相关条目标题(可为空),不做跳转。
     case answer(text: String, related: [String])
     /// AI 主动建议收藏(用户没明确要求);气泡上带"收藏这条"按钮,点了才真正落库。
     case suggestMemorize(text: String)
+    /// 单条收藏已直接落库(memorize),AgentView 据 uuid 展示记忆结果卡片。
+    case memorized(uuid: UUID)
 }
 
 /// 记忆条目左滑"转为待办"交接的载荷(见 ContentView)。

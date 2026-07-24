@@ -11,6 +11,9 @@ struct AgentMessageBubble: View {
     var onCancelConfirm: () -> Void = {}
     var onUndo: () -> Void = {}
     var onMemorizeSuggestion: () -> Void = {}
+    var onTaskProposalConfirm: () -> Void = {}
+    var onTaskProposalCancel: () -> Void = {}
+    var onTaskProposalTap: () -> Void = {}
 
     @Environment(\.modelContext) private var context
 
@@ -32,6 +35,20 @@ struct AgentMessageBubble: View {
             predicate: #Predicate<MemoryItem> { uuids.contains($0.uuid) }))) ?? []
         let byUUID = Dictionary(uniqueKeysWithValues: fetched.map { ($0.uuid, $0) })
         return uuids.compactMap { byUUID[$0] }
+    }
+
+    /// memoryResult 消息指向的条目;查不到(已被删除)时卡片自然不渲染。
+    private var resultMemoryItem: MemoryItem? {
+        guard let uuid = message.resultMemoryUUID else { return nil }
+        return try? context.fetch(FetchDescriptor<MemoryItem>(
+            predicate: #Predicate<MemoryItem> { $0.uuid == uuid })).first
+    }
+
+    /// taskProposal/taskResult 消息的字段快照;解码失败(理论上不会发生)时
+    /// 调用方退化显示 message.content。
+    private var taskSnapshot: AgentTaskSnapshot? {
+        guard let data = message.taskSnapshotData else { return nil }
+        return try? JSONDecoder().decode(AgentTaskSnapshot.self, from: data)
     }
 
     private var userBubble: some View {
@@ -81,6 +98,78 @@ struct AgentMessageBubble: View {
             executedContent
         case .memorizeSuggestion:
             memorizeSuggestionContent
+        case .taskProposal:
+            taskProposalContent
+        case .taskResult:
+            taskResultContent
+        case .memoryResult:
+            memoryResultContent
+        }
+    }
+
+    @ViewBuilder
+    private var taskProposalContent: some View {
+        if let taskSnapshot {
+            VStack(alignment: .leading, spacing: 10) {
+                AgentTaskCard(snapshot: taskSnapshot, onTap: isLatest ? onTaskProposalTap : nil)
+                if isLatest {
+                    HStack {
+                        Button("取消") { onTaskProposalCancel() }
+                            .buttonStyle(.bordered)
+                        Button {
+                            Haptics.success()
+                            onTaskProposalConfirm()
+                        } label: {
+                            Label(taskSnapshot.existingUUID == nil ? "确认新建" : "确认修改",
+                                  systemImage: "checkmark")
+                        }
+                        .glassProminentButton()
+                    }
+                }
+            }
+        } else {
+            Text(message.content).font(.subheadline)
+        }
+    }
+
+    @ViewBuilder
+    private var taskResultContent: some View {
+        if let taskSnapshot {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(message.content).font(.subheadline)
+                AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
+            }
+        } else {
+            Text(message.content).font(.subheadline)
+        }
+    }
+
+    @ViewBuilder
+    private var memoryResultContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(message.content).font(.subheadline)
+            if let item = resultMemoryItem {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: item.kind.symbol)
+                        .foregroundStyle(.tint)
+                        .frame(width: 20)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
+                        if !item.summary.isEmpty {
+                            Text(item.summary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous)
+                    .strokeBorder(.separator))
+            }
         }
     }
 
@@ -155,5 +244,33 @@ struct AgentMessageBubble: View {
         if line.hasPrefix("删除") { return "trash.circle" }
         if line.hasPrefix("收藏") { return "bookmark.circle" }
         return "circle"
+    }
+}
+
+/// taskProposal/taskResult 共用的事项卡片:标题 + caption,视觉上贴近
+/// TaskRowView 但不带 swipe actions。onTap 为 nil 时不可点(结果卡片是只读
+/// 历史,不像提案卡片那样能跳去表单微调)。
+private struct AgentTaskCard: View {
+    let snapshot: AgentTaskSnapshot
+    var onTap: (() -> Void)?
+
+    var body: some View {
+        Button {
+            onTap?()
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(snapshot.parsed.title)
+                Text(snapshot.parsed.caption)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.background, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous)
+                .strokeBorder(.separator))
+        }
+        .buttonStyle(.plain)
+        .disabled(onTap == nil)
     }
 }

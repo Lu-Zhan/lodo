@@ -22,6 +22,16 @@ public enum AgentMessageKind: String {
     /// AI 主动建议收藏(用户没明确要求);只在"当前 thread 最新一条"时气泡上带
     /// "收藏这条"按钮,和 confirm/executed 同一个道理。
     case memorizeSuggestion
+    /// 单条新建/修改的待确认提案;卡片 + Cancel/Confirm,按钮只在"当前 thread
+    /// 最新一条"时可点,和 confirm/executed 同一个道理。taskSnapshotData 存
+    /// AI 解析出的字段。
+    case taskProposal
+    /// 单条新建/修改确认后的最终态,只读卡片,不带按钮;taskSnapshotData 存
+    /// 实际保存的字段(可能是用户点卡片进表单改过的,不一定等于提案阶段的值)。
+    case taskResult
+    /// 收藏(memorize/suggestMemorize 确认后)完成态,只读卡片;
+    /// resultMemoryUUID 指向对应的 MemoryItem。
+    case memoryResult
 }
 
 /// 对话里的一条消息。不建 SwiftData 关系,按 threadUUID 过滤查询即可
@@ -41,12 +51,18 @@ public final class AgentMessage {
     /// 这条消息带的附件,按顺序指向对应的 MemoryItem;没带附件为空数组。
     /// 每个附件既可能是发送前临时收藏的新内容,也可能是从记忆库里选的已有条目。
     public var attachmentMemoryUUIDs: [UUID] = []
+    /// taskProposal/taskResult 消息的字段快照(JSON 编码的 AgentTaskSnapshot);
+    /// 其余 kind 恒为 nil。
+    public var taskSnapshotData: Data? = nil
+    /// memoryResult 消息指向的 MemoryItem;其余 kind 恒为 nil。
+    public var resultMemoryUUID: UUID? = nil
     public var createdAt: Date = Date.now
 
     public init(
         threadUUID: UUID, role: AgentMessageRole, kind: AgentMessageKind = .text,
         content: String, relatedTitles: [String] = [], clarifyOptions: [String] = [],
-        attachmentMemoryUUIDs: [UUID] = []
+        attachmentMemoryUUIDs: [UUID] = [], taskSnapshotData: Data? = nil,
+        resultMemoryUUID: UUID? = nil
     ) {
         self.uuid = UUID()
         self.threadUUID = threadUUID
@@ -56,6 +72,8 @@ public final class AgentMessage {
         self.relatedTitles = relatedTitles
         self.clarifyOptions = clarifyOptions
         self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
+        self.taskSnapshotData = taskSnapshotData
+        self.resultMemoryUUID = resultMemoryUUID
         self.createdAt = Date()
     }
 

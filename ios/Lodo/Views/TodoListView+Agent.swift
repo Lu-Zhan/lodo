@@ -93,10 +93,10 @@ extension TodoListView {
                         return .routeToForm(existing: task, parsed: parsed)
                     }
                     if case .memorize(let text) = actions[0] {
-                        MemoryPipeline.saveText(text, context: context)
-                        return .answer(
-                            text: "已收藏「\(MemorySearch.truncate(text, limit: 20))」,AI 正在整理成记忆条目。",
-                            related: [])
+                        guard let item = MemoryPipeline.saveText(text, context: context) else {
+                            return .answer(text: "收藏失败,内容为空。", related: [])
+                        }
+                        return .memorized(uuid: item.uuid)
                     }
                     if case .suggestMemorize(let text) = actions[0] {
                         return .suggestMemorize(text: text)

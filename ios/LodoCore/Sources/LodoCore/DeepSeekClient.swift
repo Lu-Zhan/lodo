@@ -1,7 +1,7 @@
 import Foundation
 
 /// AI 解析/编辑得到的事项字段,创建与编辑表单共用的值包。
-public struct ParsedTask {
+public struct ParsedTask: Codable, Equatable {
     public var title: String
     public var remindAt: Date
     public var allDay: Bool
@@ -28,6 +28,28 @@ extension ParsedTask {
         self.init(title: task.title, remindAt: task.remindAt, allDay: task.allDay,
                   durationMinutes: task.durationMinutes, repeatType: task.repeatType,
                   repeatDays: task.repeatDays, repeatTimes: task.repeatTimes)
+    }
+
+    /// 展示用说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"——对齐
+    /// `TaskItem.caption`/`TaskData.repeatLabel` 的格式,但基于 `remindAt` 本身
+    /// (新建/修改提案阶段还没有事项实体,没有"下一次触发"这个概念)。
+    public var caption: String {
+        var parts = [TaskItem.format(remindAt)]
+        if repeatType != .none {
+            let times = repeatTimes.joined(separator: "/")
+            if repeatType == .daily {
+                parts.append("每天 \(times)")
+            } else {
+                let days = repeatDays.sorted()
+                    .map { String(weekdayNames[$0].dropFirst()) }
+                    .joined(separator: "、")
+                parts.append("每周\(days) \(times)")
+            }
+        } else if allDay {
+            parts.append("全天")
+        }
+        if durationMinutes > 0 { parts.append("\(durationMinutes) 分钟") }
+        return parts.joined(separator: " · ")
     }
 }
 
