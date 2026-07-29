@@ -21,7 +21,7 @@ final class BackupDataTests: XCTestCase {
                 uuid: UUID(), title: "新对话", createdAt: Date(), updatedAt: Date())],
             agentMessages: [BackupAgentMessage(
                 uuid: UUID(), threadUUID: UUID(), roleRaw: "user", kindRaw: "text",
-                content: "你好", relatedTitles: [], clarifyOptions: [],
+                content: "你好", relatedTitles: [],
                 attachmentMemoryUUIDs: [], createdAt: Date())],
             skillOverrides: [BackupSkillOverride(id: "agent", content: "自定义总则")],
             settings: BackupSettings(

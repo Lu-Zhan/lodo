@@ -12,8 +12,11 @@ public enum AgentMessageKind: String {
     case text
     /// 操作清单;按钮只在"当前 thread 最新一条"时可点,历史里的都是纯展示。
     case confirm
-    /// 反问;候选不放气泡里,由输入栏上方的建议行展示(仅最新消息生效)。
-    case clarify
+    /// 待回答的反问;askSnapshotData 存题目,气泡渲染成可交互的询问卡
+    /// (可翻页、单选/多选、带推荐项),按钮只在"当前 thread 最新一条"时可点。
+    case ask
+    /// 反问已作答的只读记录卡;askSnapshotData 里 answers 与 questions 等长。
+    case askResult
     /// 记忆问答的回答,relatedTitles 附相关条目标题。
     case answer
     /// 批量操作执行完的回执;只在"当前 thread 最新一条"时气泡上带"撤销"按钮,
@@ -46,8 +49,9 @@ public final class AgentMessage {
     public var content: String = ""
     /// answer 消息的相关记忆条目标题;其余 kind 恒为空。
     public var relatedTitles: [String] = []
-    /// clarify 消息的候选补充;由输入栏上方的建议行读取,不嵌进气泡里。
-    public var clarifyOptions: [String] = []
+    /// ask/askResult 消息的题目与答案(JSON 编码的 AgentAskSnapshot);
+    /// 其余 kind 恒为 nil。
+    public var askSnapshotData: Data? = nil
     /// 这条消息带的附件,按顺序指向对应的 MemoryItem;没带附件为空数组。
     /// 每个附件既可能是发送前临时收藏的新内容,也可能是从记忆库里选的已有条目。
     public var attachmentMemoryUUIDs: [UUID] = []
@@ -60,7 +64,7 @@ public final class AgentMessage {
 
     public init(
         threadUUID: UUID, role: AgentMessageRole, kind: AgentMessageKind = .text,
-        content: String, relatedTitles: [String] = [], clarifyOptions: [String] = [],
+        content: String, relatedTitles: [String] = [], askSnapshotData: Data? = nil,
         attachmentMemoryUUIDs: [UUID] = [], taskSnapshotData: Data? = nil,
         resultMemoryUUID: UUID? = nil
     ) {
@@ -70,7 +74,7 @@ public final class AgentMessage {
         self.kindRaw = kind.rawValue
         self.content = content
         self.relatedTitles = relatedTitles
-        self.clarifyOptions = clarifyOptions
+        self.askSnapshotData = askSnapshotData
         self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         self.taskSnapshotData = taskSnapshotData
         self.resultMemoryUUID = resultMemoryUUID

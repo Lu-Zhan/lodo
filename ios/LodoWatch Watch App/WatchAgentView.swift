@@ -17,7 +17,9 @@ struct WatchAgentView: View {
     @State private var errorText: String?
     @State private var pendingActions: [AIAction] = []
     @State private var confirmLines: [String]?
-    @State private var clarify: (question: String, options: [String])?
+    /// AI 反问的第一道题。手表屏幕太小,不做 iPhone 那张可翻页的询问卡:
+    /// 一次只展示一道,选完带着补充重新解析,模型还缺信息就会再问下一道。
+    @State private var clarify: AskQuestion?
     @State private var clarifyBase = ""
 
     var body: some View {
@@ -57,12 +59,14 @@ struct WatchAgentView: View {
         }
     }
 
-    private func clarifySection(_ clarify: (question: String, options: [String])) -> some View {
+    private func clarifySection(_ clarify: AskQuestion) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(clarify.question, systemImage: "questionmark.circle").font(.footnote)
-            ForEach(clarify.options, id: \.self) { option in
-                Button(option) { resolveClarify(with: option) }
-                    .font(.footnote)
+            ForEach(Array(clarify.options.enumerated()), id: \.offset) { _, option in
+                Button(option.recommended ? "\(option.label)(推荐)" : option.label) {
+                    resolveClarify(with: option.label)
+                }
+                .font(.footnote)
             }
         }
     }
@@ -112,10 +116,10 @@ struct WatchAgentView: View {
             defer { busy = false }
             do {
                 switch try await DeepSeekClient.command(trimmed, tasks: taskContext) {
-                case .clarify(let question, let options):
+                case .ask(let questions):
                     clarifyBase = trimmed
                     confirmLines = nil
-                    clarify = (question: question, options: options)
+                    clarify = questions.first
                 case .actions(let actions):
                     clarify = nil
                     pendingActions = actions

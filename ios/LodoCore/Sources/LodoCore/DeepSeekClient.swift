@@ -71,11 +71,12 @@ public enum AIAction {
     case suggestMemorize(text: String)
 }
 
-/// AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或
-/// ReAct 循环里的中间步骤(还没准备好给最终答案,先要执行一个只读工具)。
+/// AI 总入口的返回:操作列表、关键信息缺失时的反问(一次可问多道,每道带
+/// 选项说明与推荐项),或 ReAct 循环里的中间步骤(还没准备好给最终答案,
+/// 先要执行一个只读工具)。
 public enum AICommandResult {
     case actions([AIAction])
-    case clarify(question: String, options: [String])
+    case ask([AskQuestion])
     case toolCall(thought: String, tool: AITool)
 }
 
@@ -226,9 +227,8 @@ public enum DeepSeekClient {
         _ payload: [String: Any], validUUIDs: [String],
         memoryEnabled: Bool, webSearchEnabled: Bool = false
     ) throws -> AICommandResult {
-        if let question = payload["question"] as? String, !question.isEmpty {
-            let options = (payload["options"] as? [Any])?.compactMap { $0 as? String } ?? []
-            return .clarify(question: question, options: options)
+        if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
+            return .ask(try parseAsk(rawAsk))
         }
         // ReAct 中间步骤:对应开关关闭时 prompt 里根本没提过这个选项,
         // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
@@ -328,6 +328,38 @@ public enum DeepSeekClient {
             actions = actions.filter { !isInformational($0) }
         }
         return .actions(actions)
+    }
+
+    /// 反问载荷 → 题目列表(单测入口)。模型不守规矩时按确定性规则收敛,而不是
+    /// 整个请求报错:题目最多 4 道、每题选项最多 6 个,问题文案为空或一个选项都
+    /// 没有的题目直接丢弃;全丢光才报错(这时候卡片没东西可展示,继续下去更糟)。
+    static func parseAsk(_ rawQuestions: [[String: Any]]) throws -> [AskQuestion] {
+        var questions: [AskQuestion] = []
+        for raw in rawQuestions.prefix(4) {
+            let text = (raw["question"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !text.isEmpty else { continue }
+            let options = ((raw["options"] as? [[String: Any]]) ?? []).prefix(6)
+                .compactMap { rawOption -> AskOption? in
+                    let label = (rawOption["label"] as? String)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    guard !label.isEmpty else { return nil }
+                    return AskOption(
+                        label: label,
+                        description: (rawOption["description"] as? String) ?? "",
+                        recommended: (rawOption["recommended"] as? Bool) ?? false)
+                }
+            guard !options.isEmpty else { continue }
+            questions.append(AskQuestion(
+                header: (raw["header"] as? String) ?? "",
+                question: text,
+                multiSelect: (raw["multi_select"] as? Bool) ?? false,
+                options: options))
+        }
+        guard !questions.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:ask 缺少可用问题")
+        }
+        return questions
     }
 
     /// 按记忆文件为"没说时长"的新事项建议时长(分钟);

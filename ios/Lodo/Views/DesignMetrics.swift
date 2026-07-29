@@ -7,4 +7,9 @@ enum DesignMetrics {
     static let chipRadius: CGFloat = 10
     static let cardRadius: CGFloat = 14
     static let bubbleRadius: CGFloat = 18
+    /// AI 助手对话列表侧栏(窄屏抽屉 / 宽屏常驻列)的固定宽度。
+    static let sidebarWidth: CGFloat = 300
+    /// 侧栏展开时被推移缩小的主内容圆角——刻意贴近真机屏幕圆角(而不是
+    /// cardRadius 那种小圆角),让被推开的内容看起来像一整块"缩小的设备屏幕"。
+    static let deviceCornerRadius: CGFloat = 44
 }

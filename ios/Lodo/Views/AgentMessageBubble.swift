@@ -14,6 +14,8 @@ struct AgentMessageBubble: View {
     var onTaskProposalConfirm: () -> Void = {}
     var onTaskProposalCancel: () -> Void = {}
     var onTaskProposalTap: () -> Void = {}
+    var onAskSubmit: ([[String]]) -> Void = { _ in }
+    var onAskCancel: () -> Void = {}
 
     @Environment(\.modelContext) private var context
 
@@ -51,6 +53,12 @@ struct AgentMessageBubble: View {
         return try? JSONDecoder().decode(AgentTaskSnapshot.self, from: data)
     }
 
+    /// ask/askResult 消息的题目与答案;同样解码失败时退化显示 message.content。
+    private var askSnapshot: AgentAskSnapshot? {
+        guard let data = message.askSnapshotData else { return nil }
+        return try? JSONDecoder().decode(AgentAskSnapshot.self, from: data)
+    }
+
     private var userBubble: some View {
         HStack {
             Spacer(minLength: 40)
@@ -76,8 +84,14 @@ struct AgentMessageBubble: View {
     private var assistantBubble: some View {
         HStack {
             content
-            Spacer(minLength: 40)
+            // 询问卡/记录卡本身就是一整块卡片,铺满消息列表的宽度(左右留白对称);
+            // 其余气泡保留右侧那 40pt 让位,和右对齐的用户气泡区分开。
+            if !fillsWidth { Spacer(minLength: 40) }
         }
+    }
+
+    private var fillsWidth: Bool {
+        message.kind == .ask || message.kind == .askResult
     }
 
     @ViewBuilder
@@ -87,8 +101,10 @@ struct AgentMessageBubble: View {
             Text(message.content).font(.subheadline)
         case .confirm:
             confirmContent
-        case .clarify:
-            Label(message.content, systemImage: "questionmark.circle").font(.subheadline)
+        case .ask:
+            askContent
+        case .askResult:
+            askResultContent
         case .answer:
             answerContent
         case .executed:
@@ -124,6 +140,30 @@ struct AgentMessageBubble: View {
                     }
                 }
             }
+        } else {
+            Text(message.content).font(.subheadline)
+        }
+    }
+
+    /// 待回答的询问卡:只有"当前 thread 最新一条"才可交互,历史里那些没答完的
+    /// 退化成只读记录卡(和 confirm/taskProposal 的按钮只在最新一条生效同一个道理)。
+    @ViewBuilder
+    private var askContent: some View {
+        if let askSnapshot {
+            if isLatest {
+                AgentAskCard(snapshot: askSnapshot, onSubmit: onAskSubmit, onCancel: onAskCancel)
+            } else {
+                AgentAskRecordCard(snapshot: askSnapshot)
+            }
+        } else {
+            Text(message.content).font(.subheadline)
+        }
+    }
+
+    @ViewBuilder
+    private var askResultContent: some View {
+        if let askSnapshot {
+            AgentAskRecordCard(snapshot: askSnapshot)
         } else {
             Text(message.content).font(.subheadline)
         }

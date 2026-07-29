@@ -26,13 +26,13 @@ struct AgentView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
     private var threads: [AgentThread]
 
     @State private var currentThreadUUID: UUID?
-    /// 当前 thread 最新一条消息;驱动建议行(clarify 才出现)。
-    @State private var latestMessage: AgentMessage?
     /// ReAct 循环中间步骤的轻量提示(如"正在查记忆…");不落库,循环一结束就清空。
     @State private var thinkingText: String?
 
@@ -47,7 +47,19 @@ struct AgentView: View {
     /// 开始录音时已输入的文字,听写结果追加在其后。
     @State private var typedPrefix = ""
 
+    /// 窄屏时表示抽屉是否展开,宽屏时表示常驻侧栏是否可见;两种布局共用同一个开关。
     @State private var showThreads = false
+    /// 窄屏抽屉横向拖拽关闭手势的实时位移。
+    @State private var sidebarDragOffset: CGFloat = 0
+    /// 本次拖拽的起点 + 归属判定;起点变了就说明换了一次新拖拽,重新判定。
+    /// 不只靠 onEnded 复位:手势被系统中断时 onEnded 不一定会来,只靠它复位会让
+    /// 下一次右滑整个失灵。
+    @State private var dragSession: (start: CGPoint, intent: DragIntent)?
+
+    /// 整页任意位置都能右滑唤出侧栏,所以这个手势和消息列表的纵向滚动是并行挂着的
+    /// (simultaneousGesture)。哪一方接管这次拖拽在**第一帧**就定死、之后不再改判:
+    /// 否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地跳出来。
+    private enum DragIntent { case sidebar, ignored }
     @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showFileImporter = false
     @State private var showMemoryPicker = false
@@ -75,6 +87,13 @@ struct AgentView: View {
         return threads.first
     }
 
+    /// 标题栏正标题:当前对话的标题(首轮消息后换成 AI 总结的那版);还没发过
+    /// 消息的空 thread 用和侧栏列表一致的"新对话"占位。
+    private var threadTitle: String {
+        let title = activeThread?.title ?? ""
+        return title.isEmpty ? "新对话" : title
+    }
+
     /// 标题下面那行小字:服务商 + 思考强度(关闭时不提)+ 联网搜索是否已配置。
     private var aiModeSummary: String {
         var parts = [AppSettings.aiProvider]
@@ -96,76 +115,60 @@ struct AgentView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let thread = activeThread {
-                    // 输入栏这坨挂在 ScrollView 的 safeAreaInset(而不是跟消息列表
-                    // 平铺在同一个 VStack 里),消息才会真的滚到它背后——玻璃
-                    // 材质需要背后有内容衬着才会显出模糊透光的效果,平铺布局下
-                    // 输入栏后面只有纯色页面背景,glassBackground 看起来就跟实心
-                    // 胶囊没区别。
-                    AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
-                                        onUndo: handleUndo,
-                                        onMemorizeSuggestion: handleMemorizeSuggestion,
-                                        onTaskProposalConfirm: handleTaskProposalConfirm,
-                                        onTaskProposalCancel: handleTaskProposalCancel,
-                                        onTaskProposalTap: handleTaskProposalTap,
-                                        onExamplePrompt: { send(overrideText: $0) })
-                        .id(thread.uuid)
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            VStack(spacing: 0) {
-                                thinkingRow
-                                suggestionRow
-                                attachmentChipsRow
-                                if let error = errorText ?? speech.errorText {
-                                    Text(error).font(.footnote).foregroundStyle(.red)
-                                        .padding(.horizontal)
-                                }
-                                inputBar
-                            }
-                        }
+                if horizontalSizeClass == .regular {
+                    regularLayout
                 } else {
-                    ProgressView()
+                    compactLayout
                 }
             }
-            .navigationTitle(activeThread?.title.isEmpty == false ? activeThread!.title : "AI 助手")
+            // 整页按屏幕物理底边布局,不给 home indicator 预留一条死白边——
+            // 输入栏那三个玻璃胶囊因此贴到真正的屏幕底部,聊天内容也一路铺满。
+            // 只忽略 .container(不能用 .all):键盘安全区仍然生效,弹键盘时
+            // 输入栏照常被顶上去。
+            .ignoresSafeArea(.container, edges: .bottom)
+            // 抽屉推开时连标题一起清空:principal 那项被撤掉后,navigationTitle
+            // 会顶上来接着显示,和侧栏自己的标题挤在一起。
+            .navigationTitle(hidesToolbarChrome ? "" : threadTitle)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                // 自定义 principal:标题下加一行当前 AI 模式(服务商/思考强度/
-                // 联网搜索),不然用户在对话里完全看不出现在到底是哪个服务商、
-                // 思考开没开、能不能联网搜索——这些都要跳回设置页才看得到。
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 1) {
-                        Text(activeThread?.title.isEmpty == false ? activeThread!.title : "AI 助手")
-                            .font(.headline)
-                        Text(aiModeSummary)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                ToolbarItem(placement: .navigation) {
-                    Button {
-                        showThreads = true
-                    } label: {
-                        Image(systemName: "line.3.horizontal")
-                    }
-                    .accessibilityLabel("对话列表")
-                    .popover(isPresented: $showThreads) {
-                        AgentThreadListView(currentThreadUUID: $currentThreadUUID) {
-                            showThreads = false
-                            refreshLatestMessage()
+                // 自定义 principal:标题栏显示当前对话的总结标题(首轮消息后由
+                // summarizeThreadTitle 生成,在此之前是原话截断);标题下加一行
+                // 当前 AI 模式(服务商/思考强度/联网搜索),不然用户在对话里完全
+                // 看不出现在到底是哪个服务商、思考开没开、能不能联网搜索——
+                // 这些都要跳回设置页才看得到。
+                if !hidesToolbarChrome {
+                    ToolbarItem(placement: .principal) {
+                        VStack(spacing: 1) {
+                            Text(threadTitle)
+                                .font(.headline)
+                                .lineLimit(1)
+                            Text(aiModeSummary)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
-                        .presentationCompactAdaptation(.popover)
                     }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        speech.stop()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            isInputFocused = false
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                                showThreads.toggle()
+                            }
+                        } label: {
+                            Image(systemName: "line.3.horizontal")
+                        }
+                        .accessibilityLabel("对话列表")
                     }
-                    .accessibilityLabel("关闭")
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            speech.stop()
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("关闭")
+                    }
                 }
             }
             .sheet(item: $formTarget) { target in
@@ -216,15 +219,14 @@ struct AgentView: View {
                     }
                 }
             }
-            .onChange(of: currentThreadUUID) { _, _ in refreshLatestMessage() }
             .onDisappear {
                 speech.stop()
                 discardUnsentAttachments()
             }
             .task {
                 ensureThreadExists()
-                refreshLatestMessage()
                 isInputFocused = true
+                if horizontalSizeClass == .regular { showThreads = true }
                 #if DEBUG
                 seedDemoMessagesIfNeeded()
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-hascontent") {
@@ -235,14 +237,217 @@ struct AgentView: View {
                     busy = true
                     thinkingText = "思考中…"
                 }
+                // 截图验证用:直接推开侧栏(simctl 没法点汉堡也没法滑手势),
+                // 顺带塞几条历史对话把列表填出来。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-sidebar") {
+                    seedDemoThreads()
+                    isInputFocused = false
+                    showThreads = true
+                }
                 #endif
             }
         }
-        #if os(iOS)
-        .presentationDetents([.large])
-        #else
-        .frame(minWidth: 460, minHeight: 560)
+        #if os(macOS)
+        // 宽屏(macOS 恒为 .regular)默认展开常驻侧栏,460pt 老尺寸减去侧栏宽度后
+        // 聊天区太窄,放宽到能同时容纳侧栏 + 舒适聊天区。iOS 上 agent 恒走
+        // fullScreenCover(见 TodoListView.swift),没有 sheet 尺寸/手势可调,
+        // 这里不需要 iOS 分支。
+        .frame(minWidth: 760, idealWidth: 860, minHeight: 560, idealHeight: 640)
         #endif
+    }
+
+    // MARK: - 左侧对话列表侧栏(窄屏抽屉 / 宽屏常驻列)
+
+    /// 消息列表 + 输入栏这一整块;两种布局都直接复用,不重复接线。
+    @ViewBuilder
+    private var chatColumn: some View {
+        if let thread = activeThread {
+            // 输入栏这坨挂在 ScrollView 的 safeAreaInset(而不是跟消息列表
+            // 平铺在同一个 VStack 里),消息才会真的滚到它背后。参考系统
+            // Messages/语音备忘录的输入栏:这块区域本身不铺任何背景色——
+            // +/文本框/麦克风三个控件各自是独立的 Liquid Glass 胶囊(见
+            // inputBar),控件之间、控件下方一路到屏幕真实底边都是真透明,
+            // 露出的是聊天内容本身,不是另一块单独的磨砂色块。
+            AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
+                                onUndo: handleUndo,
+                                onMemorizeSuggestion: handleMemorizeSuggestion,
+                                onTaskProposalConfirm: handleTaskProposalConfirm,
+                                onTaskProposalCancel: handleTaskProposalCancel,
+                                onTaskProposalTap: handleTaskProposalTap,
+                                onAskSubmit: handleAskSubmit,
+                                onAskCancel: handleAskCancel,
+                                onExamplePrompt: { send(overrideText: $0) })
+                .id(thread.uuid)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        thinkingRow
+                        attachmentChipsRow
+                        if let error = errorText ?? speech.errorText {
+                            Text(error).font(.footnote).foregroundStyle(.red)
+                                .padding(.horizontal)
+                        }
+                        inputBar
+                    }
+                }
+        } else {
+            ProgressView()
+        }
+    }
+
+    private var sidebarPanel: some View {
+        AgentThreadListView(currentThreadUUID: $currentThreadUUID) {
+            if horizontalSizeClass != .regular { closeSidebar() }
+        }
+        .frame(maxHeight: .infinity)
+        // 日间用纯背景色而不是磨砂材质:材质会透出一块带灰的底,和参考图里
+        // "面板和被推开的卡几乎同色、只靠投影分层"的观感对不上。用语义的
+        // BackgroundStyle 而不是 UIKit 专有的 systemBackground,iOS/macOS 通吃。
+        // 夜间仍用材质:近黑背景上投影几乎看不见,面板再跟着变纯黑就和被推开的
+        // 那张卡糊成一片,分不出边界了(和下面 sidebarScrim 是同一个理由)。
+        .background(colorScheme == .dark
+                    ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.background))
+    }
+
+    private func closeSidebar() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) { showThreads = false }
+    }
+
+    /// 窄屏抽屉推开时整组工具栏项(汉堡/标题/关闭)直接撤掉:工具栏挂在
+    /// NavigationStack 上、不会跟着 chatColumn 平移,留着的话汉堡会浮在侧栏上面,
+    /// 标题那个 "Lodo" 还会和侧栏自己的 "Lodo" 标题重复。这里必须是"移除"而不是
+    /// 给按钮加 .opacity(0)——iOS 26 工具栏按钮的 Liquid Glass 底是系统画的,
+    /// 不跟着 label 的透明度走,只调透明度会在顶上留下两个空玻璃圆圈。
+    /// 判据是 sidebarProgress 而不是 showThreads:拖到一半时汉堡同样会浮在已经
+    /// 露出来的那截侧栏上面,所以拖拽一起手就得撤掉,不能等松手落定。
+    /// 宽屏常驻列不推开内容,工具栏照常显示。
+    private var hidesToolbarChrome: Bool {
+        horizontalSizeClass != .regular && sidebarProgress > 0
+    }
+
+    /// 侧栏推开时盖在聊天卡上的那层遮罩:日间照参考图压一层半透明**白**——内容
+    /// 被洗淡、卡片比侧栏更白,"这块暂时不能操作"的意思出来了,又不会像灰黑遮罩
+    /// 那样把整张卡压成一块灰框;夜间白色反而刺眼,仍用原来的半透明黑压暗。
+    /// 这层遮罩同时是"点一下关闭"和展开后"左滑收回"的手势承载层,不能省掉。
+    private var sidebarScrim: some View {
+        (colorScheme == .dark ? Color.black.opacity(0.35) : Color.white.opacity(0.5))
+    }
+
+    /// 0 = 完全收起,1 = 完全展开;拖拽期间取中间值,松手后回到 0/1。
+    /// 抽屉的所有视觉量(推移/缩放/圆角/变暗)都从这一个进度插值出来,
+    /// 开合两个方向才能同样跟手。
+    private var sidebarProgress: CGFloat {
+        let base: CGFloat = showThreads ? 1 : 0
+        return min(1, max(0, base + sidebarDragOffset / DesignMetrics.sidebarWidth))
+    }
+
+    /// 松手后按"已拖过 30% 宽 或 甩动预测能到 50% 宽"判定落到哪一端,开合对称。
+    private func settleSidebar(_ value: DragGesture.Value, opening: Bool) {
+        let width = DesignMetrics.sidebarWidth
+        let sign: CGFloat = opening ? 1 : -1
+        let passed = value.translation.width * sign > width * 0.3
+            || value.predictedEndTranslation.width * sign > width * 0.5
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+            sidebarDragOffset = 0
+            if passed { showThreads = opening }
+        }
+    }
+
+    /// 整页右滑唤出 / 右滑收回的手势本体,聊天内容和变暗遮罩上各挂一份。
+    private func sidebarDrag() -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                let intent: DragIntent
+                if let session = dragSession, session.start == value.startLocation {
+                    intent = session.intent
+                } else {
+                    // 一次拖拽的第一帧:横向为主 + 方向对(收起时向右开、展开时
+                    // 向左关)才接管;纵向滚动和反方向的横滑一律让给底下的视图。
+                    let horizontal = abs(value.translation.width) > abs(value.translation.height)
+                    let rightDirection = showThreads
+                        ? value.translation.width < 0 : value.translation.width > 0
+                    intent = (horizontal && rightDirection) ? .sidebar : .ignored
+                    dragSession = (value.startLocation, intent)
+                }
+                guard intent == .sidebar else { return }
+                sidebarDragOffset = showThreads
+                    ? min(0, value.translation.width) : max(0, value.translation.width)
+            }
+            .onEnded { value in
+                let wasSidebar = dragSession?.intent == .sidebar
+                dragSession = nil
+                if wasSidebar { settleSidebar(value, opening: !showThreads) }
+            }
+    }
+
+    /// 窄屏(iPhone、紧凑宽度 iPad):侧栏从左滑入,主内容整体推移变暗。
+    /// 开合都能手势拖,而且**整页任意位置**右滑都算(不只左边缘那条窄带):
+    /// 收起时在聊天区右滑唤出,展开后在变暗的聊天区(或面板上)左滑收回。
+    /// (早先只做关闭手势是因为那时 AgentView 还是 .sheet、会和下拉关闭抢手势;
+    /// 现在改成了 fullScreenCover,没有下拉关闭手势,可以放心加开启手势。)
+    private var compactLayout: some View {
+        ZStack(alignment: .leading) {
+            // 侧栏排在前面 = 画在底下:聊天卡盖在它上面,卡片的投影才能落到侧栏上
+            // (参考图就是这个层次)。面板自己因此不带投影。
+            // 面板常驻渲染,靠 offset 推到屏幕外表示收起——这样拖拽中间态才有东西
+            // 可跟手(条件渲染 + transition 做不到跟手,只能播一段固定动画)。
+            sidebarPanel
+                .frame(width: DesignMetrics.sidebarWidth)
+                .offset(x: -(1 - sidebarProgress) * DesignMetrics.sidebarWidth)
+                .gesture(
+                    DragGesture()
+                        .onChanged { sidebarDragOffset = min(0, $0.translation.width) }
+                        .onEnded { settleSidebar($0, opening: false) }
+                )
+
+            // 顺序要紧:先叠遮罩、再 clipShape 圆角,最后才缩放+推移。
+            // clipShape 必须排在 offset 前面——offset 是布局中立的渲染位移,排在它
+            // 后面的 clipShape 仍按"没被推移的原始 frame"裁切,圆角会落在被侧栏盖住
+            // 的屏幕左边缘外,推出来的那张卡看上去就是一条笔直的硬边。遮罩也放进
+            // 裁切范围内,不然方角的遮罩会盖住卡片的圆角。
+            chatColumn
+                // 收起时手势挂在聊天内容上(和消息列表的滚动并行)。
+                .simultaneousGesture(showThreads ? nil : sidebarDrag())
+                // allowsHitTesting 只罩聊天内容本身,不能挂到遮罩外面去——遮罩要
+                // 继续吃"点一下关闭"和"左滑收回"这两个手势。
+                .allowsHitTesting(!showThreads)
+                .overlay {
+                    if sidebarProgress > 0 {
+                        sidebarScrim
+                            .opacity(sidebarProgress)
+                            .contentShape(Rectangle())
+                            .onTapGesture { closeSidebar() }
+                            .gesture(sidebarDrag())
+                    }
+                }
+                // 圆角不再按 progress 插值:参考图里被推开的那张卡从一开始就是整块
+                // 手机尺寸的圆角。完全收起时才给 0,免得静止满屏时裁出一圈和真机
+                // 屏幕遮罩对不上的角;刚离开 0 那一瞬间卡还基本满屏,44pt 的圆角落在
+                // 屏幕自身的遮罩里面,看不出跳变。
+                .clipShape(RoundedRectangle(
+                    cornerRadius: sidebarProgress > 0 ? DesignMetrics.deviceCornerRadius : 0,
+                    style: .continuous))
+                .shadow(color: .black.opacity(0.18 * sidebarProgress), radius: 14, x: -3)
+                // 只平移不缩放:聊天卡保持原大小整块推出去(右侧推出屏幕外),
+                // 缩小那版看着像整页被"捏小",不是参考图里那种一张卡被推开的感觉。
+                .offset(x: sidebarProgress * DesignMetrics.sidebarWidth)
+        }
+        // 只对 showThreads 挂动画:拖拽中 sidebarDragOffset 的变化要 1:1 跟手,
+        // 不能被动画平滑掉(松手归位那下由 settleSidebar 里的 withAnimation 负责)。
+        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showThreads)
+    }
+
+    /// 宽屏(iPad 横屏、macOS):侧栏常驻展示,同一个汉堡按钮收起/展开,不做推移动画。
+    private var regularLayout: some View {
+        HStack(spacing: 0) {
+            if showThreads {
+                sidebarPanel
+                    .frame(width: DesignMetrics.sidebarWidth)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                Divider()
+            }
+            chatColumn
+        }
+        .animation(.easeInOut(duration: 0.2), value: showThreads)
     }
 
     // MARK: - ReAct 中间步骤的轻量提示
@@ -254,25 +459,6 @@ struct AgentView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
                 .transition(.opacity)
-        }
-    }
-
-    // MARK: - 建议行(clarify 候选,参考 Claude app 放输入框上方,不嵌进气泡)
-
-    @ViewBuilder
-    private var suggestionRow: some View {
-        if let latestMessage, latestMessage.role == .assistant, latestMessage.kind == .clarify,
-           !latestMessage.clarifyOptions.isEmpty {
-            HorizontalChipRow {
-                ForEach(latestMessage.clarifyOptions, id: \.self) { option in
-                    Button(option) { send(overrideText: option) }
-                        .buttonStyle(.bordered)
-                        .font(.footnote)
-                }
-            }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -314,7 +500,21 @@ struct AgentView: View {
     /// 胶囊、麦克风/发送圆按钮。没在打字/正在录音时最右是麦克风(点了直接
     /// 开始/停止录音);一旦有内容待发送(打字或已选好附件),同一个槽位换成
     /// 蓝色发送按钮——是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标。
+    /// iOS/macOS 26+ 用 `GlassEffectContainer` 把三个控件分组——这是苹果
+    /// Liquid Glass 官方推荐的写法,组内形状会正确地互相感知、按需融合/晕开,
+    /// 比三个各自独立的 `.glassEffect()` 观感更接近系统输入栏;旧系统没有
+    /// 这个容器 API,直接退化成不分组的普通排布(各控件仍有自己的
+    /// glassBackground 回退样式)。
+    @ViewBuilder
     private var inputBar: some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            GlassEffectContainer(spacing: 8) { inputBarRow }
+        } else {
+            inputBarRow
+        }
+    }
+
+    private var inputBarRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             Menu {
                 PhotosPicker(selection: $photoSelection, matching: .images) {
@@ -426,20 +626,10 @@ struct AgentView: View {
         currentThreadUUID = thread.uuid
     }
 
-    private func refreshLatestMessage() {
-        guard let thread = activeThread else {
-            latestMessage = nil
-            return
-        }
-        let uuid = thread.uuid
-        latestMessage = try? context.fetch(FetchDescriptor<AgentMessage>(
-            predicate: #Predicate<AgentMessage> { $0.threadUUID == uuid },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)])).first
-    }
-
-    private func recentHistory(in thread: AgentThread, excluding: AgentMessage) -> [(role: String, content: String)] {
+    /// excluding 为 nil 时不排除任何消息(询问卡回传选择那条路径没有用户气泡可排除)。
+    private func recentHistory(in thread: AgentThread, excluding: AgentMessage?) -> [(role: String, content: String)] {
         let threadUUID = thread.uuid
-        let excludeUUID = excluding.uuid
+        let excludeUUID = excluding?.uuid
         let all = (try? context.fetch(FetchDescriptor<AgentMessage>(
             predicate: #Predicate<AgentMessage> { $0.threadUUID == threadUUID },
             sortBy: [SortDescriptor(\.createdAt)]))) ?? []
@@ -450,17 +640,16 @@ struct AgentView: View {
     @discardableResult
     private func appendAssistant(
         thread: AgentThread, kind: AgentMessageKind, content: String,
-        relatedTitles: [String] = [], clarifyOptions: [String] = [],
+        relatedTitles: [String] = [], askSnapshotData: Data? = nil,
         taskSnapshotData: Data? = nil, resultMemoryUUID: UUID? = nil
     ) -> AgentMessage {
         let message = AgentMessage(threadUUID: thread.uuid, role: .assistant, kind: kind,
                                    content: content, relatedTitles: relatedTitles,
-                                   clarifyOptions: clarifyOptions, taskSnapshotData: taskSnapshotData,
+                                   askSnapshotData: askSnapshotData, taskSnapshotData: taskSnapshotData,
                                    resultMemoryUUID: resultMemoryUUID)
         context.insert(message)
         thread.updatedAt = Date()
         try? context.save()
-        latestMessage = message
         return message
     }
 
@@ -513,6 +702,28 @@ struct AgentView: View {
               let snapshot = try? JSONDecoder().decode(AgentTaskSnapshot.self, from: data)
         else { return }
         formTarget = FormTarget(existing: existingTask(for: snapshot.existingUUID), parsed: snapshot.parsed)
+    }
+
+    /// 询问卡答完:原地把这条消息变成只读记录卡(问题 + 答案),再把选择静默
+    /// 回传给 AI 出最终 actions——不冒一条用户气泡,记录卡本身就是"用户答了什么"
+    /// 的凭据(content 同步写成可读文本,recentHistory 因此天然带上答案)。
+    private func handleAskSubmit(_ message: AgentMessage, answers: [[String]]) {
+        guard let thread = activeThread,
+              let data = message.askSnapshotData,
+              var snapshot = try? JSONDecoder().decode(AgentAskSnapshot.self, from: data)
+        else { return }
+        snapshot.answers = answers
+        message.kindRaw = AgentMessageKind.askResult.rawValue
+        message.askSnapshotData = try? JSONEncoder().encode(snapshot)
+        message.content = snapshot.transcript
+        thread.updatedAt = Date()
+        try? context.save()
+        send(overrideText: "(用户已回答上面的问题)\n\(snapshot.transcript)", hidesUserBubble: true)
+    }
+
+    private func handleAskCancel(_ message: AgentMessage) {
+        guard let thread = activeThread else { return }
+        appendAssistant(thread: thread, kind: .text, content: "已取消这次提问。")
     }
 
     private func handleConfirmAction(_ message: AgentMessage, execute: Bool) {
@@ -597,7 +808,11 @@ struct AgentView: View {
 
     // MARK: - 提交
 
-    private func send(overrideText: String? = nil) {
+    /// hidesUserBubble:这次提交不代表用户"说了一句话",不插用户气泡也不动
+    /// thread 标题(询问卡答完后回传选择就走这条路——对话里留下的是那张记录卡,
+    /// 再冒一条内容重复的蓝气泡反而啰嗦)。其余流程(busy/取消/思考提示/错误)
+    /// 与正常发送完全一致。
+    private func send(overrideText: String? = nil, hidesUserBubble: Bool = false) {
         let trimmed = (overrideText ?? text).trimmingCharacters(in: .whitespaces)
         guard trimmed.count > 0 || !pendingAttachments.isEmpty, !busy else { return }
         let thread = activeThread ?? {
@@ -614,20 +829,23 @@ struct AgentView: View {
         pendingAttachments = []
         text = ""
 
-        let userMessage = AgentMessage(
-            threadUUID: thread.uuid, role: .user, content: trimmed,
-            attachmentMemoryUUIDs: attachments.compactMap(\.memoryUUID))
-        context.insert(userMessage)
+        var userMessage: AgentMessage?
+        if !hidesUserBubble {
+            let message = AgentMessage(
+                threadUUID: thread.uuid, role: .user, content: trimmed,
+                attachmentMemoryUUIDs: attachments.compactMap(\.memoryUUID))
+            context.insert(message)
+            userMessage = message
+            }
         // 首轮对话:先用截断兜底,立刻有个标题;拿到 AI 回复后再尝试换成真正的总结标题
         // (刚打开时导航栏显示"AI 助手",这里是它第一次变成 thread 标题的地方)。
-        let isFirstMessage = thread.title.isEmpty
+        let isFirstMessage = !hidesUserBubble && thread.title.isEmpty
         if isFirstMessage {
             let seed = trimmed.isEmpty ? (attachments.first?.displayName ?? "") : trimmed
             thread.title = MemorySearch.truncate(seed, limit: 20)
         }
         thread.updatedAt = Date()
         try? context.save()
-        latestMessage = userMessage
 
         let history = recentHistory(in: thread, excluding: userMessage)
         var outgoing = trimmed
@@ -658,9 +876,12 @@ struct AgentView: View {
                     appendTaskProposal(thread: thread, existingUUID: existing?.uuid, parsed: parsed)
                 case .confirm(let lines):
                     appendAssistant(thread: thread, kind: .confirm, content: lines.joined(separator: "\n"))
-                case .clarify(let question, let options):
-                    appendAssistant(thread: thread, kind: .clarify, content: question,
-                                    clarifyOptions: options)
+                case .ask(let questions):
+                    let snapshot = AgentAskSnapshot(questions: questions)
+                    appendAssistant(
+                        thread: thread, kind: .ask,
+                        content: questions.map(\.question).joined(separator: "\n"),
+                        askSnapshotData: try? JSONEncoder().encode(snapshot))
                 case .answer(let text, let related):
                     appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
                 case .suggestMemorize(let text):
@@ -706,7 +927,7 @@ struct AgentView: View {
         switch reply {
         case .routeToForm(_, let parsed): return "新建/修改了事项:\(parsed.title)"
         case .confirm(let lines): return lines.joined(separator: ";")
-        case .clarify(let question, _): return question
+        case .ask(let questions): return questions.first?.question ?? ""
         case .answer(let text, _): return text
         case .suggestMemorize(let text): return text
         case .memorized: return "已收藏一条记忆"
@@ -714,6 +935,24 @@ struct AgentView: View {
     }
 
     #if DEBUG
+    /// 截图验证用:把对话列表填到能看出滚动和高亮的量(只在几乎为空时插)。
+    private func seedDemoThreads() {
+        guard threads.count < 3 else { return }
+        let titles = [
+            "明天下午的会议安排", "整理这周的待办", "帮我记一下 wifi 密码",
+            "把周报相关的都完成", "台风对航班的影响", "下周体检提醒",
+            "把过期的清理掉", "买菜清单",
+        ]
+        for (index, title) in titles.enumerated() {
+            let thread = AgentThread()
+            thread.title = title
+            // 倒序排列稳定一点:越靠前的越"新"。
+            thread.updatedAt = Date().addingTimeInterval(-Double(index) * 3600)
+            context.insert(thread)
+        }
+        try? context.save()
+    }
+
     /// 截图验证用:模拟确认清单 / 反问 / 回答三种回应态。
     private func seedDemoMessagesIfNeeded() {
         guard let thread = activeThread else { return }
@@ -721,10 +960,21 @@ struct AgentView: View {
             appendAssistant(thread: thread, kind: .confirm,
                             content: "新建:开周会(明天 15:00 · 60 分钟)\n完成:给妈妈回电话\n删除:取快递")
         }
-        if ProcessInfo.processInfo.arguments.contains("--demo-agent-clarify") {
+        // 询问卡:三道题(单选 + 多选各有),覆盖翻页器、推荐角标、其他输入框。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-ask") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "提醒我交材料"))
-            appendAssistant(thread: thread, kind: .clarify, content: "什么时候提醒你交材料?",
-                            clarifyOptions: ["明天 09:00", "明天 14:00", "今晚 20:00"])
+            appendAssistant(
+                thread: thread, kind: .ask,
+                content: Self.demoAskSnapshot.questions.map(\.question).joined(separator: "\n"),
+                askSnapshotData: try? JSONEncoder().encode(Self.demoAskSnapshot))
+        }
+        // 答完之后的记录卡。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-ask-result") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "提醒我交材料"))
+            var answered = Self.demoAskSnapshot
+            answered.answers = [["明天 09:00"], ["30 分钟"], ["身份证", "复印件"]]
+            appendAssistant(thread: thread, kind: .askResult, content: answered.transcript,
+                            askSnapshotData: try? JSONEncoder().encode(answered))
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-answer") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "我之前存的 wifi 密码"))
@@ -762,7 +1012,8 @@ struct AgentView: View {
                 context.insert(AgentMessage(threadUUID: extra.uuid, role: .user, content: title))
             }
             try? context.save()
-            // popover 挂在工具栏按钮上,当帧触发不生效,延后一点再弹(与记忆筛选按钮同款问题)
+            // 侧栏现在是内联 body 内容(不再是挂在工具栏按钮上的 popover),
+            // 但当帧展开偶发还没吃到新插入的 thread 数据,延后一点再展开更稳。
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 showThreads = true
             }
@@ -773,6 +1024,26 @@ struct AgentView: View {
         ParsedTask(title: "开会", remindAt: Date().addingTimeInterval(3600),
                    allDay: false, durationMinutes: 60, repeatType: .none,
                    repeatDays: [], repeatTimes: [])
+    }
+
+    private static var demoAskSnapshot: AgentAskSnapshot {
+        AgentAskSnapshot(questions: [
+            AskQuestion(header: "提醒时间", question: "什么时候提醒你交材料?", options: [
+                AskOption(label: "明天 09:00", description: "上班第一件事就办掉", recommended: true),
+                AskOption(label: "今晚 20:00", description: "今天之内交完,明天不再惦记"),
+                AskOption(label: "后天 14:00", description: "留出两天准备时间"),
+            ]),
+            AskQuestion(header: "时长", question: "这件事大概要占多久?", options: [
+                AskOption(label: "30 分钟", description: "按你以前交材料的耗时估的", recommended: true),
+                AskOption(label: "1 小时", description: "需要现场排队的话留够时间"),
+                AskOption(label: "不用记时长", description: "只要一个到点提醒"),
+            ]),
+            AskQuestion(header: "材料", question: "要带哪些材料?", multiSelect: true, options: [
+                AskOption(label: "身份证", description: "大多数窗口都要", recommended: true),
+                AskOption(label: "复印件", description: "一并带上省得现场复印"),
+                AskOption(label: "照片", description: "一寸免冠照"),
+            ]),
+        ])
     }
     #endif
 }
@@ -810,6 +1081,8 @@ private struct AgentMessageListView: View {
     let onTaskProposalConfirm: (AgentMessage) -> Void
     let onTaskProposalCancel: (AgentMessage) -> Void
     let onTaskProposalTap: (AgentMessage) -> Void
+    let onAskSubmit: (AgentMessage, [[String]]) -> Void
+    let onAskCancel: (AgentMessage) -> Void
     let onExamplePrompt: (String) -> Void
 
     @Query private var messages: [AgentMessage]
@@ -819,6 +1092,8 @@ private struct AgentMessageListView: View {
          onTaskProposalConfirm: @escaping (AgentMessage) -> Void,
          onTaskProposalCancel: @escaping (AgentMessage) -> Void,
          onTaskProposalTap: @escaping (AgentMessage) -> Void,
+         onAskSubmit: @escaping (AgentMessage, [[String]]) -> Void,
+         onAskCancel: @escaping (AgentMessage) -> Void,
          onExamplePrompt: @escaping (String) -> Void) {
         self.thread = thread
         self.onConfirmAction = onConfirmAction
@@ -827,6 +1102,8 @@ private struct AgentMessageListView: View {
         self.onTaskProposalConfirm = onTaskProposalConfirm
         self.onTaskProposalCancel = onTaskProposalCancel
         self.onTaskProposalTap = onTaskProposalTap
+        self.onAskSubmit = onAskSubmit
+        self.onAskCancel = onAskCancel
         self.onExamplePrompt = onExamplePrompt
         let uuid = thread.uuid
         _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == uuid },
@@ -849,7 +1126,9 @@ private struct AgentMessageListView: View {
                             onMemorizeSuggestion: { onMemorizeSuggestion(message) },
                             onTaskProposalConfirm: { onTaskProposalConfirm(message) },
                             onTaskProposalCancel: { onTaskProposalCancel(message) },
-                            onTaskProposalTap: { onTaskProposalTap(message) })
+                            onTaskProposalTap: { onTaskProposalTap(message) },
+                            onAskSubmit: { onAskSubmit(message, $0) },
+                            onAskCancel: { onAskCancel(message) })
                         .id(message.uuid)
                     }
                 }

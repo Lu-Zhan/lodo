@@ -13,8 +13,9 @@ enum AgentReply {
     case routeToForm(existing: TaskItem?, parsed: ParsedTask)
     /// 需要确认的操作清单(批量或含完成/删除),元素为中文描述。
     case confirm([String])
-    /// 关键信息缺失,反问 + 候选补充。
-    case clarify(question: String, options: [String])
+    /// 关键信息缺失,反问用户:AgentView 追加一条可交互的询问卡(可翻页、
+    /// 单选/多选、带推荐项),答完后把选择静默回传给 AI 继续出最终 actions。
+    case ask([AskQuestion])
     /// 记忆问答的回答;related 为相关条目标题(可为空),不做跳转。
     case answer(text: String, related: [String])
     /// AI 主动建议收藏(用户没明确要求);气泡上带"收藏这条"按钮,点了才真正落库。
@@ -124,6 +125,57 @@ struct TodoListView: View {
         }
     }
 
+    #if os(iOS)
+    private var isAgentFullScreen: Bool {
+        if case .agent = sheet { return true }
+        return false
+    }
+
+    private var fullScreenAgentBinding: Binding<SheetMode?> {
+        Binding(get: { isAgentFullScreen ? sheet : nil }, set: { if $0 == nil { sheet = nil } })
+    }
+
+    private var cardSheetBinding: Binding<SheetMode?> {
+        Binding(get: { isAgentFullScreen ? nil : sheet }, set: { if $0 == nil { sheet = nil } })
+    }
+    #endif
+
+    /// 清掉 agent 会话残留,避免旧的批量操作被后续"确认执行";
+    /// 并消费 sheet/fullScreenCover 打开期间积压的深链路由。
+    private func handleSheetDismiss() {
+        pendingActions = []
+        DispatchQueue.main.async { consumeRoutes() }
+    }
+
+    @ViewBuilder
+    private func sheetContent(_ mode: SheetMode) -> some View {
+        switch mode {
+        case .agent(let prefill):
+            AgentView(prefill: prefill,
+                      submit: { text, threadUUID, history, onThought in
+                          try await route(text, threadUUID: threadUUID,
+                                          history: history, onThought: onThought)
+                      },
+                      onConfirm: { performPendingActions(threadUUID: $0) },
+                      onUndo: { performUndo(threadUUID: $0) },
+                      saveTask: { existing, parsed in
+                          if let existing {
+                              apply(parsed, to: existing)
+                          } else {
+                              saveNew(parsed)
+                          }
+                      })
+        case .create(let parsed, let attachment):
+            TaskEditView(existing: nil, parsed: parsed, attachment: attachment) {
+                saveNew($0, attachment: attachment)
+            }
+        case .edit(let task, let parsed):
+            TaskEditView(existing: task, parsed: parsed, attachment: task.attachment) {
+                apply($0, to: task)
+            }
+        }
+    }
+
     private var due: [TaskItem] { pending.filter { $0.nextRemindAt <= now } }
     /// 尚未到期的待办。
     private var upcoming: [TaskItem] { pending.filter { $0.nextRemindAt > now } }
@@ -199,38 +251,25 @@ struct TodoListView: View {
                 }
                 #endif
             }
-            .sheet(item: $sheet, onDismiss: {
-                // 清掉 agent 会话残留,避免旧的批量操作被后续"确认执行";
-                // 并消费 sheet 打开期间积压的深链路由
-                pendingActions = []
-                DispatchQueue.main.async { consumeRoutes() }
-            }) { mode in
-                switch mode {
-                case .agent(let prefill):
-                    AgentView(prefill: prefill,
-                              submit: { text, threadUUID, history, onThought in
-                                  try await route(text, threadUUID: threadUUID,
-                                                  history: history, onThought: onThought)
-                              },
-                              onConfirm: { performPendingActions(threadUUID: $0) },
-                              onUndo: { performUndo(threadUUID: $0) },
-                              saveTask: { existing, parsed in
-                                  if let existing {
-                                      apply(parsed, to: existing)
-                                  } else {
-                                      saveNew(parsed)
-                                  }
-                              })
-                case .create(let parsed, let attachment):
-                    TaskEditView(existing: nil, parsed: parsed, attachment: attachment) {
-                        saveNew($0, attachment: attachment)
-                    }
-                case .edit(let task, let parsed):
-                    TaskEditView(existing: task, parsed: parsed, attachment: task.attachment) {
-                        apply($0, to: task)
-                    }
-                }
+            #if os(iOS)
+            // iOS(iPhone、iPad,不分宽窄屏)上 agent 恒走 fullScreenCover 而不是
+            // sheet 卡片:sheet 卡片在 iPad 上宽度固定在 ~580pt,低于 regular/compact
+            // 断点,AgentView 内部拿到的 horizontalSizeClass 会一直是 .compact,常驻
+            // 侧栏(regularLayout)用不上;全屏展示则如实继承外层的 size class,iPhone
+            // 仍是 .compact(抽屉),iPad regular 宽度才是 .regular(常驻列)。
+            // macOS 不在这个范围内,继续用下面 #else 分支的窗口 sheet
+            // (horizontalSizeClass 在 macOS 上恒为 .regular,已经足够宽)。
+            .sheet(item: cardSheetBinding, onDismiss: handleSheetDismiss) { mode in
+                sheetContent(mode)
             }
+            .fullScreenCover(item: fullScreenAgentBinding, onDismiss: handleSheetDismiss) { mode in
+                sheetContent(mode)
+            }
+            #else
+            .sheet(item: $sheet, onDismiss: handleSheetDismiss) { mode in
+                sheetContent(mode)
+            }
+            #endif
             // 按需唤醒:睡到下一个到期时刻/明天零点再刷新 now,替代固定 10 秒轮询
             .task(id: nextWakeDate) {
                 let interval = nextWakeDate.timeIntervalSinceNow + 1

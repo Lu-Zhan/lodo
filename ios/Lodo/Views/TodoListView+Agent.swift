@@ -35,8 +35,8 @@ extension TodoListView {
             switch try await DeepSeekClient.command(
                 currentText, tasks: taskContext, memoryEnabled: true,
                 webSearchEnabled: webSearchEnabled, history: reasoningHistory) {
-            case .clarify(let question, let options):
-                return .clarify(question: question, options: options)
+            case .ask(let questions):
+                return .ask(questions)
             case .toolCall(let thought, .searchMemory(let query)):
                 onThought(thought)
                 let candidates = await retrieveMemoryCandidates(query)

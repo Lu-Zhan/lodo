@@ -64,18 +64,90 @@ final class CommandParseTests: XCTestCase {
             try DeepSeekClient.parseCommand(payload, validUUIDs: ["a"], memoryEnabled: false))
     }
 
-    func testClarifyPassthrough() throws {
-        let payload: [String: Any] = [
-            "question": "什么时候提醒你交材料?",
-            "options": ["明天 09:00", "明天 14:00"]
+    // MARK: - ask(反问)
+
+    /// 反问题目的原始 JSON;options 缺省给两个,recommended 落在第一个。
+    private func askQuestionPayload(
+        question: String = "什么时候提醒你交材料?", header: String = "提醒时间",
+        multiSelect: Bool = false, options: [[String: Any]]? = nil
+    ) -> [String: Any] {
+        [
+            "header": header, "question": question, "multi_select": multiSelect,
+            "options": options ?? [
+                ["label": "明天 09:00", "description": "上班后第一件事", "recommended": true],
+                ["label": "今晚 20:00", "description": "今天之内交掉"]
+            ]
         ]
+    }
+
+    func testAskParsesQuestionsAndOptions() throws {
+        let payload: [String: Any] = ["ask": [
+            askQuestionPayload(),
+            askQuestionPayload(question: "要带哪些材料?", header: "材料", multiSelect: true)
+        ]]
         let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false)
-        guard case .clarify(let question, let options) = result else {
-            XCTFail("expected clarify")
+        guard case .ask(let questions) = result, questions.count == 2 else {
+            XCTFail("expected two ask questions")
             return
         }
-        XCTAssertEqual(question, "什么时候提醒你交材料?")
-        XCTAssertEqual(options, ["明天 09:00", "明天 14:00"])
+        XCTAssertEqual(questions[0].header, "提醒时间")
+        XCTAssertEqual(questions[0].question, "什么时候提醒你交材料?")
+        XCTAssertFalse(questions[0].multiSelect)
+        XCTAssertEqual(questions[0].options.count, 2)
+        XCTAssertEqual(questions[0].options[0].label, "明天 09:00")
+        XCTAssertEqual(questions[0].options[0].description, "上班后第一件事")
+        XCTAssertTrue(questions[0].options[0].recommended)
+        XCTAssertFalse(questions[0].options[1].recommended)
+        XCTAssertTrue(questions[1].multiSelect)
+    }
+
+    /// 没有选项、或问题文案为空的题目直接丢掉,其余题目照常返回。
+    func testAskDropsUnusableQuestions() throws {
+        let payload: [String: Any] = ["ask": [
+            askQuestionPayload(question: "  ", header: "空问题"),
+            askQuestionPayload(header: "没选项", options: []),
+            askQuestionPayload(question: "什么时候提醒?", header: "提醒时间")
+        ]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false)
+        guard case .ask(let questions) = result, questions.count == 1 else {
+            XCTFail("expected only the usable question")
+            return
+        }
+        XCTAssertEqual(questions[0].question, "什么时候提醒?")
+    }
+
+    func testAskWithNoUsableQuestionThrows() {
+        let payload: [String: Any] = ["ask": [askQuestionPayload(options: [])]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
+
+    /// 模型同时给了 ask 和 actions 时以 ask 为准(信息还没问全,不能先落库)。
+    func testAskTakesPrecedenceOverActions() throws {
+        let payload: [String: Any] = [
+            "ask": [askQuestionPayload()],
+            "actions": [taskPayload(action: "create")]
+        ]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false)
+        guard case .ask = result else {
+            XCTFail("expected ask to win")
+            return
+        }
+    }
+
+    /// 题目/选项超量时按上限截断,不整体报错。
+    func testAskClampsQuestionAndOptionCount() throws {
+        let manyOptions = (1...9).map { ["label": "选项\($0)"] }
+        let payload: [String: Any] = [
+            "ask": (1...6).map { askQuestionPayload(question: "问题\($0)", options: manyOptions) }
+        ]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false)
+        guard case .ask(let questions) = result else {
+            XCTFail("expected ask")
+            return
+        }
+        XCTAssertEqual(questions.count, 4)
+        XCTAssertEqual(questions[0].options.count, 6)
     }
 
     func testMissingActionsThrows() {

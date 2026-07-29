@@ -219,13 +219,12 @@ public struct BackupAgentMessage: Codable {
     public var kindRaw: String
     public var content: String
     public var relatedTitles: [String]
-    public var clarifyOptions: [String]
     public var attachmentMemoryUUIDs: [UUID]
     public var createdAt: Date
 
     public init(
         uuid: UUID, threadUUID: UUID, roleRaw: String, kindRaw: String, content: String,
-        relatedTitles: [String], clarifyOptions: [String], attachmentMemoryUUIDs: [UUID],
+        relatedTitles: [String], attachmentMemoryUUIDs: [UUID],
         createdAt: Date
     ) {
         self.uuid = uuid
@@ -234,7 +233,6 @@ public struct BackupAgentMessage: Codable {
         self.kindRaw = kindRaw
         self.content = content
         self.relatedTitles = relatedTitles
-        self.clarifyOptions = clarifyOptions
         self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         self.createdAt = createdAt
     }
@@ -244,7 +242,7 @@ extension AgentMessage {
     public var backup: BackupAgentMessage {
         BackupAgentMessage(
             uuid: uuid, threadUUID: threadUUID, roleRaw: roleRaw, kindRaw: kindRaw,
-            content: content, relatedTitles: relatedTitles, clarifyOptions: clarifyOptions,
+            content: content, relatedTitles: relatedTitles,
             attachmentMemoryUUIDs: attachmentMemoryUUIDs, createdAt: createdAt)
     }
 }
@@ -257,7 +255,6 @@ extension BackupAgentMessage {
         message.kindRaw = kindRaw
         message.content = content
         message.relatedTitles = relatedTitles
-        message.clarifyOptions = clarifyOptions
         message.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         message.createdAt = createdAt
     }
