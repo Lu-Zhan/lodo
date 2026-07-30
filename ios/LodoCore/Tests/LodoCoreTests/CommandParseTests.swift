@@ -150,6 +150,47 @@ final class CommandParseTests: XCTestCase {
         XCTAssertEqual(questions[0].options.count, 6)
     }
 
+    // MARK: - remember_preference(长期偏好,不受 memoryEnabled 门控)
+
+    func testRememberPreferenceParsedWhenMemoryDisabled() throws {
+        let payload: [String: Any] = [
+            "actions": [["action": "remember_preference", "text": "开会默认留 60 分钟"]]
+        ]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .rememberPreference(let text) = actions[0] else {
+            XCTFail("expected single rememberPreference action")
+            return
+        }
+        XCTAssertEqual(text, "开会默认留 60 分钟")
+    }
+
+    func testRememberPreferenceEmptyTextThrows() {
+        let payload: [String: Any] = [
+            "actions": [["action": "remember_preference", "text": "  "]]
+        ]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
+
+    /// 偏好是副作用,和写操作混在一句话里时两条都要保留
+    /// (不像 ask_memory/answer 那样被归一化丢弃)。
+    func testRememberPreferenceCoexistsWithCreate() throws {
+        let payload: [String: Any] = ["actions": [
+            taskPayload(action: "create"),
+            ["action": "remember_preference", "text": "开会默认留 60 分钟"]
+        ]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false)
+        guard case .actions(let actions) = result, actions.count == 2 else {
+            XCTFail("expected both actions kept")
+            return
+        }
+        guard case .create = actions[0], case .rememberPreference = actions[1] else {
+            XCTFail("expected create + rememberPreference in order")
+            return
+        }
+    }
+
     func testMissingActionsThrows() {
         let payload: [String: Any] = [:]
         XCTAssertThrowsError(

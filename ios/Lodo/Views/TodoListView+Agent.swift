@@ -71,7 +71,18 @@ extension TodoListView {
                 reasoningHistory.append((role: "assistant", content: "思考:\(thought);抓取链接:\(urlString)"))
                 reasoningHistory.append((role: "user", content: "链接内容:\n\(observation)"))
                 currentText = "(请基于以上链接内容继续处理最初的请求:\(text))"
-            case .actions(let actions):
+            case .actions(let rawActions):
+                // 偏好是副作用,不是待办的增删改:先摘出来静默落盘,剩下的动作才走
+                // 后面的路径。这样 pendingActions/确认清单/撤销永远看不到它——
+                // 偏好不该进确认页,也不该被"撤销上一批"连坐删掉。
+                var actions = rawActions
+                for case .rememberPreference(let line) in actions {
+                    AgentPreferences.append(line)
+                }
+                actions.removeAll { if case .rememberPreference = $0 { return true } else { return false } }
+                guard !actions.isEmpty else {
+                    return .answer(text: "好的,我记住了。", related: [])
+                }
                 if actions.count == 1 {
                     if case .create(var parsed) = actions[0] {
                         // 时长记忆本来只有 Siri 快捷指令在用(LodoIntents.swift),
@@ -230,6 +241,9 @@ extension TodoListView {
             // 防御性分支:parseCommand 已把 suggest_memorize 与写操作混合时丢弃,
             // 正常不会走到这里(route() 已把单条 suggest_memorize 短路直接返回)。
             return "建议收藏:\(MemorySearch.truncate(text, limit: 20))"
+        case .rememberPreference(let text):
+            // 防御性分支:route() 已经在进确认清单之前把偏好摘走了。
+            return "记住偏好:\(MemorySearch.truncate(text, limit: 20))"
         }
     }
 
@@ -281,10 +295,11 @@ extension TodoListView {
                 if let created = MemoryPipeline.saveText(text, context: context) {
                     undoOps.append(.memorized(uuid: created.uuid))
                 }
-            case .askMemory, .answer, .suggestMemorize:
+            case .askMemory, .answer, .suggestMemorize, .rememberPreference:
                 // 防御性分支:查询/回答/建议收藏类操作没有可执行的落库动作
                 // (suggest_memorize 要用户点了"收藏这条"才真正落库,不能在这里
-                // 静默自动执行——那样就和 memorize 没区别了)。
+                // 静默自动执行——那样就和 memorize 没区别了);偏好在 route() 里
+                // 已经落过盘,批次里理论上不会再出现。
                 break
             }
         }

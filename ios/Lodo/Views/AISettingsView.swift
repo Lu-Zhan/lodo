@@ -17,6 +17,7 @@ struct AISettingsView: View {
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
     @State private var confirmMemoryReset = false
+    @State private var confirmPreferencesReset = false
 
     // ---- 联网搜索(Tavily) ----
     @State private var tavilyKey = KeychainHelper.apiKey(for: "Tavily") ?? ""
@@ -133,6 +134,21 @@ struct AISettingsView: View {
                 Text("AI 记忆")
             } footer: {
                 Text("AI 会在事项完成后归纳\"类型 → 典型时长\",新建没说时长的事项时据此建议。")
+            }
+
+            Section {
+                NavigationLink("编辑偏好") { AgentPreferencesEditView() }
+                Button("重置偏好", role: .destructive) {
+                    confirmPreferencesReset = true
+                }
+                .confirmationDialog("确定清空 AI 偏好吗?", isPresented: $confirmPreferencesReset,
+                                    titleVisibility: .visible) {
+                    Button("重置偏好", role: .destructive) { AgentPreferences.reset() }
+                }
+            } header: {
+                Text("AI 偏好")
+            } footer: {
+                Text("你在对话里说过的长期要求(如「以后开会都留一小时」)会被 AI 自动记在这里,之后每轮对话都会带上。")
             }
 
             Section {

@@ -69,6 +69,10 @@ public enum AIAction {
     /// AI 主动建议收藏(不是用户明确要求),前端展示成一个"收藏这条"按钮,
     /// 点了才真正落库——和 memorize 的区别是这条不会自动执行。
     case suggestMemorize(text: String)
+    /// 用户的长期做事偏好(如"开会默认留 60 分钟"),静默写进 `AgentPreferences`,
+    /// 以后每轮 command 都带进 prompt。和 memorize 的区别:那个存的是资料内容本身,
+    /// 这个改的是 AI 以后怎么做事。
+    case rememberPreference(text: String)
 }
 
 /// AI 总入口的返回:操作列表、关键信息缺失时的反问(一次可问多道,每道带
@@ -123,6 +127,19 @@ public enum DeepSeekClient {
     private static var personaBlock: String {
         guard let persona = AppSettings.agentPersona else { return "" }
         return "\n\n说话风格(仅影响面向用户的文字,不得改变 JSON 结构与字段值):\(persona)"
+    }
+
+    /// 用户偏好块:AI 自己在对话里记下的长期做事习惯,只拼进 command
+    /// (AI 助手对话入口),不影响 parse/edit/汇总这些后台小请求。
+    /// 没记过任何偏好时整段不出现,prompt 与加这个功能之前逐字一致。
+    private static var preferencesBlock: String {
+        guard let preferences = AgentPreferences.content else { return "" }
+        return """
+
+
+        用户偏好(你以前记下的,除非这次用户明确另说,否则一律遵守):
+        \(preferences)
+        """
     }
 
     private static var timeContext: String {
@@ -207,7 +224,7 @@ public enum DeepSeekClient {
         \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
         \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")
 
-        \(timeContext)
+        \(timeContext)\(preferencesBlock)
 
         当前待办列表:
         \(json(list))\(personaBlock)\(historyBlock(history))
@@ -293,6 +310,13 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:建议收藏内容为空")
                 }
                 actions.append(.suggestMemorize(text: text))
+            case "remember_preference":
+                let text = (raw["text"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !text.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:偏好内容为空")
+                }
+                actions.append(.rememberPreference(text: text))
             case "ask_memory" where memoryEnabled:
                 let question = (raw["question"] as? String)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -628,6 +652,22 @@ public enum DeepSeekClient {
             throw DeepSeekError.parse("返回格式异常:缺少 memory")
         }
         return memory
+    }
+
+    /// 偏好条数超上限时重写整份文件(合并相近条目);与 updateMemory 同构。
+    public static func consolidatePreferences(current: String) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的偏好管理助手,维护一份"用户长期做事偏好"的文件。\
+        给定现有文件,输出整理后的完整文件:相近的条目合并成一条,矛盾的以更靠后的为准,\
+        一条一行,markdown 列表格式,最多 30 条,首行标题为"# 用户偏好"。\
+        不要新增用户没说过的偏好。只返回 JSON:{"preferences": "整理后的文件全文"},\
+        不要任何其他文字。
+        """
+        let payload = try await payload(system: system, user: current, timeout: 60)
+        guard let preferences = payload["preferences"] as? String else {
+            throw DeepSeekError.parse("返回格式异常:缺少 preferences")
+        }
+        return preferences
     }
 
     // MARK: - 请求与序列化
