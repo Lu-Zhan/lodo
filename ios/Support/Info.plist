@@ -12,6 +12,8 @@
 	<array>
 		<string>fetch</string>
 	</array>
+	<key>NSContactsUsageDescription</key>
+	<string>用于从通讯录导入联系人到记忆库,或将记忆库里的联系人导出到通讯录。</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

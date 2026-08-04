@@ -3,6 +3,9 @@ import SwiftData
 import QuickLook
 import PhotosUI
 import LodoCore
+#if os(iOS)
+import Contacts
+#endif
 
 /// 联系人详情:比通用的 MemoryDetailView 多出一整套结构化字段(头像/昵称/
 /// 联系方式/生日/喜好/多附件/关系),塞进通用详情页会把它搞乱,所以单独一个
@@ -31,6 +34,12 @@ struct ContactDetailView: View {
     /// 每次增删关系后手动 +1,借 SwiftUI 对任意 @State 变化都会整体重算
     /// body 的机制,顺带让下面的 relationships 计算属性拿到最新结果。
     @State private var relationshipsTick = 0
+    #if os(iOS)
+    @State private var showExportSheet = false
+    @State private var exportMutableContact: CNMutableContact?
+    @State private var exportPermissionDenied = false
+    @State private var exportResultMessage: String?
+    #endif
 
     init(item: MemoryItem) {
         self.item = item
@@ -151,6 +160,16 @@ struct ContactDetailView: View {
                 Text("关系")
             }
 
+            #if os(iOS)
+            Section {
+                Button {
+                    Task { await beginExport() }
+                } label: {
+                    Label("导出到通讯录", systemImage: "square.and.arrow.up")
+                }
+            }
+            #endif
+
             Section {
                 Button("删除联系人", role: .destructive) {
                     confirmDelete = true
@@ -184,6 +203,29 @@ struct ContactDetailView: View {
                 relationshipsTick += 1
             }
         }
+        #if os(iOS)
+        .sheet(isPresented: $showExportSheet) {
+            if let exportMutableContact {
+                ContactExportView(contact: exportMutableContact) { saved in
+                    showExportSheet = false
+                    exportResultMessage = saved ? "已导出到通讯录。" : nil
+                }
+            }
+        }
+        .alert("无法访问通讯录", isPresented: $exportPermissionDenied) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text("请在系统设置 → 隐私与安全性 → 通讯录 里允许 lodo 访问。")
+        }
+        .alert("已导出", isPresented: Binding(
+            get: { exportResultMessage != nil },
+            set: { if !$0 { exportResultMessage = nil } }
+        )) {
+            Button("好") { exportResultMessage = nil }
+        } message: {
+            Text(exportResultMessage ?? "")
+        }
+        #endif
         .confirmationDialog(
             "删除这位联系人?头像与附件会一并删除,已建立的关系也会一起消失。",
             isPresented: $confirmDelete, titleVisibility: .visible
@@ -251,6 +293,17 @@ struct ContactDetailView: View {
         item.contactAvatarRelativePath = "Contacts/\(target.lastPathComponent)"
         try? context.save()
     }
+
+    #if os(iOS)
+    private func beginExport() async {
+        guard await ContactsBridge.requestAccess() == .granted else {
+            exportPermissionDenied = true
+            return
+        }
+        exportMutableContact = ContactsBridge.makeMutableContact(from: item)
+        showExportSheet = true
+    }
+    #endif
 
     private func commitEdits() {
         guard !deleted else { return }

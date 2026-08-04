@@ -31,6 +31,13 @@ struct MemoryListView: View {
     @State private var showFileImporter = false
     @State private var showTagManage = false
     @State private var pendingDelete: MemoryItem?
+    #if os(iOS)
+    @State private var showContactImportConfirm = false
+    @State private var showContactPicker = false
+    @State private var showContactExportPicker = false
+    @State private var contactsPermissionDenied = false
+    @State private var contactImportResultMessage: String?
+    #endif
     #if DEBUG
     /// 截图验证用:simctl 点不了 List 行,--demo-contact-detail 直接弹详情。
     @State private var demoContactDetailTarget: MemoryItem?
@@ -161,6 +168,14 @@ struct MemoryListView: View {
                    let first = items.first(where: { $0.isContact }) {
                     demoContactDetailTarget = first
                 }
+                #if os(iOS)
+                // 截图验证用:批量导出选择页不需要通讯录权限就能看列表(权限只在
+                // 真正点"导出"时才用到),跳过 beginContactExport() 的权限请求直接弹出。
+                if ProcessInfo.processInfo.arguments.contains("--demo-contact-export-picker") {
+                    showContacts = true
+                    showContactExportPicker = true
+                }
+                #endif
                 #endif
             }
             .searchable(text: $query, prompt: "搜索收藏")
@@ -187,6 +202,15 @@ struct MemoryListView: View {
                             Label("关系图谱", systemImage: "point.3.connected.trianglepath.dotted")
                         }
                     }
+                    #if os(iOS)
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            Task { await beginContactExport() }
+                        } label: {
+                            Label("批量导出到通讯录", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    #endif
                 }
                 ToolbarItem(placement: .navigation) {
                     Menu {
@@ -206,6 +230,17 @@ struct MemoryListView: View {
                         Button("记一位联系人", systemImage: "person.crop.circle.badge.plus") {
                             showContactCompose = true
                         }
+                        #if os(iOS)
+                        Button("从通讯录批量导入", systemImage: "person.crop.circle.badge.plus") {
+                            showContactImportConfirm = true
+                        }
+                        Button("从通讯录选择导入", systemImage: "person.crop.circle.badge.checkmark") {
+                            // CNContactPickerViewController 不需要先申请通讯录权限——
+                            // 系统会把选人这一步隔离到独立进程,选完只把用户选中的那
+                            // 几条给回 app,不算读取整个通讯录,直接弹选择器即可。
+                            showContactPicker = true
+                        }
+                        #endif
                         Divider()
                         Button("管理标签", systemImage: "tag") {
                             showTagManage = true
@@ -250,6 +285,42 @@ struct MemoryListView: View {
             .sheet(isPresented: $showTagManage) {
                 MemoryTagManageView()
             }
+            #if os(iOS)
+            .sheet(isPresented: $showContactPicker) {
+                ContactPickerView(
+                    onPicked: { cnContacts in
+                        showContactPicker = false
+                        let result = ContactsBridge.importContacts(cnContacts, context: context)
+                        contactImportResultMessage = importSummary(result)
+                        showContacts = true
+                    },
+                    onCancel: { showContactPicker = false })
+            }
+            .sheet(isPresented: $showContactExportPicker) {
+                ContactExportPickerView()
+            }
+            .confirmationDialog(
+                "确定要导入通讯录中的全部联系人吗?", isPresented: $showContactImportConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("导入") { Task { await beginBulkImport() } }
+            } message: {
+                Text("已存在的联系人(按手机号/邮箱匹配)会自动跳过,不会重复导入。")
+            }
+            .alert("导入完成", isPresented: Binding(
+                get: { contactImportResultMessage != nil },
+                set: { if !$0 { contactImportResultMessage = nil } }
+            )) {
+                Button("好") { contactImportResultMessage = nil }
+            } message: {
+                Text(contactImportResultMessage ?? "")
+            }
+            .alert("无法访问通讯录", isPresented: $contactsPermissionDenied) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text("请在系统设置 → 隐私与安全性 → 通讯录 里允许 lodo 访问。")
+            }
+            #endif
             #if DEBUG
             .sheet(item: $demoContactDetailTarget) { target in
                 NavigationStack { ContactDetailView(item: target) }
@@ -381,6 +452,34 @@ struct MemoryListView: View {
         } else if let text = pasteboard.string(forType: .string) {
             MemoryPipeline.saveText(text, context: context)
         }
+    }
+    #endif
+
+    #if os(iOS)
+    // MARK: - 通讯录批量导入/导出(权限门控,选择导入的系统选择器不需要走这里)
+
+    private func beginBulkImport() async {
+        guard await ContactsBridge.requestAccess() == .granted else {
+            contactsPermissionDenied = true
+            return
+        }
+        let result = ContactsBridge.importContacts(ContactsBridge.fetchAllContacts(), context: context)
+        contactImportResultMessage = importSummary(result)
+        showContacts = true
+    }
+
+    private func beginContactExport() async {
+        guard await ContactsBridge.requestAccess() == .granted else {
+            contactsPermissionDenied = true
+            return
+        }
+        showContactExportPicker = true
+    }
+
+    private func importSummary(_ result: (imported: Int, skipped: Int)) -> String {
+        var message = "已导入 \(result.imported) 位"
+        if result.skipped > 0 { message += ",跳过 \(result.skipped) 位重复" }
+        return message
     }
     #endif
 
