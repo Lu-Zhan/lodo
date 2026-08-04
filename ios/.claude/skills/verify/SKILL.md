@@ -26,6 +26,10 @@ xcrun simctl io $UDID screenshot shot.png
 - `--demo-done-tab` 直达已完成 tab
 - `--demo-memory-tab` 直达记忆 tab
 - `--demo-insight` 假的本周洞察文案
+- `--demo-routines` 直达定时任务列表(配 `--demo-data` 才有种子任务)
+- `--demo-routine-edit` 直达定时任务编辑表单(天气穿搭模板,新建态)
+- `--demo-routine-due` 把种子定时任务的时间挪到 30 分钟前,启动即走真实补跑
+  路径(真调用 AI,约十几秒后结果出现在总览的"今日例行")
 
 ## 陷阱
 

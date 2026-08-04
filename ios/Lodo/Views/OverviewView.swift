@@ -18,6 +18,8 @@ struct OverviewView: View {
     var pending: [TaskItem]
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
     private var memoryItems: [MemoryItem]
+    @Query(sort: [SortDescriptor(\AIRoutineRun.createdAt, order: .reverse)])
+    private var routineRuns: [AIRoutineRun]
 
     /// 只在进入这个 tab 时刷新一次,不像待办 tab 那样搭一套精确唤醒——总览是
     /// "打开看一眼"的仪表盘,不需要那么实时。
@@ -51,6 +53,17 @@ struct OverviewView: View {
     }
     private var todayMemories: [MemoryItem] {
         memoryItems.filter { Calendar.current.isDateInToday($0.createdAt) }
+    }
+    /// 今天各条定时任务最新的一次成功结果(同一条任务当天跑了多次只留最新的,
+    /// 失败的不展示——总览是"看今天怎么样",报错留在设置里的任务详情看)。
+    private var todayRoutineRuns: [AIRoutineRun] {
+        var seen = Set<UUID>()
+        return routineRuns.filter { run in
+            guard !run.failed, Calendar.current.isDateInToday(run.createdAt),
+                  !seen.contains(run.routineUUID) else { return false }
+            seen.insert(run.routineUUID)
+            return true
+        }
     }
 
     var body: some View {
@@ -92,6 +105,17 @@ struct OverviewView: View {
                             ForEach(todayUpcoming) { task in
                                 taskRow(task)
                             }
+                        }
+                    }
+                }
+                if !todayRoutineRuns.isEmpty {
+                    Section("今日例行") {
+                        ForEach(todayRoutineRuns) { run in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(run.routineName).font(.subheadline.weight(.medium))
+                                Text(run.text).font(.footnote)
+                            }
+                            .padding(.vertical, 2)
                         }
                     }
                 }

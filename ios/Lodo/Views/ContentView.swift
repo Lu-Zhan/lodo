@@ -15,6 +15,8 @@ struct ContentView: View {
     #if DEBUG
     @State private var showAgentSkillsDemo = false
     @State private var showAgentSkillEditDemo = false
+    @State private var showRoutinesDemo = false
+    @State private var showRoutineEditDemo = false
     #endif
 
     enum AppTab: Hashable {
@@ -56,6 +58,12 @@ struct ContentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-skill-edit") {
                     showAgentSkillEditDemo = true
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-routines") {
+                    showRoutinesDemo = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-routine-edit") {
+                    showRoutineEditDemo = true
+                }
                 if ProcessInfo.processInfo.arguments.contains("--demo-convert-to-todo") {
                     convertToTodo("测试:从记忆转来的标题", TaskAttachment(
                         kind: .text, title: "测试:从记忆转来的标题",
@@ -71,12 +79,27 @@ struct ContentView: View {
             .sheet(isPresented: $showAgentSkillEditDemo) {
                 NavigationStack { AgentSkillEditView(id: .todo) }
             }
+            .sheet(isPresented: $showRoutinesDemo) {
+                NavigationStack { RoutineListView() }
+            }
+            .sheet(isPresented: $showRoutineEditDemo) {
+                // 天气穿搭模板(联网那条),新建态
+                RoutineEditView(routine: AIRoutine(preset: AIRoutine.presets[1]), isNew: true)
+            }
             #endif
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     if Date().timeIntervalSince(lastActiveRefresh) > 30 {
                         lastActiveRefresh = Date()
                         Task { @MainActor in NotificationManager.shared.refreshAll() }
+                    }
+                    // 定时任务补跑:后台刷新没赶上时(系统不保证唤醒),回前台立刻
+                    // 把错过的槽位跑掉。人已经在 app 里了,结果直接显示,不推通知。
+                    // 不放进上面的 30 秒节流里——判断本身只是一次取数据加比较,
+                    // 而漏掉一次到点触发要等下一次激活才补。
+                    Task { @MainActor in
+                        await RoutineRunner.runDueRoutines(context: modelContext,
+                                                           notifyResults: false)
                     }
                     #if os(iOS)
                     consumeAgentHandoff()

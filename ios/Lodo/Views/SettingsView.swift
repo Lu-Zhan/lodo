@@ -44,6 +44,17 @@ struct SettingsView: View {
                     Text("稍等间隔、全天事项提醒时间、每日待办汇总都在这里。")
                 }
 
+                // ---- 定时任务:用户自定义的 AI 例行任务 ----
+                Section {
+                    NavigationLink {
+                        RoutineListView()
+                    } label: {
+                        Label("定时任务", systemImage: "clock.badge")
+                    }
+                } footer: {
+                    Text("让 AI 在你设定的时间自动跑一件事,比如早上总结今天的待办、看天气给穿搭建议。")
+                }
+
                 // ---- 通用 ----
                 #if os(iOS)
                 Section {

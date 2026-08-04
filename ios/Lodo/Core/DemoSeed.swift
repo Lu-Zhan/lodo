@@ -40,7 +40,29 @@ enum DemoSeed {
         // 已完成
         context.insert(TaskItem(title: "预约体检", remindAt: now.addingTimeInterval(-24 * 3600),
                                 status: .done, doneAt: now.addingTimeInterval(-3600)))
+        seedRoutines(context: context)
         try? context.save()
+    }
+
+    /// 定时任务:两条(一条启用、一条停用)+ 今天已经跑出来的结果,
+    /// 覆盖列表行、总览"今日例行"两处 UI。
+    @MainActor
+    private static func seedRoutines(context: ModelContext) {
+        try? context.delete(model: AIRoutine.self)
+        try? context.delete(model: AIRoutineRun.self)
+        let summary = AIRoutine(preset: AIRoutine.presets[0])
+        // --demo-routine-due:把时间点挪到 30 分钟前、当天还没跑过,启动回前台时
+        // 就会走真实的补跑路径(真调用 AI),用来验证端到端而不只是 UI。
+        if ProcessInfo.processInfo.arguments.contains("--demo-routine-due") {
+            summary.times = [AppSettings.hhmm(from: Date().addingTimeInterval(-30 * 60))]
+        }
+        context.insert(summary)
+        let outfit = AIRoutine(preset: AIRoutine.presets[1])
+        outfit.enabled = false
+        context.insert(outfit)
+        context.insert(AIRoutineRun(
+            routineUUID: summary.uuid, routineName: summary.name,
+            text: "今天四件事,先把「开周会」补上,「给妈妈回电话」路上就能打完;交报告明天才到期,晚上再动笔。"))
     }
 }
 #endif

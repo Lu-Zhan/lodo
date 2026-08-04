@@ -95,6 +95,14 @@ public enum AITool {
     case webFetch(url: String)
 }
 
+/// 定时任务(`AIRoutine`)跑一次的返回:最终要展示给用户的文字,或
+/// ReAct 循环里的中间步骤(先联网查一下再给结果)。工具复用 `AITool`——
+/// 定时任务只会用到其中的联网两个,不涉及记忆检索。
+public enum AIRoutineOutcome {
+    case text(String)
+    case toolCall(thought: String, tool: AITool)
+}
+
 public enum DeepSeekError: LocalizedError {
     case noKey
     case api(String)
@@ -484,6 +492,81 @@ public enum DeepSeekClient {
             throw DeepSeekError.parse("返回格式异常:缺少 summary")
         }
         return text
+    }
+
+    /// 定时任务(`AIRoutine`)到点后跑一次:按用户自己写的指令生成这次要展示的内容。
+    /// 和 weeklyInsight/summarizeToday 一样是"薄包装 + 返回一句话 JSON",区别是
+    /// 指令来自用户而不是写死的 prompt,并且允许联网——天气/行情这类任务不查就没法做。
+    ///
+    /// webSearchEnabled 时模型可以先返回一个只读工具调用(web_search/web_fetch),
+    /// 由调用方执行完把结果放进 history 再问一轮,机制与 command() 的 ReAct 循环一致
+    /// (循环体在 app 层,见 RoutineRunner.run)。写操作在这条路径上根本不存在——
+    /// 定时任务只产出文字,不碰待办。
+    public static func runRoutine(
+        name: String, instruction: String, taskContext: String? = nil,
+        webSearchEnabled: Bool = false,
+        history: [(role: String, content: String)] = []
+    ) async throws -> AIRoutineOutcome {
+        let tools = webSearchEnabled ? """
+
+
+        如果需要最新/实时信息(天气、行情、新闻等)才能完成任务,先返回:
+        {"thought": "为什么需要查", "tool": "web_search", "query": "要搜索的关键词"}
+        指令里给了具体链接、需要看链接内容本身时,改为返回:
+        {"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "链接原样"}
+        两者合计最多用两次,拿到结果后必须在下一轮给出最终的 {"text": ...},\
+        不能一直用工具占位不给结果。
+        """ : ""
+        let tasks = taskContext.map { "\n\n今天的待办:\n\($0)" } ?? ""
+        let system = """
+        你是提醒事项应用 lodo 的定时任务助手。用户预先设定了一条会自动执行的例行任务,\
+        现在到了执行时间,你要按用户写的指令生成这一次的内容,直接展示给用户看。
+
+        要求:
+        - 只输出这次要说的内容本身,不要复述指令,不要开场白和客套话。
+        - 具体、可执行,不说"合理安排时间""注意身体"这类空话。
+        - 不超过 120 个字,一段纯文本,不要 markdown 标题或列表符号。
+        - 信息不足时按常理给出最有用的内容,不要反问用户——定时任务没有人能回答你。
+
+        只返回 JSON:{"text": "这次要展示给用户的内容"},不要任何其他文字。\(tools)
+
+        \(timeContext)\(preferencesBlock)
+
+        任务名:\(name)\(tasks)\(personaBlock)\(historyBlock(history))
+        """
+        return try parseRoutine(await payload(system: system, user: instruction, timeout: 60),
+                                webSearchEnabled: webSearchEnabled)
+    }
+
+    /// 从 payload 里解析定时任务结果(单测入口)。
+    /// webSearchEnabled == false 时 prompt 里根本没提过工具,模型幻觉出来也不认,
+    /// 落到下面按缺 text 报错——与 parseCommand 对未开启开关的处理一致。
+    static func parseRoutine(_ payload: [String: Any],
+                             webSearchEnabled: Bool) throws -> AIRoutineOutcome {
+        if webSearchEnabled, let toolName = payload["tool"] as? String {
+            let thought = (payload["thought"] as? String) ?? ""
+            switch toolName {
+            case "web_search":
+                guard let query = (payload["query"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:web_search 缺少 query")
+                }
+                return .toolCall(thought: thought, tool: .webSearch(query: query))
+            case "web_fetch":
+                guard let url = (payload["url"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !url.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:web_fetch 缺少 url")
+                }
+                return .toolCall(thought: thought, tool: .webFetch(url: url))
+            default:
+                throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
+            }
+        }
+        guard let text = (payload["text"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 text")
+        }
+        return .text(text)
     }
 
     /// 把 agent 对话的首轮内容总结成一个简短标题(thread 列表/导航栏用)。
