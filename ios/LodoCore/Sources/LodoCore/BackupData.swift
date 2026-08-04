@@ -114,11 +114,23 @@ public struct BackupMemoryItem: Codable {
     public var statusRaw: String
     public var createdAt: Date
     public var assetValue: Double?
+    public var contactNickname: String?
+    public var contactPhone: String?
+    public var contactEmail: String?
+    public var contactBirthday: Date?
+    public var contactPreferences: String?
+    public var contactAvatarRelativePath: String?
+    /// 非可选数组:老格式备份(这个 key 还不存在)靠这里的默认值兜底解码,
+    /// 见 BackupDataTests 的老格式解码回归测试。
+    public var attachmentRelativePaths: [String] = []
 
     public init(
         uuid: UUID, kindRaw: String, title: String, summary: String, tags: [String],
         sourceText: String, urlString: String?, originalFileName: String?,
-        relativeFilePath: String?, statusRaw: String, createdAt: Date, assetValue: Double? = nil
+        relativeFilePath: String?, statusRaw: String, createdAt: Date, assetValue: Double? = nil,
+        contactNickname: String? = nil, contactPhone: String? = nil, contactEmail: String? = nil,
+        contactBirthday: Date? = nil, contactPreferences: String? = nil,
+        contactAvatarRelativePath: String? = nil, attachmentRelativePaths: [String] = []
     ) {
         self.uuid = uuid
         self.kindRaw = kindRaw
@@ -132,6 +144,41 @@ public struct BackupMemoryItem: Codable {
         self.statusRaw = statusRaw
         self.createdAt = createdAt
         self.assetValue = assetValue
+        self.contactNickname = contactNickname
+        self.contactPhone = contactPhone
+        self.contactEmail = contactEmail
+        self.contactBirthday = contactBirthday
+        self.contactPreferences = contactPreferences
+        self.contactAvatarRelativePath = contactAvatarRelativePath
+        self.attachmentRelativePaths = attachmentRelativePaths
+    }
+
+    /// 手写 init(from:):新增字段用 decodeIfPresent 兜底,老格式备份(这些 key
+    /// 还不存在)也能正常解码——自动合成的 init(from:) 对非可选存储属性的
+    /// 缺失 key 不会自动落到声明处的默认值,必须手写才能保证向后兼容。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        uuid = try c.decode(UUID.self, forKey: .uuid)
+        kindRaw = try c.decode(String.self, forKey: .kindRaw)
+        title = try c.decode(String.self, forKey: .title)
+        summary = try c.decode(String.self, forKey: .summary)
+        tags = try c.decode([String].self, forKey: .tags)
+        sourceText = try c.decode(String.self, forKey: .sourceText)
+        urlString = try c.decodeIfPresent(String.self, forKey: .urlString)
+        originalFileName = try c.decodeIfPresent(String.self, forKey: .originalFileName)
+        relativeFilePath = try c.decodeIfPresent(String.self, forKey: .relativeFilePath)
+        statusRaw = try c.decode(String.self, forKey: .statusRaw)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        assetValue = try c.decodeIfPresent(Double.self, forKey: .assetValue)
+        contactNickname = try c.decodeIfPresent(String.self, forKey: .contactNickname)
+        contactPhone = try c.decodeIfPresent(String.self, forKey: .contactPhone)
+        contactEmail = try c.decodeIfPresent(String.self, forKey: .contactEmail)
+        contactBirthday = try c.decodeIfPresent(Date.self, forKey: .contactBirthday)
+        contactPreferences = try c.decodeIfPresent(String.self, forKey: .contactPreferences)
+        contactAvatarRelativePath = try c.decodeIfPresent(
+            String.self, forKey: .contactAvatarRelativePath)
+        attachmentRelativePaths = try c.decodeIfPresent(
+            [String].self, forKey: .attachmentRelativePaths) ?? []
     }
 }
 
@@ -141,7 +188,11 @@ extension MemoryItem {
             uuid: uuid, kindRaw: kindRaw, title: title, summary: summary, tags: tags,
             sourceText: sourceText, urlString: urlString, originalFileName: originalFileName,
             relativeFilePath: relativeFilePath, statusRaw: statusRaw, createdAt: createdAt,
-            assetValue: assetValue)
+            assetValue: assetValue, contactNickname: contactNickname, contactPhone: contactPhone,
+            contactEmail: contactEmail, contactBirthday: contactBirthday,
+            contactPreferences: contactPreferences,
+            contactAvatarRelativePath: contactAvatarRelativePath,
+            attachmentRelativePaths: attachmentRelativePaths)
     }
 }
 
@@ -159,6 +210,47 @@ extension BackupMemoryItem {
         item.statusRaw = statusRaw
         item.createdAt = createdAt
         item.assetValue = assetValue
+        item.contactNickname = contactNickname
+        item.contactPhone = contactPhone
+        item.contactEmail = contactEmail
+        item.contactBirthday = contactBirthday
+        item.contactPreferences = contactPreferences
+        item.contactAvatarRelativePath = contactAvatarRelativePath
+        item.attachmentRelativePaths = attachmentRelativePaths
+    }
+}
+
+public struct BackupContactRelationship: Codable {
+    public var uuid: UUID
+    public var memoryUUIDA: UUID
+    public var memoryUUIDB: UUID
+    public var label: String
+    public var createdAt: Date
+
+    public init(uuid: UUID, memoryUUIDA: UUID, memoryUUIDB: UUID, label: String, createdAt: Date) {
+        self.uuid = uuid
+        self.memoryUUIDA = memoryUUIDA
+        self.memoryUUIDB = memoryUUIDB
+        self.label = label
+        self.createdAt = createdAt
+    }
+}
+
+extension ContactRelationship {
+    public var backup: BackupContactRelationship {
+        BackupContactRelationship(
+            uuid: uuid, memoryUUIDA: memoryUUIDA, memoryUUIDB: memoryUUIDB, label: label,
+            createdAt: createdAt)
+    }
+}
+
+extension BackupContactRelationship {
+    public func apply(to relationship: ContactRelationship) {
+        relationship.uuid = uuid
+        relationship.memoryUUIDA = memoryUUIDA
+        relationship.memoryUUIDB = memoryUUIDB
+        relationship.label = label
+        relationship.createdAt = createdAt
     }
 }
 
@@ -333,11 +425,12 @@ public struct BackupManifest: Codable {
     public var agentThreadCount: Int
     public var agentMessageCount: Int
     public var skillOverrideCount: Int
+    public var contactRelationshipCount: Int = 0
 
     public init(
         formatVersion: Int, exportedAt: Date, appVersion: String, taskCount: Int,
         memoryCount: Int, memoryTagCount: Int, agentThreadCount: Int, agentMessageCount: Int,
-        skillOverrideCount: Int
+        skillOverrideCount: Int, contactRelationshipCount: Int = 0
     ) {
         self.formatVersion = formatVersion
         self.exportedAt = exportedAt
@@ -348,6 +441,7 @@ public struct BackupManifest: Codable {
         self.agentThreadCount = agentThreadCount
         self.agentMessageCount = agentMessageCount
         self.skillOverrideCount = skillOverrideCount
+        self.contactRelationshipCount = contactRelationshipCount
     }
 
     public static let currentFormatVersion = 1
@@ -363,11 +457,15 @@ public struct BackupPayload: Codable {
     public var agentMessages: [BackupAgentMessage]
     public var skillOverrides: [BackupSkillOverride]
     public var settings: BackupSettings
+    /// 非可选数组:老格式备份没有这个 key,靠默认值兜底解码(同
+    /// attachmentRelativePaths,见 BackupDataTests 的老格式解码回归测试)。
+    public var contactRelationships: [BackupContactRelationship] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
         agentThreads: [BackupAgentThread], agentMessages: [BackupAgentMessage],
-        skillOverrides: [BackupSkillOverride], settings: BackupSettings
+        skillOverrides: [BackupSkillOverride], settings: BackupSettings,
+        contactRelationships: [BackupContactRelationship] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -376,5 +474,21 @@ public struct BackupPayload: Codable {
         self.agentMessages = agentMessages
         self.skillOverrides = skillOverrides
         self.settings = settings
+        self.contactRelationships = contactRelationships
+    }
+
+    /// 手写 init(from:):contactRelationships 是新增字段,老格式备份没有这个
+    /// key 时用空数组兜底,理由同 BackupMemoryItem 的手写 init(from:)。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        tasks = try c.decode([BackupTask].self, forKey: .tasks)
+        memoryItems = try c.decode([BackupMemoryItem].self, forKey: .memoryItems)
+        memoryTags = try c.decode([BackupMemoryTag].self, forKey: .memoryTags)
+        agentThreads = try c.decode([BackupAgentThread].self, forKey: .agentThreads)
+        agentMessages = try c.decode([BackupAgentMessage].self, forKey: .agentMessages)
+        skillOverrides = try c.decode([BackupSkillOverride].self, forKey: .skillOverrides)
+        settings = try c.decode(BackupSettings.self, forKey: .settings)
+        contactRelationships = try c.decodeIfPresent(
+            [BackupContactRelationship].self, forKey: .contactRelationships) ?? []
     }
 }

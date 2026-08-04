@@ -18,6 +18,8 @@ enum AppGroup {
     /// 扩展只往里落文件,主 app 回前台时消费。
     static var memoryDirURL: URL? { directory("Memory") }
     static var inboxDirURL: URL? { directory("Memory/Inbox") }
+    /// 联系人头像与附件目录,与 Memory/ 同级独立存放。
+    static var contactsDirURL: URL? { directory("Contacts") }
 
     private static func directory(_ path: String) -> URL? {
         guard let url = containerURL?.appending(path: path) else { return nil }

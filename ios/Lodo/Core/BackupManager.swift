@@ -51,6 +51,7 @@ enum BackupManager {
         let memoryTags = ((try? context.fetch(FetchDescriptor<MemoryTag>())) ?? [])
         let agentThreads = ((try? context.fetch(FetchDescriptor<AgentThread>())) ?? [])
         let agentMessages = ((try? context.fetch(FetchDescriptor<AgentMessage>())) ?? [])
+        let contactRelationships = ((try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [])
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -62,7 +63,8 @@ enum BackupManager {
             agentThreads: agentThreads.map { $0.backup },
             agentMessages: agentMessages.map { $0.backup },
             skillOverrides: skillOverrides,
-            settings: currentSettings())
+            settings: currentSettings(),
+            contactRelationships: contactRelationships.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -70,16 +72,21 @@ enum BackupManager {
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
             taskCount: tasks.count, memoryCount: memoryItems.count,
             memoryTagCount: memoryTags.count, agentThreadCount: agentThreads.count,
-            agentMessageCount: agentMessages.count, skillOverrideCount: skillOverrides.count)
+            agentMessageCount: agentMessages.count, skillOverrideCount: skillOverrides.count,
+            contactRelationshipCount: contactRelationships.count)
 
         var entries: [ZipArchive.Entry] = [
             ZipArchive.Entry(path: manifestPath, data: try encoder.encode(manifest)),
             ZipArchive.Entry(path: dataPath, data: try encoder.encode(payload)),
         ]
         for item in memoryItems {
-            guard let fileURL = MemoryPipeline.fileURL(of: item),
-                  let data = try? Data(contentsOf: fileURL) else { continue }
-            entries.append(ZipArchive.Entry(path: "files/\(fileURL.lastPathComponent)", data: data))
+            var fileURLs = [MemoryPipeline.fileURL(of: item), MemoryPipeline.contactAvatarURL(of: item)]
+                .compactMap { $0 }
+            fileURLs.append(contentsOf: MemoryPipeline.contactAttachmentURLs(of: item))
+            for fileURL in fileURLs {
+                guard let data = try? Data(contentsOf: fileURL) else { continue }
+                entries.append(ZipArchive.Entry(path: "files/\(fileURL.lastPathComponent)", data: data))
+            }
         }
 
         let zipData = ZipArchive.write(entries)
@@ -175,6 +182,19 @@ enum BackupManager {
             dto.apply(to: message)
         }
 
+        for dto in payload.contactRelationships {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<ContactRelationship>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let relationship = existing ?? {
+                let created = ContactRelationship(
+                    memoryUUIDA: dto.memoryUUIDA, memoryUUIDB: dto.memoryUUIDB, label: dto.label)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: relationship)
+        }
+
         for override in payload.skillOverrides {
             guard let id = AgentSkillID(rawValue: override.id) else { continue }
             AgentSkillStore.save(override.content, for: id)
@@ -188,17 +208,21 @@ enum BackupManager {
 
     // MARK: - 内部
 
-    /// files/ 里的条目名和 relativeFilePath 的文件名(App Group 里存的原始文件名,
-    /// 建立时就是 "<item uuid>.<ext>")一一对应,直接按名字找、写回同一相对路径即可。
+    /// files/ 里的条目名和相对路径的文件名(App Group 里存的原始文件名)一一对应,
+    /// 直接按名字找、写回同一相对路径即可。一条记忆条目可能有多个文件——原文件、
+    /// 联系人头像、联系人附件(各自独立字段/数组),逐个还原。
     private static func restoreFile(for dto: BackupMemoryItem, entries: [ZipArchive.Entry]) {
-        guard let relativePath = dto.relativeFilePath,
-              let containerURL = AppGroup.containerURL else { return }
-        let fileName = (relativePath as NSString).lastPathComponent
-        guard let entry = entries.first(where: { $0.path == "files/\(fileName)" }) else { return }
-        let destURL = containerURL.appending(path: relativePath)
-        try? FileManager.default.createDirectory(
-            at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? entry.data.write(to: destURL, options: .atomic)
+        guard let containerURL = AppGroup.containerURL else { return }
+        let relativePaths = [dto.relativeFilePath, dto.contactAvatarRelativePath].compactMap { $0 }
+            + dto.attachmentRelativePaths
+        for relativePath in relativePaths {
+            let fileName = (relativePath as NSString).lastPathComponent
+            guard let entry = entries.first(where: { $0.path == "files/\(fileName)" }) else { continue }
+            let destURL = containerURL.appending(path: relativePath)
+            try? FileManager.default.createDirectory(
+                at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? entry.data.write(to: destURL, options: .atomic)
+        }
     }
 
     /// "先清空再导入"策略:删光设备上现有的待办/记忆(连带附件文件与向量分片)/
@@ -218,6 +242,12 @@ enum BackupManager {
         }
         for message in (try? context.fetch(FetchDescriptor<AgentMessage>())) ?? [] {
             context.delete(message)
+        }
+        // 理论上 MemoryPipeline.delete(_:context:) 已经把牵涉已删联系人的边清掉了,
+        // 这里仍显式再扫一遍兜底孤儿边(比如极端情况下某条边引用的两端 uuid
+        // 都不对应任何现存条目)。
+        for relationship in (try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [] {
+            context.delete(relationship)
         }
         try? context.save()
     }

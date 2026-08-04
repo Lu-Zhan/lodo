@@ -87,6 +87,82 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(restored.urlString, "https://a.com")
     }
 
+    func testContactMemoryItemBackupAndApplyRoundTrip() {
+        let birthday = Date(timeIntervalSince1970: 0)
+        let original = MemoryItem(
+            kind: .text, title: "张三", tags: [MemoryItem.contactTagName],
+            contactNickname: "小张", contactPhone: "13800000000", contactEmail: "a@b.com",
+            contactBirthday: birthday, contactPreferences: "咖啡",
+            contactAvatarRelativePath: "Contacts/a-avatar.jpg",
+            attachmentRelativePaths: ["Contacts/x.pdf", "Contacts/y.png"])
+        let dto = original.backup
+        let restored = MemoryItem(kind: .text)
+        dto.apply(to: restored)
+
+        XCTAssertTrue(restored.isContact)
+        XCTAssertEqual(restored.contactNickname, "小张")
+        XCTAssertEqual(restored.contactPhone, "13800000000")
+        XCTAssertEqual(restored.contactEmail, "a@b.com")
+        XCTAssertEqual(restored.contactBirthday, birthday)
+        XCTAssertEqual(restored.contactPreferences, "咖啡")
+        XCTAssertEqual(restored.contactAvatarRelativePath, "Contacts/a-avatar.jpg")
+        XCTAssertEqual(restored.attachmentRelativePaths, ["Contacts/x.pdf", "Contacts/y.png"])
+    }
+
+    func testContactRelationshipBackupAndApplyRoundTrip() {
+        let a = UUID()
+        let b = UUID()
+        let original = ContactRelationship(memoryUUIDA: a, memoryUUIDB: b, label: "同事")
+        let dto = original.backup
+        let restored = ContactRelationship(memoryUUIDA: UUID(), memoryUUIDB: UUID(), label: "")
+        dto.apply(to: restored)
+
+        XCTAssertEqual(restored.uuid, original.uuid)
+        XCTAssertEqual(restored.memoryUUIDA, a)
+        XCTAssertEqual(restored.memoryUUIDB, b)
+        XCTAssertEqual(restored.label, "同事")
+    }
+
+    /// 老格式备份 JSON 没有 attachmentRelativePaths/contactRelationships 这些新 key,
+    /// 必须仍能正常解码(靠属性声明处的默认值兜底),不能因为升级就打不开旧备份。
+    func testOldFormatBackupPayloadDecodesWithoutNewKeys() throws {
+        let oldFormatJSON = """
+        {
+          "tasks": [],
+          "memoryItems": [
+            {
+              "uuid": "\(UUID().uuidString)",
+              "kindRaw": "text",
+              "title": "老记录",
+              "summary": "",
+              "tags": [],
+              "sourceText": "",
+              "statusRaw": "ready",
+              "createdAt": 0
+            }
+          ],
+          "memoryTags": [],
+          "agentThreads": [],
+          "agentMessages": [],
+          "skillOverrides": [],
+          "settings": {
+            "snoozeMinutes": 15, "allDayTime": "09:00", "digestEnabled": true,
+            "digestTime": "21:00", "digestTimes": "09:00,21:00", "digestRepeatType": "daily",
+            "digestDays": "0,1,2,3,4", "hapticsEnabled": true, "insightEnabled": true,
+            "agentSilenceTimeoutSeconds": 3, "agentPersonaStyle": "默认",
+            "agentPersonaCustom": "", "aiProvider": "DeepSeek", "aiModel": "",
+            "aiCustomEndpoint": "", "icloudSyncEnabled": true, "thinkingLevel": "medium"
+          }
+        }
+        """
+        let decoded = try JSONDecoder().decode(
+            BackupPayload.self, from: Data(oldFormatJSON.utf8))
+        XCTAssertEqual(decoded.memoryItems[0].title, "老记录")
+        XCTAssertEqual(decoded.memoryItems[0].attachmentRelativePaths, [])
+        XCTAssertNil(decoded.memoryItems[0].contactNickname)
+        XCTAssertTrue(decoded.contactRelationships.isEmpty)
+    }
+
     func testAgentThreadAndMessageBackupAndApplyRoundTrip() {
         let thread = AgentThread()
         thread.title = "旅行计划"

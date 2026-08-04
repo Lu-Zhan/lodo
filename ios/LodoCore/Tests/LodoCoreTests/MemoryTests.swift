@@ -101,6 +101,33 @@ final class MemoryTests: XCTestCase {
                        MemorySearch.maxAskItems)
     }
 
+    // MARK: - matchTaskHistory
+
+    func testMatchTaskHistoryPrefersScoreOrder() {
+        let items = [
+            (index: 0, title: "交材料给行政"),
+            (index: 1, title: "开周会"),
+            (index: 2, title: "交材料复印件"),
+        ]
+        let matched = MemorySearch.matchTaskHistory(question: "上次交材料是什么时候", items: items)
+        XCTAssertEqual(Set(matched), [0, 2])
+        XCTAssertFalse(matched.contains(1))
+    }
+
+    func testMatchTaskHistoryReturnsEmptyWithoutRecencyPadding() {
+        let items = [
+            (index: 0, title: "旧条目"),
+            (index: 1, title: "新条目"),
+        ]
+        // 与 rank(:) 不同,零命中时不拿近期条目填充,直接返回空。
+        XCTAssertEqual(MemorySearch.matchTaskHistory(question: "quantum", items: items), [])
+    }
+
+    func testMatchTaskHistoryRespectsLimit() {
+        let items = (0..<30).map { (index: $0, title: "交材料 \($0)") }
+        XCTAssertEqual(MemorySearch.matchTaskHistory(question: "交材料", items: items, limit: 5).count, 5)
+    }
+
     // MARK: - tokens
 
     func testTokensMixedLanguage() {

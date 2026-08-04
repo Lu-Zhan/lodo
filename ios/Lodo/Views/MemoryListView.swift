@@ -22,17 +22,25 @@ struct MemoryListView: View {
     @State private var selectedTags: Set<String> = []
     @State private var selectedKinds: Set<MemoryKind> = []
     @State private var showAssets = false
+    @State private var showContacts = false
     @State private var showFilters = false
     @State private var showCompose = false
     @State private var showAssetCompose = false
+    @State private var showContactCompose = false
+    @State private var showContactGraph = false
     @State private var showFileImporter = false
     @State private var showTagManage = false
     @State private var pendingDelete: MemoryItem?
+    #if DEBUG
+    /// 截图验证用:simctl 点不了 List 行,--demo-contact-detail 直接弹详情。
+    @State private var demoContactDetailTarget: MemoryItem?
+    #endif
 
-    /// 普通内容标签(不含"资产"这个保留标签——它有自己独立的筛选开关,
-    /// 不跟其他标签混在一起,更醒目也避免用户把它当成普通标签删掉)。
+    /// 普通内容标签(不含"资产""联系人"这两个保留标签——它们各有自己独立的
+    /// 筛选开关,不跟其他标签混在一起,更醒目也避免用户把它们当成普通标签删掉)。
     private var allTags: [String] {
-        MemoryTags.all(in: context).filter { $0 != MemoryItem.assetTagName }
+        MemoryTags.all(in: context)
+            .filter { $0 != MemoryItem.assetTagName && $0 != MemoryItem.contactTagName }
     }
 
     /// 出现过的来源格式,按固定顺序(与内容标签是两套独立的筛选)。
@@ -42,16 +50,18 @@ struct MemoryListView: View {
     }
 
     private var activeFilterCount: Int {
-        selectedTags.count + selectedKinds.count + (showAssets ? 1 : 0)
+        selectedTags.count + selectedKinds.count + (showAssets ? 1 : 0) + (showContacts ? 1 : 0)
     }
 
     /// 文字过滤、格式筛选、标签筛选取交集;格式内部是"任一命中"
-    /// (一条只有一种格式),标签内部是"同时具备"。资产条目默认隐藏——
-    /// 不是"资产"筛选没打开就永远不会出现在任何列表里,是"个人资产"这类
-    /// 私密条目不该跟日常收藏混在一起刷屏,筛选里显式选中才看得到。
+    /// (一条只有一种格式),标签内部是"同时具备"。资产/联系人条目默认隐藏——
+    /// 不是各自的筛选没打开就永远不会出现在任何列表里,是这类私密/结构化条目
+    /// 不该跟日常收藏混在一起刷屏,筛选里显式选中才看得到。两个维度互相独立
+    /// (不会出现"资产"打开时联系人也跟着冒出来)。
     private var filtered: [MemoryItem] {
         items.filter { item in
-            (showAssets ? item.isAsset : !item.isAsset)
+            (item.isAsset ? showAssets : true)
+                && (item.isContact ? showContacts : true)
                 && (selectedKinds.isEmpty || selectedKinds.contains(item.kind))
                 && selectedTags.allSatisfy { item.tags.contains($0) }
                 && item.matches(query)
@@ -93,7 +103,11 @@ struct MemoryListView: View {
                     } else {
                         ForEach(filtered) { item in
                             NavigationLink {
-                                MemoryDetailView(item: item)
+                                if item.isContact {
+                                    ContactDetailView(item: item)
+                                } else {
+                                    MemoryDetailView(item: item)
+                                }
                             } label: {
                                 MemoryRow(item: item)
                             }
@@ -133,6 +147,20 @@ struct MemoryListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-assets-view") {
                     showAssets = true
                 }
+                if ProcessInfo.processInfo.arguments.contains("--demo-contacts-view") {
+                    showContacts = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-contact-compose") {
+                    showContactCompose = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-contact-graph") {
+                    showContacts = true
+                    showContactGraph = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-contact-detail"),
+                   let first = items.first(where: { $0.isContact }) {
+                    demoContactDetailTarget = first
+                }
                 #endif
             }
             .searchable(text: $query, prompt: "搜索收藏")
@@ -151,6 +179,15 @@ struct MemoryListView: View {
                 }
             }
             .toolbar {
+                if showContacts {
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            showContactGraph = true
+                        } label: {
+                            Label("关系图谱", systemImage: "point.3.connected.trianglepath.dotted")
+                        }
+                    }
+                }
                 ToolbarItem(placement: .navigation) {
                     Menu {
                         Button("粘贴收藏", systemImage: "doc.on.clipboard") {
@@ -165,6 +202,9 @@ struct MemoryListView: View {
                         Divider()
                         Button("记一笔资产", systemImage: "creditcard") {
                             showAssetCompose = true
+                        }
+                        Button("记一位联系人", systemImage: "person.crop.circle.badge.plus") {
+                            showContactCompose = true
                         }
                         Divider()
                         Button("管理标签", systemImage: "tag") {
@@ -194,9 +234,27 @@ struct MemoryListView: View {
             .sheet(isPresented: $showAssetCompose) {
                 AssetComposeView(onSaved: { showAssets = true })
             }
+            .sheet(isPresented: $showContactCompose) {
+                ContactComposeView(onSaved: { showContacts = true })
+            }
+            .sheet(isPresented: $showContactGraph) {
+                NavigationStack {
+                    ContactGraphView()
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("关闭") { showContactGraph = false }
+                            }
+                        }
+                }
+            }
             .sheet(isPresented: $showTagManage) {
                 MemoryTagManageView()
             }
+            #if DEBUG
+            .sheet(item: $demoContactDetailTarget) { target in
+                NavigationStack { ContactDetailView(item: target) }
+            }
+            #endif
             .fileImporter(
                 isPresented: $showFileImporter,
                 allowedContentTypes: [.pdf, .image, .plainText, .presentation, .data],
@@ -231,8 +289,13 @@ struct MemoryListView: View {
     private var filterContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("筛选").font(.headline)
-            Toggle(isOn: $showAssets) {
-                Label("资产", systemImage: "creditcard")
+            HStack(spacing: 8) {
+                Toggle(isOn: $showAssets) {
+                    Label("资产", systemImage: "creditcard")
+                }
+                Toggle(isOn: $showContacts) {
+                    Label("联系人", systemImage: "person.crop.circle")
+                }
             }
             .toggleStyle(.button)
             .buttonStyle(.bordered)
@@ -278,6 +341,7 @@ struct MemoryListView: View {
                     selectedKinds.removeAll()
                     selectedTags.removeAll()
                     showAssets = false
+                    showContacts = false
                 }
                 .font(.footnote)
             }
@@ -366,6 +430,19 @@ struct MemoryListView: View {
             tags: [MemoryItem.assetTagName],
             sourceText: "账单周期:本月 1 日至月底,合计支出 1280.5 元,含餐饮、交通、日用品。",
             status: .ready, assetValue: 1280.5))
+
+        let zhang = MemoryItem(
+            kind: .text, title: "张三", summary: "前同事,喜欢爬山。",
+            tags: [MemoryItem.contactTagName], sourceText: "前同事,喜欢爬山。咖啡",
+            status: .ready, contactNickname: "小张", contactPhone: "13800000000",
+            contactPreferences: "咖啡")
+        let li = MemoryItem(
+            kind: .text, title: "李四", summary: "大学同学。",
+            tags: [MemoryItem.contactTagName], sourceText: "大学同学。",
+            status: .ready, contactEmail: "li4@example.com")
+        context.insert(zhang)
+        context.insert(li)
+        context.insert(ContactRelationship(memoryUUIDA: zhang.uuid, memoryUUIDB: li.uuid, label: "同事"))
 
         try? context.save()
     }

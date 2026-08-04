@@ -41,7 +41,8 @@ extension TodoListView {
                 onThought(thought)
                 let candidates = await retrieveMemoryCandidates(query)
                 let observation = candidates.isEmpty ? "没有找到相关记忆内容" :
-                    candidates.map { "「\($0.title)」\($0.excerpt)" }.joined(separator: "\n")
+                    candidates.map { ($0.isTaskHistory ? "[待办历史] " : "") + "「\($0.title)」\($0.excerpt)" }
+                        .joined(separator: "\n")
                 reasoningHistory.append((role: "assistant", content: "思考:\(thought);查记忆:\(query)"))
                 reasoningHistory.append((role: "user", content: "记忆检索结果:\n\(observation)"))
                 currentText = "(请基于以上记忆检索结果继续处理最初的请求:\(text))"
@@ -130,17 +131,24 @@ extension TodoListView {
     /// 库为空本地短路,不发请求。语义检索不可用时自动退化成纯关键词,和"转为待办"
     /// 等其他记忆功能一样不因为 AI 能力缺失而不可用。
     private func answerFromMemory(_ question: String) async throws -> AgentReply {
-        let items = (try? context.fetch(FetchDescriptor<MemoryItem>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
-        guard !items.isEmpty else {
+        let hasMemory = ((try? context.fetchCount(FetchDescriptor<MemoryItem>())) ?? 0) > 0
+        let hasHistory = ((try? context.fetchCount(FetchDescriptor<TaskItem>(
+            predicate: #Predicate<TaskItem> { $0.statusRaw == "done" }))) ?? 0) > 0
+        guard hasMemory || hasHistory else {
             return .answer(text: "你还没有任何收藏,先在「记忆」页收藏一些内容吧。", related: [])
         }
         let candidates = await retrieveMemoryCandidates(question)
         let (answer, relatedUUIDs) = try await DeepSeekClient.askMemory(
-            question: question, items: candidates)
+            question: question,
+            items: candidates.map { candidate in
+                (uuid: candidate.uuid, title: candidate.title, summary: candidate.summary,
+                 tags: candidate.tags,
+                 excerpt: (candidate.isTaskHistory ? "[待办历史] " : "") + candidate.excerpt)
+            })
+        // 引用标题直接从 candidates 取,而不是重新查 MemoryItem 列表——待办历史的
+        // uuid("task:...")在 MemoryItem 里查不到,重新查会把这类引用静默丢掉。
         let relatedTitles = relatedUUIDs.compactMap { uuid -> String? in
-            guard let item = items.first(where: { $0.uuid.uuidString == uuid }) else { return nil }
-            return item.title.isEmpty ? "(整理中)" : item.title
+            candidates.first(where: { $0.uuid == uuid })?.title
         }
         return .answer(text: answer, related: relatedTitles)
     }
@@ -148,9 +156,19 @@ extension TodoListView {
     /// 语义检索(命中 chunk 原文当摘录)与关键词粗排(整条截断兜底)取并集,给出
     /// 命中的记忆条目片段;不生成自然语言回答——ReAct 工具步骤和 answerFromMemory
     /// 共用这一段,前者把结果原样喂回模型让它自己继续推理,省一次多余的 AI 调用。
+    /// 待办历史(已完成的 TaskItem)拼在记忆条目结果后面一并返回,两个调用方
+    /// 不用各自记得再查一遍。
     private func retrieveMemoryCandidates(
         _ question: String
-    ) async -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String)] {
+    ) async -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)] {
+        let memoryCandidates = await retrieveMemoryItemCandidates(question)
+        let historyCandidates = retrieveTaskHistoryCandidates(question)
+        return memoryCandidates + historyCandidates
+    }
+
+    private func retrieveMemoryItemCandidates(
+        _ question: String
+    ) async -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)] {
         let items = (try? context.fetch(FetchDescriptor<MemoryItem>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
         guard !items.isEmpty else { return [] }
@@ -193,13 +211,34 @@ extension TodoListView {
             orderedUUIDs.append(uuid)
         }
         return orderedUUIDs.prefix(MemorySearch.maxAskItems)
-            .compactMap { uuid -> (uuid: String, title: String, summary: String, tags: [String], excerpt: String)? in
+            .compactMap { uuid -> (uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)? in
                 guard let item = itemsByUUID[uuid] else { return nil }
                 let excerpt = semanticExcerpts[uuid] ?? MemorySearch.truncate(
                     item.sourceText, limit: MemorySearch.maxExcerptChars)
                 return (uuid: item.uuid.uuidString, title: item.title, summary: item.summary,
-                        tags: item.tags, excerpt: excerpt)
+                        tags: item.tags, excerpt: excerpt, isTaskHistory: false)
             }
+    }
+
+    /// 已完成待办(含一次性完成与重复事项每次完成留下的历史行)的关键词匹配,
+    /// 让"上次做过 X 吗"这类问题也能被"问 AI"回答——纯本地检索,不需要 AI 判断。
+    /// uuid 统一加 "task:" 前缀,避免和 MemoryItem.uuid 撞在同一个字符串空间里。
+    private func retrieveTaskHistoryCandidates(
+        _ question: String
+    ) -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)] {
+        let done = (try? context.fetch(FetchDescriptor<TaskItem>(
+            predicate: #Predicate<TaskItem> { $0.statusRaw == "done" },
+            sortBy: [SortDescriptor(\.doneAt, order: .reverse)]))) ?? []
+        guard !done.isEmpty else { return [] }
+        let matched = MemorySearch.matchTaskHistory(
+            question: question,
+            items: done.enumerated().map { index, task in (index: index, title: task.title) })
+        return matched.map { index in
+            let task = done[index]
+            let excerpt = "已于 \(TaskItem.format(task.doneAt ?? task.remindAt)) 完成"
+            return (uuid: "task:\(task.uuid.uuidString)", title: task.title, summary: "",
+                     tags: [], excerpt: excerpt, isTaskHistory: true)
+        }
     }
 
     /// 端上给问题算向量;不可用/结果为空返回 nil,调用方据此跳过语义检索只用关键词。

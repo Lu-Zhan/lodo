@@ -79,6 +79,101 @@ enum MemoryPipeline {
         }
     }
 
+    /// 记一位联系人:字段是结构化的(姓名/昵称/联系方式/生日/喜好/备注),不需要
+    /// 像文字/文件收藏那样靠 AI 提炼,直接落成 ready 状态;姓名/备注复用
+    /// title/summary(和 saveAsset 的 note→summary 同思路)。sourceText 拼接
+    /// 备注+喜好,供检索/问 AI 用。头像与附件落 App Group 的 Contacts/ 目录,
+    /// 与"记忆条目原文件"(Memory/ 目录、relativeFilePath 字段)各自独立。
+    @discardableResult
+    static func saveContact(
+        name: String, nickname: String, phone: String, email: String,
+        birthday: Date?, preferences: String, note: String,
+        avatarData: Data?, attachmentFileURLs: [URL], context: ModelContext
+    ) -> MemoryItem? {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return nil }
+        let item = MemoryItem(
+            kind: .text, title: trimmedName, summary: note,
+            tags: [MemoryItem.contactTagName],
+            sourceText: MemorySearch.truncate(
+                [note, preferences].filter { !$0.isEmpty }.joined(separator: "\n")),
+            status: .ready,
+            contactNickname: nickname.isEmpty ? nil : nickname,
+            contactPhone: phone.isEmpty ? nil : phone,
+            contactEmail: email.isEmpty ? nil : email,
+            contactBirthday: birthday,
+            contactPreferences: preferences.isEmpty ? nil : preferences)
+        if let avatarData, let dir = AppGroup.contactsDirURL {
+            let target = dir.appending(path: "\(item.uuid.uuidString)-avatar.jpg")
+            if (try? avatarData.write(to: target, options: .atomic)) != nil {
+                item.contactAvatarRelativePath = "Contacts/\(target.lastPathComponent)"
+            }
+        }
+        item.attachmentRelativePaths = attachmentFileURLs.compactMap(copyContactAttachment)
+        context.insert(item)
+        try? context.save()
+        Task { @MainActor in
+            await reindexChunks(item, context: context)
+            try? context.save()
+        }
+        return item
+    }
+
+    /// A、B 之间已有边时更新 label,不叠加第二条("同事"改成"前同事"是覆盖,
+    /// 不该和旧的并存)。两端相同(自己连自己)时不做任何事。
+    static func upsertContactRelationship(
+        between a: UUID, and b: UUID, label: String, context: ModelContext
+    ) {
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, a != b else { return }
+        let existing = (try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? []
+        if let edge = existing.first(where: { $0.involves(a) && $0.involves(b) }) {
+            edge.label = trimmed
+        } else {
+            context.insert(ContactRelationship(memoryUUIDA: a, memoryUUIDB: b, label: trimmed))
+        }
+        try? context.save()
+    }
+
+    static func deleteContactRelationship(_ relationship: ContactRelationship, context: ModelContext) {
+        context.delete(relationship)
+        try? context.save()
+    }
+
+    /// 某个联系人条目牵涉的全部关系边,附带边另一端对应的 MemoryItem
+    /// (对端条目被删掉后对应边理应已被 delete(_:context:) 一并清掉,这里仍
+    /// 防御性地跳过找不到对端的边)。
+    static func contactRelationships(
+        of uuid: UUID, context: ModelContext
+    ) -> [(relationship: ContactRelationship, other: MemoryItem)] {
+        let edges = (try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? []
+        let involved = edges.filter { $0.involves(uuid) }
+        guard !involved.isEmpty else { return [] }
+        let others = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+        let othersByUUID = Dictionary(uniqueKeysWithValues: others.map { ($0.uuid, $0) })
+        return involved.compactMap { edge in
+            guard let otherUUID = edge.other(than: uuid), let other = othersByUUID[otherUUID] else { return nil }
+            return (relationship: edge, other: other)
+        }
+    }
+
+    /// 联系人头像的绝对路径;无头像或(异地同步条目)文件缺失时为 nil。
+    static func contactAvatarURL(of item: MemoryItem) -> URL? {
+        guard let relative = item.contactAvatarRelativePath,
+              let url = AppGroup.containerURL?.appending(path: relative),
+              FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
+    }
+
+    /// 联系人全部文件附件的绝对路径,缺失的自动跳过。
+    static func contactAttachmentURLs(of item: MemoryItem) -> [URL] {
+        item.attachmentRelativePaths.compactMap { relative in
+            guard let url = AppGroup.containerURL?.appending(path: relative),
+                  FileManager.default.fileExists(atPath: url.path) else { return nil }
+            return url
+        }
+    }
+
     /// 整理失败的条目重试:重跑提取 + AI 整理。
     static func retry(_ item: MemoryItem, context: ModelContext) {
         item.statusRaw = MemoryStatus.processing.rawValue
@@ -96,15 +191,25 @@ enum MemoryPipeline {
             urlString: item.urlString, originalFileName: item.originalFileName)
     }
 
-    /// 删除条目、清掉原始文件、清掉这条记忆的全部 MemoryChunk(避免孤儿数据)。
+    /// 删除条目、清掉原始文件、清掉这条记忆的全部 MemoryChunk(避免孤儿数据);
+    /// 联系人条目额外清掉头像/附件文件与牵涉的全部 ContactRelationship 边
+    /// (非联系人条目这几步都是空操作)。
     static func delete(_ item: MemoryItem, context: ModelContext) {
         if let url = fileURL(of: item) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        if let avatarURL = contactAvatarURL(of: item) {
+            try? FileManager.default.removeItem(at: avatarURL)
+        }
+        for url in contactAttachmentURLs(of: item) {
             try? FileManager.default.removeItem(at: url)
         }
         let owner = item.uuid
         let chunks = (try? context.fetch(FetchDescriptor<MemoryChunk>(
             predicate: #Predicate { $0.itemUUID == owner }))) ?? []
         for chunk in chunks { context.delete(chunk) }
+        let edges = (try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? []
+        for edge in edges where edge.involves(owner) { context.delete(edge) }
         context.delete(item)
         try? context.save()
     }
@@ -250,6 +355,21 @@ enum MemoryPipeline {
             try? FileManager.default.removeItem(at: target)
             try FileManager.default.copyItem(at: source, to: target)
             return target
+        } catch {
+            return nil
+        }
+    }
+
+    /// 联系人附件可以有多个,每个都要独立文件名(不能像单文件字段那样用条目
+    /// uuid 命名,会互相覆盖);uuid 前缀避免冲突,后面保留原文件名方便详情页
+    /// 展示("<uuid>-原文件名.ext",详情页按固定长度剥掉前缀即可还原原名)。
+    private static func copyContactAttachment(_ source: URL) -> String? {
+        guard let dir = AppGroup.contactsDirURL else { return nil }
+        let filename = "\(UUID().uuidString)-\(source.lastPathComponent)"
+        let target = dir.appending(path: filename)
+        do {
+            try FileManager.default.copyItem(at: source, to: target)
+            return "Contacts/\(filename)"
         } catch {
             return nil
         }

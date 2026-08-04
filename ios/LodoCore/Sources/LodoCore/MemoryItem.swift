@@ -63,6 +63,19 @@ public final class MemoryItem {
     /// 模型,就是打了保留标签的记忆条目,这个字段只在那种情况下有意义。
     public var assetValue: Double?
 
+    // MARK: - 联系人字段(tags 含 contactTagName 时才有意义,与 assetValue 同思路)
+    /// 昵称;姓名复用 title,备注复用 summary(和资产复用 summary 当备注同思路)。
+    public var contactNickname: String?
+    public var contactPhone: String?
+    public var contactEmail: String?
+    public var contactBirthday: Date?
+    /// 喜好,自由文本。
+    public var contactPreferences: String?
+    /// 头像文件的 App Group 相对路径(如 "Contacts/<uuid>-avatar.jpg")。
+    public var contactAvatarRelativePath: String?
+    /// 多个文件附件的 App Group 相对路径;非联系人条目恒为空数组。
+    public var attachmentRelativePaths: [String] = []
+
     public init(
         kind: MemoryKind,
         title: String = "",
@@ -73,7 +86,14 @@ public final class MemoryItem {
         originalFileName: String? = nil,
         relativeFilePath: String? = nil,
         status: MemoryStatus = .processing,
-        assetValue: Double? = nil
+        assetValue: Double? = nil,
+        contactNickname: String? = nil,
+        contactPhone: String? = nil,
+        contactEmail: String? = nil,
+        contactBirthday: Date? = nil,
+        contactPreferences: String? = nil,
+        contactAvatarRelativePath: String? = nil,
+        attachmentRelativePaths: [String] = []
     ) {
         self.uuid = UUID()
         self.kindRaw = kind.rawValue
@@ -87,6 +107,13 @@ public final class MemoryItem {
         self.statusRaw = status.rawValue
         self.createdAt = Date()
         self.assetValue = assetValue
+        self.contactNickname = contactNickname
+        self.contactPhone = contactPhone
+        self.contactEmail = contactEmail
+        self.contactBirthday = contactBirthday
+        self.contactPreferences = contactPreferences
+        self.contactAvatarRelativePath = contactAvatarRelativePath
+        self.attachmentRelativePaths = attachmentRelativePaths
     }
 
     public var kind: MemoryKind { MemoryKind(rawValue: kindRaw) ?? .text }
@@ -95,6 +122,9 @@ public final class MemoryItem {
     /// 筛选里显式选中才显示,并在列表顶部汇总)。
     public static let assetTagName = "资产"
     public var isAsset: Bool { tags.contains(Self.assetTagName) }
+    /// 保留标签:打了这个标签的记忆条目按"联系人"对待,和资产同一套隐藏/筛选规则。
+    public static let contactTagName = "联系人"
+    public var isContact: Bool { tags.contains(Self.contactTagName) }
 
     /// 本地即时过滤的匹配:标题/摘要/标签/原文任一命中即可。
     public func matches(_ query: String) -> Bool {
