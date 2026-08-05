@@ -6,6 +6,8 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selection: AppTab = .overview
+    @AppStorage(AppSettings.hasSeenOnboardingKey) private var hasSeenOnboarding = false
+    @State private var showOnboarding = false
     /// 非 nil 时由待办页弹出全局 agent 并预填文本(lodo://agent 深链触发,空串=无预填)。
     @State private var agentRequest: String?
     /// 非 nil 时由总览页跳到该事项并自动发起改期请求(通知"改期"按钮交接)。
@@ -29,7 +31,14 @@ struct ContentView: View {
     var body: some View {
         tabs
             .onAppear {
+                if !hasSeenOnboarding {
+                    showOnboarding = true
+                }
                 #if DEBUG
+                // 截图验证用:测试其余 --demo-* 场景时不想被首次引导挡住。
+                if ProcessInfo.processInfo.arguments.contains("--demo-skip-onboarding") {
+                    showOnboarding = false
+                }
                 // 截图验证用:已完成已并入待办页底部,保持在待办 tab
                 if ProcessInfo.processInfo.arguments.contains("--demo-done-tab") {
                     selection = .todo
@@ -87,6 +96,9 @@ struct ContentView: View {
                 RoutineEditView(routine: AIRoutine(preset: AIRoutine.presets[1]), isNew: true)
             }
             #endif
+            .fullScreenCover(isPresented: $showOnboarding) {
+                OnboardingView(onFinish: { showOnboarding = false })
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     if Date().timeIntervalSince(lastActiveRefresh) > 30 {

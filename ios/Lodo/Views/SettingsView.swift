@@ -8,6 +8,7 @@ struct SettingsView: View {
 
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
+    @State private var showOnboarding = false
 
     // ---- 备份与恢复 ----
     @State private var exportedZipURL: URL?
@@ -71,6 +72,17 @@ struct SettingsView: View {
                     Text("开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
                 }
 
+                // ---- 引导 ----
+                Section {
+                    Button {
+                        showOnboarding = true
+                    } label: {
+                        Label("查看引导", systemImage: "sparkles")
+                    }
+                } footer: {
+                    Text("重新看一遍首次打开时的功能介绍。")
+                }
+
                 // ---- 备份与恢复 ----
                 backupRestoreSection
             }
@@ -96,6 +108,9 @@ struct SettingsView: View {
                 importErrorMessage: $importErrorMessage,
                 importSuccessMessage: $importSuccessMessage
             )
+            .fullScreenCover(isPresented: $showOnboarding) {
+                OnboardingView(onFinish: { showOnboarding = false })
+            }
         }
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)

@@ -23,6 +23,7 @@ public enum AppSettings {
     public static let icloudSyncEnabledKey = "icloudSyncEnabled"
     public static let thinkingLevelKey = "thinkingLevel"
     public static let useBuiltInKeyKey = "useBuiltInKey"
+    public static let hasSeenOnboardingKey = "hasSeenOnboarding"
 
     public static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -172,6 +173,11 @@ public enum AppSettings {
         default:
             return personaPresets.first { $0.name == agentPersonaStyle }?.text
         }
+    }
+
+    /// 是否已经看过首次引导;默认 false(未设置过等于没看过)。
+    public static var hasSeenOnboarding: Bool {
+        UserDefaults.standard.bool(forKey: hasSeenOnboardingKey)
     }
 
     /// 把 "HH:MM" 应用到某一天,得到具体提醒时间。
