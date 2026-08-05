@@ -1,5 +1,7 @@
 package com.lodo.app.ai
 
+import com.lodo.app.core.CurrentLang
+import com.lodo.app.core.Strings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -34,12 +36,12 @@ object WebSearchClient {
      * 转换效果相近但实现更朴素——够 AI 理解页面大意即可,不追求排版还原。 */
     suspend fun fetchUrl(url: String): String = withContext(Dispatchers.IO) {
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            throw DeepSeekException("无效链接:$url")
+            throw DeepSeekException(Strings.translate("无效链接:", CurrentLang.value) + url)
         }
         val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) {
-                throw DeepSeekException("抓取链接失败:HTTP ${resp.code}")
+                throw DeepSeekException(Strings.translate("抓取链接失败:HTTP ", CurrentLang.value) + resp.code)
             }
             val html = resp.body?.string().orEmpty()
             extractText(html).take(maxFetchChars)
@@ -76,13 +78,13 @@ object WebSearchClient {
             client.newCall(request).execute().use { resp ->
                 val text = resp.body?.string().orEmpty()
                 if (resp.code != 200) {
-                    throw DeepSeekException("联网搜索失败:HTTP ${resp.code} ${text.take(200)}")
+                    throw DeepSeekException(Strings.translate("联网搜索失败:", CurrentLang.value) + "HTTP ${resp.code} ${text.take(200)}")
                 }
                 val results = try {
                     JSONObject(text).optJSONArray("results")
                 } catch (_: Exception) {
-                    throw DeepSeekException("联网搜索失败:返回格式异常")
-                } ?: throw DeepSeekException("联网搜索失败:返回格式异常")
+                    throw DeepSeekException(Strings.translate("联网搜索失败:返回格式异常", CurrentLang.value))
+                } ?: throw DeepSeekException(Strings.translate("联网搜索失败:返回格式异常", CurrentLang.value))
                 (0 until results.length()).mapNotNull { i ->
                     val item = results.optJSONObject(i) ?: return@mapNotNull null
                     val title = item.optString("title")

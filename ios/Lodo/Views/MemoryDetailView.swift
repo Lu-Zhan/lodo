@@ -12,6 +12,7 @@ struct MemoryDetailView: View {
 
     @State private var tagsText: String
     @State private var assetValueText: String
+    @State private var assetCurrency: String
     @State private var previewURL: URL?
     @State private var confirmDelete = false
     /// 已删除后 onDisappear 不再回写(避免访问已删除的模型)。
@@ -21,6 +22,7 @@ struct MemoryDetailView: View {
         self.item = item
         _tagsText = State(initialValue: item.tags.joined(separator: "、"))
         _assetValueText = State(initialValue: item.assetValue.map { String($0) } ?? "")
+        _assetCurrency = State(initialValue: item.assetCurrencyOrDefault)
     }
 
     var body: some View {
@@ -53,7 +55,13 @@ struct MemoryDetailView: View {
             if currentTags.contains(MemoryItem.assetTagName) {
                 Section("资产金额") {
                     HStack {
-                        Text("¥").foregroundStyle(.secondary)
+                        Picker("币种", selection: $assetCurrency) {
+                            ForEach(CurrencyCatalog.common, id: \.code) { entry in
+                                Text(entry.code).tag(entry.code)
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
                         TextField("金额", text: $assetValueText)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
@@ -160,8 +168,10 @@ struct MemoryDetailView: View {
         if tags.contains(MemoryItem.assetTagName) {
             let trimmed = assetValueText.trimmingCharacters(in: .whitespaces)
             item.assetValue = trimmed.isEmpty ? nil : (Double(trimmed) ?? item.assetValue)
+            item.assetCurrency = item.assetValue == nil ? nil : assetCurrency
         } else {
             item.assetValue = nil
+            item.assetCurrency = nil
         }
         try? context.save()
     }

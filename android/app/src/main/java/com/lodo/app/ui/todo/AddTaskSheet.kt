@@ -1,5 +1,7 @@
 package com.lodo.app.ui.todo
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -137,9 +139,8 @@ fun AddTaskSheet(
                 .imePadding(),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onDismiss) { Text("取消") }
-                Text(
-                    "添加",
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_cancel)) }
+                Text(stringResource(R.string.shared_add),
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
@@ -147,19 +148,19 @@ fun AddTaskSheet(
                 TextButton(onClick = ::save, enabled = form.isValid) { Text("保存") }
             }
 
-            SectionHeader("AI 助手")
+            SectionHeader(stringResource(R.string.shared_ai_assistant))
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("例如:明天3点开会一小时") },
+                placeholder = { Text(stringResource(R.string.android_ui_e_g_meeting_tomorrow_3pm_1_hour)) },
                 trailingIcon = {
                     Row {
                         IconButton(onClick = {
                             runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
                                 .onFailure { errorText = "设备不支持语音输入" }
                         }, enabled = !busy) {
-                            Icon(Icons.Filled.Mic, contentDescription = "语音输入")
+                            Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.android_ui_voice_input))
                         }
                         if (busy) {
                             CircularProgressIndicator(
@@ -168,7 +169,7 @@ fun AddTaskSheet(
                             )
                         } else {
                             IconButton(onClick = ::parse, enabled = text.isNotBlank()) {
-                                Icon(Icons.Filled.AutoAwesome, contentDescription = "解析")
+                                Icon(Icons.Filled.AutoAwesome, contentDescription = stringResource(R.string.android_ui_parse))
                             }
                         }
                     }

@@ -1,44 +1,49 @@
 package com.lodo.app.notify
 
-import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import com.lodo.app.MainActivity
 import com.lodo.app.R
+import com.lodo.app.core.CurrentLang
+import com.lodo.app.core.Lang
+import com.lodo.app.core.Strings
 import com.lodo.app.core.TaskPhase
 import com.lodo.app.data.TaskEntity
 
-/** 通知渠道与通知构建;文案与 iOS NotificationManager 一致。 */
+/** 通知渠道与通知构建;文案与 iOS NotificationManager 一致。通知在
+ * BroadcastReceiver(ReminderReceiver/AlarmScheduler)触发,不一定有 Activity
+ * 语境,用 CurrentLang.value(由 SettingsRepository 的语言设置同步写入)显式
+ * 取当前语言,不依赖 AppCompatDelegate.getApplicationLocales() 的取值时机。 */
 object Notifications {
     const val CHANNEL_REMINDERS = "reminders"
     const val CHANNEL_DIGEST = "digest"
     private const val DIGEST_ID = 1
 
+    /** 只在 app 启动时调用一次;语言设置若在运行期间切换,渠道名要到下次启动
+     * 才会跟着变——这个滞后可接受,不为此在运行期重建通知渠道。 */
     fun createChannels(context: Context) {
+        val lang = CurrentLang.value
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_REMINDERS, "到期提醒", NotificationManager.IMPORTANCE_HIGH)
-                .apply { description = "事项到期的纠缠式提醒" }
+            NotificationChannel(
+                CHANNEL_REMINDERS, Strings.translate("到期提醒", lang), NotificationManager.IMPORTANCE_HIGH
+            ).apply { description = Strings.translate("事项到期的纠缠式提醒", lang) }
         )
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_DIGEST, "每日待办汇总", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(
+                CHANNEL_DIGEST, Strings.translate("每日待办汇总", lang), NotificationManager.IMPORTANCE_DEFAULT
+            )
         )
     }
 
     private fun notificationId(uuid: String): Int = uuid.hashCode()
 
-    private fun canNotify(context: Context): Boolean =
-        Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(
-            context, Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun canNotify(context: Context): Boolean = NotificationPermission.isGranted(context)
 
     /** 4 个预设说话风格各一套提醒文案模板(到点/该开始/时间到三阶段);
      * "默认"和"自定义"(自由文本、无法预先枚举模板)沿用原文案。通知是提前排的
@@ -53,21 +58,25 @@ object Notifications {
     private fun reminderBody(
         personaStyle: String, starting: Boolean, isEnd: Boolean, durationMinutes: Int,
     ): String {
+        val lang = CurrentLang.value
         val template = reminderTemplates[personaStyle] ?: return when {
-            starting -> "该开始了!(时长 $durationMinutes 分钟)"
-            isEnd -> "时间到 — 完成了吗?"
-            else -> "到时间了"
+            starting -> Strings.translate("该开始了!(时长 ", lang) +
+                "$durationMinutes " + (if (lang == Lang.EN) "min)" else "分钟)")
+            isEnd -> Strings.translate("时间到 — 完成了吗?", lang)
+            else -> Strings.translate("到时间了", lang)
         }
         return when {
-            starting -> template.second.format(durationMinutes)
-            isEnd -> template.third
-            else -> template.first
+            starting -> Strings.translate(template.second, lang).format(durationMinutes)
+            isEnd -> Strings.translate(template.third, lang)
+            else -> Strings.translate(template.first, lang)
         }
     }
 
-    /** 到期提醒:带 完成/稍等一会 动作按钮,点通知本体打开 app。 */
-    fun showTask(context: Context, task: TaskEntity, personaStyle: String = "默认") {
-        if (!canNotify(context)) return
+    /** 到期提醒:带 完成/稍等一会 动作按钮,点通知本体打开 app。
+     * 返回是否真的展示了(权限缺失时 false),调用方据此决定要不要顺延 nextRemindAt。 */
+    fun showTask(context: Context, task: TaskEntity, personaStyle: String = "默认"): Boolean {
+        if (!canNotify(context)) return false
+        val lang = CurrentLang.value
         val starting = task.phaseEnum == TaskPhase.START && task.durationMinutes > 0
         val body = reminderBody(personaStyle, starting, task.phaseEnum == TaskPhase.END, task.durationMinutes)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -106,11 +115,12 @@ object Notifications {
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .addAction(0, "完成", doneIntent)
-            .addAction(0, "稍等一会", snoozeIntent)
-            .addAction(0, "改期", rescheduleIntent)
+            .addAction(0, Strings.translate("完成", lang), doneIntent)
+            .addAction(0, Strings.translate("稍等一会", lang), snoozeIntent)
+            .addAction(0, Strings.translate("改期", lang), rescheduleIntent)
             .build()
         NotificationManagerCompat.from(context).notify(notificationId(task.uuid), notification)
+        return true
     }
 
     /** 待办汇总:正文在触发时现算(今天事项的 AI 一句话概括或机械列表)。 */
@@ -122,7 +132,7 @@ object Notifications {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_DIGEST)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("每日待办汇总")
+            .setContentTitle(Strings.translate("每日待办汇总", CurrentLang.value))
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(contentIntent)

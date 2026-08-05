@@ -8,6 +8,9 @@ struct SettingsView: View {
 
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
+    @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
+    @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
+    private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
     @State private var showOnboarding = false
 
     // ---- 备份与恢复 ----
@@ -64,6 +67,29 @@ struct SettingsView: View {
                     Text("滑动完成、删除等操作时轻微振动。")
                 }
                 #endif
+
+                // ---- 语言 ----
+                Section {
+                    Picker("语言", selection: $languageRaw) {
+                        ForEach(AppLanguage.allCases, id: \.rawValue) { lang in
+                            Text(lang.displayName).tag(lang.rawValue)
+                        }
+                    }
+                } footer: {
+                    Text("独立于系统语言设置;AI 助手的对话内容不受影响,始终为中文。")
+                }
+
+                // ---- 资产 ----
+                Section {
+                    Picker("汇总展示币种", selection: $assetDisplayCurrency) {
+                        ForEach(CurrencyCatalog.common, id: \.code) { entry in
+                            Text("\(LocalizedStrings.translate(entry.name, language: language))(\(entry.code))")
+                                .tag(entry.code)
+                        }
+                    }
+                } footer: {
+                    Text("记忆 tab 的「资产总览」把不同币种的资产换算成这种货币求和;汇率联网免费获取,每天自动更新一次。")
+                }
 
                 // ---- iCloud ----
                 Section {

@@ -1,6 +1,8 @@
 package com.lodo.app.ai
 
+import com.lodo.app.core.CurrentLang
 import com.lodo.app.core.RepeatType
+import com.lodo.app.core.Strings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -79,7 +81,6 @@ object DeepSeekClient {
         .build()
 
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-    private val hhmmRegex = Regex("""\d{1,2}:\d{2}""")
 
     private val taskSchema = """
         {"title": "事项内容(去掉时间词,保留做什么)",
@@ -210,7 +211,7 @@ object DeepSeekClient {
                 val thought = payload.optString("thought")
                 val query = payload.optString("query")
                 if (query.isBlank()) {
-                    throw DeepSeekException("无法解析:返回格式异常:web_search 缺少 query")
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:web_search 缺少 query", CurrentLang.value))
                 }
                 return AICommandResult.ToolCall(thought, AITool.WebSearch(query))
             }
@@ -218,20 +219,20 @@ object DeepSeekClient {
                 val thought = payload.optString("thought")
                 val url = payload.optString("url")
                 if (url.isBlank()) {
-                    throw DeepSeekException("无法解析:返回格式异常:web_fetch 缺少 url")
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:web_fetch 缺少 url", CurrentLang.value))
                 }
                 return AICommandResult.ToolCall(thought, AITool.WebFetch(url))
             }
         }
         val rawActions = payload.optJSONArray("actions")
-            ?: throw DeepSeekException("无法解析:返回格式异常:缺少 actions")
-        if (rawActions.length() == 0) throw DeepSeekException("无法解析:返回格式异常:缺少 actions")
+            ?: throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 actions", CurrentLang.value))
+        if (rawActions.length() == 0) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 actions", CurrentLang.value))
         val actions = (0 until rawActions.length()).map { i ->
             val raw = rawActions.getJSONObject(i)
             fun validUuid(): String {
                 val uuid = raw.optString("uuid")
                 if (uuid !in validUuids) {
-                    throw DeepSeekException("无法解析:找不到要操作的事项")
+                    throw DeepSeekException(Strings.translate("无法解析:找不到要操作的事项", CurrentLang.value))
                 }
                 return uuid
             }
@@ -242,12 +243,13 @@ object DeepSeekClient {
                 "delete" -> AIAction.Delete(validUuid())
                 "answer" -> if (webSearchEnabled) {
                     val text2 = raw.optString("text").trim()
-                    if (text2.isEmpty()) throw DeepSeekException("无法解析:返回格式异常:回答内容为空")
+                    if (text2.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:回答内容为空", CurrentLang.value))
                     AIAction.Answer(text2)
                 } else {
-                    throw DeepSeekException("无法解析:返回格式异常:未知 action")
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
                 }
-                else -> throw DeepSeekException("无法解析:返回格式异常:未知 action $action")
+                else -> throw DeepSeekException(
+                    Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value) + " $action")
             }
         }
         // 归一化:prompt 已要求 answer 单独出现,这里是模型不守规矩时的确定性
@@ -288,7 +290,7 @@ object DeepSeekClient {
             "只返回 JSON:{\"memory\": \"更新后的文件全文\"},不要任何其他文字。\n\n" +
             "现有记忆文件:\n${current ?: "(空)"}"
         val memory = complete(config, system, "新样本:$title,$durationMinutes 分钟", timeoutSeconds = 60).optString("memory")
-        if (memory.isEmpty()) throw DeepSeekException("无法解析:返回格式异常:缺少 memory")
+        if (memory.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 memory", CurrentLang.value))
         return memory
     }
 
@@ -299,7 +301,7 @@ object DeepSeekClient {
             "要指出哪些优先处理、哪些可以往后放,具体可执行,不超过 40 个字," +
             "只返回 JSON:{\"summary\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
         val summary = complete(config, system, JSONArray(items).toString(), timeoutSeconds = 60).optString("summary")
-        if (summary.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 summary")
+        if (summary.isBlank()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 summary", CurrentLang.value))
         return summary
     }
 
@@ -321,7 +323,7 @@ object DeepSeekClient {
             "${timeContext()}\n\n$info"
         val payload = complete(config, system, "给出改期候选")
         val raw = payload.optJSONArray("candidates")
-            ?: throw DeepSeekException("无法解析:返回格式异常:缺少 candidates")
+            ?: throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 candidates", CurrentLang.value))
         val now = LocalDateTime.now()
         val candidates = (0 until raw.length()).mapNotNull { i ->
             val item = raw.optJSONObject(i) ?: return@mapNotNull null
@@ -333,7 +335,7 @@ object DeepSeekClient {
             }
             if (date.isAfter(now)) label to date else null
         }
-        if (candidates.isEmpty()) throw DeepSeekException("无法解析:没有可用的改期候选")
+        if (candidates.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:没有可用的改期候选", CurrentLang.value))
         return candidates
     }
 
@@ -343,7 +345,7 @@ object DeepSeekClient {
             "正向洞察:语气鼓励,肯定进步,并给一个具体可行的小建议;禁止任何指责性表述," +
             "禁止出现\"拖延\"\"失败\"等词。只返回 JSON:{\"insight\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
         val insight = complete(config, system, stats, timeoutSeconds = 60).optString("insight")
-        if (insight.isBlank()) throw DeepSeekException("无法解析:返回格式异常:缺少 insight")
+        if (insight.isBlank()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 insight", CurrentLang.value))
         return insight
     }
 
@@ -371,7 +373,7 @@ object DeepSeekClient {
         return try {
             JSONObject(cleaned)
         } catch (_: Exception) {
-            throw DeepSeekException("无法解析:返回格式异常")
+            throw DeepSeekException(Strings.translate("无法解析:返回格式异常", CurrentLang.value))
         }
     }
 
@@ -385,7 +387,8 @@ object DeepSeekClient {
             try {
                 client.newCall(request).execute()
             } catch (e: IOException) {
-                throw DeepSeekException("调用 DeepSeek 失败:${e.message}")
+                throw DeepSeekException(
+                    Strings.translate("调用 DeepSeek 失败:", CurrentLang.value) + e.message)
             }
         }
     }
@@ -400,10 +403,10 @@ object DeepSeekClient {
     ): JSONObject =
         withContext(Dispatchers.IO) {
             if (config.apiKey.isNullOrBlank()) {
-                throw DeepSeekException("未配置 DeepSeek API key,请到「设置」里填写。")
+                throw DeepSeekException(Strings.translate("未配置 DeepSeek API key,请到「设置」里填写。", CurrentLang.value))
             }
             if (config.endpoint.isBlank()) {
-                throw DeepSeekException("调用 DeepSeek 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。")
+                throw DeepSeekException(Strings.translate("调用 DeepSeek 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。", CurrentLang.value))
             }
             val body = JSONObject()
                 .put("model", config.model)
@@ -435,24 +438,28 @@ object DeepSeekClient {
             response.use { resp ->
                 val text = resp.body?.string().orEmpty()
                 if (resp.code != 200) {
-                    throw DeepSeekException("调用 DeepSeek 失败:HTTP ${resp.code} ${text.take(200)}")
+                    throw DeepSeekException(
+                        Strings.translate("调用 DeepSeek 失败:", CurrentLang.value) +
+                            "HTTP ${resp.code} ${text.take(200)}")
                 }
                 val content = try {
                     JSONObject(text)
                         .getJSONArray("choices").getJSONObject(0)
                         .getJSONObject("message").getString("content")
                 } catch (_: Exception) {
-                    throw DeepSeekException("无法解析:返回格式异常")
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常", CurrentLang.value))
                 }
                 val payload = decodePayload(content)
                 payload.optString("error").takeIf { it.isNotEmpty() }?.let {
-                    throw DeepSeekException("无法解析:$it")
+                    throw DeepSeekException(Strings.translate("无法解析:", CurrentLang.value) + it)
                 }
                 payload
             }
         }
 
-    /** 从 payload 里解析并校验事项字段。 */
+    /** 从 payload 里解析并校验事项字段;任何字段超出合理范围直接抛错(不做静默
+     * clamp)——AI 返回离谱值通常本身就意味着误解了用户意图,静默改写会产生
+     * "AI 说建的是 A,实际存的是被偷偷改过的 A'"这种不可见偏差,不如报错更安全。 */
     private fun parsePayload(payload: JSONObject): ParsedTask {
         val title = payload.optString("title").trim()
         val remindAt = try {
@@ -461,25 +468,44 @@ object DeepSeekClient {
             null
         }
         if (title.isEmpty() || remindAt == null) {
-            throw DeepSeekException("无法解析:返回格式异常:$payload")
+            throw DeepSeekException(
+                Strings.translate("无法解析:返回格式异常:", CurrentLang.value) + payload)
         }
         val times = payload.optJSONArray("repeat_times")?.let { arr ->
             (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotEmpty) }
         } ?: emptyList()
-        times.firstOrNull { !hhmmRegex.matches(it) }?.let {
-            throw DeepSeekException("无法解析:时间点格式异常:$it")
+        times.firstOrNull { !isValidHhmm(it) }?.let {
+            throw DeepSeekException(
+                Strings.translate("无法解析:时间点格式异常:", CurrentLang.value) + it)
         }
-        val days = payload.optJSONArray("repeat_days")?.let { arr ->
+        val duration = payload.optInt("duration_minutes", 0)
+        if (duration !in 0..1440) {
+            throw DeepSeekException(Strings.translate("无法解析:返回格式异常:时长超出范围", CurrentLang.value))
+        }
+        val rawDays = payload.optJSONArray("repeat_days")?.let { arr ->
             (0 until arr.length()).map { arr.optInt(it) }
         } ?: emptyList()
+        if (rawDays.any { it !in 0..6 }) {
+            throw DeepSeekException(Strings.translate("无法解析:返回格式异常:周几超出范围", CurrentLang.value))
+        }
+        val days = rawDays.toSortedSet().toList()
         return ParsedTask(
             title = title,
             remindAt = remindAt,
             allDay = payload.optBoolean("all_day", false),
-            durationMinutes = payload.optInt("duration_minutes", 0),
+            durationMinutes = duration,
             repeatType = RepeatType.from(payload.optString("repeat_type", "none")),
             repeatDays = days,
             repeatTimes = times,
         )
+    }
+
+    private fun isValidHhmm(value: String): Boolean {
+        val parts = value.split(":")
+        if (parts.size != 2) return false
+        if (parts[0].length !in 1..2 || parts[1].length != 2) return false
+        val h = parts[0].toIntOrNull() ?: return false
+        val m = parts[1].toIntOrNull() ?: return false
+        return h in 0..23 && m in 0..59
     }
 }

@@ -1,5 +1,7 @@
 package com.lodo.app.ui
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,10 +63,10 @@ fun StepperRow(
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         IconButton(onClick = onDecrement) {
-            Icon(Icons.Filled.Remove, contentDescription = "减少")
+            Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.android_ui_decrease))
         }
         IconButton(onClick = onIncrement) {
-            Icon(Icons.Filled.Add, contentDescription = "增加")
+            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.android_ui_increase))
         }
     }
 }
@@ -93,10 +95,10 @@ fun LodoTimePickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    TextButton(onClick = onDismiss) { Text("取消") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_cancel)) }
                     TextButton(onClick = {
                         onConfirm(LocalTime.of(state.hour, state.minute))
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.shared_ok_2)) }
                 }
             }
         }

@@ -61,7 +61,8 @@ enum MemoryPipeline {
     /// 索引,备注也能被"问 AI"检索到。category 非空时额外打一个子分类标签,
     /// 和保留的 assetTagName 一起构成 tags,列表页据此归到"资产"分组里隐藏。
     static func saveAsset(
-        title: String, value: Double?, category: String, note: String, context: ModelContext
+        title: String, value: Double?, currency: String = "CNY", category: String, note: String,
+        context: ModelContext
     ) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
@@ -70,7 +71,8 @@ enum MemoryPipeline {
         if !trimmedCategory.isEmpty { tags.append(trimmedCategory) }
         let item = MemoryItem(
             kind: .text, title: trimmedTitle, summary: note, tags: tags,
-            sourceText: MemorySearch.truncate(note), status: .ready, assetValue: value)
+            sourceText: MemorySearch.truncate(note), status: .ready, assetValue: value,
+            assetCurrency: value != nil ? currency : nil)
         context.insert(item)
         try? context.save()
         Task { @MainActor in
@@ -273,6 +275,15 @@ enum MemoryPipeline {
                 item.title = entry.title
                 item.summary = entry.summary
                 item.tags = entry.tags
+                if let assetValue = entry.assetValue {
+                    item.assetValue = assetValue
+                    item.assetCurrency = entry.assetCurrency
+                    // 防御性 union:万一模型返回了金额却漏打"资产"标签,照样归入资产
+                    // (isAsset/资产总览都是按 assetTagName 是否在 tags 里判断的)。
+                    if !item.tags.contains(MemoryItem.assetTagName) {
+                        item.tags.append(MemoryItem.assetTagName)
+                    }
+                }
                 item.statusRaw = MemoryStatus.ready.rawValue
             } catch {
                 if item.title.isEmpty {

@@ -10,6 +10,10 @@ public enum MemorySearch {
     public static let maxExcerptChars = 400
     /// "问 AI"时最多带入 prompt 的条目数。
     public static let maxAskItems = 20
+    /// 语义检索候选 chunk 上限(按 createdAt 倒序只取最近这么多条),避免记忆库
+    /// 很大时每次提问都做全量线性扫描;超出的旧记忆检索不到属渐进式优化的
+    /// 合理代价,记忆库继续增长后如成为明显问题再考虑真正的向量索引。
+    public static let maxCandidateChunks = 500
 
     /// 按字符数截断(Character 边界,emoji 不劈半);超长时结尾加省略号。
     public static func truncate(_ text: String, limit: Int = maxSourceChars) -> String {

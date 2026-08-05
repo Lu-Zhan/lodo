@@ -1,5 +1,7 @@
 package com.lodo.app.ui.settings
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import android.app.AlarmManager
 import android.content.Intent
 import android.os.Build
@@ -80,11 +82,11 @@ fun SettingsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("设置") },
+                title = { Text(stringResource(R.string.shared_settings)) },
                 navigationIcon = {
                     onBack?.let {
                         IconButton(onClick = it) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.android_ui_back))
                         }
                     }
                 },
@@ -98,9 +100,25 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            SectionHeader("提醒")
+            SectionHeader(stringResource(R.string.shared_language))
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                // 语言名称本身不查生成表(和 iOS AppLanguage.displayName 同一个思路:
+                // 这两个词本身就是"人类可读语言名",不是需要翻译的 UI 文案)。
+                listOf("zh" to "中文", "en" to "English").forEachIndexed { index, (code, label) ->
+                    SegmentedButton(
+                        selected = settings.language == code,
+                        onClick = { vm.setLanguage(code) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                    ) { Text(label) }
+                }
+            }
+            FooterText(stringResource(R.string.shared_independent_of_the_system_language))
+
+            SectionHeader(stringResource(R.string.shared_reminders))
             StepperRow(
-                label = "稍等间隔:${settings.snoozeMinutes} 分钟",
+                label = stringResource(R.string.android_ui_snooze_interval_0_min),
                 onDecrement = { vm.setSnoozeMinutes(settings.snoozeMinutes - 5) },
                 onIncrement = { vm.setSnoozeMinutes(settings.snoozeMinutes + 5) },
             )
@@ -108,7 +126,7 @@ fun SettingsScreen(
             FooterText("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
             FooterText("只有日期、没有时间的事项,当天几点提醒。")
 
-            SectionHeader("每日汇总")
+            SectionHeader(stringResource(R.string.android_ui_daily_digest))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -164,31 +182,30 @@ fun SettingsScreen(
                                 .clickable { editingDigestIndex = i }
                                 .padding(vertical = 12.dp),
                         ) {
-                            Text("时间 ${i + 1}", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.android_ui_time_0), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                             Text(hhmm, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
                         }
                         IconButton(onClick = {
                             vm.setDigestTimes(settings.digestTimes.filterIndexed { j, _ -> j != i })
                         }) {
-                            Icon(Icons.Filled.Close, contentDescription = "删除时间点")
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.android_ui_remove_time))
                         }
                     }
                 }
                 TextButton(onClick = { vm.setDigestTimes(settings.digestTimes + "09:00") }) {
                     Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("添加时间点")
+                    Text(stringResource(R.string.shared_add_a_time))
                 }
             }
             FooterText("在设定时间提醒今天开始或到期的事项。")
 
-            SectionHeader("振动反馈")
+            SectionHeader(stringResource(R.string.shared_haptic_feedback))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "振动反馈",
+                Text(stringResource(R.string.shared_haptic_feedback),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -196,13 +213,12 @@ fun SettingsScreen(
             }
             FooterText("滑动完成、删除等操作时轻微振动。")
 
-            SectionHeader("点击添加自动开始语音")
+            SectionHeader(stringResource(R.string.android_ui_start_voice_input_when_adding))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "点击添加自动开始语音",
+                Text(stringResource(R.string.android_ui_start_voice_input_when_adding),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -213,7 +229,7 @@ fun SettingsScreen(
             }
             FooterText("点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。")
             StepperRow(
-                label = "静音自动停止:${settings.agentSilenceTimeoutSeconds} 秒",
+                label = stringResource(R.string.android_ui_auto_stop_after_silence_0_s),
                 onDecrement = {
                     vm.setAgentSilenceTimeoutSeconds(settings.agentSilenceTimeoutSeconds - 1)
                 },
@@ -224,7 +240,7 @@ fun SettingsScreen(
             FooterText("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
 
             // ---- AI:服务 → 个性 → 洞察 → 记忆 ----
-            SectionHeader("AI 服务")
+            SectionHeader(stringResource(R.string.shared_ai_service))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (aiProviderPresets.map { it.name } + "自定义").forEach { name ->
                     FilterChip(
@@ -238,7 +254,7 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = settings.aiCustomEndpoint,
                     onValueChange = vm::setAiCustomEndpoint,
-                    placeholder = { Text("接口地址(…/chat/completions)") },
+                    placeholder = { Text(stringResource(R.string.shared_endpoint_chat_completions)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
@@ -272,7 +288,7 @@ fun SettingsScreen(
             }
             FooterText("默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。")
 
-            SectionHeader("AI 思考")
+            SectionHeader(stringResource(R.string.shared_ai_thinking))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 listOf("off" to "关闭", "low" to "低", "medium" to "中", "high" to "高")
                     .forEachIndexed { index, (level, label) ->
@@ -285,7 +301,7 @@ fun SettingsScreen(
             }
             FooterText("思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置。")
 
-            SectionHeader("联网搜索")
+            SectionHeader(stringResource(R.string.shared_web_search))
             OutlinedTextField(
                 value = vm.tavilyKey,
                 onValueChange = vm::onTavilyKeyChange,
@@ -303,7 +319,7 @@ fun SettingsScreen(
             }
             FooterText("配置后 AI 助手能在需要最新信息或回答一般问题时联网搜索;免费在 tavily.com 注册获取 API Key,不填则不启用联网搜索。")
 
-            SectionHeader("AI 个性")
+            SectionHeader(stringResource(R.string.shared_ai_personality))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (listOf("默认") + personaPresets.map { it.first } + "自定义").forEach { name ->
                     FilterChip(
@@ -317,7 +333,7 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = settings.personaCustom,
                     onValueChange = vm::setPersonaCustom,
-                    placeholder = { Text("描述 AI 的说话风格,例如:像武侠小说里的师父") },
+                    placeholder = { Text(stringResource(R.string.shared_describe_the_ai_s_tone_e_g_like_a_wuxia)) },
                     minLines = 1,
                     maxLines = 4,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -329,13 +345,12 @@ fun SettingsScreen(
             }
             FooterText("影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。")
 
-            SectionHeader("完成洞察")
+            SectionHeader(stringResource(R.string.android_ui_completion_insight))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "完成洞察",
+                Text(stringResource(R.string.android_ui_completion_insight),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -344,7 +359,7 @@ fun SettingsScreen(
             FooterText("每周在已完成页生成一句正向回顾,不会推送通知。")
 
 
-            SectionHeader("AI 记忆")
+            SectionHeader(stringResource(R.string.shared_ai_memory))
             Text(
                 "编辑记忆",
                 style = MaterialTheme.typography.bodyLarge,
@@ -357,8 +372,7 @@ fun SettingsScreen(
                     }
                     .padding(vertical = 12.dp),
             )
-            Text(
-                "重置记忆",
+            Text(stringResource(R.string.shared_reset_memory),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier
@@ -422,12 +436,12 @@ fun SettingsScreen(
     if (showMemoryEditor) {
         AlertDialog(
             onDismissRequest = { showMemoryEditor = false },
-            title = { Text("AI 记忆") },
+            title = { Text(stringResource(R.string.shared_ai_memory)) },
             text = {
                 OutlinedTextField(
                     value = vm.memoryText,
                     onValueChange = { vm.memoryText = it },
-                    placeholder = { Text("暂无记忆;AI 会在事项完成后自动归纳,也可以直接在这里手写。") },
+                    placeholder = { Text(stringResource(R.string.shared_no_memory_yet_the_ai_fills_this_in)) },
                     minLines = 6,
                     maxLines = 12,
                     modifier = Modifier.fillMaxWidth(),
@@ -440,7 +454,7 @@ fun SettingsScreen(
                 }) { Text("保存") }
             },
             dismissButton = {
-                TextButton(onClick = { showMemoryEditor = false }) { Text("取消") }
+                TextButton(onClick = { showMemoryEditor = false }) { Text(stringResource(R.string.shared_cancel)) }
             },
         )
     }
@@ -453,10 +467,10 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     vm.resetMemory()
                     confirmMemoryReset = false
-                }) { Text("重置记忆") }
+                }) { Text(stringResource(R.string.shared_reset_memory)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmMemoryReset = false }) { Text("取消") }
+                TextButton(onClick = { confirmMemoryReset = false }) { Text(stringResource(R.string.shared_cancel)) }
             },
         )
     }

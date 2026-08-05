@@ -1,6 +1,7 @@
 package com.lodo.app.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.lodo.app.ai.ParsedTask
 import com.lodo.app.core.RepeatType
@@ -30,7 +31,13 @@ fun splitIntCsv(csv: String): List<Int> =
  * Room 持久化模型,字段与 iOS 版 TaskItem / web 版 tasks 表对齐;
  * 调度计算通过 TaskData 互转交给 core 层。
  */
-@Entity(tableName = "tasks")
+@Entity(
+    tableName = "tasks",
+    indices = [
+        Index(value = ["status", "nextRemindAtMillis"]),
+        Index(value = ["status", "doneAtMillis"]),
+    ],
+)
 data class TaskEntity(
     @PrimaryKey val uuid: String,
     val title: String,

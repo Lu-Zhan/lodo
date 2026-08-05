@@ -114,6 +114,7 @@ public struct BackupMemoryItem: Codable {
     public var statusRaw: String
     public var createdAt: Date
     public var assetValue: Double?
+    public var assetCurrency: String?
     public var contactNickname: String?
     public var contactPhone: String?
     public var contactEmail: String?
@@ -128,6 +129,7 @@ public struct BackupMemoryItem: Codable {
         uuid: UUID, kindRaw: String, title: String, summary: String, tags: [String],
         sourceText: String, urlString: String?, originalFileName: String?,
         relativeFilePath: String?, statusRaw: String, createdAt: Date, assetValue: Double? = nil,
+        assetCurrency: String? = nil,
         contactNickname: String? = nil, contactPhone: String? = nil, contactEmail: String? = nil,
         contactBirthday: Date? = nil, contactPreferences: String? = nil,
         contactAvatarRelativePath: String? = nil, attachmentRelativePaths: [String] = []
@@ -144,6 +146,7 @@ public struct BackupMemoryItem: Codable {
         self.statusRaw = statusRaw
         self.createdAt = createdAt
         self.assetValue = assetValue
+        self.assetCurrency = assetCurrency
         self.contactNickname = contactNickname
         self.contactPhone = contactPhone
         self.contactEmail = contactEmail
@@ -170,6 +173,7 @@ public struct BackupMemoryItem: Codable {
         statusRaw = try c.decode(String.self, forKey: .statusRaw)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         assetValue = try c.decodeIfPresent(Double.self, forKey: .assetValue)
+        assetCurrency = try c.decodeIfPresent(String.self, forKey: .assetCurrency)
         contactNickname = try c.decodeIfPresent(String.self, forKey: .contactNickname)
         contactPhone = try c.decodeIfPresent(String.self, forKey: .contactPhone)
         contactEmail = try c.decodeIfPresent(String.self, forKey: .contactEmail)
@@ -188,7 +192,8 @@ extension MemoryItem {
             uuid: uuid, kindRaw: kindRaw, title: title, summary: summary, tags: tags,
             sourceText: sourceText, urlString: urlString, originalFileName: originalFileName,
             relativeFilePath: relativeFilePath, statusRaw: statusRaw, createdAt: createdAt,
-            assetValue: assetValue, contactNickname: contactNickname, contactPhone: contactPhone,
+            assetValue: assetValue, assetCurrency: assetCurrency,
+            contactNickname: contactNickname, contactPhone: contactPhone,
             contactEmail: contactEmail, contactBirthday: contactBirthday,
             contactPreferences: contactPreferences,
             contactAvatarRelativePath: contactAvatarRelativePath,
@@ -210,6 +215,7 @@ extension BackupMemoryItem {
         item.statusRaw = statusRaw
         item.createdAt = createdAt
         item.assetValue = assetValue
+        item.assetCurrency = assetCurrency
         item.contactNickname = contactNickname
         item.contactPhone = contactPhone
         item.contactEmail = contactEmail

@@ -1,9 +1,11 @@
 package com.lodo.app.data
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.lodo.app.ai.DurationMemory
 import com.lodo.app.ai.ParsedTask
 import com.lodo.app.core.Scheduler
+import com.lodo.app.core.TaskData
 import com.lodo.app.core.TaskPhase
 import com.lodo.app.core.TaskStatus
 import com.lodo.app.notify.AlarmScheduler
@@ -14,31 +16,43 @@ import java.time.LocalDateTime
  * 事项业务层:界面按钮与通知按钮共用同一套完成/稍等逻辑
  * (对应 iOS NotificationManager 的 complete/snooze),保证两条路径行为一致。
  * 每个操作负责联动闹钟重排与通知清除。
+ *
+ * 读改写的核心部分(读当前状态 → 校验仍是 pending → 写回)包在 Room 事务里,
+ * 并用 [TaskDao.updateIfPending] 做条件化原子更新:通知按钮、界面按钮、闹钟
+ * 自我延续三条路径可能并发触发同一个 uuid,谁先落库谁生效,后到的因为
+ * status 已经不是 pending 而不生效,不会重复插历史/重复触发副作用。
  */
 class TaskRepository(
     private val context: Context,
-    private val dao: TaskDao,
+    private val db: LodoDatabase,
     private val settings: SettingsRepository,
     private val alarms: AlarmScheduler,
 ) {
+    private val dao get() = db.taskDao()
+
     /** 完成/开始了:advance;重复事项完成一次会记入历史并排下一次。
      * 返回插入的历史记录(仅重复事项完成一次时非 null)——agent 批量操作的
      * 撤销要记它的 uuid,一般调用方可以忽略返回值。 */
     suspend fun complete(uuid: String): TaskEntity? {
-        val entity = dao.byUuid(uuid) ?: return null
-        if (entity.statusEnum != TaskStatus.PENDING) return null
-        val now = LocalDateTime.now()
-        val (d, finished) = Scheduler.advance(entity.toData(), now)
-        dao.upsert(entity.withData(d))
-        var history: TaskEntity? = null
-        if (finished && d.status == TaskStatus.PENDING) {
-            // 重复事项完成一次:插入一条已完成历史
-            history = TaskEntity.create(
-                title = d.title, remindAt = now,
-                status = TaskStatus.DONE, doneAt = now,
-            )
-            dao.upsert(history)
-        }
+        val outcome = db.withTransaction {
+            val entity = dao.byUuid(uuid) ?: return@withTransaction null
+            if (entity.statusEnum != TaskStatus.PENDING) return@withTransaction null
+            val now = LocalDateTime.now()
+            val (d, finished) = Scheduler.advance(entity.toData(), now)
+            val updated = entity.withData(d)
+            if (dao.updateIfPending(updated) == 0) return@withTransaction null
+            var history: TaskEntity? = null
+            if (finished && d.status == TaskStatus.PENDING) {
+                // 重复事项完成一次:插入一条已完成历史
+                history = TaskEntity.create(
+                    title = d.title, remindAt = now,
+                    status = TaskStatus.DONE, doneAt = now,
+                )
+                dao.upsert(history)
+            }
+            Triple(d, finished, history)
+        } ?: return null
+        val (d, finished, history) = outcome
         if (d.status == TaskStatus.DONE) {
             alarms.cancelReminder(uuid)
         } else {
@@ -54,11 +68,15 @@ class TaskRepository(
 
     /** 用户点"稍等"。 */
     suspend fun snooze(uuid: String) {
-        val entity = dao.byUuid(uuid) ?: return
-        if (entity.statusEnum != TaskStatus.PENDING) return
-        val d = Scheduler.snooze(entity.toData(), LocalDateTime.now(), settings.snapshot().snoozeMinutes)
-        dao.upsert(entity.withData(d))
-        alarms.scheduleReminder(uuid, d.nextRemindAt)
+        val updated = db.withTransaction {
+            val entity = dao.byUuid(uuid) ?: return@withTransaction null
+            if (entity.statusEnum != TaskStatus.PENDING) return@withTransaction null
+            val d = Scheduler.snooze(entity.toData(), LocalDateTime.now(), settings.snapshot().snoozeMinutes)
+            val updated = entity.withData(d)
+            if (dao.updateIfPending(updated) == 0) return@withTransaction null
+            updated
+        } ?: return
+        alarms.scheduleReminder(uuid, updated.nextRemindAt)
         Notifications.dismiss(context, uuid)
     }
 
@@ -84,20 +102,23 @@ class TaskRepository(
 
     /** 编辑保存:重置进行阶段,下次提醒回到新的提醒时间。仅对未完成事项生效。 */
     suspend fun applyEdit(uuid: String, parsed: ParsedTask) {
-        val entity = dao.byUuid(uuid) ?: return
-        if (entity.statusEnum != TaskStatus.PENDING) return
-        val updated = entity.copy(
-            title = parsed.title,
-            remindAtMillis = parsed.remindAt.toEpochMillis(),
-            durationMinutes = parsed.durationMinutes,
-            allDay = parsed.allDay,
-            repeatType = parsed.repeatType.raw,
-            repeatDays = joinIntCsv(parsed.repeatDays),
-            repeatTimes = joinCsv(parsed.repeatTimes),
-            phase = TaskPhase.START.raw,
-            nextRemindAtMillis = parsed.remindAt.toEpochMillis(),
-        )
-        dao.upsert(updated)
+        val updated = db.withTransaction {
+            val entity = dao.byUuid(uuid) ?: return@withTransaction null
+            if (entity.statusEnum != TaskStatus.PENDING) return@withTransaction null
+            val updated = entity.copy(
+                title = parsed.title,
+                remindAtMillis = parsed.remindAt.toEpochMillis(),
+                durationMinutes = parsed.durationMinutes,
+                allDay = parsed.allDay,
+                repeatType = parsed.repeatType.raw,
+                repeatDays = joinIntCsv(parsed.repeatDays),
+                repeatTimes = joinCsv(parsed.repeatTimes),
+                phase = TaskPhase.START.raw,
+                nextRemindAtMillis = parsed.remindAt.toEpochMillis(),
+            )
+            if (dao.updateIfPending(updated) == 0) return@withTransaction null
+            updated
+        } ?: return
         alarms.scheduleReminder(uuid, updated.nextRemindAt)
         Notifications.dismiss(context, uuid)
         DurationMemory.learn(context, settings.aiConfig(), parsed.title, parsed.durationMinutes)
@@ -105,28 +126,34 @@ class TaskRepository(
 
     /** 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。 */
     suspend fun reschedule(uuid: String, at: LocalDateTime) {
-        val entity = dao.byUuid(uuid) ?: return
-        if (entity.statusEnum != TaskStatus.PENDING) return
-        val updated = entity.copy(
-            remindAtMillis = if (entity.isRecurring) entity.remindAtMillis else at.toEpochMillis(),
-            nextRemindAtMillis = at.toEpochMillis(),
-        )
-        dao.upsert(updated)
+        val updated = db.withTransaction {
+            val entity = dao.byUuid(uuid) ?: return@withTransaction null
+            if (entity.statusEnum != TaskStatus.PENDING) return@withTransaction null
+            val updated = entity.copy(
+                remindAtMillis = if (entity.isRecurring) entity.remindAtMillis else at.toEpochMillis(),
+                nextRemindAtMillis = at.toEpochMillis(),
+            )
+            if (dao.updateIfPending(updated) == 0) return@withTransaction null
+            updated
+        } ?: return
         alarms.scheduleReminder(uuid, updated.nextRemindAt)
         Notifications.dismiss(context, uuid)
     }
 
     /** 恢复为待办:回到 start 阶段,提醒时间取原定时间(已过期会直接进到期卡)。 */
     suspend fun restore(uuid: String) {
-        val entity = dao.byUuid(uuid) ?: return
-        if (entity.statusEnum != TaskStatus.DONE) return
-        val updated = entity.copy(
-            status = TaskStatus.PENDING.raw,
-            phase = TaskPhase.START.raw,
-            doneAtMillis = null,
-            nextRemindAtMillis = entity.remindAtMillis,
-        )
-        dao.upsert(updated)
+        val updated = db.withTransaction {
+            val entity = dao.byUuid(uuid) ?: return@withTransaction null
+            if (entity.statusEnum != TaskStatus.DONE) return@withTransaction null
+            val updated = entity.copy(
+                status = TaskStatus.PENDING.raw,
+                phase = TaskPhase.START.raw,
+                doneAtMillis = null,
+                nextRemindAtMillis = entity.remindAtMillis,
+            )
+            dao.upsert(updated)
+            updated
+        } ?: return
         alarms.scheduleReminder(uuid, updated.nextRemindAt)
     }
 
@@ -155,6 +182,15 @@ class TaskRepository(
      * UI 快照(agent 批量确认执行期间,目标事项可能已被通知按钮/Siri 并发
      * 改动;用陈旧状态当"撤销回去的原样"会在撤销时把并发的改动覆盖掉)。 */
     suspend fun current(uuid: String): TaskEntity? = dao.byUuid(uuid)
+
+    /** ReminderReceiver 专用:通知真正展示成功后原子顺延 nextRemindAt
+     * (markNotified 语义),与 complete/snooze 共用同一套 updateIfPending
+     * 并发保护——闹钟触发的同时用户在界面完成,谁先落库谁生效。 */
+    suspend fun persistNotified(uuid: String, notified: TaskData): Boolean = db.withTransaction {
+        val entity = dao.byUuid(uuid) ?: return@withTransaction false
+        if (entity.statusEnum != TaskStatus.PENDING) return@withTransaction false
+        dao.updateIfPending(entity.withData(notified)) > 0
+    }
 
     suspend fun exists(uuid: String): Boolean = dao.byUuid(uuid) != null
 

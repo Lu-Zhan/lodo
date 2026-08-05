@@ -1,5 +1,7 @@
 package com.lodo.app.ui.todo
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -171,12 +173,12 @@ fun TaskFormFields(
         OutlinedTextField(
             value = state.title,
             onValueChange = { state.title = it },
-            label = { Text("事项内容") },
+            label = { Text(stringResource(R.string.shared_task_content)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
 
-        SectionHeader("重复")
+        SectionHeader(stringResource(R.string.shared_repeat))
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             listOf(RepeatType.NONE to "不重复", RepeatType.DAILY to "每天", RepeatType.WEEKLY to "每周")
                 .forEachIndexed { index, (type, label) ->
@@ -200,7 +202,7 @@ fun TaskFormFields(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("全天", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.shared_all_day), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = state.allDay, onCheckedChange = { state.allDay = it })
             }
             if (!state.allDay) {
@@ -210,7 +212,7 @@ fun TaskFormFields(
             }
         } else {
             if (state.repeatType == RepeatType.WEEKLY) {
-                SectionHeader("周几")
+                SectionHeader(stringResource(R.string.shared_weekday))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (i in 0..6) {
                         FilterChip(
@@ -224,7 +226,7 @@ fun TaskFormFields(
                     }
                 }
             }
-            SectionHeader("提醒时间点")
+            SectionHeader(stringResource(R.string.shared_reminder_times))
             state.times.forEachIndexed { i, hhmm ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -236,24 +238,24 @@ fun TaskFormFields(
                             .clickable { editingTimeIndex = i }
                             .padding(vertical = 12.dp),
                     ) {
-                        Text("时间 ${i + 1}", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.android_ui_time_0), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                         Text(hhmm, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = {
                         state.times = state.times.filterIndexed { j, _ -> j != i }
                     }) {
-                        Icon(Icons.Filled.Close, contentDescription = "删除时间点")
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.android_ui_remove_time))
                     }
                 }
             }
             TextButton(onClick = { state.times = state.times + "09:00" }) {
                 Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("添加时间点")
+                Text(stringResource(R.string.shared_add_a_time))
             }
         }
 
-        SectionHeader("时长")
+        SectionHeader(stringResource(R.string.shared_duration))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -296,10 +298,10 @@ fun TaskFormFields(
                         state.day = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                     }
                     showDatePicker = false
-                }) { Text("确定") }
+                }) { Text(stringResource(R.string.shared_ok_2)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
+                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.shared_cancel)) }
             },
         ) {
             DatePicker(state = dateState)

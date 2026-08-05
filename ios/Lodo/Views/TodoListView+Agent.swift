@@ -166,58 +166,73 @@ extension TodoListView {
         return memoryCandidates + historyCandidates
     }
 
+    /// fetch + 语义检索的向量扫描搬到独立后台 ModelContext 执行(SwiftData 的
+    /// ModelContainer 线程安全、可在任意线程 new context;单个 ModelContext 本身
+    /// 非线程安全,不能跨线程复用主线程的 `context`)。记忆库较大时全量 fetch +
+    /// 逐条算余弦相似度堵在主线程会让提问卡顿,detached task 只返回普通值类型
+    /// (不带 @Model 实例出 task,MemoryItem/MemoryChunk 不是 Sendable)。
     private func retrieveMemoryItemCandidates(
         _ question: String
     ) async -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)] {
-        let items = (try? context.fetch(FetchDescriptor<MemoryItem>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
-        guard !items.isEmpty else { return [] }
-        let itemsByUUID = Dictionary(uniqueKeysWithValues: items.map { ($0.uuid, $0) })
+        let container = context.container
+        let queryVector = await embedQueryBestEffort(question)
+        return await Task.detached(priority: .userInitiated) {
+            let bgContext = ModelContext(container)
+            let items = (try? bgContext.fetch(FetchDescriptor<MemoryItem>(
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
+            guard !items.isEmpty else { return [] }
+            let itemsByUUID = Dictionary(uniqueKeysWithValues: items.map { ($0.uuid, $0) })
 
-        // 语义检索:命中的是具体 chunk,原文直接当摘录用,不再是整条内容的前 400 字。
-        var semanticExcerpts: [UUID: String] = [:]
-        var semanticOrder: [UUID] = []
-        if let queryVector = await embedQueryBestEffort(question) {
-            let chunks = (try? context.fetch(FetchDescriptor<MemoryChunk>())) ?? []
-            let chunkByUUID = Dictionary(uniqueKeysWithValues: chunks.map { ($0.uuid, $0) })
-            let candidates = chunks.filter { !$0.embedding.isEmpty }
-                .map { (id: $0.uuid, vector: $0.embedding) }
-            let topChunkUUIDs = VectorSearch.topK(
-                query: queryVector, candidates: candidates, k: MemorySearch.maxAskItems)
-            for chunkUUID in topChunkUUIDs {
-                guard let chunk = chunkByUUID[chunkUUID],
-                      itemsByUUID[chunk.itemUUID] != nil,
-                      semanticExcerpts[chunk.itemUUID] == nil else { continue }
-                semanticExcerpts[chunk.itemUUID] = chunk.text
-                semanticOrder.append(chunk.itemUUID)
+            // 语义检索:命中的是具体 chunk,原文直接当摘录用,不再是整条内容的前 400 字。
+            // chunk 候选按最近创建的 maxCandidateChunks 条截断,避免记忆库很大时
+            // 每次提问都做全量线性扫描。
+            var semanticExcerpts: [UUID: String] = [:]
+            var semanticOrder: [UUID] = []
+            if let queryVector {
+                var chunkDescriptor = FetchDescriptor<MemoryChunk>(
+                    sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+                chunkDescriptor.fetchLimit = MemorySearch.maxCandidateChunks
+                let chunks = (try? bgContext.fetch(chunkDescriptor)) ?? []
+                let chunkByUUID = Dictionary(uniqueKeysWithValues: chunks.map { ($0.uuid, $0) })
+                let candidates = chunks.filter { !$0.embedding.isEmpty }
+                    .map { (id: $0.uuid, vector: $0.embedding) }
+                let topChunkUUIDs = VectorSearch.topK(
+                    query: queryVector, candidates: candidates, k: MemorySearch.maxAskItems)
+                for chunkUUID in topChunkUUIDs {
+                    guard let chunk = chunkByUUID[chunkUUID],
+                          itemsByUUID[chunk.itemUUID] != nil,
+                          semanticExcerpts[chunk.itemUUID] == nil else { continue }
+                    semanticExcerpts[chunk.itemUUID] = chunk.text
+                    semanticOrder.append(chunk.itemUUID)
+                }
             }
-        }
 
-        // 关键词粗排照旧保留:精确匹配人名/编号这类语义检索未必擅长的场景兜底。
-        let ranked = MemorySearch.rank(
-            question: question,
-            items: items.enumerated().map { index, item in
-                (index: index,
-                 text: "\(item.title) \(item.summary) \(item.tags.joined(separator: " ")) \(item.sourceText)",
-                 createdAt: item.createdAt)
-            })
-        let keywordOrder = ranked.map { items[$0].uuid }
+            // 关键词粗排照旧保留:精确匹配人名/编号这类语义检索未必擅长的场景兜底。
+            let ranked = MemorySearch.rank(
+                question: question,
+                items: items.enumerated().map { index, item in
+                    (index: index,
+                     text: "\(item.title) \(item.summary) \(item.tags.joined(separator: " ")) \(item.sourceText)",
+                     createdAt: item.createdAt)
+                })
+            let keywordOrder = ranked.map { items[$0].uuid }
 
-        // 合并去重:语义命中优先,关键词补位,按原有条目数上限截断。
-        var seen = Set<UUID>()
-        var orderedUUIDs: [UUID] = []
-        for uuid in semanticOrder + keywordOrder where !seen.contains(uuid) {
-            seen.insert(uuid)
-            orderedUUIDs.append(uuid)
-        }
-        return orderedUUIDs.prefix(MemorySearch.maxAskItems)
-            .compactMap { uuid -> (uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)? in
-                guard let item = itemsByUUID[uuid] else { return nil }
-                let excerpt = semanticExcerpts[uuid] ?? MemorySearch.truncate(
-                    item.sourceText, limit: MemorySearch.maxExcerptChars)
-                return (uuid: item.uuid.uuidString, title: item.title, summary: item.summary,
-                        tags: item.tags, excerpt: excerpt, isTaskHistory: false)
+            // 合并去重:语义命中优先,关键词补位,按原有条目数上限截断。
+            var seen = Set<UUID>()
+            var orderedUUIDs: [UUID] = []
+            for uuid in semanticOrder + keywordOrder where !seen.contains(uuid) {
+                seen.insert(uuid)
+                orderedUUIDs.append(uuid)
             }
+            return orderedUUIDs.prefix(MemorySearch.maxAskItems)
+                .compactMap { uuid -> (uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)? in
+                    guard let item = itemsByUUID[uuid] else { return nil }
+                    let excerpt = semanticExcerpts[uuid] ?? MemorySearch.truncate(
+                        item.sourceText, limit: MemorySearch.maxExcerptChars)
+                    return (uuid: item.uuid.uuidString, title: item.title, summary: item.summary,
+                            tags: item.tags, excerpt: excerpt, isTaskHistory: false)
+                }
+        }.value
     }
 
     /// 已完成待办(含一次性完成与重复事项每次完成留下的历史行)的关键词匹配,

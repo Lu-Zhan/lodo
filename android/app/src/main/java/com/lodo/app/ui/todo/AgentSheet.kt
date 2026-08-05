@@ -1,5 +1,7 @@
 package com.lodo.app.ui.todo
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -147,9 +149,8 @@ fun AgentSheet(
                 .animateContentSize(),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onDismiss) { Text("取消") }
-                Text(
-                    "AI 助手",
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_cancel)) }
+                Text(stringResource(R.string.shared_ai_assistant),
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
@@ -158,7 +159,7 @@ fun AgentSheet(
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
                     IconButton(onClick = { parse() }, enabled = text.isNotBlank()) {
-                        Icon(Icons.Filled.AutoAwesome, contentDescription = "解析")
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = stringResource(R.string.android_ui_parse))
                     }
                 }
             }
@@ -167,7 +168,7 @@ fun AgentSheet(
                 value = text,
                 onValueChange = { text = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("例如:明天3点开会一小时 / 把开会改到晚上8点") },
+                placeholder = { Text(stringResource(R.string.android_ui_e_g_meeting_tomorrow_3pm_1hr_move)) },
                 minLines = 3,
                 maxLines = 8,
             )
@@ -241,11 +242,11 @@ fun AgentSheet(
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { confirmLines = null }) { Text("取消") }
+                            OutlinedButton(onClick = { confirmLines = null }) { Text(stringResource(R.string.shared_cancel)) }
                             Button(onClick = onConfirm) {
                                 Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("确认执行")
+                                Text(stringResource(R.string.shared_confirm))
                             }
                         }
                     }
@@ -261,7 +262,7 @@ fun AgentSheet(
                     runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
                         .onFailure { errorText = "设备不支持语音输入" }
                 }) {
-                    Icon(Icons.Filled.Mic, contentDescription = "语音输入")
+                    Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.android_ui_voice_input))
                 }
             }
 

@@ -22,9 +22,13 @@ public enum WebSearchClient {
         case api(String)
 
         public var errorDescription: String? {
+            let language = AppSettings.language
             switch self {
-            case .noKey: return "未配置 Tavily API key,请到「设置」里填写。"
-            case .api(let m): return "联网搜索失败:\(m)"
+            case .noKey:
+                return LocalizedStrings.text(.ios_core_tavily_api_key_not_configured_set_it_up, language: language)
+            case .api(let m):
+                return LocalizedStrings.text(.ios_core_web_search_failed, language: language)
+                    + LocalizedStrings.translate(m, language: language)
             }
         }
     }

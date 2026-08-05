@@ -31,6 +31,37 @@ final class MemoryTests: XCTestCase {
         XCTAssertEqual(entry.tags, ["ok"])
     }
 
+    func testParseMemorizedEntryWithAssetFields() throws {
+        let entry = try DeepSeekClient.parseMemorizedEntry([
+            "title": "工资卡余额", "summary": "工资卡里还有一万二",
+            "tags": ["资产"], "asset_value": 12000, "asset_currency": "cny",
+        ])
+        XCTAssertEqual(entry.assetValue, 12000)
+        // 币种统一转大写存
+        XCTAssertEqual(entry.assetCurrency, "CNY")
+    }
+
+    /// asset_value/asset_currency 是锦上添花的可选字段,值不合法时只丢弃这两个
+    /// 字段本身,不影响 title/summary/tags 正常解析(不像 command 协议里新建
+    /// 事项那样整条报错)。
+    func testParseMemorizedEntryDropsInvalidAssetFields() throws {
+        let negative = try DeepSeekClient.parseMemorizedEntry([
+            "title": "笔记", "asset_value": -5, "asset_currency": "CNY",
+        ])
+        XCTAssertNil(negative.assetValue)
+        XCTAssertNil(negative.assetCurrency)
+
+        let badCurrency = try DeepSeekClient.parseMemorizedEntry([
+            "title": "笔记", "asset_value": 100, "asset_currency": "人民币",
+        ])
+        XCTAssertNil(badCurrency.assetValue)
+        XCTAssertNil(badCurrency.assetCurrency)
+
+        let noValue = try DeepSeekClient.parseMemorizedEntry(["title": "普通笔记"])
+        XCTAssertNil(noValue.assetValue)
+        XCTAssertNil(noValue.assetCurrency)
+    }
+
     // MARK: - parseMemoryAnswer
 
     func testParseMemoryAnswer() throws {

@@ -46,6 +46,43 @@ class CommandParseTest {
     }
 
     @Test(expected = DeepSeekException::class)
+    fun createActionRejectsBlankTitle() {
+        val payload = payloadWithActions(taskPayload("create", title = "   "))
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun createActionRejectsOutOfRangeRepeatDays() {
+        val task = taskPayload("create").put("repeat_days", JSONArray(listOf(7)))
+        DeepSeekClient.parseCommandResult(
+            payloadWithActions(task), emptySet(), webSearchEnabled = false)
+    }
+
+    @Test
+    fun createActionDedupesRepeatDays() {
+        val task = taskPayload("create").put("repeat_days", JSONArray(listOf(0, 0, 2)))
+        val result = DeepSeekClient.parseCommandResult(
+            payloadWithActions(task), emptySet(), webSearchEnabled = false)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        val create = actions[0] as? AIAction.Create ?: return fail("expected create")
+        assertEquals(listOf(0, 2), create.task.repeatDays)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun createActionRejectsOutOfRangeDuration() {
+        val task = taskPayload("create").put("duration_minutes", 1441)
+        DeepSeekClient.parseCommandResult(
+            payloadWithActions(task), emptySet(), webSearchEnabled = false)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun createActionRejectsInvalidRepeatTimeRange() {
+        val task = taskPayload("create").put("repeat_times", JSONArray(listOf("99:99")))
+        DeepSeekClient.parseCommandResult(
+            payloadWithActions(task), emptySet(), webSearchEnabled = false)
+    }
+
+    @Test(expected = DeepSeekException::class)
     fun updateActionRequiresValidUuid() {
         val payload = payloadWithActions(taskPayload("update", uuid = "missing"))
         DeepSeekClient.parseCommandResult(payload, setOf("a"), webSearchEnabled = false)

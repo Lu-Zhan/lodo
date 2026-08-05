@@ -1,5 +1,7 @@
 package com.lodo.app.ui
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -38,13 +40,13 @@ fun MainScreen() {
                     selected = tab == 0,
                     onClick = { tab = 0 },
                     icon = { Icon(Icons.Filled.Checklist, contentDescription = null) },
-                    label = { Text("待办") },
+                    label = { Text(stringResource(R.string.shared_todo)) },
                 )
                 NavigationBarItem(
                     selected = tab == 1,
                     onClick = { tab = 1 },
                     icon = { Icon(Icons.Filled.CheckCircle, contentDescription = null) },
-                    label = { Text("已完成") },
+                    label = { Text(stringResource(R.string.android_ui_done_2)) },
                 )
             }
         },

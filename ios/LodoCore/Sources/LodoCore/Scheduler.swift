@@ -45,6 +45,18 @@ public enum Scheduler {
         return nil
     }
 
+    /// 把已过期的 nextRemindAt 追平到"如果通知链上的后续通知按计划各自触发过,
+    /// 此刻应处于的下一个未来槽位"。仅供 iOS NotificationManager 的预排通知链
+    /// 维护使用(本地通知没有可靠的"用户看了没理会"回调,只能在每次 app 进
+    /// 前台时按时间差批量追平),不是三端对齐的调度语义,不需要移植到
+    /// Android/web(两端提醒引擎架构不同,见 CLAUDE.md「各端架构差异」)。
+    public static func catchUp(nextRemindAt: Date, now: Date, snoozeMinutes: Int) -> Date {
+        guard nextRemindAt <= now else { return nextRemindAt }
+        let interval = TimeInterval(snoozeMinutes * 60)
+        let missed = (now.timeIntervalSince(nextRemindAt) / interval).rounded(.down) + 1
+        return nextRemindAt.addingTimeInterval(missed * interval)
+    }
+
     /// 用户对提醒做出肯定响应。返回 true 表示完成了一次(或整个)事项。
     ///
     /// - 时长 > 0 且处于开始阶段:表示"开始做了",转入结束阶段,

@@ -76,6 +76,8 @@ data class TodoUiState(
     val hapticsEnabled: Boolean = true,
     val agentAutoRecordOnOpen: Boolean = true,
     val agentSilenceTimeoutSeconds: Int = 3,
+    /** 通知权限被拒绝,待办列表顶部显示提示横幅。 */
+    val notificationPermissionDenied: Boolean = false,
 )
 
 class TodoViewModel(application: Application) : AndroidViewModel(application) {
@@ -94,25 +96,26 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     val uiState = combine(
-        app.database.taskDao().observeAll(), ticker, app.settings.settings,
-    ) { tasks, _, settings ->
+        app.database.taskDao().observePending(), app.database.taskDao().observeDone(),
+        ticker, app.settings.settings,
+    ) { pendingTasks, doneTasks, _, settings ->
         val now = LocalDateTime.now()
         // 计算下一次唤醒:最近一个未到期事项,否则 10 分钟兜底
         val nowMillis = System.currentTimeMillis()
-        nextWakeDelayMillis = tasks
-            .filter { it.statusEnum == TaskStatus.PENDING && it.nextRemindAtMillis > nowMillis }
+        nextWakeDelayMillis = pendingTasks
+            .filter { it.nextRemindAtMillis > nowMillis }
             .minOfOrNull { it.nextRemindAtMillis - nowMillis + 1_000 }
             ?.coerceIn(1_000L, 600_000L) ?: 600_000L
         TodoUiState(
-            due = tasks.filter { it.statusEnum == TaskStatus.PENDING && it.toData().isDue(now) },
-            pending = tasks.filter { it.statusEnum == TaskStatus.PENDING },
-            done = tasks.filter { it.statusEnum == TaskStatus.DONE }
-                .sortedByDescending { it.doneAtMillis ?: 0L },
+            due = pendingTasks.filter { it.toData().isDue(now) },
+            pending = pendingTasks,
+            done = doneTasks,
             snoozeMinutes = settings.snoozeMinutes,
             allDayTime = settings.allDayTime,
             hapticsEnabled = settings.hapticsEnabled,
             agentAutoRecordOnOpen = settings.agentAutoRecordOnOpen,
             agentSilenceTimeoutSeconds = settings.agentSilenceTimeoutSeconds,
+            notificationPermissionDenied = settings.notificationPermissionDenied,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodoUiState())
 

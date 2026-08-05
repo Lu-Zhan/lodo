@@ -21,6 +21,7 @@ struct MemoryListView: View {
     @State private var query = ""
     @State private var selectedTags: Set<String> = []
     @State private var selectedKinds: Set<MemoryKind> = []
+    @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @State private var showAssets = false
     @State private var showContacts = false
     @State private var showFilters = false
@@ -77,7 +78,9 @@ struct MemoryListView: View {
 
     private var assetOverview: AssetOverview? {
         guard showAssets else { return nil }
-        return AssetOverview(items: filtered)
+        return AssetOverview(
+            items: filtered, displayCurrency: assetDisplayCurrency,
+            rates: ExchangeRateStore.shared)
     }
 
     var body: some View {
@@ -562,7 +565,7 @@ private struct MemoryRow: View {
                         .lineLimit(1)
                     if let assetValue = item.assetValue {
                         Spacer(minLength: 8)
-                        Text(AssetFormat.currency(assetValue))
+                        Text(AssetFormat.currency(assetValue, code: item.assetCurrencyOrDefault))
                             .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
@@ -604,28 +607,44 @@ private struct MemoryRow: View {
 
 // MARK: - 资产总览
 
-/// 当前筛选出的资产条目的汇总:总额(有金额的条目求和)+ 条数 + 按分类
-/// (assetTagName 之外的其他标签)拆出的小计,分类小计只是"参考"——一条
-/// 资产可能有多个标签,金额会重复计进它命中的每个分类小计里。
+/// 当前筛选出的资产条目的汇总:总额 + 条数 + 按分类(assetTagName 之外的其他
+/// 标签)拆出的小计,分类小计只是"参考"——一条资产可能有多个标签,金额会
+/// 重复计进它命中的每个分类小计里。总额与分类小计都换算成 `displayCurrency`
+/// 求和(条目原本各种币种混在一起,不换算直接相加没有意义);某条资产的
+/// 币种没有汇率(离线、或币种不在 ExchangeRateClient 覆盖范围内)时,不计入
+/// 换算后的总额,单独计数提示。
+@MainActor
 private struct AssetOverview {
     let totalValue: Double
+    let displayCurrency: String
     let valuedCount: Int
+    let unratedCount: Int
     let totalCount: Int
     let byCategory: [(name: String, value: Double)]
 
-    init(items: [MemoryItem]) {
+    init(items: [MemoryItem], displayCurrency: String, rates: ExchangeRateStore) {
+        self.displayCurrency = displayCurrency
         totalCount = items.count
-        let valued = items.compactMap { $0.assetValue }
-        totalValue = valued.reduce(0, +)
-        valuedCount = valued.count
-
+        var total = 0.0
+        var valuedCount = 0
+        var unratedCount = 0
         var categoryTotals: [String: Double] = [:]
         for item in items {
             guard let value = item.assetValue else { continue }
+            valuedCount += 1
+            guard let converted = rates.convert(
+                value, from: item.assetCurrencyOrDefault, to: displayCurrency) else {
+                unratedCount += 1
+                continue
+            }
+            total += converted
             for tag in item.tags where tag != MemoryItem.assetTagName {
-                categoryTotals[tag, default: 0] += value
+                categoryTotals[tag, default: 0] += converted
             }
         }
+        totalValue = total
+        self.valuedCount = valuedCount
+        self.unratedCount = unratedCount
         byCategory = categoryTotals
             .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
             .map { (name: $0.key, value: $0.value) }
@@ -634,6 +653,7 @@ private struct AssetOverview {
 
 private struct AssetOverviewCard: View {
     let overview: AssetOverview
+    private var rates: ExchangeRateStore { ExchangeRateStore.shared }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -644,10 +664,19 @@ private struct AssetOverviewCard: View {
                     .font(.footnote)
                     .foregroundStyle(.tertiary)
             }
-            Text(AssetFormat.currency(overview.totalValue))
+            Text(AssetFormat.currency(overview.totalValue, code: overview.displayCurrency))
                 .font(.title2.bold().monospacedDigit())
             if overview.valuedCount < overview.totalCount {
                 Text("其中 \(overview.totalCount - overview.valuedCount) 项未填金额,不计入总额")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            if rates.isUnavailable {
+                Text("汇率不可用(需联网获取一次),不同币种暂按原样未换算求和")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else if overview.unratedCount > 0 {
+                Text("其中 \(overview.unratedCount) 项币种暂无汇率,不计入总额")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -656,7 +685,7 @@ private struct AssetOverviewCard: View {
                     ForEach(overview.byCategory, id: \.name) { entry in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.name).font(.caption2).foregroundStyle(.secondary)
-                            Text(AssetFormat.currency(entry.value))
+                            Text(AssetFormat.currency(entry.value, code: overview.displayCurrency))
                                 .font(.footnote.monospacedDigit())
                         }
                         .padding(.horizontal, 10)
@@ -667,22 +696,29 @@ private struct AssetOverviewCard: View {
             }
         }
         .padding(.vertical, 4)
+        .task { await rates.refreshIfNeeded() }
     }
 }
 
-/// 资产金额的展示格式,列表卡片/总览卡共用。
+/// 资产金额的展示格式,列表卡片/总览卡共用;每种币种各自缓存一个 formatter
+/// (NumberFormatter 构造有一定开销,币种数量不多,缓存比每次现造划算)。
 enum AssetFormat {
-    private static let formatter: NumberFormatter = {
+    @MainActor private static var formatters: [String: NumberFormatter] = [:]
+
+    @MainActor
+    private static func formatter(for code: String) -> NumberFormatter {
+        if let cached = formatters[code] { return cached }
         let f = NumberFormatter()
         f.numberStyle = .currency
-        f.currencyCode = "CNY"
-        f.currencySymbol = "¥"
+        f.currencyCode = code
         f.maximumFractionDigits = 2
         f.minimumFractionDigits = 0
+        formatters[code] = f
         return f
-    }()
+    }
 
-    static func currency(_ value: Double) -> String {
-        formatter.string(from: NSNumber(value: value)) ?? "¥\(value)"
+    @MainActor
+    static func currency(_ value: Double, code: String) -> String {
+        formatter(for: code).string(from: NSNumber(value: value)) ?? "\(code) \(value)"
     }
 }

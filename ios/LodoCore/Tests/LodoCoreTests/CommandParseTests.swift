@@ -30,6 +30,45 @@ final class CommandParseTests: XCTestCase {
         XCTAssertEqual(parsed.title, "开会")
     }
 
+    func testCreateActionRejectsBlankTitle() {
+        let payload: [String: Any] = ["actions": [taskPayload(action: "create", title: "   ")]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
+
+    func testCreateActionRejectsOutOfRangeRepeatDays() {
+        var task = taskPayload(action: "create")
+        task["repeat_days"] = [7]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(["actions": [task]], validUUIDs: [], memoryEnabled: false))
+    }
+
+    func testCreateActionDedupesRepeatDays() throws {
+        var task = taskPayload(action: "create")
+        task["repeat_days"] = [0, 0, 2]
+        let result = try DeepSeekClient.parseCommand(
+            ["actions": [task]], validUUIDs: [], memoryEnabled: false)
+        guard case .actions(let actions) = result, case .create(let parsed) = actions[0] else {
+            XCTFail("expected single create action")
+            return
+        }
+        XCTAssertEqual(parsed.repeatDays, [0, 2])
+    }
+
+    func testCreateActionRejectsOutOfRangeDuration() {
+        var task = taskPayload(action: "create")
+        task["duration_minutes"] = 1441
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(["actions": [task]], validUUIDs: [], memoryEnabled: false))
+    }
+
+    func testCreateActionRejectsInvalidRepeatTimeRange() {
+        var task = taskPayload(action: "create")
+        task["repeat_times"] = ["99:99"]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(["actions": [task]], validUUIDs: [], memoryEnabled: false))
+    }
+
     func testUpdateActionRequiresValidUUID() {
         let payload: [String: Any] = ["actions": [taskPayload(action: "update", uuid: "missing")]]
         XCTAssertThrowsError(

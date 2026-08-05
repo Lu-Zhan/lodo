@@ -1,5 +1,7 @@
 package com.lodo.app.ui.todo
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -74,7 +76,7 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("已完成") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.android_ui_done_2)) }) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -85,7 +87,7 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
             vm.insight?.let { insight ->
                 item(key = "insight") {
                     Column {
-                        SectionHeader("本周洞察")
+                        SectionHeader(stringResource(R.string.shared_this_week_s_insight))
                         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -111,7 +113,7 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
                 }
             } else {
                 if (todayDone.isNotEmpty()) {
-                    item(key = "today-header") { SectionHeader("今天") }
+                    item(key = "today-header") { SectionHeader(stringResource(R.string.android_ui_today)) }
                     items(todayDone, key = { "today-" + it.uuid }) { task ->
                         DoneRow(
                             task = task,
@@ -215,7 +217,7 @@ private fun DoneRow(
                     Text(task.title, textDecoration = TextDecoration.LineThrough)
                 },
                 supportingContent = {
-                    task.doneAt?.let { Text("完成于 ${TimeFormat.format(it)}") }
+                    task.doneAt?.let { Text(stringResource(R.string.android_ui_completed_at_0)) }
                 },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
             )

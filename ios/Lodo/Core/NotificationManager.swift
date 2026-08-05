@@ -30,12 +30,19 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         self.container = container
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        let done = UNNotificationAction(identifier: Self.doneAction, title: "完成",
+        // 通知分类只在 configure() 里设一次(app 启动时),语言设置若在运行期间
+        // 切换,这几个按钮标题要到下次启动才会跟着变——通知本身预排在过去的
+        // 语言下,这个滞后可接受,不为此引入运行期重新 setNotificationCategories。
+        let language = AppSettings.language
+        let done = UNNotificationAction(identifier: Self.doneAction,
+                                        title: LocalizedStrings.translate("完成", language: language),
                                         options: [])
-        let snooze = UNNotificationAction(identifier: Self.snoozeAction, title: "稍等一会",
+        let snooze = UNNotificationAction(identifier: Self.snoozeAction,
+                                          title: LocalizedStrings.translate("稍等一会", language: language),
                                           options: [])
         // 改期要打开 App 展示改期候选,不像完成/稍等能在后台静默处理,所以带 .foreground。
-        let reschedule = UNNotificationAction(identifier: Self.rescheduleAction, title: "改期",
+        let reschedule = UNNotificationAction(identifier: Self.rescheduleAction,
+                                              title: LocalizedStrings.translate("改期", language: language),
                                               options: [.foreground])
         center.setNotificationCategories([
             UNNotificationCategory(identifier: Self.nagCategory, actions: [done, snooze, reschedule],
@@ -65,11 +72,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let now = Date()
         // 已过期的事项把链锚定到下一个未来的稍等槽位,否则 8 条全落在过去,
         // 纠缠提醒会静默断链(数据库 nextRemindAt 保持过去值,app 内到期卡片不受影响)。
-        var anchor = task.nextRemindAt
-        if anchor <= now {
-            let missed = (now.timeIntervalSince(anchor) / interval).rounded(.down) + 1
-            anchor = anchor.addingTimeInterval(missed * interval)
-        }
+        let anchor = Scheduler.catchUp(nextRemindAt: task.nextRemindAt, now: now,
+                                       snoozeMinutes: AppSettings.snoozeMinutes)
         let starting = task.phase == .start && task.durationMinutes > 0
         for i in 0..<min(chainLength, Self.chainLength) {
             let fire = anchor.addingTimeInterval(interval * Double(i))
@@ -100,26 +104,39 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         "幽默轻松": ("叮!你的专属提醒到啦~", "开工时间到~预计 %d 分钟,冲鸭!", "时间到啦,搞定了没?别偷懒哦~"),
     ]
 
+    /// 通知内容不经过 SwiftUI 的 .environment(\.locale)(通知在 app 未运行时也要
+    /// 投递),用 AppSettings.language 显式取当前语言;翻译走 LocalizedStrings
+    /// 的中文原文反查(通知模板本身不含动态数据,精确匹配即可)。
     private static func reminderBody(style: String, starting: Bool, isEnd: Bool,
                                      durationMinutes: Int) -> String {
+        let language = AppSettings.language
         guard let template = reminderTemplates[style] else {
-            if starting { return "该开始了!(时长 \(durationMinutes) 分钟)" }
-            if isEnd { return "时间到 — 完成了吗?" }
-            return "到时间了"
+            if starting {
+                let prefix = LocalizedStrings.translate("该开始了!(时长 ", language: language)
+                return "\(prefix)\(durationMinutes) \(language == .en ? "min)" : "分钟)")"
+            }
+            if isEnd { return LocalizedStrings.translate("时间到 — 完成了吗?", language: language) }
+            return LocalizedStrings.translate("到时间了", language: language)
         }
-        if starting { return String(format: template.start, durationMinutes) }
-        if isEnd { return template.end }
-        return template.due
+        if starting {
+            return String(format: LocalizedStrings.translate(template.start, language: language), durationMinutes)
+        }
+        if isEnd { return LocalizedStrings.translate(template.end, language: language) }
+        return LocalizedStrings.translate(template.due, language: language)
     }
 
     func cancelChain(for uuid: UUID) {
         let ids = (0..<Self.chainLength).map { "task-\(uuid.uuidString)-nag-\($0)" }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+        center.removeDeliveredNotifications(withIdentifiers: ids)
     }
 
     /// 重排全部待办的通知链和每日汇总(app 启动/回到前台时调用)。
-    /// 通知链按全局预算分配:每任务先保底 1 条,剩余额度按到期先后补满,
-    /// 避免 8 条 × N 任务撞系统 64 条上限导致后续提醒静默丢失。
+    /// 通知链按全局预算分配:每任务先保底 1 条,剩余额度按到期先后补满;
+    /// pending 任务数超过预算时,只给最靠前(最快到期)的 chainBudget 个任务
+    /// 排通知,超出的任务不排(且清理其可能残留的旧通知),避免总请求数突破
+    /// 系统 64 条硬上限被静默丢弃,同时把超出数量报给 UI 提示用户打开 app 查看。
     @MainActor
     func refreshAll() {
         guard let context = container?.mainContext else { return }
@@ -127,12 +144,33 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             predicate: #Predicate { $0.statusRaw == "pending" })
         pending.sortBy = [SortDescriptor(\.nextRemindAt)]
         let tasks = (try? context.fetch(pending)) ?? []
-        var budget = Self.chainBudget - tasks.count  // 每任务保底 1 条之外的余量
-        for task in tasks {
+
+        // 忽略/超时语义 reconcile:本地通知没有可靠的"用户看了没理会"回调,
+        // 只能在每次进前台时把已过期的 nextRemindAt 按时间差批量追平到"如果
+        // 链上通知按计划各自触发过,此刻应处于的下一个未来槽位",让数据库
+        // 与小组件/CloudKit 多端同步读到的状态不再停留在最初的过期值上。
+        let now = Date()
+        var reconciled = false
+        for task in tasks where task.nextRemindAt <= now {
+            task.nextRemindAt = Scheduler.catchUp(nextRemindAt: task.nextRemindAt, now: now,
+                                                  snoozeMinutes: AppSettings.snoozeMinutes)
+            reconciled = true
+        }
+        if reconciled { try? context.save() }
+
+        let budgetedTasks = Array(tasks.prefix(Self.chainBudget))
+        let overflowCount = tasks.count - budgetedTasks.count
+        var budget = Self.chainBudget - budgetedTasks.count  // 每任务保底 1 条之外的余量
+        for task in budgetedTasks {
             let extra = max(0, min(Self.chainLength - 1, budget))
             budget -= extra
             rebuild(for: task, chainLength: 1 + extra, syncWidget: false)
         }
+        for task in tasks.dropFirst(budgetedTasks.count) {
+            cancelChain(for: task.uuid)
+        }
+        NotificationBudgetState.shared.overflowCount = overflowCount
+
         let startOfDay = Calendar.current.startOfDay(for: Date())
         let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)
             ?? startOfDay.addingTimeInterval(86400)
@@ -191,11 +229,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             guard AppSettings.digestEnabled else { return }
 
             let content = UNMutableNotificationContent()
-            content.title = "每日待办汇总"
+            let language = AppSettings.language
+            content.title = LocalizedStrings.translate("每日待办汇总", language: language)
             if let aiSummary, !todayTitles.isEmpty {
                 content.body = aiSummary
             } else if todayTitles.isEmpty {
-                content.body = "今日暂无待办事项 🎉"
+                content.body = LocalizedStrings.translate("今日暂无待办事项 🎉", language: language)
             } else {
                 let shown = todayTitles.prefix(3).joined(separator: "、")
                 content.body = todayTitles.count > 3

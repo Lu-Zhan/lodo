@@ -62,6 +62,9 @@ public final class MemoryItem {
     /// 资产条目(tags 含 assetTagName)的金额;非资产条目为 nil。资产不是独立
     /// 模型,就是打了保留标签的记忆条目,这个字段只在那种情况下有意义。
     public var assetValue: Double?
+    /// 资产金额对应的 ISO 4217 币种代码(如 "CNY"/"USD")。nil 表示这条资产是
+    /// 在多币种支持加入之前创建的老数据,统一按人民币对待(见 assetCurrencyOrDefault)。
+    public var assetCurrency: String?
 
     // MARK: - 人脉字段(tags 含 contactTagName 时才有意义,与 assetValue 同思路)
     /// 昵称;姓名复用 title,备注复用 summary(和资产复用 summary 当备注同思路)。
@@ -87,6 +90,7 @@ public final class MemoryItem {
         relativeFilePath: String? = nil,
         status: MemoryStatus = .processing,
         assetValue: Double? = nil,
+        assetCurrency: String? = nil,
         contactNickname: String? = nil,
         contactPhone: String? = nil,
         contactEmail: String? = nil,
@@ -107,6 +111,7 @@ public final class MemoryItem {
         self.statusRaw = status.rawValue
         self.createdAt = Date()
         self.assetValue = assetValue
+        self.assetCurrency = assetCurrency
         self.contactNickname = contactNickname
         self.contactPhone = contactPhone
         self.contactEmail = contactEmail
@@ -122,6 +127,9 @@ public final class MemoryItem {
     /// 筛选里显式选中才显示,并在列表顶部汇总)。
     public static let assetTagName = "资产"
     public var isAsset: Bool { tags.contains(Self.assetTagName) }
+    /// 老数据(多币种支持加入前创建)没有 assetCurrency,统一按人民币对待——
+    /// 展示格式化、汇总换算都读这个,不直接读 assetCurrency。
+    public var assetCurrencyOrDefault: String { assetCurrency ?? "CNY" }
     /// 保留标签:打了这个标签的记忆条目按"人脉"对待,和资产同一套隐藏/筛选规则。
     public static let contactTagName = "人脉"
     public var isContact: Bool { tags.contains(Self.contactTagName) }

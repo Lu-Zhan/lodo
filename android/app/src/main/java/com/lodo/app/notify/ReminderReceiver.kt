@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import com.lodo.app.LodoApp
 import com.lodo.app.ai.DeepSeekClient
+import com.lodo.app.core.CurrentLang
 import com.lodo.app.core.Scheduler
+import com.lodo.app.core.Strings
 import com.lodo.app.core.TaskStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,20 +35,28 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     private suspend fun handleRemind(app: LodoApp, uuid: String) {
-        val dao = app.database.taskDao()
-        val entity = dao.byUuid(uuid) ?: return
+        val entity = app.repository.current(uuid) ?: return
         if (entity.statusEnum != TaskStatus.PENDING) return
         val now = LocalDateTime.now()
         val data = entity.toData()
-        if (data.isDue(now)) {
-            Notifications.showTask(app, entity, app.settings.snapshot().personaStyle)
-            // 忽略通知也会在稍等间隔后再次提醒(与 web 版 markNotified 语义一致)
-            val notified = Scheduler.markNotified(data, now, app.settings.snapshot().snoozeMinutes)
-            dao.upsert(entity.withData(notified))
-            app.alarms.scheduleReminder(uuid, notified.nextRemindAt)
-        } else {
+        if (!data.isDue(now)) {
             // 提前触发的陈旧闹钟:按当前 nextRemindAt 重排,不发通知
             app.alarms.scheduleReminder(uuid, data.nextRemindAt)
+            return
+        }
+        val shown = Notifications.showTask(app, entity, app.settings.snapshot().personaStyle)
+        if (shown) {
+            // 忽略通知也会在稍等间隔后再次提醒(与 web 版 markNotified 语义一致)
+            val notified = Scheduler.markNotified(data, now, app.settings.snapshot().snoozeMinutes)
+            app.repository.persistNotified(uuid, notified)
+            app.alarms.scheduleReminder(uuid, notified.nextRemindAt)
+            if (app.settings.snapshot().notifyMissCount > 0) app.settings.setNotifyMissCount(0)
+        } else {
+            // 通知权限缺失:不顺延 nextRemindAt(事项继续显示为"过期未提醒"),
+            // 用递增退避间隔重排,避免权限持续缺失时高频重试。
+            val misses = app.settings.snapshot().notifyMissCount + 1
+            app.settings.setNotifyMissCount(misses)
+            app.alarms.scheduleReminder(uuid, now.plusMinutes(NotifyBackoff.minutes(misses)))
         }
     }
 
@@ -59,7 +69,7 @@ class ReminderReceiver : BroadcastReceiver() {
             .filter { it.nextRemindAt.isBefore(tomorrow) }
             .sortedBy { it.nextRemindAtMillis }
         val body = if (today.isEmpty()) {
-            "今日暂无待办事项 🎉"
+            Strings.translate("今日暂无待办事项 🎉", CurrentLang.value)
         } else {
             val items = today.map { task ->
                 buildString {

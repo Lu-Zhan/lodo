@@ -1,5 +1,7 @@
 package com.lodo.app.ui.todo
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -97,7 +99,7 @@ fun TaskEditSheet(
                 .imePadding(),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onDismiss) { Text("取消") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_cancel)) }
                 Text(
                     if (existing == null) "新建事项" else "编辑事项",
                     style = MaterialTheme.typography.titleMedium,
@@ -110,11 +112,11 @@ fun TaskEditSheet(
             TaskFormFields(state = form, allDayTime = allDayTime)
 
             if (existing != null) {
-                SectionHeader("AI 修改")
+                SectionHeader(stringResource(R.string.shared_ai_edit))
                 OutlinedTextField(
                     value = aiInstruction,
                     onValueChange = { aiInstruction = it },
-                    placeholder = { Text("例如:改到明天晚上8点") },
+                    placeholder = { Text(stringResource(R.string.shared_e_g_move_to_tomorrow_8pm)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -129,7 +131,7 @@ fun TaskEditSheet(
                         Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(4.dp))
-                    Text("应用修改")
+                    Text(stringResource(R.string.shared_apply_changes))
                 }
             }
 

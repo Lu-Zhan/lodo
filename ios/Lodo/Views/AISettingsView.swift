@@ -13,6 +13,8 @@ struct AISettingsView: View {
     @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
     @AppStorage(AppSettings.agentSilenceTimeoutSecondsKey) private var agentSilenceTimeoutSeconds = 3
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
+    @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
+    private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
 
     @State private var apiKey = KeychainHelper.apiKey ?? ""
     @State private var keySaved = KeychainHelper.apiKey != nil
@@ -28,16 +30,17 @@ struct AISettingsView: View {
             Section {
                 Picker("服务商", selection: $aiProvider) {
                     ForEach(AppSettings.aiProviders, id: \.name) { provider in
-                        Text(provider.name).tag(provider.name)
+                        Text(AppSettings.displayName(forProvider: provider.name, language: language))
+                            .tag(provider.name)
                     }
-                    Text(AppSettings.appleIntelligenceProvider)
+                    Text(AppSettings.displayName(forProvider: AppSettings.appleIntelligenceProvider, language: language))
                         .tag(AppSettings.appleIntelligenceProvider)
                     Text("自定义").tag("自定义")
                 }
                 if aiProvider == AppSettings.appleIntelligenceProvider {
                     Group {
                         if #available(iOS 26.0, macOS 26.0, *) {
-                            Text(FoundationModelsClient.availabilityHint)
+                            Text(LocalizedStrings.translate(FoundationModelsClient.availabilityHint, language: language))
                         } else {
                             Text("苹果智能需要 iOS 26 及以上系统。")
                         }
@@ -51,7 +54,8 @@ struct AISettingsView: View {
                         .plainKeyboard()
                 } else {
                     TextField(
-                        "模型(默认 \(AppSettings.aiProviders.first { $0.name == aiProvider }?.model ?? ""))",
+                        LocalizedStrings.translate("模型(默认 ", language: language) +
+                            "\(AppSettings.aiProviders.first { $0.name == aiProvider }?.model ?? ""))",
                         text: $aiModel
                     )
                     .plainKeyboard()
@@ -86,7 +90,8 @@ struct AISettingsView: View {
                 Picker("AI 个性", selection: $personaStyle) {
                     Text("默认").tag("默认")
                     ForEach(AppSettings.personaPresets, id: \.name) { preset in
-                        Text(preset.name).tag(preset.name)
+                        Text(AppSettings.displayName(forPersona: preset.name, language: language))
+                            .tag(preset.name)
                     }
                     Text("自定义").tag("自定义")
                 }
@@ -96,7 +101,7 @@ struct AISettingsView: View {
                         .lineLimit(1...4)
                 } else if let preset = AppSettings.personaPresets
                     .first(where: { $0.name == personaStyle }) {
-                    Text(preset.text)
+                    Text(LocalizedStrings.translate(preset.text, language: language))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.lodo.app.notify.AlarmScheduler
+import com.lodo.app.notify.NotificationPermission
 import com.lodo.app.ui.MainScreen
 import com.lodo.app.ui.theme.LodoTheme
 import kotlinx.coroutines.launch
@@ -19,7 +20,10 @@ class MainActivity : ComponentActivity() {
     private var lastSyncMillis = 0L
 
     private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val app = application as LodoApp
+            lifecycleScope.launch { app.settings.setNotificationPermissionDenied(!granted) }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,11 +59,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        val app = application as LodoApp
+        // 权限状态兜底同步:不管用户是在系统弹窗拒绝还是去系统设置手动切换,
+        // 回前台都能拿到真实状态,不依赖一次性弹窗回调。查询本身很轻量,不节流。
+        lifecycleScope.launch {
+            app.settings.setNotificationPermissionDenied(!NotificationPermission.isGranted(this@MainActivity))
+        }
         // 对应 iOS 回前台 refreshAll:重排全部待办闹钟与每日汇总(30 秒节流)
         val now = System.currentTimeMillis()
         if (now - lastSyncMillis < 30_000) return
         lastSyncMillis = now
-        val app = application as LodoApp
         lifecycleScope.launch { app.repository.syncAlarms() }
     }
 }

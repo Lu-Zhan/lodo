@@ -229,6 +229,9 @@ struct TodoListView: View {
                 if notificationsDenied {
                     notificationDeniedSection
                 }
+                if NotificationBudgetState.shared.overflowCount > 0 {
+                    notificationOverflowSection
+                }
                 filterBar
                 if let ask = askDurationQueue.first {
                     askDurationSection(ask)
@@ -352,6 +355,17 @@ struct TodoListView: View {
                 #endif
             }
             .padding(.vertical, 2)
+        }
+    }
+
+    /// 通知链全局预算(48 条)不够覆盖所有 pending 事项时提示,超出的事项本轮
+    /// 没有排上通知,需要打开 app 才能看到提醒(极端场景:同时 48+ 个待办)。
+    private var notificationOverflowSection: some View {
+        Section {
+            Label("有 \(NotificationBudgetState.shared.overflowCount) 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒",
+                  systemImage: "bell.badge.fill")
+                .foregroundStyle(.orange)
+                .padding(.vertical, 2)
         }
     }
 

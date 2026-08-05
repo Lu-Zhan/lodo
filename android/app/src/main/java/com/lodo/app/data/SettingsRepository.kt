@@ -19,7 +19,7 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 data class AIProviderPreset(val name: String, val endpoint: String, val model: String)
 
 val aiProviderPresets = listOf(
-    AIProviderPreset("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-chat"),
+    AIProviderPreset("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4-flash"),
     AIProviderPreset("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
     AIProviderPreset("通义千问", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
     AIProviderPreset("Kimi", "https://api.moonshot.cn/v1/chat/completions", "moonshot-v1-8k"),
@@ -66,6 +66,13 @@ data class Settings(
     /** AI 助手的思考强度:off/low/medium/high,默认 medium。只作用于 AI 助手
      * 对话入口,不影响解析/汇总等后台小请求。 */
     val thinkingLevel: String = "medium",
+    /** 通知权限是否被拒绝(SDK<33 恒为 false),供待办列表顶部横幅展示。 */
+    val notificationPermissionDenied: Boolean = false,
+    /** 闹钟触发但因权限缺失未能展示通知的连续次数,展示成功后清零,
+     * 用于计算重试退避间隔(见 NotifyBackoff)。 */
+    val notifyMissCount: Int = 0,
+    /** 应用内语言开关,不跟随系统语言,默认中文("zh"/"en")。 */
+    val language: String = "zh",
 )
 
 /** 应用设置(Preferences DataStore);API key 经 AndroidKeyStore 加密后存储,对应 iOS 钥匙串。 */
@@ -88,6 +95,9 @@ class SettingsRepository(private val context: Context) {
         val PERSONA_STYLE = stringPreferencesKey("agentPersonaStyle")
         val PERSONA_CUSTOM = stringPreferencesKey("agentPersonaCustom")
         val THINKING_LEVEL = stringPreferencesKey("thinkingLevel")
+        val NOTIFICATION_PERMISSION_DENIED = booleanPreferencesKey("notificationPermissionDenied")
+        val NOTIFY_MISS_COUNT = intPreferencesKey("notifyMissCount")
+        val LANGUAGE = stringPreferencesKey("language")
         /** 旧版单一 DeepSeek key,读取时兼容。 */
         val API_KEY_ENCRYPTED = stringPreferencesKey("apiKeyEncrypted")
 
@@ -118,6 +128,9 @@ class SettingsRepository(private val context: Context) {
             personaStyle = p[Keys.PERSONA_STYLE] ?: "默认",
             personaCustom = p[Keys.PERSONA_CUSTOM] ?: "",
             thinkingLevel = p[Keys.THINKING_LEVEL] ?: "medium",
+            notificationPermissionDenied = p[Keys.NOTIFICATION_PERMISSION_DENIED] ?: false,
+            notifyMissCount = p[Keys.NOTIFY_MISS_COUNT] ?: 0,
+            language = p[Keys.LANGUAGE] ?: "zh",
         )
     }
 
@@ -189,6 +202,24 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setThinkingLevel(level: String) {
         context.dataStore.edit { it[Keys.THINKING_LEVEL] = level }
+    }
+
+    /** 落 DataStore 同时同步 CurrentLang.value——core/ai/notify 包不能 import
+     * Android Context,只能靠这个显式的"当前状态"读取语言,调用方(设置页)
+     * 还需要另外调 AppCompatDelegate.setApplicationLocales() 驱动 Compose UI
+     * 层的 stringResource(),两处真相要一起写,不能只改一处。 */
+    suspend fun setLanguage(language: String) {
+        context.dataStore.edit { it[Keys.LANGUAGE] = language }
+        com.lodo.app.core.CurrentLang.value =
+            if (language == "en") com.lodo.app.core.Lang.EN else com.lodo.app.core.Lang.ZH
+    }
+
+    suspend fun setNotificationPermissionDenied(denied: Boolean) {
+        context.dataStore.edit { it[Keys.NOTIFICATION_PERMISSION_DENIED] = denied }
+    }
+
+    suspend fun setNotifyMissCount(count: Int) {
+        context.dataStore.edit { it[Keys.NOTIFY_MISS_COUNT] = count }
     }
 
     /** 指定服务商的 key;DeepSeek 读不到新存储时回退旧字段。 */

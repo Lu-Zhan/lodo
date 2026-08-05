@@ -1,9 +1,11 @@
 package com.lodo.app.ui.settings
 
 import android.app.Application
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lodo.app.LodoApp
@@ -101,6 +103,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setHapticsEnabled(enabled: Boolean) = viewModelScope.launch {
         app.settings.setHapticsEnabled(enabled)
+    }
+
+    /** 应用内语言开关,不跟随系统语言。两处真相要一起写:setLanguage 落 DataStore
+     * 并同步 CurrentLang.value(core/ai/notify 包读这个显式状态);
+     * AppCompatDelegate.setApplicationLocales 驱动 Compose UI 层的
+     * stringResource()(内部会触发一次 Activity 重建,等价一次配置变更)。 */
+    fun setLanguage(language: String) = viewModelScope.launch {
+        app.settings.setLanguage(language)
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(language))
     }
 
     fun setInsightEnabled(enabled: Boolean) = viewModelScope.launch {

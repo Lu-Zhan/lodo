@@ -42,6 +42,22 @@ final class SchedulerTests: XCTestCase {
         XCTAssertEqual(t.status, .pending)
     }
 
+    /// iOS 通知链忽略/超时 reconcile 用的追平函数(不是三端对齐语义,仅测试
+    /// 这个纯函数本身的边界:过期 1 小时、15 分钟间隔,追平结果必须落在未来)。
+    func testCatchUpAdvancesToNextFutureSlot() {
+        let now = t0.addingTimeInterval(minutes(60))
+        let stale = t0
+        let result = Scheduler.catchUp(nextRemindAt: stale, now: now, snoozeMinutes: 15)
+        XCTAssertGreaterThan(result, now)
+        // 60 分钟 / 15 分钟间隔 = 4 格整,追平到第 5 格(now 之后的下一个未来槽位)
+        XCTAssertEqual(result, stale.addingTimeInterval(minutes(75)))
+    }
+
+    func testCatchUpLeavesFutureTimeUnchanged() {
+        let future = t0.addingTimeInterval(minutes(30))
+        XCTAssertEqual(Scheduler.catchUp(nextRemindAt: future, now: t0, snoozeMinutes: 15), future)
+    }
+
     func testCompleteZeroDuration() {
         var t = makeTask()
         let done = Scheduler.advance(&t, now: t0.addingTimeInterval(minutes(1)))

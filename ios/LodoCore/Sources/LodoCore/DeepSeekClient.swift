@@ -108,11 +108,21 @@ public enum DeepSeekError: LocalizedError {
     case api(String)
     case parse(String)
 
+    /// 用 AppSettings.language(当前应用内语言)解析,不是隐式污染风险——这些
+    /// 错误全部是终态、直接展示给用户的文案(catch 现场只会 .localizedDescription
+    /// 展示或丢弃,不会拼回发给 AI 的下一轮请求),不像 caption/repeatLabel 那样
+    /// 会被 RoutineRunner 等处拼进 AI prompt,所以不需要显式传参强制调用方决策。
     public var errorDescription: String? {
+        let language = AppSettings.language
         switch self {
-        case .noKey: return "未配置 DeepSeek API key,请到「设置」里填写。"
-        case .api(let m): return "调用 DeepSeek 失败:\(m)"
-        case .parse(let m): return "无法解析:\(m)"
+        case .noKey:
+            return LocalizedStrings.text(.ios_core_deepseek_api_key_not_configured_set_it, language: language)
+        case .api(let m):
+            return LocalizedStrings.text(.ios_core_deepseek_request_failed, language: language)
+                + LocalizedStrings.translate(m, language: language)
+        case .parse(let m):
+            return LocalizedStrings.text(.ios_core_couldn_t_parse, language: language)
+                + LocalizedStrings.translate(m, language: language)
         }
     }
 }
@@ -605,16 +615,25 @@ public enum DeepSeekClient {
         return summary
     }
 
-    /// AI 收藏整理的结果:标题/摘要/标签。
+    /// AI 收藏整理的结果:标题/摘要/标签,加上可选的资产金额+币种(仅当内容
+    /// 记录了一项资产/资金的价值时才非 nil,比如"存折里还有5000美元"、
+    /// "工资卡余额12000"——两者要么同时有,要么同时为 nil,不单独出现。
     public struct MemorizedEntry {
         public var title: String
         public var summary: String
         public var tags: [String]
+        public var assetValue: Double?
+        public var assetCurrency: String?
 
-        public init(title: String, summary: String, tags: [String]) {
+        public init(
+            title: String, summary: String, tags: [String],
+            assetValue: Double? = nil, assetCurrency: String? = nil
+        ) {
             self.title = title
             self.summary = summary
             self.tags = tags
+            self.assetValue = assetValue
+            self.assetCurrency = assetCurrency
         }
     }
 
@@ -645,7 +664,12 @@ public enum DeepSeekClient {
         规则:
         - 标题概括内容主旨,不要照抄第一句。
         - 内容为空、只有文件名时,基于文件名与类型推断,summary 注明"(基于文件名整理)"。
-        - 完全无法整理时返回 {"error": "原因"}。\(tagRule)
+        - 完全无法整理时返回 {"error": "原因"}。
+        - 如果内容记录的是一项资产/资金的价值(比如"存折里还有5000美元"、\
+        "工资卡余额12000"、"这套房子值300万"),额外返回 "asset_value"(数字金额)\
+        和 "asset_currency"(ISO 4217 三位货币代码,如 CNY/USD/EUR;没有明确说\
+        是外币就用 CNY),并确保 tags 里包含"资产"这个标签。不是资产内容时\
+        不要返回 asset_value/asset_currency 这两个字段。\(tagRule)
 
         \(context)
         """
@@ -653,17 +677,31 @@ public enum DeepSeekClient {
         return try parseMemorizedEntry(await payload(system: system, user: user, timeout: 60))
     }
 
-    /// 从 payload 里解析收藏整理结果(单测入口)。
+    /// 从 payload 里解析收藏整理结果(单测入口)。asset_value/asset_currency 是
+    /// 锦上添花的可选字段(不是用户主动确认的写操作,是后台整理的尽力而为),
+    /// 值不合法时只丢弃这两个字段、不影响 title/summary/tags 的正常解析——
+    /// 不像 command 协议里新建/修改事项那样"一条坏就整体报错"。
     static func parseMemorizedEntry(_ payload: [String: Any]) throws -> MemorizedEntry {
         guard let title = payload["title"] as? String,
               !title.trimmingCharacters(in: .whitespaces).isEmpty else {
             throw DeepSeekError.parse("返回格式异常:缺少 title")
         }
+        var assetValue: Double?
+        var assetCurrency: String?
+        if let rawValue = payload["asset_value"] as? NSNumber, rawValue.doubleValue > 0,
+           let rawCurrency = (payload["asset_currency"] as? String)?
+               .trimmingCharacters(in: .whitespaces).uppercased(),
+           rawCurrency.count == 3, rawCurrency.allSatisfy({ $0.isASCII && $0.isLetter }) {
+            assetValue = rawValue.doubleValue
+            assetCurrency = rawCurrency
+        }
         return MemorizedEntry(
             title: title.trimmingCharacters(in: .whitespaces),
             summary: (payload["summary"] as? String ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines),
-            tags: (payload["tags"] as? [Any])?.compactMap { $0 as? String } ?? []
+            tags: (payload["tags"] as? [Any])?.compactMap { $0 as? String } ?? [],
+            assetValue: assetValue,
+            assetCurrency: assetCurrency
         )
     }
 
@@ -915,24 +953,48 @@ public enum DeepSeekClient {
         }
     }
 
-    /// 从 payload 里解析并校验事项字段。
+    /// 从 payload 里解析并校验事项字段;任何字段超出合理范围直接抛错(不做静默
+    /// clamp)——AI 返回离谱值通常本身就意味着误解了用户意图,静默改写会产生
+    /// "AI 说建的是 A,实际存的是被偷偷改过的 A'"这种不可见偏差,不如报错更安全。
     private static func parseTask(_ payload: [String: Any]) throws -> ParsedTask {
-        guard let title = payload["title"] as? String,
+        guard let rawTitle = payload["title"] as? String,
               let remindStr = payload["remind_at"] as? String,
               let remindAt = dateFormatter.date(from: remindStr) else {
             throw DeepSeekError.parse("返回格式异常:\(payload)")
         }
-        let times = (payload["repeat_times"] as? [Any])?.compactMap { $0 as? String } ?? []
-        for t in times where t.wholeMatch(of: try! Regex(#"\d{1,2}:\d{2}"#)) == nil {
-            throw DeepSeekError.parse("时间点格式异常:\(t)")
+        let title = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:标题为空")
         }
+
+        let times = (payload["repeat_times"] as? [Any])?.compactMap { $0 as? String } ?? []
+        for t in times {
+            let parts = t.split(separator: ":")
+            guard parts.count == 2, parts[1].count == 2,
+                  let h = Int(parts[0]), let m = Int(parts[1]),
+                  (0...23).contains(h), (0...59).contains(m) else {
+                throw DeepSeekError.parse("时间点格式异常:\(t)")
+            }
+        }
+
+        let duration = payload["duration_minutes"] as? Int ?? 0
+        guard (0...1440).contains(duration) else {
+            throw DeepSeekError.parse("返回格式异常:时长超出范围")
+        }
+
+        let rawDays = (payload["repeat_days"] as? [Any])?.compactMap { $0 as? Int } ?? []
+        guard rawDays.allSatisfy({ (0...6).contains($0) }) else {
+            throw DeepSeekError.parse("返回格式异常:周几超出范围")
+        }
+        let days = Array(Set(rawDays)).sorted()
+
         return ParsedTask(
-            title: title.trimmingCharacters(in: .whitespaces),
+            title: title,
             remindAt: remindAt,
             allDay: payload["all_day"] as? Bool ?? false,
-            durationMinutes: payload["duration_minutes"] as? Int ?? 0,
+            durationMinutes: duration,
             repeatType: RepeatType(rawValue: payload["repeat_type"] as? String ?? "none") ?? .none,
-            repeatDays: (payload["repeat_days"] as? [Any])?.compactMap { $0 as? Int } ?? [],
+            repeatDays: days,
             repeatTimes: times
         )
     }

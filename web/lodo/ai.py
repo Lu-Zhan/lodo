@@ -13,7 +13,7 @@ from openai import OpenAI
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-DEEPSEEK_MODEL = "deepseek-chat"
+DEEPSEEK_MODEL = "deepseek-v4-flash"
 
 _FORMAT_AND_RULES = """返回格式(不适用的字段用默认值):
 {{"title": "事项内容(去掉时间词,保留做什么)",

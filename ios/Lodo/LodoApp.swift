@@ -1,9 +1,15 @@
 import SwiftUI
 import SwiftData
+import LodoCore
 
 @main
 struct LodoApp: App {
     let container: ModelContainer
+
+    /// 应用内语言开关,不跟随系统语言;和 AppSettings.language 读同一个
+    /// UserDefaults key,天然同步(这里是 View 树的隐式解析入口,
+    /// AppSettings.language 是非 View 上下文的显式读取入口)。
+    @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
 
     init() {
         container = AppDatabase.container
@@ -16,6 +22,7 @@ struct LodoApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(\.locale, (AppLanguage(rawValue: languageRaw) ?? .zhHans).locale)
         }
         .modelContainer(container)
         // 定时任务的后台刷新:系统在接近计划时间时给一小段执行时间,跑完直接把

@@ -24,6 +24,8 @@ public enum AppSettings {
     public static let thinkingLevelKey = "thinkingLevel"
     public static let useBuiltInKeyKey = "useBuiltInKey"
     public static let hasSeenOnboardingKey = "hasSeenOnboarding"
+    public static let assetDisplayCurrencyKey = "assetDisplayCurrency"
+    public static let languageKey = "appLanguage"
 
     public static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -101,7 +103,7 @@ public enum AppSettings {
     /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 DeepSeek;
     /// "自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
     public static let aiProviders: [(name: String, endpoint: String, model: String)] = [
-        ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-chat"),
+        ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4-flash"),
         ("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
         ("通义千问", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
         ("Kimi", "https://api.moonshot.cn/v1/chat/completions", "moonshot-v1-8k"),
@@ -161,6 +163,25 @@ public enum AppSettings {
         UserDefaults.standard.string(forKey: agentPersonaStyleKey) ?? "默认"
     }
 
+    /// personaPresets/aiProviders 里的 `name` 同时用作存储匹配键(如
+    /// `agentPersonaStyle`)和展示文案——存储值永远保持中文原文不翻译,这里只做
+    /// 展示层的中 → 英映射,不改 personaPresets/aiProviders 数组本身。
+    private static let personaDisplayNames: [String: String] = [
+        "高效秘书": "Efficient Secretary", "温柔陪伴": "Gentle Companion",
+        "严格教练": "Strict Coach", "幽默轻松": "Playful & Witty",
+        "默认": "Default", "自定义": "Custom",
+    ]
+    private static let providerDisplayNames: [String: String] = [
+        "通义千问": "Tongyi Qianwen", "智谱": "Zhipu", "苹果智能": "Apple Intelligence",
+    ]
+
+    public static func displayName(forPersona name: String, language: AppLanguage) -> String {
+        language == .en ? (personaDisplayNames[name] ?? name) : name
+    }
+    public static func displayName(forProvider name: String, language: AppLanguage) -> String {
+        language == .en ? (providerDisplayNames[name] ?? name) : name
+    }
+
     /// 生效的个性描述;默认(无个性)返回 nil。
     public static var agentPersona: String? {
         switch agentPersonaStyle {
@@ -178,6 +199,20 @@ public enum AppSettings {
     /// 是否已经看过首次引导;默认 false(未设置过等于没看过)。
     public static var hasSeenOnboarding: Bool {
         UserDefaults.standard.bool(forKey: hasSeenOnboardingKey)
+    }
+
+    /// 资产总览的汇总展示币种(把不同币种的资产换算成同一种货币求和),默认人民币。
+    public static var assetDisplayCurrency: String {
+        UserDefaults.standard.string(forKey: assetDisplayCurrencyKey) ?? "CNY"
+    }
+
+    /// 应用内语言开关,不跟随系统语言,默认中文。View 层用 @AppStorage 读同一个
+    /// key(见 ios/Lodo/LodoApp.swift 的 .environment(\.locale) 注入);这里的 get/set
+    /// 供非 View 上下文(通知、错误文案等)读取当前语言、以及设置页之外的地方
+    /// (如 Watch 应用自己的启动逻辑)显式写入用。
+    public static var language: AppLanguage {
+        get { AppLanguage(rawValue: UserDefaults.standard.string(forKey: languageKey) ?? "") ?? .zhHans }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: languageKey) }
     }
 
     /// 把 "HH:MM" 应用到某一天,得到具体提醒时间。

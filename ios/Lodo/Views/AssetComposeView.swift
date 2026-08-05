@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import LodoCore
 
 /// 记一笔资产(记忆 tab → "+" → 记一笔资产):名称+金额是结构化字段,直接落库
 /// 不用等 AI 整理;分类/备注可选。资产本质是打了保留标签的记忆条目,见
@@ -14,6 +15,7 @@ struct AssetComposeView: View {
 
     @State private var title = ""
     @State private var valueText = ""
+    @State private var currency = AppSettings.assetDisplayCurrency
     @State private var category = ""
     @State private var note = ""
 
@@ -41,8 +43,13 @@ struct AssetComposeView: View {
                 Section {
                     TextField("名称,如 招商银行储蓄卡", text: $title)
                     HStack {
-                        Text("¥")
-                            .foregroundStyle(.secondary)
+                        Picker("币种", selection: $currency) {
+                            ForEach(CurrencyCatalog.common, id: \.code) { entry in
+                                Text(entry.code).tag(entry.code)
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
                         TextField("金额(可选)", text: $valueText)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
@@ -73,7 +80,7 @@ struct AssetComposeView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         MemoryPipeline.saveAsset(
-                            title: title, value: value, category: category,
+                            title: title, value: value, currency: currency, category: category,
                             note: note, context: context)
                         onSaved()
                         dismiss()

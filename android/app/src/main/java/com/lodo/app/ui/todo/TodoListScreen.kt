@@ -1,5 +1,7 @@
 package com.lodo.app.ui.todo
 
+import com.lodo.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -71,11 +73,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material.icons.filled.NotificationsOff
 import com.lodo.app.LodoApp
 import com.lodo.app.PendingRoute
 import com.lodo.app.core.TaskPhase
 import com.lodo.app.core.weekdayNames
 import com.lodo.app.data.TaskEntity
+import com.lodo.app.notify.NotificationPermission
 import com.lodo.app.ui.EmptyState
 import com.lodo.app.ui.SectionHeader
 import java.time.LocalDate
@@ -99,14 +103,18 @@ fun TodoListScreen(
     // 批量 agent 操作执行完弹一条带"撤销"按钮的 Snackbar——Android 没有 iOS 那种
     // 持久聊天气泡,撤销入口走系统 Snackbar 更符合平台习惯(Gmail 归档同款交互)。
     val snackbarHostState = remember { SnackbarHostState() }
+    // stringResource() 是 @Composable,不能在下面 LaunchedEffect 的协程体里调用,
+    // 要先在可组合上下文里取出来。
+    val undoDoneMessage = stringResource(R.string.android_ui_done)
+    val undoActionLabel = stringResource(R.string.shared_undo)
     LaunchedEffect(Unit) {
         // token:这条 Snackbar 对应哪一批操作;如果它还没消失、新的一批又执行完
         // 覆盖了 lastUndo,点这条陈旧 Snackbar 的撤销不能误撤销新的那批
         // (vm.performUndo 会核对 token,对不上就拒绝)。
         vm.undoAvailableEvents.collect { token ->
             val result = snackbarHostState.showSnackbar(
-                message = "已完成执行",
-                actionLabel = "撤销",
+                message = undoDoneMessage,
+                actionLabel = undoActionLabel,
                 duration = SnackbarDuration.Long,
             )
             if (result == SnackbarResult.ActionPerformed) {
@@ -138,20 +146,20 @@ fun TodoListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("lodo") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     IconButton(onClick = { vm.sheet = SheetMode.Agent() }) {
-                        Icon(Icons.Filled.AutoAwesome, contentDescription = "AI 助手")
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = stringResource(R.string.shared_ai_assistant))
                     }
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "设置")
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.shared_settings))
                     }
                 },
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { vm.sheet = SheetMode.Agent(autoStart = true) }) {
-                Icon(Icons.Filled.Add, contentDescription = "添加")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.shared_add))
             }
         },
     ) { padding ->
@@ -162,6 +170,15 @@ fun TodoListScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         ) {
             item(key = "date-strip") { DateStrip(vm.selectedDate) { vm.selectedDate = it } }
+
+            if (state.notificationPermissionDenied) {
+                item(key = "notify-banner") {
+                    NotificationDeniedBanner(
+                        modifier = Modifier.animateItem(),
+                        onOpenSettings = { NotificationPermission.openAppSettings(app) },
+                    )
+                }
+            }
 
             vm.askDurationQueue.firstOrNull()?.let { (title, planned) ->
                 item(key = "ask-duration") {
@@ -176,7 +193,7 @@ fun TodoListScreen(
             }
 
             if (state.due.isNotEmpty()) {
-                item(key = "due-header") { SectionHeader("🔔 到期提醒") }
+                item(key = "due-header") { SectionHeader(stringResource(R.string.android_ui_due_now)) }
                 items(state.due, key = { "due-${it.uuid}" }) { task ->
                     Box(Modifier.animateItem()) {
                         DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes)
@@ -225,7 +242,7 @@ fun TodoListScreen(
             }
 
             if (futureTasks.isNotEmpty()) {
-                item(key = "future-header") { SectionHeader("未来待办") }
+                item(key = "future-header") { SectionHeader(stringResource(R.string.shared_upcoming)) }
                 items(futureTasks, key = { "future-${it.uuid}" }) { task ->
                     PendingRow(
                         modifier = Modifier.animateItem(),
@@ -293,10 +310,10 @@ fun TodoListScreen(
     vm.actionsWarning?.let { warning ->
         AlertDialog(
             onDismissRequest = { vm.dismissActionsWarning() },
-            title = { Text("提示") },
+            title = { Text(stringResource(R.string.android_ui_notice)) },
             text = { Text(warning) },
             confirmButton = {
-                TextButton(onClick = { vm.dismissActionsWarning() }) { Text("好") }
+                TextButton(onClick = { vm.dismissActionsWarning() }) { Text(stringResource(R.string.shared_ok)) }
             },
         )
     }
@@ -345,6 +362,26 @@ private fun DateStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
     }
 }
 
+/** 通知权限被拒绝时的提示横幅:到期提醒可能不会推送,引导去系统设置开启。 */
+@Composable
+private fun NotificationDeniedBanner(onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
+    ElevatedCard(modifier = modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(Icons.Filled.NotificationsOff, contentDescription = null)
+            Text(
+                "通知权限未开启,到期提醒可能不会推送",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.android_ui_open_settings)) }
+        }
+    }
+}
+
 /** 完成后的实际耗时轻量条(智能采样,选择/跳过即消失)。 */
 @Composable
 private fun AskDurationCard(
@@ -366,15 +403,15 @@ private fun AskDurationCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("「$title」实际用了多久?", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.android_ui_how_long_did_0_actually_take), style = MaterialTheme.typography.bodyMedium)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 chips.forEach { minutes ->
-                    OutlinedButton(onClick = { onAnswer(minutes) }) { Text("$minutes 分钟") }
+                    OutlinedButton(onClick = { onAnswer(minutes) }) { Text(stringResource(R.string.android_ui_0_min)) }
                 }
-                TextButton(onClick = onSkip) { Text("跳过") }
+                TextButton(onClick = onSkip) { Text(stringResource(R.string.shared_skip)) }
             }
         }
     }
@@ -414,7 +451,7 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
                     } else {
                         Icon(Icons.Filled.EditCalendar, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("改期")
+                        Text(stringResource(R.string.shared_reschedule))
                     }
                 }
             }
@@ -440,7 +477,7 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("稍等 $snoozeMinutes 分钟")
+                    Text(stringResource(R.string.android_ui_snooze_0_min))
                 }
             }
             vm.reschedule?.takeIf { it.first == task.uuid }?.let { (_, candidates) ->
@@ -453,7 +490,7 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
                         }
                     }
                     IconButton(onClick = vm::dismissReschedule) {
-                        Icon(Icons.Filled.Close, contentDescription = "收起改期候选")
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.android_ui_collapse_suggestions))
                     }
                 }
             }
