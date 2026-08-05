@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// 人脉关系的节点连线可视化——记忆 tab 筛选出"联系人"后左上角的入口。
+/// 人脉关系的节点连线可视化——记忆 tab 筛选出"人脉"后左上角的入口。
 /// 这是仓库里唯一一处经用户确认的自绘 UI 例外(Canvas):项目铁律是 iOS UI
 /// 只用 SwiftUI 系统控件、不自绘,但真正的节点连线图没有系统控件能做。
 /// 不做力导向仿真,用确定性的圆形布局(ContactGraphLayout.circlePositions,
@@ -31,8 +31,8 @@ struct ContactGraphView: View {
         Group {
             if contacts.isEmpty {
                 ContentUnavailableView(
-                    "还没有联系人", systemImage: "person.2",
-                    description: Text("记忆列表里点右上角「+」记一位联系人。"))
+                    "还没有人脉", systemImage: "person.2",
+                    description: Text("记忆列表里点右上角「+」记一位人脉。"))
             } else {
                 GeometryReader { geo in
                     let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)

@@ -63,7 +63,7 @@ public final class MemoryItem {
     /// 模型,就是打了保留标签的记忆条目,这个字段只在那种情况下有意义。
     public var assetValue: Double?
 
-    // MARK: - 联系人字段(tags 含 contactTagName 时才有意义,与 assetValue 同思路)
+    // MARK: - 人脉字段(tags 含 contactTagName 时才有意义,与 assetValue 同思路)
     /// 昵称;姓名复用 title,备注复用 summary(和资产复用 summary 当备注同思路)。
     public var contactNickname: String?
     public var contactPhone: String?
@@ -73,7 +73,7 @@ public final class MemoryItem {
     public var contactPreferences: String?
     /// 头像文件的 App Group 相对路径(如 "Contacts/<uuid>-avatar.jpg")。
     public var contactAvatarRelativePath: String?
-    /// 多个文件附件的 App Group 相对路径;非联系人条目恒为空数组。
+    /// 多个文件附件的 App Group 相对路径;非人脉条目恒为空数组。
     public var attachmentRelativePaths: [String] = []
 
     public init(
@@ -122,8 +122,8 @@ public final class MemoryItem {
     /// 筛选里显式选中才显示,并在列表顶部汇总)。
     public static let assetTagName = "资产"
     public var isAsset: Bool { tags.contains(Self.assetTagName) }
-    /// 保留标签:打了这个标签的记忆条目按"联系人"对待,和资产同一套隐藏/筛选规则。
-    public static let contactTagName = "联系人"
+    /// 保留标签:打了这个标签的记忆条目按"人脉"对待,和资产同一套隐藏/筛选规则。
+    public static let contactTagName = "人脉"
     public var isContact: Bool { tags.contains(Self.contactTagName) }
 
     /// 本地即时过滤的匹配:标题/摘要/标签/原文任一命中即可。

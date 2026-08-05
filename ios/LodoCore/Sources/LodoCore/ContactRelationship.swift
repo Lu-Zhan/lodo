@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// 两个"联系人"条目(MemoryItem,tags 含 contactTagName)之间的一条关系边:
+/// 两个"人脉"条目(MemoryItem,tags 含 contactTagName)之间的一条关系边:
 /// 无向、单条 label(A-B 之间只存一条,不区分谁是发起方),两边详情页共用同一份
 /// 展示。用 UUID 互相引用而不是 SwiftData `@Relationship`,和仓库里其余多值/
 /// 跨记录引用(tags、聊天附件的 attachmentMemoryUUIDs)的一贯写法保持一致。

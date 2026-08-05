@@ -43,7 +43,7 @@ struct MemoryListView: View {
     @State private var demoContactDetailTarget: MemoryItem?
     #endif
 
-    /// 普通内容标签(不含"资产""联系人"这两个保留标签——它们各有自己独立的
+    /// 普通内容标签(不含"资产""人脉"这两个保留标签——它们各有自己独立的
     /// 筛选开关,不跟其他标签混在一起,更醒目也避免用户把它们当成普通标签删掉)。
     private var allTags: [String] {
         MemoryTags.all(in: context)
@@ -61,10 +61,10 @@ struct MemoryListView: View {
     }
 
     /// 文字过滤、格式筛选、标签筛选取交集;格式内部是"任一命中"
-    /// (一条只有一种格式),标签内部是"同时具备"。资产/联系人条目默认隐藏——
+    /// (一条只有一种格式),标签内部是"同时具备"。资产/人脉条目默认隐藏——
     /// 不是各自的筛选没打开就永远不会出现在任何列表里,是这类私密/结构化条目
     /// 不该跟日常收藏混在一起刷屏,筛选里显式选中才看得到。两个维度互相独立
-    /// (不会出现"资产"打开时联系人也跟着冒出来)。
+    /// (不会出现"资产"打开时人脉也跟着冒出来)。
     private var filtered: [MemoryItem] {
         items.filter { item in
             (item.isAsset ? showAssets : true)
@@ -98,9 +98,6 @@ struct MemoryListView: View {
                             Label("还没有收藏", systemImage: "sparkles.rectangle.stack")
                         } description: {
                             Text("粘贴文字或链接、导入文件,AI 会整理成记忆条目。")
-                        } actions: {
-                            Button("输入文字收藏") { showCompose = true }
-                                .glassProminentButton()
                         }
                     } else if filtered.isEmpty {
                         ContentUnavailableView(
@@ -227,7 +224,7 @@ struct MemoryListView: View {
                         Button("记一笔资产", systemImage: "creditcard") {
                             showAssetCompose = true
                         }
-                        Button("记一位联系人", systemImage: "person.crop.circle.badge.plus") {
+                        Button("记一位人脉", systemImage: "person.crop.circle.badge.plus") {
                             showContactCompose = true
                         }
                         #if os(iOS)
@@ -305,7 +302,7 @@ struct MemoryListView: View {
             ) {
                 Button("导入") { Task { await beginBulkImport() } }
             } message: {
-                Text("已存在的联系人(按手机号/邮箱匹配)会自动跳过,不会重复导入。")
+                Text("已存在的人脉(按手机号/邮箱匹配)会自动跳过,不会重复导入。")
             }
             .alert("导入完成", isPresented: Binding(
                 get: { contactImportResultMessage != nil },
@@ -365,7 +362,7 @@ struct MemoryListView: View {
                     Label("资产", systemImage: "creditcard")
                 }
                 Toggle(isOn: $showContacts) {
-                    Label("联系人", systemImage: "person.crop.circle")
+                    Label("人脉", systemImage: "person.crop.circle")
                 }
             }
             .toggleStyle(.button)

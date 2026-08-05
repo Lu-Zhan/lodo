@@ -20,7 +20,7 @@ struct ContactExportPickerView: View {
         NavigationStack {
             List {
                 if contacts.isEmpty {
-                    Text("还没有联系人。")
+                    Text("还没有人脉。")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(contacts) { contact in

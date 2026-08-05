@@ -79,7 +79,7 @@ enum MemoryPipeline {
         }
     }
 
-    /// 记一位联系人:字段是结构化的(姓名/昵称/联系方式/生日/喜好/备注),不需要
+    /// 记一位人脉:字段是结构化的(姓名/昵称/联系方式/生日/喜好/备注),不需要
     /// 像文字/文件收藏那样靠 AI 提炼,直接落成 ready 状态;姓名/备注复用
     /// title/summary(和 saveAsset 的 note→summary 同思路)。sourceText 拼接
     /// 备注+喜好,供检索/问 AI 用。头像与附件落 App Group 的 Contacts/ 目录,
@@ -140,7 +140,7 @@ enum MemoryPipeline {
         try? context.save()
     }
 
-    /// 某个联系人条目牵涉的全部关系边,附带边另一端对应的 MemoryItem
+    /// 某个人脉条目牵涉的全部关系边,附带边另一端对应的 MemoryItem
     /// (对端条目被删掉后对应边理应已被 delete(_:context:) 一并清掉,这里仍
     /// 防御性地跳过找不到对端的边)。
     static func contactRelationships(
@@ -157,7 +157,7 @@ enum MemoryPipeline {
         }
     }
 
-    /// 联系人头像的绝对路径;无头像或(异地同步条目)文件缺失时为 nil。
+    /// 人脉头像的绝对路径;无头像或(异地同步条目)文件缺失时为 nil。
     static func contactAvatarURL(of item: MemoryItem) -> URL? {
         guard let relative = item.contactAvatarRelativePath,
               let url = AppGroup.containerURL?.appending(path: relative),
@@ -165,7 +165,7 @@ enum MemoryPipeline {
         return url
     }
 
-    /// 联系人全部文件附件的绝对路径,缺失的自动跳过。
+    /// 人脉全部文件附件的绝对路径,缺失的自动跳过。
     static func contactAttachmentURLs(of item: MemoryItem) -> [URL] {
         item.attachmentRelativePaths.compactMap { relative in
             guard let url = AppGroup.containerURL?.appending(path: relative),
@@ -192,8 +192,8 @@ enum MemoryPipeline {
     }
 
     /// 删除条目、清掉原始文件、清掉这条记忆的全部 MemoryChunk(避免孤儿数据);
-    /// 联系人条目额外清掉头像/附件文件与牵涉的全部 ContactRelationship 边
-    /// (非联系人条目这几步都是空操作)。
+    /// 人脉条目额外清掉头像/附件文件与牵涉的全部 ContactRelationship 边
+    /// (非人脉条目这几步都是空操作)。
     static func delete(_ item: MemoryItem, context: ModelContext) {
         if let url = fileURL(of: item) {
             try? FileManager.default.removeItem(at: url)
@@ -360,7 +360,7 @@ enum MemoryPipeline {
         }
     }
 
-    /// 联系人附件可以有多个,每个都要独立文件名(不能像单文件字段那样用条目
+    /// 人脉附件可以有多个,每个都要独立文件名(不能像单文件字段那样用条目
     /// uuid 命名,会互相覆盖);uuid 前缀避免冲突,后面保留原文件名方便详情页
     /// 展示("<uuid>-原文件名.ext",详情页按固定长度剥掉前缀即可还原原名)。
     private static func copyContactAttachment(_ source: URL) -> String? {

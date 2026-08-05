@@ -7,7 +7,7 @@ import LodoCore
 import Contacts
 #endif
 
-/// 联系人详情:比通用的 MemoryDetailView 多出一整套结构化字段(头像/昵称/
+/// 人脉详情:比通用的 MemoryDetailView 多出一整套结构化字段(头像/昵称/
 /// 联系方式/生日/喜好/多附件/关系),塞进通用详情页会把它搞乱,所以单独一个
 /// 视图——和资产共用 MemoryDetailView 只多一个字段的情况不一样。
 struct ContactDetailView: View {
@@ -128,7 +128,7 @@ struct ContactDetailView: View {
 
             Section {
                 if relationships.isEmpty {
-                    Text("还没有关联的联系人。")
+                    Text("还没有关联的人脉。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
@@ -171,12 +171,12 @@ struct ContactDetailView: View {
             #endif
 
             Section {
-                Button("删除联系人", role: .destructive) {
+                Button("删除人脉", role: .destructive) {
                     confirmDelete = true
                 }
             }
         }
-        .navigationTitle(item.title.isEmpty ? "联系人" : item.title)
+        .navigationTitle(item.title.isEmpty ? "人脉" : item.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -227,7 +227,7 @@ struct ContactDetailView: View {
         }
         #endif
         .confirmationDialog(
-            "删除这位联系人?头像与附件会一并删除,已建立的关系也会一起消失。",
+            "删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。",
             isPresented: $confirmDelete, titleVisibility: .visible
         ) {
             Button("删除", role: .destructive) {
@@ -324,7 +324,7 @@ struct ContactDetailView: View {
     }
 }
 
-/// "关系" Section 里"添加关系"弹出的小 sheet:选一位其他联系人 + 填关系描述。
+/// "关系" Section 里"添加关系"弹出的小 sheet:选一位其他人脉 + 填关系描述。
 private struct AddContactRelationshipSheet: View {
     let excluding: UUID
     let onAdd: (MemoryItem, String) -> Void
@@ -341,13 +341,13 @@ private struct AddContactRelationshipSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("联系人") {
+                Section("人脉") {
                     if candidates.isEmpty {
-                        Text("还没有其他联系人可以关联。")
+                        Text("还没有其他人脉可以关联。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
-                        Picker("联系人", selection: $selected) {
+                        Picker("人脉", selection: $selected) {
                             Text("请选择").tag(Optional<MemoryItem>.none)
                             ForEach(candidates) { contact in
                                 Text(contact.title.isEmpty ? "(未命名)" : contact.title)

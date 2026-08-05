@@ -7,13 +7,13 @@ import UIKit
 import AppKit
 #endif
 
-/// 记一位联系人(记忆 tab → "+" → 记一位联系人):姓名是结构化必填字段,直接落库
-/// 不用等 AI 整理;其余字段可选。联系人本质是打了保留标签的记忆条目,见
+/// 记一位人脉(记忆 tab → "+" → 记一位人脉):姓名是结构化必填字段,直接落库
+/// 不用等 AI 整理;其余字段可选。人脉本质是打了保留标签的记忆条目,见
 /// MemoryItem.contactTagName 与 MemoryPipeline.saveContact。关系链接留到详情页
 /// (新建表单先保持精简,和 AssetComposeView 同思路)。
 struct ContactComposeView: View {
-    /// 保存成功后回调(记忆列表页用来把"显示联系人"筛选打开,不然刚记的这位
-    /// 联系人因为默认隐藏规则,保存完立刻从列表里"消失",像是没保存成功)。
+    /// 保存成功后回调(记忆列表页用来把"显示人脉"筛选打开,不然刚记的这位
+    /// 人脉因为默认隐藏规则,保存完立刻从列表里"消失",像是没保存成功)。
     var onSaved: () -> Void = {}
 
     @Environment(\.modelContext) private var context
@@ -94,10 +94,10 @@ struct ContactComposeView: View {
                 } header: {
                     Text("附件")
                 } footer: {
-                    Text("会自动打上「联系人」标签,记忆列表默认不显示,筛选里选中「联系人」才会看到。")
+                    Text("会自动打上「人脉」标签,记忆列表默认不显示,筛选里选中「人脉」才会看到。")
                 }
             }
-            .navigationTitle("记一位联系人")
+            .navigationTitle("记一位人脉")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

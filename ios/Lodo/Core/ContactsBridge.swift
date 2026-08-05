@@ -3,7 +3,7 @@ import Contacts
 import SwiftData
 import LodoCore
 
-/// 系统通讯录(CNContactStore)与记忆库"联系人"条目(MemoryItem.contactTagName)
+/// 系统通讯录(CNContactStore)与记忆库"人脉"条目(MemoryItem.contactTagName)
 /// 之间的双向桥接:导入(单个/批量,均在写入前按手机号/邮箱去重)、导出
 /// (单个/批量,同样按手机号/邮箱去重,避免重复运行产生重复的系统联系人)。
 /// 只负责数据映射与去重判断,系统选择器/新建联系人确认页的 UIKit 桥接在
@@ -54,9 +54,9 @@ enum ContactsBridge {
         return contacts
     }
 
-    // MARK: - 导入(系统联系人 → 记忆库)
+    // MARK: - 导入(系统联系人 → 记忆库人脉)
 
-    /// 批量导入,按手机号/邮箱与已有联系人条目去重(命中任一即跳过,不新建、
+    /// 批量导入,按手机号/邮箱与已有人脉条目去重(命中任一即跳过,不新建、
     /// 也不覆盖更新——去重只是"别导入两遍",不是"同步")。
     static func importContacts(
         _ cnContacts: [CNContact], context: ModelContext

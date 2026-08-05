@@ -210,7 +210,7 @@ enum BackupManager {
 
     /// files/ 里的条目名和相对路径的文件名(App Group 里存的原始文件名)一一对应,
     /// 直接按名字找、写回同一相对路径即可。一条记忆条目可能有多个文件——原文件、
-    /// 联系人头像、联系人附件(各自独立字段/数组),逐个还原。
+    /// 人脉头像、人脉附件(各自独立字段/数组),逐个还原。
     private static func restoreFile(for dto: BackupMemoryItem, entries: [ZipArchive.Entry]) {
         guard let containerURL = AppGroup.containerURL else { return }
         let relativePaths = [dto.relativeFilePath, dto.contactAvatarRelativePath].compactMap { $0 }
@@ -243,7 +243,7 @@ enum BackupManager {
         for message in (try? context.fetch(FetchDescriptor<AgentMessage>())) ?? [] {
             context.delete(message)
         }
-        // 理论上 MemoryPipeline.delete(_:context:) 已经把牵涉已删联系人的边清掉了,
+        // 理论上 MemoryPipeline.delete(_:context:) 已经把牵涉已删人脉的边清掉了,
         // 这里仍显式再扫一遍兜底孤儿边(比如极端情况下某条边引用的两端 uuid
         // 都不对应任何现存条目)。
         for relationship in (try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [] {
