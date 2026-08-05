@@ -7,20 +7,29 @@ struct ShimmerText: View {
     let text: String
 
     var body: some View {
-        TimelineView(.animation) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            let phase = (t.truncatingRemainder(dividingBy: 1.4)) / 1.4
+        // 持续来回扫的光效属于"减弱动态效果"该关掉的那类效果(HIG 对重复性
+        // 动效的建议),开启时退化成静态文字——"思考中…"这句话本身已经把
+        // 状态说清楚了,不靠动效也不影响理解。
+        if DesignMetrics.reduceMotionEnabled {
             Text(text)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .overlay(
-                    LinearGradient(
-                        colors: [.clear, .primary, .clear],
-                        startPoint: UnitPoint(x: phase * 3 - 1, y: 0.5),
-                        endPoint: UnitPoint(x: phase * 3, y: 0.5)
+        } else {
+            TimelineView(.animation) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                let phase = (t.truncatingRemainder(dividingBy: 1.4)) / 1.4
+                Text(text)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .overlay(
+                        LinearGradient(
+                            colors: [.clear, .primary, .clear],
+                            startPoint: UnitPoint(x: phase * 3 - 1, y: 0.5),
+                            endPoint: UnitPoint(x: phase * 3, y: 0.5)
+                        )
+                        .mask(Text(text).font(.footnote))
                     )
-                    .mask(Text(text).font(.footnote))
-                )
+            }
         }
     }
 }

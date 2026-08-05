@@ -56,7 +56,10 @@ struct ContactGraphView: View {
                                     width: dragStartOffset.width + value.translation.width,
                                     height: dragStartOffset.height + value.translation.height)
                             }
-                            .onEnded { _ in dragStartOffset = panOffset }
+                            .onEnded { _ in
+                                dragStartOffset = panOffset
+                                settlePan(in: geo.size)
+                            }
                     )
                     .gesture(
                         MagnificationGesture()
@@ -94,6 +97,21 @@ struct ContactGraphView: View {
         CGPoint(
             x: center.x + (logical.x - center.x) * zoomScale + panOffset.width,
             y: center.y + (logical.y - center.y) * zoomScale + panOffset.height)
+    }
+
+    /// 拖拽松手后如果超出了合理范围就弹簧拉回来——之前拖拽完全不设边界,
+    /// 整张图能被拖到彻底看不见又没有任何东西把它拉回来。边界给得比画布
+    /// 尺寸宽松(允许把图"探"到一半出屏幕),不是硬性贴边限制。
+    private func settlePan(in size: CGSize) {
+        let maxPan = max(size.width, size.height) / 2
+        let clamped = CGSize(
+            width: min(max(panOffset.width, -maxPan), maxPan),
+            height: min(max(panOffset.height, -maxPan), maxPan))
+        guard clamped != panOffset else { return }
+        withAnimation(.lodoAware(.lodoSidebar)) {
+            panOffset = clamped
+            dragStartOffset = clamped
+        }
     }
 
     private func handleTap(at location: CGPoint, positions: [UUID: CGPoint], center: CGPoint) {

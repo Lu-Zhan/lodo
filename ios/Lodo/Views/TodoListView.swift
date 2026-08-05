@@ -107,6 +107,13 @@ struct TodoListView: View {
         }
     }
 
+    /// 待办 List 动画的聚合触发键,见 body 里的 .animation 用法。
+    private struct ListAnimationKey: Equatable {
+        let dueUUIDs: [UUID]
+        let askTitles: [String]
+        let filter: TodoFilter
+    }
+
     enum SheetMode: Identifiable {
         /// 全局 agent(一句话新增/修改);深链/tab 按钮可带预填文本,打开后统一
         /// 唤起键盘(语音改成手动点麦克风图标触发)。
@@ -234,9 +241,12 @@ struct TodoListView: View {
                 case .done: doneSections
                 }
             }
-            .animation(.snappy, value: due.map(\.uuid))
-            .animation(.snappy, value: askDurationQueue.map(\.title))
-            .animation(.snappy, value: filter)
+            // 三路各自独立的触发源(到期列表变化/时长反问队列变化/筛选切换)
+            // 合并成一个 Equatable 聚合值,用一个 .animation 修饰符盯——之前
+            // 三个 .animation(value:) 各自挂在同一个 List 上,同一时刻多个
+            // 修饰符各管一段,冗余且不好看出这几路本质上是"同一份列表的动画"。
+            .animation(.lodoAware(.snappy), value: ListAnimationKey(
+                dueUUIDs: due.map(\.uuid), askTitles: askDurationQueue.map(\.title), filter: filter))
             .navigationTitle("待办")
             .toolbar {
                 #if os(macOS)

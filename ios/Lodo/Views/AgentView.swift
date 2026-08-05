@@ -152,7 +152,7 @@ struct AgentView: View {
                     ToolbarItem(placement: .navigation) {
                         Button {
                             isInputFocused = false
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                            withAnimation(.lodoAware(.lodoSidebar)) {
                                 showThreads.toggle()
                             }
                         } label: {
@@ -309,7 +309,7 @@ struct AgentView: View {
     }
 
     private func closeSidebar() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) { showThreads = false }
+        withAnimation(.lodoAware(.lodoSidebar)) { showThreads = false }
     }
 
     /// 窄屏抽屉推开时整组工具栏项(汉堡/标题/关闭)直接撤掉:工具栏挂在
@@ -346,7 +346,7 @@ struct AgentView: View {
         let sign: CGFloat = opening ? 1 : -1
         let passed = value.translation.width * sign > width * 0.3
             || value.predictedEndTranslation.width * sign > width * 0.5
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+        withAnimation(.lodoAware(.lodoSidebar)) {
             sidebarDragOffset = 0
             if passed { showThreads = opening }
         }
@@ -433,7 +433,7 @@ struct AgentView: View {
         }
         // 只对 showThreads 挂动画:拖拽中 sidebarDragOffset 的变化要 1:1 跟手,
         // 不能被动画平滑掉(松手归位那下由 settleSidebar 里的 withAnimation 负责)。
-        .animation(.spring(response: 0.35, dampingFraction: 0.86), value: showThreads)
+        .animation(.lodoAware(.lodoSidebar), value: showThreads)
     }
 
     /// 宽屏(iPad 横屏、macOS):侧栏常驻展示,同一个汉堡按钮收起/展开,不做推移动画。
@@ -444,10 +444,13 @@ struct AgentView: View {
                     .frame(width: DesignMetrics.sidebarWidth)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 Divider()
+                    .transition(.opacity)
             }
             chatColumn
         }
-        .animation(.easeInOut(duration: 0.2), value: showThreads)
+        // 和窄屏拖拽版侧栏同一条 lodoSidebar 曲线——都是"同一个汉堡按钮展开/
+        // 收起对话列表"这一件事,之前这里单用 easeInOut,两种屏宽下手感不一致。
+        .animation(.lodoAware(.lodoSidebar), value: showThreads)
     }
 
     // MARK: - ReAct 中间步骤的轻量提示
@@ -551,13 +554,16 @@ struct AgentView: View {
 
             if showsInlineMic {
                 inlineMicButton
+                    .transition(.scale.combined(with: .opacity))
             } else {
                 sendButton
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        .animation(.snappy(duration: 0.2), value: showsInlineMic)
-        .padding()
+        .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
+        .padding(.horizontal)
+        .padding(.top)
+        .padding(.bottom, 40)
     }
 
     /// 正在录音时即便文字已经有内容(实时转写填进了输入框)也继续显示麦克风
@@ -1133,11 +1139,11 @@ private struct AgentMessageListView: View {
                     }
                 }
                 .padding()
-                .animation(.snappy, value: messages.count)
+                .animation(.lodoAware(.snappy), value: messages.count)
             }
             .onChange(of: messages.count) { _, _ in
                 if let last = messages.last {
-                    withAnimation { proxy.scrollTo(last.uuid, anchor: .bottom) }
+                    withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }
                 }
             }
             .onAppear {

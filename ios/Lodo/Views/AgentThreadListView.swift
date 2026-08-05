@@ -104,7 +104,7 @@ struct AgentThreadListView: View {
             .contentMargins(.bottom, 84, for: .scrollContent)
         }
         .overlay(alignment: .bottom) { bottomBar }
-        .animation(.easeInOut(duration: 0.2), value: showSearchField)
+        .animation(.lodoAware(.lodoQuickFade), value: showSearchField)
         .frame(maxHeight: .infinity)
         .confirmationDialog(
             "删除这段对话?", isPresented: Binding(
