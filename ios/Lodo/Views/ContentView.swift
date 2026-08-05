@@ -153,13 +153,16 @@ struct ContentView: View {
         if #available(iOS 26.0, macOS 26.0, *) {
             // iOS 26+:AI 入口用系统 Tab(role: .search)承载(见
             // modernTabsWithSearchAI),标签栏随内容下滑收起(仅 iOS)。
-            // 已知风险:这个控件跟 TabView(selection:) 共享同一个 selection
-            // 状态,在 iOS 26 上被观察到不可靠——切换普通 tab 时可能被系统
-            // 偶发误置为选中了 search tab,导致 onChange 误触发自动弹出 AI
-            // 助手(即使用户完全没点过这个按钮)。之前因为这个 bug 改回过自绘
-            // 悬浮按钮,这版是应要求重新换回来的,如果"切 tab 自动弹出 AI"
-            // 的问题复现,先看这里。DefaultToolbarItem(kind: .search) 试过
-            // 不是解法——那个 placement 在 TabView 里根本不会浮到右下角。
+            // DefaultToolbarItem(kind: .search) 试过不是解法——那个 placement
+            // 在 TabView 里根本不会浮到右下角。role: .search 是 TabRole 目前
+            // 唯一的取值,没有"只要视觉分组、不要搜索语义"的替代写法。
+            // search-role tab 在 iOS 26 上有自己"选中即变成搜索框"的状态机,
+            // 和 TabView(selection:) 共享的 selection 这个已发布属性在切换
+            // 普通 tab 时被多方报告过时序不可靠(独立于这个仓库的观察,苹果
+            // 开发者论坛上也有多篇关于 iOS 26 TabView + search tab 组合的类似
+            // 报告)。modernTabsWithSearchAI 不再靠比较 selection 的值触发,
+            // 换成 search tab 内容视图自己的 onAppear(绑定视图挂载生命周期,
+            // 不是那个已知不可靠的 selection 读数)+ 一层短暂确认窗口兜底。
             #if os(iOS)
             modernTabsWithSearchAI.tabBarMinimizeBehavior(.onScrollDown)
             #else
@@ -182,8 +185,8 @@ struct ContentView: View {
     /// 系统「提醒事项」式的侧边栏,是待办类 app 在大屏上的标准形态。
     /// AI 入口(iOS/iPadOS)用叠在 TabView 上的自绘悬浮按钮(右下角):点击打开/
     /// 回到最近对话。iOS 26 改走 modernTabsWithSearchAI 的 Tab(role: .search),
-    /// 不经过这里。macOS 用的是 TodoListView 工具栏里的"AI 助手"按钮
-    /// (见该文件),也不走这里。
+    /// 不经过这里(iOS 18-25 没有这个 API,只能用悬浮按钮)。macOS 用的是
+    /// TodoListView 工具栏里的"AI 助手"按钮(见该文件),也不走这里。
     @available(iOS 18.0, macOS 15.0, *)
     private var modernTabs: some View {
         TabView(selection: $selection) {
@@ -228,8 +231,11 @@ struct ContentView: View {
     /// iOS 26+ 专用:AI 入口用系统 Tab(role: .search)——Liquid Glass 标签栏会把它
     /// 渲成独立于总览/待办/记忆那组之外、贴在最右边的浮动胶囊,是系统给"搜索/
     /// 万能输入"类入口的标准视觉,和其余三个 tab 同一种控件类型但视觉上天然分离。
-    /// 选中这个 tab 不真正停留,onChange 里立刻切回待办并弹出 agent,打开后统一
-    /// 唤起键盘。
+    /// 选中这个 tab 不真正停留,内容一挂载(onAppear)就通过 scheduleAgentOpen()
+    /// 切回待办并弹出 agent,打开后统一唤起键盘。**不要**改回比较 selection 的值
+    /// (`.onChange(of: selection) { if newValue == .add { ... } }`)——那个已发布
+    /// 属性本身就是在这个场景下被观察到不可靠的读数,onAppear 绑定的是视图挂载
+    /// 生命周期,是不同的信号源。
     @available(iOS 26.0, *)
     private var modernTabsWithSearchAI: some View {
         TabView(selection: $selection) {
@@ -244,13 +250,25 @@ struct ContentView: View {
             }
             Tab("AI 助手", systemImage: "sparkles", value: AppTab.add, role: .search) {
                 Color.clear
+                    .onAppear { scheduleAgentOpen() }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
-        .onChange(of: selection) { _, newValue in
-            if newValue == .add {
-                openAgent()
-            }
+    }
+
+    /// search tab 内容挂载后不立刻弹 AI 助手,等一个很短的确认窗口——期间如果
+    /// 又发生一次新的挂载(理论上不该发生,防的是同一类竞态反复触发)就用新 token
+    /// 作废这次,只有窗口结束时 token 没被顶掉才真正打开。这层是 onAppear 本身
+    /// 万一也被同一类底层竞态波及时的兜底,不是可以证明"绝对不会误触发"的保证。
+    @State private var pendingAgentOpenToken: UUID?
+
+    private func scheduleAgentOpen() {
+        let token = UUID()
+        pendingAgentOpenToken = token
+        Task {
+            try? await Task.sleep(for: .milliseconds(150))
+            guard pendingAgentOpenToken == token else { return }
+            openAgent()
         }
     }
     #endif
