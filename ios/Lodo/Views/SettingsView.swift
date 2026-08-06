@@ -37,6 +37,15 @@ struct SettingsView: View {
                     Text("服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。")
                 }
 
+                // ---- 侧键 / Siri 快捷启动 ----
+                #if os(iOS)
+                Section {
+                    Label("侧键 / Siri 快捷启动", systemImage: "button.programmable")
+                } footer: {
+                    Text("对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。")
+                }
+                #endif
+
                 // ---- 提醒:稍等间隔/全天提醒时间 + 每日待办汇总统一入口 ----
                 Section {
                     NavigationLink {

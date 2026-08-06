@@ -343,7 +343,7 @@ struct MemoryListView: View {
             ) {
                 Button("删除", role: .destructive) {
                     if let item = pendingDelete {
-                        Haptics.impact()
+                        Haptics.warning()
                         MemoryPipeline.delete(item, context: context)
                     }
                     pendingDelete = nil
@@ -530,6 +530,14 @@ struct MemoryListView: View {
             sourceText: "账单周期:本月 1 日至月底,合计支出 1280.5 元,含餐饮、交通、日用品。",
             status: .ready, assetValue: 1280.5))
 
+        context.insert(MemoryItem(
+            kind: .text, title: "自住房产",
+            summary: "首付 60 万,贷款 30 年。",
+            tags: [MemoryItem.assetTagName, "房产"],
+            sourceText: "市值约 300 万,房贷还剩 100 万,商业贷款利率 4.5%。",
+            status: .ready, assetValue: 3000000, assetLiability: 1000000,
+            assetInterestRate: 4.5))
+
         let zhang = MemoryItem(
             kind: .text, title: "张三", summary: "前同事,喜欢爬山。",
             tags: [MemoryItem.contactTagName], sourceText: "前同事,喜欢爬山。咖啡",
@@ -576,6 +584,18 @@ private struct MemoryRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
+                if item.assetLiability != nil || item.assetInterestRate != nil {
+                    HStack(spacing: 6) {
+                        if let liability = item.assetLiability {
+                            Text("负债 " + AssetFormat.currency(liability, code: item.assetCurrencyOrDefault))
+                        }
+                        if let rate = item.assetInterestRate {
+                            Text("利率 " + AssetFormat.percent(rate))
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                }
                 HStack(spacing: 6) {
                     if item.status == .failed {
                         Button("整理失败,重试") {
@@ -612,39 +632,65 @@ private struct MemoryRow: View {
 /// 重复计进它命中的每个分类小计里。总额与分类小计都换算成 `displayCurrency`
 /// 求和(条目原本各种币种混在一起,不换算直接相加没有意义);某条资产的
 /// 币种没有汇率(离线、或币种不在 ExchangeRateClient 覆盖范围内)时,不计入
-/// 换算后的总额,单独计数提示。
+/// 换算后的总额,单独计数提示。负债同样换算求和(与对应资产同币种),
+/// 净资产 = 总资产 − 总负债,分类小计不含负债(只是资产的参考细分)。
 @MainActor
 private struct AssetOverview {
     let totalValue: Double
+    let totalLiability: Double
+    let netWorth: Double
     let displayCurrency: String
     let valuedCount: Int
     let unratedCount: Int
+    let liabilityCount: Int
+    let unratedLiabilityCount: Int
     let totalCount: Int
     let byCategory: [(name: String, value: Double)]
 
     init(items: [MemoryItem], displayCurrency: String, rates: ExchangeRateStore) {
         self.displayCurrency = displayCurrency
-        totalCount = items.count
+        // 只统计真正打了「资产」标签的条目——调用方按"资产"筛选开关传入的
+        // items 实际上不保证已经过滤过(筛选谓词对非资产条目直接放行),这里
+        // 内部再过滤一次兜底,避免总数/未填金额计数把普通收藏也算进去。
+        let assetItems = items.filter(\.isAsset)
+        totalCount = assetItems.count
         var total = 0.0
         var valuedCount = 0
         var unratedCount = 0
+        var totalLiability = 0.0
+        var liabilityCount = 0
+        var unratedLiabilityCount = 0
         var categoryTotals: [String: Double] = [:]
-        for item in items {
-            guard let value = item.assetValue else { continue }
-            valuedCount += 1
-            guard let converted = rates.convert(
-                value, from: item.assetCurrencyOrDefault, to: displayCurrency) else {
-                unratedCount += 1
-                continue
+        for item in assetItems {
+            if let value = item.assetValue {
+                valuedCount += 1
+                if let converted = rates.convert(
+                    value, from: item.assetCurrencyOrDefault, to: displayCurrency) {
+                    total += converted
+                    for tag in item.tags where tag != MemoryItem.assetTagName {
+                        categoryTotals[tag, default: 0] += converted
+                    }
+                } else {
+                    unratedCount += 1
+                }
             }
-            total += converted
-            for tag in item.tags where tag != MemoryItem.assetTagName {
-                categoryTotals[tag, default: 0] += converted
+            if let liabilityValue = item.assetLiability {
+                liabilityCount += 1
+                if let converted = rates.convert(
+                    liabilityValue, from: item.assetCurrencyOrDefault, to: displayCurrency) {
+                    totalLiability += converted
+                } else {
+                    unratedLiabilityCount += 1
+                }
             }
         }
         totalValue = total
+        self.totalLiability = totalLiability
+        netWorth = total - totalLiability
         self.valuedCount = valuedCount
         self.unratedCount = unratedCount
+        self.liabilityCount = liabilityCount
+        self.unratedLiabilityCount = unratedLiabilityCount
         byCategory = categoryTotals
             .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
             .map { (name: $0.key, value: $0.value) }
@@ -679,6 +725,26 @@ private struct AssetOverviewCard: View {
                 Text("其中 \(overview.unratedCount) 项币种暂无汇率,不计入总额")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+            }
+            if overview.liabilityCount > 0 {
+                HStack {
+                    Text("总负债").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Text("-" + AssetFormat.currency(overview.totalLiability, code: overview.displayCurrency))
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.red)
+                }
+                HStack {
+                    Text("净资产").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Text(AssetFormat.currency(overview.netWorth, code: overview.displayCurrency))
+                        .font(.subheadline.bold().monospacedDigit())
+                }
+                if !rates.isUnavailable && overview.unratedLiabilityCount > 0 {
+                    Text("其中 \(overview.unratedLiabilityCount) 项负债币种暂无汇率,不计入净资产")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
             if !overview.byCategory.isEmpty {
                 HorizontalChipRow {
@@ -720,5 +786,17 @@ enum AssetFormat {
     @MainActor
     static func currency(_ value: Double, code: String) -> String {
         formatter(for: code).string(from: NSNumber(value: value)) ?? "\(code) \(value)"
+    }
+
+    /// 利率的展示格式,存的就是百分比数值本身(如 4.5 表示 4.5%),不是小数。
+    private static let percentFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 0
+        return f
+    }()
+
+    static func percent(_ value: Double) -> String {
+        (percentFormatter.string(from: NSNumber(value: value)) ?? "\(value)") + "%"
     }
 }

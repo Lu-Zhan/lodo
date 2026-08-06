@@ -250,7 +250,7 @@ struct AgentMessageBubble: View {
                     Button("取消") { onCancelConfirm() }
                         .buttonStyle(.bordered)
                     Button {
-                        Haptics.success()
+                        hasDestructiveLine ? Haptics.warning() : Haptics.success()
                         onConfirm()
                     } label: {
                         Label("确认执行", systemImage: "checkmark")
@@ -259,6 +259,12 @@ struct AgentMessageBubble: View {
                 }
             }
         }
+    }
+
+    /// 批量操作里混了"删除"时,确认按钮给更慎重的 warning 触感,而不是和纯新建/
+    /// 修改一样的 success——与下面 icon(for:) 用同一套前缀判断。
+    private var hasDestructiveLine: Bool {
+        message.content.components(separatedBy: "\n").contains { $0.hasPrefix("删除") }
     }
 
     private var answerContent: some View {

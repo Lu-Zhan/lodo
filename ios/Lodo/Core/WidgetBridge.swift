@@ -59,8 +59,17 @@ enum WidgetBridge {
         var descriptor = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" },
             sortBy: [SortDescriptor(\.nextRemindAt)])
-        descriptor.fetchLimit = 6
+        // 宽口径拉取,和 LodoIntentSupport.pendingTasks() 一致;真正"今天或更早"
+        // 的过滤在下面用 Swift 做(与 LodoIntentSupport.todayPending() 同一语义),
+        // 这里不能直接复用那个函数——它在 #if os(iOS) 的 Intents 文件里,而这个
+        // 文件要为 macOS 主 app 一起编译。
+        descriptor.fetchLimit = 50
+        let startOfDay = Calendar.current.startOfDay(for: .now)
+        let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)
+            ?? startOfDay.addingTimeInterval(86400)
         let items = ((try? context.fetch(descriptor)) ?? [])
+            .filter { $0.nextRemindAt < endOfToday }
+            .prefix(8)
             .map { Item(title: $0.title, at: $0.nextRemindAt) }
         guard let data = try? JSONEncoder().encode(items) else { return }
         if data == lastSnapshot { return }

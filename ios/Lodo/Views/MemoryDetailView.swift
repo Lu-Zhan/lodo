@@ -13,6 +13,8 @@ struct MemoryDetailView: View {
     @State private var tagsText: String
     @State private var assetValueText: String
     @State private var assetCurrency: String
+    @State private var assetLiabilityText: String
+    @State private var assetInterestRateText: String
     @State private var previewURL: URL?
     @State private var confirmDelete = false
     /// 已删除后 onDisappear 不再回写(避免访问已删除的模型)。
@@ -23,6 +25,8 @@ struct MemoryDetailView: View {
         _tagsText = State(initialValue: item.tags.joined(separator: "、"))
         _assetValueText = State(initialValue: item.assetValue.map { String($0) } ?? "")
         _assetCurrency = State(initialValue: item.assetCurrencyOrDefault)
+        _assetLiabilityText = State(initialValue: item.assetLiability.map { String($0) } ?? "")
+        _assetInterestRateText = State(initialValue: item.assetInterestRate.map { String($0) } ?? "")
     }
 
     var body: some View {
@@ -67,6 +71,18 @@ struct MemoryDetailView: View {
                             .keyboardType(.decimalPad)
                             #endif
                     }
+                }
+                Section {
+                    TextField("负债(可选),如房贷/车贷本金", text: $assetLiabilityText)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
+                    TextField("利率(可选),年化百分比数值,如 4.5", text: $assetInterestRateText)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
+                } footer: {
+                    Text("负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。")
                 }
             }
 
@@ -157,21 +173,30 @@ struct MemoryDetailView: View {
     }
 
     /// 标题直接双向绑定;标签从"、分隔文本"解析回数组,离开页面时一并保存。
-    /// 资产金额只在还打着资产标签时回写——如果编辑时把标签摘掉了,金额随之
-    /// 清空(不再是资产,金额字段也不该继续占着)。金额框留空是"我要清掉这个
-    /// 数"的明确表达,清成 nil;非空但解析不出数字(手滑打了几个字母)不能
-    /// 也当清空处理,那样会悄悄丢掉用户原来存的金额,保留原值更安全。
+    /// 资产金额/负债/利率只在还打着资产标签时回写——如果编辑时把标签摘掉了,
+    /// 三者随之清空(不再是资产,这几个字段也不该继续占着)。字段框留空是
+    /// "我要清掉这个数"的明确表达,清成 nil;非空但解析不出数字(手滑打了
+    /// 几个字母)不能也当清空处理,那样会悄悄丢掉用户原来存的值,保留原值
+    /// 更安全。
     private func commitEdits() {
         guard !deleted else { return }
         let tags = Self.parseTags(tagsText)
         if tags != item.tags { item.tags = tags }
         if tags.contains(MemoryItem.assetTagName) {
-            let trimmed = assetValueText.trimmingCharacters(in: .whitespaces)
-            item.assetValue = trimmed.isEmpty ? nil : (Double(trimmed) ?? item.assetValue)
+            let trimmedValue = assetValueText.trimmingCharacters(in: .whitespaces)
+            item.assetValue = trimmedValue.isEmpty ? nil : (Double(trimmedValue) ?? item.assetValue)
             item.assetCurrency = item.assetValue == nil ? nil : assetCurrency
+            let trimmedLiability = assetLiabilityText.trimmingCharacters(in: .whitespaces)
+            item.assetLiability = trimmedLiability.isEmpty
+                ? nil : (Double(trimmedLiability) ?? item.assetLiability)
+            let trimmedRate = assetInterestRateText.trimmingCharacters(in: .whitespaces)
+            item.assetInterestRate = trimmedRate.isEmpty
+                ? nil : (Double(trimmedRate) ?? item.assetInterestRate)
         } else {
             item.assetValue = nil
             item.assetCurrency = nil
+            item.assetLiability = nil
+            item.assetInterestRate = nil
         }
         try? context.save()
     }

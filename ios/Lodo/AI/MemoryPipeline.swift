@@ -56,12 +56,14 @@ enum MemoryPipeline {
         return item
     }
 
-    /// 记一笔资产:字段已经是结构化的(名称/金额/分类/备注),不需要像文字/
-    /// 文件收藏那样靠 AI 提炼标题摘要,直接落成 ready 状态;仍然跑分片 + 向量
-    /// 索引,备注也能被"问 AI"检索到。category 非空时额外打一个子分类标签,
+    /// 记一笔资产:字段已经是结构化的(名称/金额/负债/利率/分类/备注),不需要
+    /// 像文字/文件收藏那样靠 AI 提炼标题摘要,直接落成 ready 状态;仍然跑分片 +
+    /// 向量索引,备注也能被"问 AI"检索到。category 非空时额外打一个子分类标签,
     /// 和保留的 assetTagName 一起构成 tags,列表页据此归到"资产"分组里隐藏。
+    /// 负债/利率与资产金额同币种,不单独存币种;两者可以独立于金额存在。
     static func saveAsset(
-        title: String, value: Double?, currency: String = "CNY", category: String, note: String,
+        title: String, value: Double?, currency: String = "CNY", liability: Double? = nil,
+        interestRate: Double? = nil, category: String, note: String,
         context: ModelContext
     ) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -72,7 +74,8 @@ enum MemoryPipeline {
         let item = MemoryItem(
             kind: .text, title: trimmedTitle, summary: note, tags: tags,
             sourceText: MemorySearch.truncate(note), status: .ready, assetValue: value,
-            assetCurrency: value != nil ? currency : nil)
+            assetCurrency: value != nil ? currency : nil,
+            assetLiability: liability, assetInterestRate: interestRate)
         context.insert(item)
         try? context.save()
         Task { @MainActor in
@@ -275,11 +278,20 @@ enum MemoryPipeline {
                 item.title = entry.title
                 item.summary = entry.summary
                 item.tags = entry.tags
-                if let assetValue = entry.assetValue {
-                    item.assetValue = assetValue
-                    item.assetCurrency = entry.assetCurrency
-                    // 防御性 union:万一模型返回了金额却漏打"资产"标签,照样归入资产
-                    // (isAsset/资产总览都是按 assetTagName 是否在 tags 里判断的)。
+                if entry.assetValue != nil || entry.liabilityValue != nil || entry.interestRate != nil {
+                    if let assetValue = entry.assetValue {
+                        item.assetValue = assetValue
+                        item.assetCurrency = entry.assetCurrency
+                    }
+                    if let liability = entry.liabilityValue {
+                        item.assetLiability = liability
+                    }
+                    if let interestRate = entry.interestRate {
+                        item.assetInterestRate = interestRate
+                    }
+                    // 防御性 union:万一模型返回了金额/负债/利率却漏打"资产"标签,
+                    // 照样归入资产(isAsset/资产总览都是按 assetTagName 是否在
+                    // tags 里判断的)。
                     if !item.tags.contains(MemoryItem.assetTagName) {
                         item.tags.append(MemoryItem.assetTagName)
                     }

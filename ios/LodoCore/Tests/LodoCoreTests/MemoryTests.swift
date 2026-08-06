@@ -62,6 +62,48 @@ final class MemoryTests: XCTestCase {
         XCTAssertNil(noValue.assetCurrency)
     }
 
+    /// liability_value/interest_rate 彼此独立,不要求成对,也不要求依赖
+    /// asset_value 是否存在。
+    func testParseMemorizedEntryWithLiabilityFields() throws {
+        let both = try DeepSeekClient.parseMemorizedEntry([
+            "title": "房贷", "asset_value": 3000000, "asset_currency": "CNY",
+            "liability_value": 1000000, "interest_rate": 4.5,
+        ])
+        XCTAssertEqual(both.liabilityValue, 1000000)
+        XCTAssertEqual(both.interestRate, 4.5)
+
+        // 只提利率没提负债金额,或者只提负债没提利率,都要各自独立解析出来
+        let rateOnly = try DeepSeekClient.parseMemorizedEntry([
+            "title": "房贷利率", "interest_rate": 4.5,
+        ])
+        XCTAssertNil(rateOnly.liabilityValue)
+        XCTAssertEqual(rateOnly.interestRate, 4.5)
+
+        let liabilityOnly = try DeepSeekClient.parseMemorizedEntry([
+            "title": "车贷", "liability_value": 80000,
+        ])
+        XCTAssertEqual(liabilityOnly.liabilityValue, 80000)
+        XCTAssertNil(liabilityOnly.interestRate)
+    }
+
+    /// liability_value 非法(负数/类型不对)时只丢弃这一个字段,不影响其他
+    /// 字段的正常解析。
+    func testParseMemorizedEntryDropsInvalidLiabilityValue() throws {
+        let negative = try DeepSeekClient.parseMemorizedEntry([
+            "title": "笔记", "liability_value": -100,
+        ])
+        XCTAssertNil(negative.liabilityValue)
+
+        let wrongType = try DeepSeekClient.parseMemorizedEntry([
+            "title": "笔记", "liability_value": "十万",
+        ])
+        XCTAssertNil(wrongType.liabilityValue)
+
+        let noLiability = try DeepSeekClient.parseMemorizedEntry(["title": "普通笔记"])
+        XCTAssertNil(noLiability.liabilityValue)
+        XCTAssertNil(noLiability.interestRate)
+    }
+
     // MARK: - parseMemoryAnswer
 
     func testParseMemoryAnswer() throws {

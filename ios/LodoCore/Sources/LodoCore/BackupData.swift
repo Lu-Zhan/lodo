@@ -115,6 +115,8 @@ public struct BackupMemoryItem: Codable {
     public var createdAt: Date
     public var assetValue: Double?
     public var assetCurrency: String?
+    public var assetLiability: Double?
+    public var assetInterestRate: Double?
     public var contactNickname: String?
     public var contactPhone: String?
     public var contactEmail: String?
@@ -129,7 +131,8 @@ public struct BackupMemoryItem: Codable {
         uuid: UUID, kindRaw: String, title: String, summary: String, tags: [String],
         sourceText: String, urlString: String?, originalFileName: String?,
         relativeFilePath: String?, statusRaw: String, createdAt: Date, assetValue: Double? = nil,
-        assetCurrency: String? = nil,
+        assetCurrency: String? = nil, assetLiability: Double? = nil,
+        assetInterestRate: Double? = nil,
         contactNickname: String? = nil, contactPhone: String? = nil, contactEmail: String? = nil,
         contactBirthday: Date? = nil, contactPreferences: String? = nil,
         contactAvatarRelativePath: String? = nil, attachmentRelativePaths: [String] = []
@@ -147,6 +150,8 @@ public struct BackupMemoryItem: Codable {
         self.createdAt = createdAt
         self.assetValue = assetValue
         self.assetCurrency = assetCurrency
+        self.assetLiability = assetLiability
+        self.assetInterestRate = assetInterestRate
         self.contactNickname = contactNickname
         self.contactPhone = contactPhone
         self.contactEmail = contactEmail
@@ -174,6 +179,8 @@ public struct BackupMemoryItem: Codable {
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         assetValue = try c.decodeIfPresent(Double.self, forKey: .assetValue)
         assetCurrency = try c.decodeIfPresent(String.self, forKey: .assetCurrency)
+        assetLiability = try c.decodeIfPresent(Double.self, forKey: .assetLiability)
+        assetInterestRate = try c.decodeIfPresent(Double.self, forKey: .assetInterestRate)
         contactNickname = try c.decodeIfPresent(String.self, forKey: .contactNickname)
         contactPhone = try c.decodeIfPresent(String.self, forKey: .contactPhone)
         contactEmail = try c.decodeIfPresent(String.self, forKey: .contactEmail)
@@ -193,6 +200,7 @@ extension MemoryItem {
             sourceText: sourceText, urlString: urlString, originalFileName: originalFileName,
             relativeFilePath: relativeFilePath, statusRaw: statusRaw, createdAt: createdAt,
             assetValue: assetValue, assetCurrency: assetCurrency,
+            assetLiability: assetLiability, assetInterestRate: assetInterestRate,
             contactNickname: contactNickname, contactPhone: contactPhone,
             contactEmail: contactEmail, contactBirthday: contactBirthday,
             contactPreferences: contactPreferences,
@@ -216,6 +224,8 @@ extension BackupMemoryItem {
         item.createdAt = createdAt
         item.assetValue = assetValue
         item.assetCurrency = assetCurrency
+        item.assetLiability = assetLiability
+        item.assetInterestRate = assetInterestRate
         item.contactNickname = contactNickname
         item.contactPhone = contactPhone
         item.contactEmail = contactEmail

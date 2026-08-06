@@ -98,6 +98,7 @@ struct TaskRowView: View {
                 .tint(.blue)
                 .disabled(rescheduleLoading)
                 Button {
+                    Haptics.impact(.light)
                     TaskActions.snooze(task, context: context)
                 } label: {
                     Label("+\(AppSettings.snoozeMinutes)M", systemImage: "clock")

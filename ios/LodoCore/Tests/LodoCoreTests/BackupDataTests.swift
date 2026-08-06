@@ -87,6 +87,22 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(restored.urlString, "https://a.com")
     }
 
+    func testAssetMemoryItemBackupAndApplyRoundTrip() {
+        let original = MemoryItem(
+            kind: .text, title: "自住房产", tags: [MemoryItem.assetTagName],
+            assetValue: 3_000_000, assetCurrency: "CNY",
+            assetLiability: 1_000_000, assetInterestRate: 4.5)
+        let dto = original.backup
+        let restored = MemoryItem(kind: .text)
+        dto.apply(to: restored)
+
+        XCTAssertTrue(restored.isAsset)
+        XCTAssertEqual(restored.assetValue, 3_000_000)
+        XCTAssertEqual(restored.assetCurrency, "CNY")
+        XCTAssertEqual(restored.assetLiability, 1_000_000)
+        XCTAssertEqual(restored.assetInterestRate, 4.5)
+    }
+
     func testContactMemoryItemBackupAndApplyRoundTrip() {
         let birthday = Date(timeIntervalSince1970: 0)
         let original = MemoryItem(

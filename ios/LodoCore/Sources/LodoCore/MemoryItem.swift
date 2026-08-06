@@ -65,6 +65,11 @@ public final class MemoryItem {
     /// 资产金额对应的 ISO 4217 币种代码(如 "CNY"/"USD")。nil 表示这条资产是
     /// 在多币种支持加入之前创建的老数据,统一按人民币对待(见 assetCurrencyOrDefault)。
     public var assetCurrency: String?
+    /// 这项资产对应的负债本金(如房贷/车贷本金),与 assetValue 同币种,不单独
+    /// 存币种。可以独立于 assetValue 存在(比如只记了一笔贷款还没记资产本身)。
+    public var assetLiability: Double?
+    /// 负债的年化利率,存百分比数值本身(如 4.5 表示 4.5%),不是小数形式。
+    public var assetInterestRate: Double?
 
     // MARK: - 人脉字段(tags 含 contactTagName 时才有意义,与 assetValue 同思路)
     /// 昵称;姓名复用 title,备注复用 summary(和资产复用 summary 当备注同思路)。
@@ -91,6 +96,8 @@ public final class MemoryItem {
         status: MemoryStatus = .processing,
         assetValue: Double? = nil,
         assetCurrency: String? = nil,
+        assetLiability: Double? = nil,
+        assetInterestRate: Double? = nil,
         contactNickname: String? = nil,
         contactPhone: String? = nil,
         contactEmail: String? = nil,
@@ -112,6 +119,8 @@ public final class MemoryItem {
         self.createdAt = Date()
         self.assetValue = assetValue
         self.assetCurrency = assetCurrency
+        self.assetLiability = assetLiability
+        self.assetInterestRate = assetInterestRate
         self.contactNickname = contactNickname
         self.contactPhone = contactPhone
         self.contactEmail = contactEmail

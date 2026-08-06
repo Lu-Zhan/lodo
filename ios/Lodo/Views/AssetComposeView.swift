@@ -16,6 +16,8 @@ struct AssetComposeView: View {
     @State private var title = ""
     @State private var valueText = ""
     @State private var currency = AppSettings.assetDisplayCurrency
+    @State private var liabilityText = ""
+    @State private var interestRateText = ""
     @State private var category = ""
     @State private var note = ""
 
@@ -27,14 +29,39 @@ struct AssetComposeView: View {
         Double(trimmedValueText)
     }
 
+    private var trimmedLiabilityText: String {
+        liabilityText.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var liability: Double? {
+        Double(trimmedLiabilityText)
+    }
+
+    private var trimmedInterestRateText: String {
+        interestRateText.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var interestRate: Double? {
+        Double(trimmedInterestRateText)
+    }
+
     /// 金额框非空但解析不出数字(比如手滑打了几个字母),不能既不提示、
     /// 又悄悄当空值存掉——挡住保存,逼用户改成数字或者清空这一栏。
     private var hasInvalidValue: Bool {
         !trimmedValueText.isEmpty && value == nil
     }
 
+    private var hasInvalidLiability: Bool {
+        !trimmedLiabilityText.isEmpty && liability == nil
+    }
+
+    private var hasInvalidInterestRate: Bool {
+        !trimmedInterestRateText.isEmpty && interestRate == nil
+    }
+
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !hasInvalidValue
+            && !hasInvalidLiability && !hasInvalidInterestRate
     }
 
     var body: some View {
@@ -64,6 +91,28 @@ struct AssetComposeView: View {
                 } footer: {
                     Text("会自动打上「资产」标签,记忆列表默认不显示,筛选里选中「资产」才会看到,并在顶部汇总总额。")
                 }
+                Section {
+                    TextField("负债(可选),如房贷/车贷本金", text: $liabilityText)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
+                    if hasInvalidLiability {
+                        Text("负债无法识别为数字,改成数字或清空这一栏才能保存。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                    TextField("利率(可选),年化百分比数值,如 4.5", text: $interestRateText)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
+                    if hasInvalidInterestRate {
+                        Text("利率无法识别为数字,改成数字或清空这一栏才能保存。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                } footer: {
+                    Text("负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。")
+                }
                 Section("备注") {
                     TextEditor(text: $note)
                         .frame(minHeight: 100)
@@ -80,7 +129,8 @@ struct AssetComposeView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         MemoryPipeline.saveAsset(
-                            title: title, value: value, currency: currency, category: category,
+                            title: title, value: value, currency: currency, liability: liability,
+                            interestRate: interestRate, category: category,
                             note: note, context: context)
                         onSaved()
                         dismiss()

@@ -617,23 +617,31 @@ public enum DeepSeekClient {
 
     /// AI 收藏整理的结果:标题/摘要/标签,加上可选的资产金额+币种(仅当内容
     /// 记录了一项资产/资金的价值时才非 nil,比如"存折里还有5000美元"、
-    /// "工资卡余额12000"——两者要么同时有,要么同时为 nil,不单独出现。
+    /// "工资卡余额12000"——两者要么同时有,要么同时为 nil,不单独出现)。
+    /// liabilityValue/interestRate 是另外两个独立的可选字段(负债本金/年化
+    /// 利率百分比数值),不要求和 assetValue 成对,也不要求彼此成对——用户
+    /// 可能只提了利率没提金额,或者只记了一笔贷款还没记资产本身。
     public struct MemorizedEntry {
         public var title: String
         public var summary: String
         public var tags: [String]
         public var assetValue: Double?
         public var assetCurrency: String?
+        public var liabilityValue: Double?
+        public var interestRate: Double?
 
         public init(
             title: String, summary: String, tags: [String],
-            assetValue: Double? = nil, assetCurrency: String? = nil
+            assetValue: Double? = nil, assetCurrency: String? = nil,
+            liabilityValue: Double? = nil, interestRate: Double? = nil
         ) {
             self.title = title
             self.summary = summary
             self.tags = tags
             self.assetValue = assetValue
             self.assetCurrency = assetCurrency
+            self.liabilityValue = liabilityValue
+            self.interestRate = interestRate
         }
     }
 
@@ -669,7 +677,12 @@ public enum DeepSeekClient {
         "工资卡余额12000"、"这套房子值300万"),额外返回 "asset_value"(数字金额)\
         和 "asset_currency"(ISO 4217 三位货币代码,如 CNY/USD/EUR;没有明确说\
         是外币就用 CNY),并确保 tags 里包含"资产"这个标签。不是资产内容时\
-        不要返回 asset_value/asset_currency 这两个字段。\(tagRule)
+        不要返回 asset_value/asset_currency 这两个字段。
+        - 如果内容还提到负债/贷款/欠款(比如"房贷100万利率4.5%"、"车贷还剩8万"),\
+        额外返回 "liability_value"(数字,负债本金,与 asset_value 同币种)和/或\
+        "interest_rate"(数字,年化利率的百分比数值,如 4.5 表示 4.5%),两者不要求\
+        成对出现,只返回内容里明确提到的那个;同样要确保 tags 里包含"资产"这个\
+        标签。不是负债内容时不要返回 liability_value/interest_rate。\(tagRule)
 
         \(context)
         """
@@ -677,10 +690,12 @@ public enum DeepSeekClient {
         return try parseMemorizedEntry(await payload(system: system, user: user, timeout: 60))
     }
 
-    /// 从 payload 里解析收藏整理结果(单测入口)。asset_value/asset_currency 是
-    /// 锦上添花的可选字段(不是用户主动确认的写操作,是后台整理的尽力而为),
-    /// 值不合法时只丢弃这两个字段、不影响 title/summary/tags 的正常解析——
-    /// 不像 command 协议里新建/修改事项那样"一条坏就整体报错"。
+    /// 从 payload 里解析收藏整理结果(单测入口)。asset_value/asset_currency、
+    /// liability_value、interest_rate 都是锦上添花的可选字段(不是用户主动
+    /// 确认的写操作,是后台整理的尽力而为),值不合法时只丢弃相应字段、不
+    /// 影响 title/summary/tags 的正常解析——不像 command 协议里新建/修改
+    /// 事项那样"一条坏就整体报错"。liability_value/interest_rate 彼此独立,
+    /// 不要求成对出现,也不要求依赖 asset_value/asset_currency 是否有效。
     static func parseMemorizedEntry(_ payload: [String: Any]) throws -> MemorizedEntry {
         guard let title = payload["title"] as? String,
               !title.trimmingCharacters(in: .whitespaces).isEmpty else {
@@ -695,13 +710,24 @@ public enum DeepSeekClient {
             assetValue = rawValue.doubleValue
             assetCurrency = rawCurrency
         }
+        var liabilityValue: Double?
+        if let rawLiability = payload["liability_value"] as? NSNumber,
+           rawLiability.doubleValue >= 0 {
+            liabilityValue = rawLiability.doubleValue
+        }
+        var interestRate: Double?
+        if let rawRate = payload["interest_rate"] as? NSNumber {
+            interestRate = rawRate.doubleValue
+        }
         return MemorizedEntry(
             title: title.trimmingCharacters(in: .whitespaces),
             summary: (payload["summary"] as? String ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines),
             tags: (payload["tags"] as? [Any])?.compactMap { $0 as? String } ?? [],
             assetValue: assetValue,
-            assetCurrency: assetCurrency
+            assetCurrency: assetCurrency,
+            liabilityValue: liabilityValue,
+            interestRate: interestRate
         )
     }
 
