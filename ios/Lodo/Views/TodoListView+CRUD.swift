@@ -26,7 +26,7 @@ extension TodoListView {
             title: parsed.title, remindAt: parsed.remindAt,
             durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
             repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
-            repeatTimes: parsed.repeatTimes)
+            repeatTimes: parsed.repeatTimes, project: parsed.project)
         task.attachment = attachment
         context.insert(task)
         try? context.save()
@@ -76,6 +76,43 @@ extension TodoListView {
                 allDay: true, durationMinutes: 0, repeatType: .none, repeatDays: [],
                 repeatTimes: []))
         }
+    }
+
+    /// 截图/测试用(--demo-project-list/--demo-project-timeline,仅在待办为空时
+    /// 插入):跨"工作/健康/生活/未分类"几个项目,含零时长(圆点兜底)和全天
+    /// (条带兜底)两种边界场景。
+    func seedProjectDemoData() {
+        let now = Date()
+
+        saveNew(ParsedTask(
+            title: "写周报", remindAt: now.addingTimeInterval(3600), allDay: false,
+            durationMinutes: 45, repeatType: .none, repeatDays: [], repeatTimes: [],
+            project: "工作"))
+
+        saveNew(ParsedTask(
+            title: "团队周会", remindAt: now.addingTimeInterval(2.5 * 3600), allDay: false,
+            durationMinutes: 60, repeatType: .none, repeatDays: [], repeatTimes: [],
+            project: "工作"))
+
+        saveNew(ParsedTask(
+            title: "健身", remindAt: now.addingTimeInterval(1.5 * 3600), allDay: false,
+            durationMinutes: 50, repeatType: .none, repeatDays: [], repeatTimes: [],
+            project: "健康"))
+
+        saveNew(ParsedTask(
+            title: "买菜", remindAt: now.addingTimeInterval(0.5 * 3600), allDay: false,
+            durationMinutes: 0, repeatType: .none, repeatDays: [], repeatTimes: [],
+            project: "生活"))
+
+        saveNew(ParsedTask(
+            title: "交房租", remindAt: now.addingTimeInterval(-3600), allDay: false,
+            durationMinutes: 0, repeatType: .none, repeatDays: [], repeatTimes: [],
+            project: nil))
+
+        saveNew(ParsedTask(
+            title: "妈妈生日", remindAt: AppSettings.time(AppSettings.allDayTime, on: now),
+            allDay: true, durationMinutes: 0, repeatType: .none, repeatDays: [], repeatTimes: [],
+            project: "生活"))
     }
     #endif
 }

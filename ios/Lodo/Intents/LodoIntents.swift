@@ -97,7 +97,8 @@ struct AddTaskIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         LodoIntentSupport.ensureConfigured()
         do {
-            var parsed = try await DeepSeekClient.parse(text)
+            var parsed = try await DeepSeekClient.parse(
+                text, existingProjects: TaskProjects.all(in: LodoIntentSupport.context))
             if parsed.durationMinutes == 0, let memory = DurationMemory.content,
                let minutes = try? await DeepSeekClient.suggestDuration(
                    text: text, title: parsed.title, memory: memory),
@@ -108,7 +109,7 @@ struct AddTaskIntent: AppIntent {
                 title: parsed.title, remindAt: parsed.remindAt,
                 durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
                 repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
-                repeatTimes: parsed.repeatTimes)
+                repeatTimes: parsed.repeatTimes, project: parsed.project)
             let context = LodoIntentSupport.context
             context.insert(task)
             try? context.save()

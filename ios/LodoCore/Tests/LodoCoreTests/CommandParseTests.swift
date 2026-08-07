@@ -28,6 +28,36 @@ final class CommandParseTests: XCTestCase {
             return
         }
         XCTAssertEqual(parsed.title, "开会")
+        XCTAssertNil(parsed.project)
+    }
+
+    /// project 是锦上添花的分类字段,payload 带了就原样取出。
+    func testCreateActionWithProject() throws {
+        var payload = taskPayload(action: "create")
+        payload["project"] = "工作"
+        let result = try DeepSeekClient.parseCommand(
+            ["actions": [payload]], validUUIDs: [], memoryEnabled: false)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .create(let parsed) = actions[0] else {
+            XCTFail("expected single create action")
+            return
+        }
+        XCTAssertEqual(parsed.project, "工作")
+    }
+
+    /// project 值不合法(类型不对/纯空白)时只丢弃这一个字段,不影响其他字段的
+    /// 正常解析——不像 title/remind_at 那样硬校验整条报错。
+    func testCreateActionTolerantInvalidProject() throws {
+        var payload = taskPayload(action: "create")
+        payload["project"] = "   "
+        let result = try DeepSeekClient.parseCommand(
+            ["actions": [payload]], validUUIDs: [], memoryEnabled: false)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .create(let parsed) = actions[0] else {
+            XCTFail("expected single create action")
+            return
+        }
+        XCTAssertNil(parsed.project)
     }
 
     func testCreateActionRejectsBlankTitle() {

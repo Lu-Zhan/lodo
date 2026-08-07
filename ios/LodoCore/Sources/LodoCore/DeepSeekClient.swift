@@ -9,9 +9,12 @@ public struct ParsedTask: Codable, Equatable {
     public var repeatType: RepeatType
     public var repeatDays: [Int]
     public var repeatTimes: [String]
+    /// 这件事属于哪个项目/主题;AI 推断不出来或用户没填时为 nil。
+    public var project: String?
 
     public init(title: String, remindAt: Date, allDay: Bool, durationMinutes: Int,
-                repeatType: RepeatType, repeatDays: [Int], repeatTimes: [String]) {
+                repeatType: RepeatType, repeatDays: [Int], repeatTimes: [String],
+                project: String? = nil) {
         self.title = title
         self.remindAt = remindAt
         self.allDay = allDay
@@ -19,6 +22,7 @@ public struct ParsedTask: Codable, Equatable {
         self.repeatType = repeatType
         self.repeatDays = repeatDays
         self.repeatTimes = repeatTimes
+        self.project = project
     }
 }
 
@@ -27,7 +31,8 @@ extension ParsedTask {
     public init(from task: TaskItem) {
         self.init(title: task.title, remindAt: task.remindAt, allDay: task.allDay,
                   durationMinutes: task.durationMinutes, repeatType: task.repeatType,
-                  repeatDays: task.repeatDays, repeatTimes: task.repeatTimes)
+                  repeatDays: task.repeatDays, repeatTimes: task.repeatTimes,
+                  project: task.project)
     }
 
     /// 展示用说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"——对齐
@@ -182,8 +187,25 @@ public enum DeepSeekClient {
         """
     }
 
-    /// 自然语言 → 新事项字段。
-    public static func parse(_ text: String) async throws -> ParsedTask {
+    /// project 复用规则,拼在 `.todo` skill 内容后面;与 memorize() 的 tagRule
+    /// 同一个套路——existingProjects 非空才提示,鼓励复用已有项目名而不是随口
+    /// 造新的。默认空数组时不追加任何文字,调用方(如 Watch)行为不变。
+    private static func projectRule(_ existingProjects: [String]) -> String {
+        guard !existingProjects.isEmpty else { return "" }
+        return """
+
+
+        - 已有项目:\(existingProjects.prefix(50).joined(separator: "、"))。\
+        project 优先从已有项目中选用语义相近的,都不合适时才创建新项目;\
+        实在看不出属于哪个项目就留空字符串,不要瞎猜。
+        """
+    }
+
+    /// 自然语言 → 新事项字段。existingProjects:当前已使用过的项目名,AI 优先
+    /// 复用相近的已有项目,和 memorize() 的 existingTags 同一个思路。
+    public static func parse(
+        _ text: String, existingProjects: [String] = []
+    ) async throws -> ParsedTask {
         let system = """
         你是提醒事项应用 lodo 的解析助手。用户会用自然语言描述一个提醒事项,\
         你需要解析出结构化信息,只返回 JSON,不要任何其他文字。
@@ -191,13 +213,15 @@ public enum DeepSeekClient {
         \(timeContext)
 
         返回格式(不适用的字段用默认值):
-        \(AgentSkillStore.content(for: .todo))
+        \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))
         """
         return try parseTask(await payload(system: system, user: text))
     }
 
     /// 按自然语言指令修改现有事项;未提到的字段保持原值。
-    public static func edit(_ current: ParsedTask, instruction: String) async throws -> ParsedTask {
+    public static func edit(
+        _ current: ParsedTask, instruction: String, existingProjects: [String] = []
+    ) async throws -> ParsedTask {
         let system = """
         你是提醒事项应用 lodo 的编辑助手。给定一个现有事项和用户的修改指令,\
         输出修改后的完整事项,只返回 JSON,不要任何其他文字。\
@@ -209,7 +233,7 @@ public enum DeepSeekClient {
         \(json(taskFields(of: current)))
 
         返回格式(不适用的字段用默认值):
-        \(AgentSkillStore.content(for: .todo))
+        \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))
         """
         return try parseTask(await payload(system: system, user: instruction))
     }
@@ -226,7 +250,8 @@ public enum DeepSeekClient {
         _ text: String, tasks allTasks: [(uuid: String, task: ParsedTask)],
         memoryEnabled: Bool = false,
         webSearchEnabled: Bool = false,
-        history: [(role: String, content: String)] = []
+        history: [(role: String, content: String)] = [],
+        existingProjects: [String] = []
     ) async throws -> AICommandResult {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
         let tasks = Array(allTasks.prefix(50))
@@ -238,7 +263,7 @@ public enum DeepSeekClient {
         let system = """
         \(AgentSkillStore.content(for: .agent))
 
-        \(AgentSkillStore.content(for: .todo))\
+        \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))\
         \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
         \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")
 
@@ -820,7 +845,7 @@ public enum DeepSeekClient {
     // MARK: - 请求与序列化
 
     private static func taskFields(of task: ParsedTask) -> [String: Any] {
-        return [
+        var fields: [String: Any] = [
             "title": task.title,
             "remind_at": dateFormatter.string(from: task.remindAt),
             "all_day": task.allDay,
@@ -829,6 +854,10 @@ public enum DeepSeekClient {
             "repeat_days": task.repeatDays,
             "repeat_times": task.repeatTimes,
         ]
+        if let project = task.project, !project.isEmpty {
+            fields["project"] = project
+        }
+        return fields
     }
 
     private static func json(_ object: Any) -> String {
@@ -1014,6 +1043,12 @@ public enum DeepSeekClient {
         }
         let days = Array(Set(rawDays)).sorted()
 
+        // project 是锦上添花的分类信息(不像 title/remind_at 那样硬校验),值不对
+        // 或缺失只取 nil,不拖累整条事项解析失败。
+        let project = (payload["project"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedProject = (project?.isEmpty ?? true) ? nil : project
+
         return ParsedTask(
             title: title,
             remindAt: remindAt,
@@ -1021,7 +1056,8 @@ public enum DeepSeekClient {
             durationMinutes: duration,
             repeatType: RepeatType(rawValue: payload["repeat_type"] as? String ?? "none") ?? .none,
             repeatDays: days,
-            repeatTimes: times
+            repeatTimes: times,
+            project: trimmedProject
         )
     }
 }

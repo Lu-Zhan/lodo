@@ -15,6 +15,7 @@ enum TaskActions {
         task.repeatTypeRaw = parsed.repeatType.rawValue
         task.repeatDays = parsed.repeatDays
         task.repeatTimes = parsed.repeatTimes
+        task.project = parsed.project
         task.phaseRaw = TaskPhase.start.rawValue
         task.nextRemindAt = parsed.remindAt
         try? context.save()

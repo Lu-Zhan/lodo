@@ -57,6 +57,7 @@ struct ContentView: View {
                     "--demo-agent",
                     "--demo-ask-duration", "--demo-seed-data",
                     "--demo-filter-all", "--demo-filter-done",
+                    "--demo-project-list", "--demo-project-timeline",
                 ]
                 if todoDemoFlags.contains(where: { ProcessInfo.processInfo.arguments.contains($0) }) {
                     selection = .todo

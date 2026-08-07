@@ -126,7 +126,8 @@ public enum AgentSkillStore {
       "duration_minutes": 0,
       "repeat_type": "none",
       "repeat_days": [],
-      "repeat_times": []}
+      "repeat_times": [],
+      "project": ""}
 
     规则:
     - "今天/明天/后天/周X/X月X日" 等相对时间基于当前时间换算成具体日期。
@@ -136,6 +137,7 @@ public enum AgentSkillStore {
     - 重复事项:"每天…"时 repeat_type 为 "daily";"每周一三五…"之类时 repeat_type 为 "weekly",\
     repeat_days 为选中的周几(0=周一 … 6=周日)。repeat_times 为当天的提醒时间点列表,可以有多个\
     (如"每天9点和21点提醒吃药" → ["09:00", "21:00"]);重复事项 remind_at 填第一次提醒的时间。
+    - project 是这件事属于哪个项目/主题(如"装修""考研""带娃"),推断不出来就留空字符串,不要瞎猜。
     - 无法解析出时间时,返回 {"error": "原因"}。
     """
 

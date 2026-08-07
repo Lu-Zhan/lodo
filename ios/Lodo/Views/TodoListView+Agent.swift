@@ -34,7 +34,8 @@ extension TodoListView {
         for _ in 0..<3 {
             switch try await DeepSeekClient.command(
                 currentText, tasks: taskContext, memoryEnabled: true,
-                webSearchEnabled: webSearchEnabled, history: reasoningHistory) {
+                webSearchEnabled: webSearchEnabled, history: reasoningHistory,
+                existingProjects: TaskProjects.all(in: context)) {
             case .ask(let questions):
                 return .ask(questions)
             case .toolCall(let thought, .searchMemory(let query)):

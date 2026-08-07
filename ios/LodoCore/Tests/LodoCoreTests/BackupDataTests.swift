@@ -76,6 +76,16 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(restored.attachment?.title, "备注")
     }
 
+    func testTaskItemWithProjectBackupAndApplyRoundTrip() {
+        let original = TaskItem(title: "写周报", remindAt: Date(), project: "工作")
+
+        let dto = original.backup
+        let restored = TaskItem(title: "", remindAt: Date())
+        dto.apply(to: restored)
+
+        XCTAssertEqual(restored.project, "工作")
+    }
+
     func testMemoryItemBackupAndApplyRoundTrip() {
         let original = MemoryItem(kind: .link, title: "标题", urlString: "https://a.com")
         let dto = original.backup

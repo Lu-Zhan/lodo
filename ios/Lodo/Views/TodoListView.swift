@@ -73,6 +73,9 @@ struct TodoListView: View {
     /// 顶部 4 个筛选胶囊(今天/未来/全部/已完成)当前选中的态。
     @State var filter: TodoFilter = .today
     @State var sheet: SheetMode?
+    /// 工具栏"项目视图"菜单的两个入口。
+    @State private var showProjectList = false
+    @State private var showProjectTimeline = false
     /// agent 解析出、等待用户确认的批量操作。
     @State var pendingActions: [AIAction] = []
     /// 上一批 AI 执行完的操作,供"撤销"用;见 TodoListView+Agent.swift。
@@ -252,6 +255,16 @@ struct TodoListView: View {
                 dueUUIDs: due.map(\.uuid), askTitles: askDurationQueue.map(\.title), filter: filter))
             .navigationTitle("待办")
             .toolbar {
+                ToolbarItem {
+                    Menu {
+                        Button("按项目查看", systemImage: "folder") { showProjectList = true }
+                        Button("并行时间线", systemImage: "calendar.day.timeline.left") {
+                            showProjectTimeline = true
+                        }
+                    } label: {
+                        Label("项目视图", systemImage: "square.grid.2x2")
+                    }
+                }
                 #if os(macOS)
                 // macOS 没有下拉手势,agent 入口放工具栏(与 iOS 悬浮按钮同一套交互,
                 // 见 ContentView.swift)。
@@ -264,6 +277,8 @@ struct TodoListView: View {
                 }
                 #endif
             }
+            .sheet(isPresented: $showProjectList) { ProjectListView() }
+            .sheet(isPresented: $showProjectTimeline) { ProjectTimelineView() }
             #if os(iOS)
             // iOS(iPhone、iPad,不分宽窄屏)上 agent 恒走 fullScreenCover 而不是
             // sheet 卡片:sheet 卡片在 iPad 上宽度固定在 ~580pt,低于 regular/compact
@@ -335,6 +350,16 @@ struct TodoListView: View {
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-filter-done") {
                     filter = .done
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-project-list"),
+                   pending.isEmpty {
+                    seedProjectDemoData()
+                    showProjectList = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-project-timeline"),
+                   pending.isEmpty {
+                    seedProjectDemoData()
+                    showProjectTimeline = true
                 }
                 #endif
             }

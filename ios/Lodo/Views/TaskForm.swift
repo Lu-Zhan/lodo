@@ -11,6 +11,8 @@ struct TaskFormModel {
     var weekdays: Set<Int>
     var times: [Date]
     var duration: Int
+    /// 项目名;空字符串代表"未分类",比 Optional 更适合直接绑 TextField。
+    var project: String
 
     init(from source: ParsedTask? = nil) {
         let base = source?.remindAt ?? Date().addingTimeInterval(300)
@@ -22,6 +24,7 @@ struct TaskFormModel {
         weekdays = Set(source?.repeatDays ?? [])
         times = (source?.repeatTimes ?? []).map { AppSettings.time($0, on: Date()) }
         duration = source?.durationMinutes ?? 0
+        project = source?.project ?? ""
     }
 
     var isValid: Bool {
@@ -37,6 +40,7 @@ struct TaskFormModel {
     func makeParsed() -> ParsedTask? {
         guard isValid else { return nil }
         let timeStrings = Array(Set(times.map { AppSettings.hhmm(from: $0) })).sorted()
+        let trimmedProject = project.trimmingCharacters(in: .whitespaces)
         var parsed = ParsedTask(
             title: title.trimmingCharacters(in: .whitespaces),
             remindAt: Date(),
@@ -44,7 +48,8 @@ struct TaskFormModel {
             durationMinutes: duration,
             repeatType: repeatType,
             repeatDays: repeatType == .weekly ? weekdays.sorted() : [],
-            repeatTimes: repeatType == .none ? [] : timeStrings
+            repeatTimes: repeatType == .none ? [] : timeStrings,
+            project: trimmedProject.isEmpty ? nil : trimmedProject
         )
         if repeatType == .none {
             parsed.remindAt = allDay
@@ -74,6 +79,7 @@ struct TaskFormModel {
         weekdays = Set(parsed.repeatDays)
         times = parsed.repeatTimes.map { AppSettings.time($0, on: Date()) }
         duration = parsed.durationMinutes
+        project = parsed.project ?? ""
     }
 }
 
@@ -86,6 +92,8 @@ struct TaskFormSections: View {
     var aiFilled = false
     /// 时长来自 AI 记忆建议时为 true,时长行高亮提示。
     var suggestedDuration = false
+    /// 当前已用过的项目名,点选即回填 form.project;为空时不显示 chip 行。
+    var existingProjects: [String] = []
 
     var body: some View {
         Section {
@@ -157,6 +165,23 @@ struct TaskFormSections: View {
                     Label("添加时间点", systemImage: "plus")
                 }
             }
+        }
+
+        Section {
+            TextField("项目(可选)", text: $form.project)
+            if !existingProjects.isEmpty {
+                HorizontalChipRow {
+                    ForEach(existingProjects, id: \.self) { project in
+                        Button("#\(project)") { form.project = project }
+                            .font(.footnote)
+                            .buttonStyle(.bordered)
+                            .buttonBorderShape(.capsule)
+                            .tint(form.project == project ? Color.accentColor : Color.secondary)
+                    }
+                }
+            }
+        } footer: {
+            Text("给这件事归个类,按项目查看/并行时间线里会按这个分组,可留空。")
         }
 
         Section {

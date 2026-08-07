@@ -9,6 +9,7 @@ struct TaskEditView: View {
     var onSave: (ParsedTask) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
 
     @State private var form: TaskFormModel
 
@@ -28,7 +29,7 @@ struct TaskEditView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TaskFormSections(form: $form)
+                TaskFormSections(form: $form, existingProjects: TaskProjects.all(in: context))
 
                 if let attachment {
                     attachmentSection(attachment)
@@ -112,7 +113,9 @@ struct TaskEditView: View {
         Task {
             defer { aiBusy = false }
             do {
-                let updated = try await DeepSeekClient.edit(current, instruction: instruction)
+                let updated = try await DeepSeekClient.edit(
+                    current, instruction: instruction,
+                    existingProjects: TaskProjects.all(in: context))
                 form.apply(updated)
                 aiInstruction = ""
             } catch {

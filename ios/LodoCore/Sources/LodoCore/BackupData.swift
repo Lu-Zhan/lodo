@@ -23,6 +23,7 @@ public struct BackupTask: Codable {
     public var createdAt: Date
     public var doneAt: Date?
     public var ekIdentifier: String?
+    public var project: String?
     public var attachmentKindRaw: String?
     public var attachmentTitle: String?
     public var attachmentSummary: String?
@@ -34,7 +35,8 @@ public struct BackupTask: Codable {
         uuid: UUID, title: String, remindAt: Date, durationMinutes: Int, allDay: Bool,
         repeatTypeRaw: String, repeatDays: [Int], repeatTimes: [String], statusRaw: String,
         phaseRaw: String, nextRemindAt: Date, createdAt: Date, doneAt: Date?,
-        ekIdentifier: String?, attachmentKindRaw: String?, attachmentTitle: String?,
+        ekIdentifier: String?, project: String? = nil, attachmentKindRaw: String?,
+        attachmentTitle: String?,
         attachmentSummary: String?, attachmentText: String?, attachmentURLString: String?,
         attachmentFileName: String?
     ) {
@@ -52,6 +54,7 @@ public struct BackupTask: Codable {
         self.createdAt = createdAt
         self.doneAt = doneAt
         self.ekIdentifier = ekIdentifier
+        self.project = project
         self.attachmentKindRaw = attachmentKindRaw
         self.attachmentTitle = attachmentTitle
         self.attachmentSummary = attachmentSummary
@@ -68,7 +71,7 @@ extension TaskItem {
             allDay: allDay, repeatTypeRaw: repeatTypeRaw, repeatDays: repeatDays,
             repeatTimes: repeatTimes, statusRaw: statusRaw, phaseRaw: phaseRaw,
             nextRemindAt: nextRemindAt, createdAt: createdAt, doneAt: doneAt,
-            ekIdentifier: ekIdentifier, attachmentKindRaw: attachmentKindRaw,
+            ekIdentifier: ekIdentifier, project: project, attachmentKindRaw: attachmentKindRaw,
             attachmentTitle: attachmentTitle, attachmentSummary: attachmentSummary,
             attachmentText: attachmentText, attachmentURLString: attachmentURLString,
             attachmentFileName: attachmentFileName)
@@ -92,6 +95,7 @@ extension BackupTask {
         item.createdAt = createdAt
         item.doneAt = doneAt
         item.ekIdentifier = ekIdentifier
+        item.project = project
         item.attachmentKindRaw = attachmentKindRaw
         item.attachmentTitle = attachmentTitle
         item.attachmentSummary = attachmentSummary

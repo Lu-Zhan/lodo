@@ -24,6 +24,9 @@ public final class TaskItem {
     public var doneAt: Date?
     /// 导出到系统提醒事项后的 EKReminder identifier(或导入来源),用于去重与更新。
     public var ekIdentifier: String?
+    /// 这件事属于哪个项目/主题,AI 新建时自动推断、用户可在表单里改;纯展示/
+    /// 组织用的分类信息,不参与调度(不进 TaskData/Scheduler)。
+    public var project: String?
 
     // 记忆"转为待办"携带的内容快照,展平存储(与 attachment 计算属性配套);
     // 直接新建的待办这几个字段都是 nil。同样出于 CloudKit 同步要求,不给默认值
@@ -46,7 +49,8 @@ public final class TaskItem {
         status: TaskStatus = .pending,
         nextRemindAt: Date? = nil,
         doneAt: Date? = nil,
-        ekIdentifier: String? = nil
+        ekIdentifier: String? = nil,
+        project: String? = nil
     ) {
         self.uuid = UUID()
         self.title = title
@@ -62,6 +66,7 @@ public final class TaskItem {
         self.createdAt = Date()
         self.doneAt = doneAt
         self.ekIdentifier = ekIdentifier
+        self.project = project
     }
 
     public var repeatType: RepeatType { RepeatType(rawValue: repeatTypeRaw) ?? .none }
