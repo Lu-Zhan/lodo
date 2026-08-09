@@ -2,6 +2,20 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
+/// 结构化消息卡片(confirm/answer/executed/memorizeSuggestion)统一的卡片容器语言,
+/// 和 askContent/AgentTaskCard/memoryResultContent 已有的卡片视觉一致——纯文本 .text
+/// 消息不套这层,保留"对话文字 vs. 结构化内容"的区分(参考 Claude 对话里散文与
+/// 工具/卡片类内容的分野)。
+private extension View {
+    func agentCard() -> some View {
+        self
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.fill.quaternary,
+                        in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+    }
+}
+
 /// 一条消息的气泡渲染;confirm 的按钮只在 isLatest(这条是当前 thread 最新
 /// 一条)时可交互——历史消息一律纯展示,避免翻旧账时执行过时的批量操作。
 struct AgentMessageBubble: View {
@@ -76,8 +90,8 @@ struct AgentMessageBubble: View {
                 }
             }
             .padding(12)
-            .background(.tint, in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
-            .foregroundStyle(.white)
+            .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+            .foregroundStyle(.primary)
         }
     }
 
@@ -98,7 +112,9 @@ struct AgentMessageBubble: View {
     private var content: some View {
         switch message.kind {
         case .text:
-            Text(message.content).font(.subheadline)
+            markdownText(message.content)
+                .font(.body)
+                .textSelection(.enabled)
         case .confirm:
             confirmContent
         case .ask:
@@ -141,7 +157,7 @@ struct AgentMessageBubble: View {
                 }
             }
         } else {
-            Text(message.content).font(.subheadline)
+            Text(message.content).font(.body)
         }
     }
 
@@ -156,7 +172,7 @@ struct AgentMessageBubble: View {
                 AgentAskRecordCard(snapshot: askSnapshot)
             }
         } else {
-            Text(message.content).font(.subheadline)
+            Text(message.content).font(.body)
         }
     }
 
@@ -165,7 +181,7 @@ struct AgentMessageBubble: View {
         if let askSnapshot {
             AgentAskRecordCard(snapshot: askSnapshot)
         } else {
-            Text(message.content).font(.subheadline)
+            Text(message.content).font(.body)
         }
     }
 
@@ -173,18 +189,18 @@ struct AgentMessageBubble: View {
     private var taskResultContent: some View {
         if let taskSnapshot {
             VStack(alignment: .leading, spacing: 10) {
-                Text(message.content).font(.subheadline)
+                Text(message.content).font(.body)
                 AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
             }
         } else {
-            Text(message.content).font(.subheadline)
+            Text(message.content).font(.body)
         }
     }
 
     @ViewBuilder
     private var memoryResultContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(message.content).font(.subheadline)
+            Text(message.content).font(.body)
             if let item = resultMemoryItem {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: item.kind.symbol)
@@ -210,7 +226,7 @@ struct AgentMessageBubble: View {
 
     private var memorizeSuggestionContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(message.content, systemImage: "bookmark.circle").font(.subheadline)
+            Label(message.content, systemImage: "bookmark.circle").font(.body)
             if isLatest {
                 Button {
                     Haptics.success()
@@ -222,11 +238,12 @@ struct AgentMessageBubble: View {
                 .font(.footnote)
             }
         }
+        .agentCard()
     }
 
     private var executedContent: some View {
         HStack(spacing: 10) {
-            Label(message.content, systemImage: "checkmark.circle").font(.subheadline)
+            Label(message.content, systemImage: "checkmark.circle").font(.body)
             if isLatest {
                 Spacer(minLength: 12)
                 Button {
@@ -238,12 +255,13 @@ struct AgentMessageBubble: View {
                 .font(.footnote)
             }
         }
+        .agentCard()
     }
 
     private var confirmContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(message.content.components(separatedBy: "\n"), id: \.self) { line in
-                Label(line, systemImage: icon(for: line)).font(.subheadline)
+                Label(line, systemImage: icon(for: line)).font(.body)
             }
             if isLatest {
                 HStack {
@@ -259,6 +277,7 @@ struct AgentMessageBubble: View {
                 }
             }
         }
+        .agentCard()
     }
 
     /// 批量操作里混了"删除"时,确认按钮给更慎重的 warning 触感,而不是和纯新建/
@@ -269,13 +288,27 @@ struct AgentMessageBubble: View {
 
     private var answerContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(message.content, systemImage: "sparkles").font(.subheadline)
+            Label(message.content, systemImage: "sparkles").font(.body)
             ForEach(message.relatedTitles, id: \.self) { title in
                 Label(title, systemImage: "bookmark.circle")
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
+        .agentCard()
+    }
+
+    /// 尽量把助手的纯文本渲染成 Markdown(粗体/斜体/行内代码/链接等)——DeepSeek
+    /// 输出不保证是合法 Markdown,只解析行内语法(不识别标题/列表等块级语法,
+    /// 避免一句话开头恰好是 "#"/"-" 被误判成块级结构),解析失败就原样退化成
+    /// 字面文本,不会丢内容或崩溃。
+    private func markdownText(_ raw: String) -> Text {
+        if let attributed = try? AttributedString(
+            markdown: raw,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+            return Text(attributed)
+        }
+        return Text(raw)
     }
 
     private func icon(for line: String) -> String {

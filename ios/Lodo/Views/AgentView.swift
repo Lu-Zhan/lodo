@@ -426,6 +426,11 @@ struct AgentView: View {
                 .clipShape(RoundedRectangle(
                     cornerRadius: sidebarProgress > 0 ? DesignMetrics.deviceCornerRadius : 0,
                     style: .continuous))
+                // 拖拽/弹簧动画期间这块阴影每帧都要重算,compositingGroup 先把整张
+                // 聊天卡(消息列表+输入栏)拍平成一张位图再算阴影,不然 SwiftUI 会对
+                // 卡片内部一整棵视图树逐层算阴影,消息一多拖拽就跟不上手、animation
+                // 收尾那截也容易掉帧。
+                .compositingGroup()
                 .shadow(color: .black.opacity(0.18 * sidebarProgress), radius: 14, x: -3)
                 // 只平移不缩放:聊天卡保持原大小整块推出去(右侧推出屏幕外),
                 // 缩小那版看着像整页被"捏小",不是参考图里那种一张卡被推开的感觉。
@@ -499,71 +504,74 @@ struct AgentView: View {
         .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
     }
 
-    /// 参考 iMessage 的输入栏,三个独立玻璃控件一字排开:+ 号圆按钮、文本框
-    /// 胶囊、麦克风/发送圆按钮。没在打字/正在录音时最右是麦克风(点了直接
-    /// 开始/停止录音);一旦有内容待发送(打字或已选好附件),同一个槽位换成
-    /// 蓝色发送按钮——是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标。
-    /// iOS/macOS 26+ 用 `GlassEffectContainer` 把三个控件分组——这是苹果
-    /// Liquid Glass 官方推荐的写法,组内形状会正确地互相感知、按需融合/晕开,
-    /// 比三个各自独立的 `.glassEffect()` 观感更接近系统输入栏;旧系统没有
-    /// 这个容器 API,直接退化成不分组的普通排布(各控件仍有自己的
-    /// glassBackground 回退样式)。
-    @ViewBuilder
+    /// 参考 Claude app 的输入栏:一整块合并的磨砂卡片悬浮在内容上方(四周留白,
+    /// 不贴屏幕物理边缘),卡片内竖直分两行——上面纯文本输入框(没有自己的胶囊
+    /// 背景,直接落在卡片底色上),下面是控件行:左边 + 号纯图标(无背景),
+    /// 右边麦克风/发送纯图标或强调色圆按钮。没在打字/正在录音时是麦克风(点了
+    /// 直接开始/停止录音);一旦有内容待发送,同一个槽位换成强调色发送按钮——
+    /// 是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标。只有发送/停止
+    /// 这一个控件保留实心玻璃填充,+/麦克风都是纯图标,靠卡片本身的玻璃背景
+    /// 衬底,不需要各自再套一层——因此不再需要 `GlassEffectContainer`:那是给
+    /// 多个相邻独立玻璃形状互相感知融合用的,现在只剩"一张卡 + 一个独立强调色
+    /// 按钮",`.glassProminentButton()` 已经能正确渲染自己的玻璃层,不需要外层
+    /// 容器配合。
     private var inputBar: some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            GlassEffectContainer(spacing: 8) { inputBarRow }
-        } else {
-            inputBarRow
-        }
+        inputBarRow
     }
 
     private var inputBarRow: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            Menu {
-                PhotosPicker(selection: $photoSelection, matching: .images) {
-                    Label("照片", systemImage: "photo")
-                }
-                Button {
-                    showFileImporter = true
-                } label: {
-                    Label("文件", systemImage: "doc")
-                }
-                Button {
-                    showMemoryPicker = true
-                } label: {
-                    Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .glassBackground(Circle())
-            }
-            .disabled(busy)
-            .accessibilityLabel("添加附件")
-
+        VStack(alignment: .leading, spacing: 6) {
             TextField("说点什么…", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($isInputFocused)
                 .onSubmit { send() }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .frame(minHeight: 36)
-                .glassBackground(Capsule())
 
-            if showsInlineMic {
-                inlineMicButton
-                    .transition(.scale.combined(with: .opacity))
-            } else {
-                sendButton
-                    .transition(.scale.combined(with: .opacity))
+            HStack(alignment: .center, spacing: 8) {
+                Menu {
+                    PhotosPicker(selection: $photoSelection, matching: .images) {
+                        Label("照片", systemImage: "photo")
+                    }
+                    Button {
+                        showFileImporter = true
+                    } label: {
+                        Label("文件", systemImage: "doc")
+                    }
+                    Button {
+                        showMemoryPicker = true
+                    } label: {
+                        Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        // 没有背景形状后,点击区默认会缩成图标本身的紧凑边界——
+                        // 用 contentShape 把 36×36 的点击热区找回来。
+                        .contentShape(Rectangle())
+                }
+                .disabled(busy)
+                .accessibilityLabel("添加附件")
+
+                Spacer()
+
+                if showsInlineMic {
+                    inlineMicButton
+                        .transition(.scale.combined(with: .opacity))
+                } else {
+                    sendButton
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
+            .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
         }
-        .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
         .padding(.horizontal)
-        .padding(.top)
-        .padding(.bottom, 40)
+        .padding(.top, 8)
+        .padding(.bottom, 18)
     }
 
     /// 正在录音时即便文字已经有内容(实时转写填进了输入框)也继续显示麦克风
@@ -588,7 +596,7 @@ struct AgentView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(speech.isRecording ? Color.red : Color.accentColor)
                 .frame(width: 36, height: 36)
-                .glassBackground(Circle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         #if os(iOS)
@@ -614,6 +622,12 @@ struct AgentView: View {
         }
         .glassProminentButton()
         .buttonBorderShape(.circle)
+        // .glassProminentButton()/.borderedProminent 自带一圈系统内容内边距+HIG 最小
+        // 触控尺寸,单靠 label 内部 36×36 的 frame 圈不住,发出键因此比左边 +/麦克风
+        // (.buttonStyle(.plain),没有这层自动内边距)看起来大一圈——外面叠加 .frame
+        // 对 iOS 26 Liquid Glass 圆形按钮不生效(实测无变化,系统内部按自己的最小触控
+        // 尺寸布局,不理会下游 frame 收窄),只能靠 .controlSize 调系统档位。
+        .controlSize(.mini)
         .tint(busy ? Color.secondary : Color.accentColor)
         .accessibilityLabel(busy ? "取消" : "发送")
     }
