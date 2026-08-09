@@ -1,6 +1,9 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import LodoCore
+#if os(iOS)
+import UIKit
+#endif
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +14,8 @@ struct SettingsView: View {
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
+    @AppStorage(AppSettings.appIconStyleKey) private var appIconStyleRaw = AppIconStyle.white.rawValue
+    @State private var iconChangeErrorMessage: String?
     @State private var showOnboarding = false
 
     // ---- 备份与恢复 ----
@@ -74,6 +79,40 @@ struct SettingsView: View {
                     Toggle("振动反馈", isOn: $hapticsEnabled)
                 } footer: {
                     Text("滑动完成、删除等操作时轻微振动。")
+                }
+                #endif
+
+                // ---- App 图标(莫兰迪色系,仅 iOS 支持切换备用图标)----
+                #if os(iOS)
+                Section {
+                    HorizontalChipRow {
+                        ForEach(AppIconStyle.allCases, id: \.rawValue) { style in
+                            let selected = appIconStyleRaw == style.rawValue
+                            Button {
+                                appIconStyleRaw = style.rawValue
+                                applyAppIcon(style)
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(style.previewImageName)
+                                        .resizable()
+                                        .aspectRatio(1, contentMode: .fit)
+                                        .frame(width: 56, height: 56)
+                                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                        .overlay {
+                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                .stroke(selected ? Color.accentColor : .clear, lineWidth: 2.5)
+                                        }
+                                    Text(LocalizedStrings.translate(style.displayName, language: language))
+                                        .font(.caption)
+                                        .foregroundStyle(selected ? .primary : .secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } footer: {
+                    Text("莫兰迪色系,默认白色。")
                 }
                 #endif
 
@@ -146,11 +185,35 @@ struct SettingsView: View {
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView(onFinish: { showOnboarding = false })
             }
+            #if os(iOS)
+            .alert("切换图标失败", isPresented: Binding(
+                get: { iconChangeErrorMessage != nil },
+                set: { if !$0 { iconChangeErrorMessage = nil } }
+            )) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(iconChangeErrorMessage ?? "")
+            }
+            #endif
         }
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
         #endif
     }
+
+    // MARK: - App 图标
+
+    #if os(iOS)
+    private func applyAppIcon(_ style: AppIconStyle) {
+        guard UIApplication.shared.supportsAlternateIcons else { return }
+        guard UIApplication.shared.alternateIconName != style.alternateIconName else { return }
+        UIApplication.shared.setAlternateIconName(style.alternateIconName) { error in
+            if let error {
+                iconChangeErrorMessage = error.localizedDescription
+            }
+        }
+    }
+    #endif
 
     // MARK: - 备份与恢复
 

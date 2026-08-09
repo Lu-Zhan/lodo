@@ -25,8 +25,11 @@ final class ExchangeRateStore {
     /// 从未成功拉取过汇率(离线首次启动),资产总览据此展示"汇率不可用"提示。
     var isUnavailable: Bool { table == nil }
 
+    /// 同币种恒等,即使汇率表整个都还没拉到(离线首次启动)也不受影响——
+    /// 只用人民币记账、从没联网过的用户不该被"汇率不可用"卡住总额计算。
     func convert(_ amount: Double, from: String, to: String) -> Double? {
-        table?.convert(amount, from: from, to: to)
+        if from == to { return amount }
+        return table?.convert(amount, from: from, to: to)
     }
 
     /// 缓存过期或不存在时才真的发请求;资产总览每次出现都可以放心调用,

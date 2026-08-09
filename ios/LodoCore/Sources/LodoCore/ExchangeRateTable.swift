@@ -19,7 +19,10 @@ public struct ExchangeRateTable: Codable, Equatable {
 
     /// 把 `amount`(单位是 `from` 货币)换算成 `to` 货币;任一方不在汇率表里
     /// 时返回 nil(调用方决定怎么降级,比如从汇总里排除、单独提示)。
+    /// 同币种(from == to)恒等,不查表——避免汇率表没覆盖到的冷门币种,
+    /// 明明不需要换算却因为查不到自己对自己的汇率而被判定为"不可用"。
     public func convert(_ amount: Double, from: String, to: String) -> Double? {
+        if from == to { return amount }
         guard let fromRate = rates[from], fromRate > 0, let toRate = rates[to] else { return nil }
         return amount / fromRate * toRate
     }

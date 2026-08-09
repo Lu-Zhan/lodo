@@ -551,6 +551,8 @@
 		AA0000000E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Pink AppIcon-Green AppIcon-Brown AppIcon-Blue AppIcon-Black";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Lodo/Lodo.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Support/Lodo.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Support/Lodo.entitlements;
@@ -597,6 +599,8 @@
 		AA0000000F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Pink AppIcon-Green AppIcon-Brown AppIcon-Blue AppIcon-Black";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Lodo/Lodo.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Support/Lodo.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Support/Lodo.entitlements;

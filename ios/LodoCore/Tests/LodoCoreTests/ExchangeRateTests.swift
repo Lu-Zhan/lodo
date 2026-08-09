@@ -31,6 +31,13 @@ final class ExchangeRateTests: XCTestCase {
         XCTAssertNil(table.convert(10, from: "JPY", to: "CNY"))
     }
 
+    /// 回归测试:同币种即使完全不在汇率表覆盖范围内(冷门币种、或干脆是空表)
+    /// 也该恒等放行,不该因为查不到自己对自己的汇率就判定"不可用"。
+    func testConvertSameUnknownCurrencyIsIdentityEvenWithEmptyTable() {
+        let table = ExchangeRateTable(base: "USD", rates: [:], fetchedAt: Date())
+        XCTAssertEqual(table.convert(50, from: "XXX", to: "XXX")!, 50, accuracy: 0.0001)
+    }
+
     // MARK: - ExchangeRateClient.parseRatesPayload
 
     func testParseRatesPayload() throws {

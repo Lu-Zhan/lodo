@@ -26,6 +26,7 @@ public enum AppSettings {
     public static let hasSeenOnboardingKey = "hasSeenOnboarding"
     public static let assetDisplayCurrencyKey = "assetDisplayCurrency"
     public static let languageKey = "appLanguage"
+    public static let appIconStyleKey = "appIconStyle"
 
     public static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -213,6 +214,11 @@ public enum AppSettings {
     public static var language: AppLanguage {
         get { AppLanguage(rawValue: UserDefaults.standard.string(forKey: languageKey) ?? "") ?? .zhHans }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: languageKey) }
+    }
+
+    /// App 图标配色(莫兰迪色系),默认白色。
+    public static var appIconStyle: AppIconStyle {
+        AppIconStyle(rawValue: UserDefaults.standard.string(forKey: appIconStyleKey) ?? "") ?? .white
     }
 
     /// 把 "HH:MM" 应用到某一天,得到具体提醒时间。
