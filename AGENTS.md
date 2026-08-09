@@ -2,6 +2,8 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
+与用户对话时一律使用中文回复。
+
 ## 项目定位
 
 lodo 是一个"纠缠式提醒"待办 app:到期提醒后可 完成/稍等,忽略或稍等都会每隔一个稍等间隔(默认 15 分钟)重复提醒直到完成。三个平台实现,**语义必须逐字对齐**:
