@@ -217,7 +217,9 @@ private fun DoneRow(
                     Text(task.title, textDecoration = TextDecoration.LineThrough)
                 },
                 supportingContent = {
-                    task.doneAt?.let { Text(stringResource(R.string.android_ui_completed_at_0)) }
+                    task.doneAt?.let {
+                        Text(stringResource(R.string.android_ui_completed_at_0, TimeFormat.format(it)))
+                    }
                 },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
             )

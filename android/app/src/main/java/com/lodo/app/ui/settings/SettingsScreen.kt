@@ -4,8 +4,11 @@ import com.lodo.app.R
 import androidx.compose.ui.res.stringResource
 import android.app.AlarmManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings as SystemSettings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +30,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -61,6 +65,7 @@ import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.LodoTimePickerDialog
 import com.lodo.app.ui.SectionHeader
 import com.lodo.app.ui.StepperRow
+import com.lodo.app.ui.routine.RoutineListScreen
 
 /** 设置页,分节与文案对应 iOS SettingsView(钥匙串改为本机加密存储)。 */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -77,6 +82,19 @@ fun SettingsScreen(
     var editingDigestIndex by remember { mutableStateOf<Int?>(null) }
     var showMemoryEditor by remember { mutableStateOf(false) }
     var confirmMemoryReset by remember { mutableStateOf(false) }
+    var showRoutines by remember { mutableStateOf(false) }
+
+    if (showRoutines) {
+        RoutineListScreen(onBack = { showRoutines = false })
+        return
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri: Uri? -> uri?.let { vm.exportBackup(it) } }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? -> uri?.let { vm.importBackup(it) } }
 
     Scaffold(
         modifier = modifier,
@@ -118,7 +136,7 @@ fun SettingsScreen(
 
             SectionHeader(stringResource(R.string.shared_reminders))
             StepperRow(
-                label = stringResource(R.string.android_ui_snooze_interval_0_min),
+                label = stringResource(R.string.android_ui_snooze_interval_0_min, settings.snoozeMinutes),
                 onDecrement = { vm.setSnoozeMinutes(settings.snoozeMinutes - 5) },
                 onIncrement = { vm.setSnoozeMinutes(settings.snoozeMinutes + 5) },
             )
@@ -182,7 +200,7 @@ fun SettingsScreen(
                                 .clickable { editingDigestIndex = i }
                                 .padding(vertical = 12.dp),
                         ) {
-                            Text(stringResource(R.string.android_ui_time_0), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.android_ui_time_0, i + 1), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                             Text(hhmm, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
                         }
                         IconButton(onClick = {
@@ -229,7 +247,8 @@ fun SettingsScreen(
             }
             FooterText("点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。")
             StepperRow(
-                label = stringResource(R.string.android_ui_auto_stop_after_silence_0_s),
+                label = stringResource(
+                    R.string.android_ui_auto_stop_after_silence_0_s, settings.agentSilenceTimeoutSeconds),
                 onDecrement = {
                     vm.setAgentSilenceTimeoutSeconds(settings.agentSilenceTimeoutSeconds - 1)
                 },
@@ -287,6 +306,27 @@ fun SettingsScreen(
                 Text(if (vm.keySaved) "已保存" else "保存 API Key")
             }
             FooterText("默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。")
+
+            SectionHeader(stringResource(R.string.android_ui_on_device_ai))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    when (vm.geminiNanoAvailable) {
+                        null -> stringResource(R.string.android_ui_tap_to_check_availability)
+                        true -> stringResource(R.string.android_ui_available)
+                        false -> stringResource(R.string.android_ui_not_available_on_this_device)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                if (vm.geminiNanoChecking) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    TextButton(onClick = { vm.checkGeminiNanoAvailability() }) {
+                        Text(stringResource(R.string.android_ui_check))
+                    }
+                }
+            }
+            FooterText(stringResource(R.string.android_ui_on_device_ai_footer))
 
             SectionHeader(stringResource(R.string.shared_ai_thinking))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -381,6 +421,42 @@ fun SettingsScreen(
                     .padding(vertical = 12.dp),
             )
             FooterText("AI 会在事项完成后归纳\"类型 → 典型时长\",新建没说时长的事项时据此建议。")
+
+            SectionHeader(stringResource(R.string.android_ui_backup))
+            Text(
+                stringResource(R.string.android_ui_export_backup),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !vm.backupBusy) {
+                        exportLauncher.launch("lodo-backup-${System.currentTimeMillis()}.zip")
+                    }
+                    .padding(vertical = 12.dp),
+            )
+            Text(
+                stringResource(R.string.android_ui_import_backup),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !vm.backupBusy) { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }
+                    .padding(vertical = 12.dp),
+            )
+            vm.backupMessage?.let { FooterText(it) }
+            FooterText(stringResource(R.string.android_ui_backup_footer))
+
+            SectionHeader(stringResource(R.string.android_ui_routine))
+            Text(
+                stringResource(R.string.android_ui_manage_routines),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showRoutines = true }
+                    .padding(vertical = 12.dp),
+            )
+            FooterText(stringResource(R.string.android_ui_routine_footer))
 
             // Android 12/12L 上精确闹钟权限可被用户关闭,提供跳转入口
             if (Build.VERSION.SDK_INT in 31..32) {

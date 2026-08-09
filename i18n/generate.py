@@ -42,8 +42,16 @@ def kotlin_string_literal(s: str) -> str:
 
 
 def android_xml_string(s: str) -> str:
-    escaped = xml_escape(s)
+    # {0} 是 CSV 里语言中立的占位符记号,Android string resource 的格式化占位符
+    # 语法是 %1$s(String.format 风格),不是 {0}——两者长得像但运行时不通用,
+    # 之前漏转过一次,栏位里写 {0} 但 XML 没转,传参也不生效,吃了个大教训。
+    converted = s.replace("{0}", "%1$s")
+    escaped = xml_escape(converted)
     escaped = escaped.replace("'", "\\'")
+    # 字面量 % 在 Android string resource 里要转义成 %%,避免被误认成格式符;
+    # 上面已经把占位符换成 %1$s 了,这里处理的是"原文本身就带 %"的情况
+    # (目前术语表里没有这种词条,但留着这条规则,避免以后加了又踩一次坑)。
+    escaped = re.sub(r"%(?!1\$s)", "%%", escaped)
     return escaped
 
 

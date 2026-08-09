@@ -22,6 +22,7 @@ import com.lodo.app.data.TaskEntity
 object Notifications {
     const val CHANNEL_REMINDERS = "reminders"
     const val CHANNEL_DIGEST = "digest"
+    const val CHANNEL_ROUTINE = "routine"
     private const val DIGEST_ID = 1
 
     /** 只在 app 启动时调用一次;语言设置若在运行期间切换,渠道名要到下次启动
@@ -37,6 +38,11 @@ object Notifications {
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_DIGEST, Strings.translate("每日待办汇总", lang), NotificationManager.IMPORTANCE_DEFAULT
+            )
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ROUTINE, Strings.translate("定时任务", lang), NotificationManager.IMPORTANCE_DEFAULT
             )
         )
     }
@@ -139,6 +145,24 @@ object Notifications {
             .setAutoCancel(true)
             .build()
         NotificationManagerCompat.from(context).notify(DIGEST_ID, notification)
+    }
+
+    /** 定时任务执行结果通知,标题用指令原话(截断),正文是执行结果。 */
+    fun showRoutineResult(context: Context, prompt: String, result: String) {
+        if (!canNotify(context)) return
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val contentIntent = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java), flags
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ROUTINE)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(prompt.take(30))
+            .setContentText(result)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(result))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(prompt.hashCode(), notification)
     }
 
     fun dismiss(context: Context, uuid: String) {

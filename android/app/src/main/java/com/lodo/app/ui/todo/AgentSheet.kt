@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -72,6 +73,7 @@ fun AgentSheet(
     agentSilenceTimeoutSeconds: Int = 3,
     onSubmit: suspend (String) -> AgentReply,
     onConfirm: () -> Unit,
+    onMemorizeSuggestion: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf(prefill ?: "") }
@@ -79,8 +81,11 @@ fun AgentSheet(
     var errorText by remember { mutableStateOf<String?>(null) }
     var confirmLines by remember { mutableStateOf<List<String>?>(null) }
     var clarify by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
-    /** 纯文字回应(撤销结果/联网搜索后的一般性回答)。 */
+    /** 纯文字回应(撤销结果/联网搜索后的一般性回答/收藏问答)。 */
     var messageText by remember { mutableStateOf<String?>(null) }
+    /** AI 主动建议收藏,不落库,点了"收藏这条"才存;存过一次就不能重复点。 */
+    var suggestMemorizeText by remember { mutableStateOf<String?>(null) }
+    var memorized by remember { mutableStateOf(false) }
     /** 反问时保留的原话,选候选后拼接重新提交。 */
     var clarifyBase by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -93,6 +98,8 @@ fun AgentSheet(
             errorText = null
             confirmLines = null
             messageText = null
+            suggestMemorizeText = null
+            memorized = false
             try {
                 when (val reply = onSubmit(trimmed)) {
                     AgentReply.Routed -> {}
@@ -107,6 +114,11 @@ fun AgentSheet(
                     is AgentReply.Message -> {
                         clarify = null
                         messageText = reply.text
+                        text = ""
+                    }
+                    is AgentReply.SuggestMemorize -> {
+                        clarify = null
+                        suggestMemorizeText = reply.text
                         text = ""
                     }
                 }
@@ -197,6 +209,37 @@ fun AgentSheet(
                 }
             }
 
+            suggestMemorizeText?.let { suggestion ->
+                Card(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.AutoAwesome,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(suggestion, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (memorized) {
+                            Text(
+                                stringResource(R.string.android_ui_memorized),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            OutlinedButton(onClick = {
+                                onMemorizeSuggestion(suggestion)
+                                memorized = true
+                            }) { Text(stringResource(R.string.android_ui_memorize_this)) }
+                        }
+                    }
+                }
+            }
+
             clarify?.let { (question, options) ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -276,5 +319,6 @@ private fun iconFor(line: String): ImageVector = when {
     line.startsWith("修改") -> Icons.Filled.EditNote
     line.startsWith("完成") -> Icons.Filled.CheckCircleOutline
     line.startsWith("删除") -> Icons.Filled.DeleteOutline
+    line.startsWith("收藏") -> Icons.Filled.BookmarkBorder
     else -> Icons.Filled.AutoAwesome
 }

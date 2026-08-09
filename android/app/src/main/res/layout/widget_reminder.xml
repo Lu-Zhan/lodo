@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 到期提醒小组件布局,对应 iOS LodoWidgetExtension 的"即将到来"快照——只用
+     RemoteViews 支持的基础控件(LinearLayout/TextView),不引第三方/Compose 依赖
+     (经典 AppWidgetProvider 不支持 Compose Glance 那套,这里维持项目"UI 只用
+     系统控件"的一贯做法)。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FFFFFF"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lodo"
+        android:textSize="12sp"
+        android:textColor="#888888" />
+
+    <TextView
+        android:id="@+id/widget_task_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text=""
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#000000"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/widget_task_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text=""
+        android:textSize="13sp"
+        android:textColor="#666666" />
+</LinearLayout>

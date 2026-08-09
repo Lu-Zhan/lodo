@@ -45,7 +45,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /** App Shortcuts / 通知"改期"按钮写入的"route" extra,交给 Compose 层
-     * (TodoListScreen)消费。 */
+     * (TodoListScreen)消费;Google Assistant App Actions("创建待办"能力)
+     * 走同一个 intent 分发点,携带"taskTitle" extra(见 shortcuts.xml 的
+     * capability 声明)。 */
     private fun consumeRouteIntent(intent: Intent) {
         val app = application as LodoApp
         when (intent.getStringExtra("route")) {
@@ -53,6 +55,9 @@ class MainActivity : ComponentActivity() {
             "add" -> app.pendingRoute.value = PendingRoute.Agent(autoStart = true)
             "reschedule" -> intent.getStringExtra(AlarmScheduler.EXTRA_UUID)?.let { uuid ->
                 app.pendingRoute.value = PendingRoute.Reschedule(uuid)
+            }
+            "create_task" -> intent.getStringExtra("taskTitle")?.takeIf { it.isNotBlank() }?.let { title ->
+                app.pendingRoute.value = PendingRoute.CreateTask(title)
             }
         }
     }

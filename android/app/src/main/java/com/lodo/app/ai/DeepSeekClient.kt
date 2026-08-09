@@ -32,6 +32,17 @@ data class ParsedTask(
 /** 错误文案与 iOS DeepSeekError 一致,直接展示给用户。 */
 class DeepSeekException(message: String) : Exception(message)
 
+/** [DeepSeekClient.memorize] 整理出的字段;与 iOS MemorizedEntry 对齐,不含
+ * 资产子功能字段(iOS 独有)。 */
+data class MemorizedEntry(val title: String, val summary: String, val tags: List<String>)
+
+/** [DeepSeekClient.askMemory] 的候选条目输入,与 iOS retrieveMemoryCandidates
+ * 拼给 AI 的形状对齐;excerpt 是关键词匹配到的正文片段或摘要兜底。 */
+data class MemoryCandidate(
+    val uuid: String, val title: String, val summary: String,
+    val tags: List<String>, val excerpt: String,
+)
+
 /** 一次 AI 请求所需的服务配置(服务商端点/模型/key/个性),由 SettingsRepository.aiConfig() 提供。 */
 data class AIConfig(
     val apiKey: String?,
@@ -53,6 +64,13 @@ sealed interface AIAction {
     data class Delete(val uuid: String) : AIAction
     /** 与待办都无关的一般性问题,直接给用户的回答(可能是联网搜索后给出的)。 */
     data class Answer(val text: String) : AIAction
+    /** 收藏一段内容原文,与 iOS AIAction.memorize 对齐。 */
+    data class Memorize(val text: String) : AIAction
+    /** 查询以前收藏/完成过的内容,与 iOS AIAction.askMemory 对齐。 */
+    data class AskMemory(val question: String) : AIAction
+    /** AI 主动建议收藏(不落库,UI 上一个"收藏这条"按钮点了才存),与 iOS
+     * AIAction.suggestMemorize 对齐。 */
+    data class SuggestMemorize(val text: String) : AIAction
 }
 
 /** ReAct 循环里可调用的只读工具;只读是硬性要求——写操作永远只能是最终答案的
@@ -62,6 +80,9 @@ sealed interface AITool {
     /** 用户直接给了一个链接、需要看链接内容本身(而不是搜关键词)时用;
      * 与 WebSearch 共用 webSearchEnabled 开关与 skill 文案。 */
     data class WebFetch(val url: String) : AITool
+    /** 新建/修改待办要用到的内容依赖以前存的记忆,但还不知道具体写了什么时
+     * 先查一次,与 iOS AITool.searchMemory 对齐。 */
+    data class SearchMemory(val query: String) : AITool
 }
 
 /** AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或 ReAct
@@ -122,6 +143,24 @@ object DeepSeekClient {
         - 需要最新/实时信息(新闻、天气、价格、赛事结果等)但没有具体链接、或你不确定答案是否过时时,用 web_search 查关键词,不要凭空编内容;已经拿到搜索/抓取结果的,直接用结果内容给最终答案,不要重复搜/重复抓。
     """.trimIndent()
 
+    /** 记忆 skill,与 iOS AgentSkillStore.defaultMemory 逐字一致(资产/人脉子功能
+     * 目前仅 iOS 有,这份文案本身没提到它们,不需要额外裁剪)。仅 memoryEnabled
+     * (记忆数据层已接入)时拼进 command() 的 system prompt。 */
+    private val memorySkill = """
+        额外支持的操作:
+        - 收藏:{"action": "memorize", "text": "要收藏的内容原文"}
+        - 查记忆:{"action": "ask_memory", "question": "用户想查询收藏的问题"}
+        - 主动建议收藏(不是用户直接要求,是你判断这条信息以后可能有用):{"action": "suggest_memorize", "text": "建议收藏的内容,客观简洁"}
+        - 先查记忆再回答:{"thought": "为什么需要先查", "tool": "search_memory", "query": "要查的内容"}(只在新建/修改事项要填的具体内容来自以前存的记忆、但你还不知道那段内容具体是什么时用;每次交流最多用一次,拿到查询结果后必须在下一轮给出真正的最终答案——action 列表或反问,不能连续再查、也不能一直用这个占位不给结果)
+
+        额外判断规则:
+        - 用户明确要求"记住/收藏/存一下"一段内容本身(而不是要提醒做某事)→ memorize,text 原样保留内容部分,只去掉"帮我记住"这类指令词,不要改写、不要总结;可与其他操作并存(如"明天9点开会,再记住门禁码1234"→ 一条 create + 一条 memorize)。
+        - "记得提醒我…""帮我记住明天要交报告"这类带时间、语义是提醒做某事的,仍按 create 处理,不算收藏。
+        - 用户没有要求收藏,但这句话*唯一*的意图是陈述一条看起来长期有效的偏好/习惯/事实(如"我周三下午一般没空""我对海鲜过敏")→ suggest_memorize,此时整个 actions 只放这一条,不与其他操作混用;大多数对话不需要这条,只在信息明显值得长期记住时才提,不要每句话都建议。用户当次消息如果同时有别的待办/新建/查询意图,只处理那些,不要附带这条建议。
+        - 用户在询问以前收藏/记过的内容(如"我之前存的 wifi 密码是多少""收藏里有没有关于爬山的")→ ask_memory,此时整个 actions 只放这一条,不与其他操作混用;询问待办安排(如"我明天有什么事")不算查记忆。
+        - 用户要新建/修改的事项,内容细节依赖以前存的记忆(如"参考我存的装备清单新建一个待办")且你还没看到那段记忆具体写了什么 → 先用 search_memory 查,不要凭空编内容;已经在对话历史里看到查询结果的,直接用结果里的内容给最终答案,不要重复查。
+    """.trimIndent()
+
     /** AI 个性块:只影响面向用户的文字(反问/汇总/洞察),不影响 JSON 结构。 */
     private fun personaBlock(config: AIConfig): String =
         config.persona?.let { "\n\n说话风格(仅影响面向用户的文字,不得改变 JSON 结构与字段值):$it" } ?: ""
@@ -162,6 +201,7 @@ object DeepSeekClient {
         text: String,
         allTasks: List<Pair<String, ParsedTask>>,
         webSearchEnabled: Boolean = false,
+        memoryEnabled: Boolean = false,
     ): AICommandResult {
         // token 预算:按提醒时间取最近 50 条进 prompt
         val tasks = allTasks.sortedBy { it.second.remindAt }.take(50)
@@ -188,15 +228,18 @@ object DeepSeekClient {
             "{\"actions\": [操作, ...]}\n" +
             "{\"question\": \"...\", \"options\": [\"...\", \"...\"]}\n\n" +
             "事项字段:\n$taskSchema\n\n$taskRules" +
-            (if (webSearchEnabled) "\n\n$webSearchSkill" else "") + personaBlock(config)
+            (if (webSearchEnabled) "\n\n$webSearchSkill" else "") +
+            (if (memoryEnabled) "\n\n$memorySkill" else "") + personaBlock(config)
         val payload = complete(config, system, text, thinking = true)
-        return parseCommandResult(payload, tasks.map { it.first }.toSet(), webSearchEnabled)
+        return parseCommandResult(payload, tasks.map { it.first }.toSet(), webSearchEnabled, memoryEnabled)
     }
 
-    /** 从 payload 里解析总入口结果(单测入口)。webSearchEnabled == false 时
-     * web_search/answer 按未知工具/action 处理(即使模型幻觉出来,也保持旧行为)。 */
+    /** 从 payload 里解析总入口结果(单测入口)。webSearchEnabled/memoryEnabled ==
+     * false 时对应的工具/action 按未知工具/action 处理(即使模型幻觉出来,也保持
+     * 旧行为——prompt 里根本没提过,幻觉概率很低)。 */
     internal fun parseCommandResult(
         payload: JSONObject, validUuids: Set<String>, webSearchEnabled: Boolean,
+        memoryEnabled: Boolean = false,
     ): AICommandResult {
         payload.optString("question").takeIf { it.isNotEmpty() }?.let { question ->
             val options = payload.optJSONArray("options")?.let { arr ->
@@ -224,6 +267,16 @@ object DeepSeekClient {
                 return AICommandResult.ToolCall(thought, AITool.WebFetch(url))
             }
         }
+        if (memoryEnabled) {
+            payload.optString("tool").takeIf { it == "search_memory" }?.let {
+                val thought = payload.optString("thought")
+                val query = payload.optString("query")
+                if (query.isBlank()) {
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:search_memory 缺少 query", CurrentLang.value))
+                }
+                return AICommandResult.ToolCall(thought, AITool.SearchMemory(query))
+            }
+        }
         val rawActions = payload.optJSONArray("actions")
             ?: throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 actions", CurrentLang.value))
         if (rawActions.length() == 0) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 actions", CurrentLang.value))
@@ -248,19 +301,43 @@ object DeepSeekClient {
                 } else {
                     throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
                 }
+                "memorize" -> if (memoryEnabled) {
+                    val text2 = raw.optString("text").trim()
+                    if (text2.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:收藏内容为空", CurrentLang.value))
+                    AIAction.Memorize(text2)
+                } else {
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
+                }
+                "suggest_memorize" -> if (memoryEnabled) {
+                    val text2 = raw.optString("text").trim()
+                    if (text2.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:建议收藏内容为空", CurrentLang.value))
+                    AIAction.SuggestMemorize(text2)
+                } else {
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
+                }
+                "ask_memory" -> if (memoryEnabled) {
+                    val question = raw.optString("question").trim()
+                    if (question.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:查询问题为空", CurrentLang.value))
+                    AIAction.AskMemory(question)
+                } else {
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
+                }
                 else -> throw DeepSeekException(
                     Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value) + " $action")
             }
         }
-        // 归一化:prompt 已要求 answer 单独出现,这里是模型不守规矩时的确定性
-        // 兜底——回答与写操作混合时丢弃回答只留写操作(写操作是用户要落地的事
-        // 不能丢,提问可以重新问);全是回答时只留第一条。
-        val answers = actions.filterIsInstance<AIAction.Answer>()
-        if (answers.isNotEmpty()) {
-            return if (answers.size == actions.size) {
+        // 归一化:prompt 已要求 answer/ask_memory/suggest_memorize 这类"陈述性"
+        // 结果单独出现,这里是模型不守规矩时的确定性兜底——和写操作混合时丢弃、
+        // 只留写操作(写操作是用户要落地的事不能丢,提问可以重新问);全是陈述性
+        // 结果时只留第一条,与 iOS route() 的归一化规则一致。
+        val informational = actions.filter {
+            it is AIAction.Answer || it is AIAction.AskMemory || it is AIAction.SuggestMemorize
+        }
+        if (informational.isNotEmpty()) {
+            return if (informational.size == actions.size) {
                 AICommandResult.Actions(listOf(actions[0]))
             } else {
-                AICommandResult.Actions(actions.filterNot { it is AIAction.Answer })
+                AICommandResult.Actions(actions - informational.toSet())
             }
         }
         return AICommandResult.Actions(actions)
@@ -292,6 +369,74 @@ object DeepSeekClient {
         val memory = complete(config, system, "新样本:$title,$durationMinutes 分钟", timeoutSeconds = 60).optString("memory")
         if (memory.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 memory", CurrentLang.value))
         return memory
+    }
+
+    /** 收藏整理:把用户收藏的一段原文整理成标题/摘要/标签。与 iOS
+     * DeepSeekClient.memorize 同构,但只保留标题/摘要/标签这部分——资产
+     * (asset_value/liability/interest_rate)是 iOS 独有的资产子功能字段,
+     * Android 这一轮的记忆系统没有对应数据模型,prompt 里不问这部分,
+     * 因此与 iOS 的完整版 prompt 不逐字相同(那部分指令对 Android 没有意义)。 */
+    suspend fun memorize(
+        config: AIConfig, text: String, kind: String, existingTags: List<String> = emptyList(),
+    ): MemorizedEntry {
+        val tagRule = if (existingTags.isNotEmpty()) {
+            "\n- 已有标签:${existingTags.take(50).joinToString("、")}。" +
+                "tags 优先从已有标签中选用语义相近的,都不合适时才创建新标签。"
+        } else ""
+        val system = "你是提醒事项应用 lodo 的收藏整理助手。用户收藏了一段内容" +
+            "(可能是网页正文、纯文本,或只有文件名),把它整理成一条记忆条目,只返回 JSON,不要任何其他文字:\n" +
+            "{\"title\": \"不超过 20 字的标题\", \"summary\": \"不超过 100 字的客观摘要\", \"tags\": [\"2-4 个中文标签\"]}\n\n" +
+            "规则:\n" +
+            "- 标题概括内容主旨,不要照抄第一句。\n" +
+            "- 内容为空时,基于已有信息推断,summary 注明\"(信息有限,整理仅供参考)\"。\n" +
+            "- 完全无法整理时返回 {\"error\": \"原因\"}。$tagRule\n\n" +
+            "内容类型:$kind"
+        val user = text.ifBlank { "(无内容)" }
+        val payload = complete(config, system, user, timeoutSeconds = 60)
+        payload.optString("error").takeIf { it.isNotEmpty() }?.let {
+            throw DeepSeekException(Strings.translate("无法解析:", CurrentLang.value) + it)
+        }
+        val title = payload.optString("title").trim()
+        if (title.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 title", CurrentLang.value))
+        val summary = payload.optString("summary").trim()
+        val tags = payload.optJSONArray("tags")?.let { arr ->
+            (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotEmpty) }
+        } ?: emptyList()
+        return MemorizedEntry(title, summary, tags)
+    }
+
+    /** 收藏问答:根据收藏条目列表回答用户的问题,与 iOS DeepSeekClient.askMemory
+     * 同构。 */
+    suspend fun askMemory(
+        config: AIConfig, question: String,
+        items: List<MemoryCandidate>,
+    ): Pair<String, List<String>> {
+        val list = JSONArray()
+        items.forEach { item ->
+            list.put(
+                JSONObject()
+                    .put("uuid", item.uuid)
+                    .put("title", item.title)
+                    .put("summary", item.summary)
+                    .put("tags", JSONArray(item.tags))
+                    .put("excerpt", item.excerpt)
+            )
+        }
+        val system = "你是提醒事项应用 lodo 的收藏问答助手。下面是用户收藏的记忆条目列表," +
+            "根据它们回答用户的问题(搜索、询问、归纳整理都可以),只返回 JSON,不要任何其他文字:\n" +
+            "{\"answer\": \"回答\", \"related_uuids\": [\"相关条目的 uuid,原样取自列表,不要自己生成\"]}\n\n" +
+            "规则:\n" +
+            "- 回答基于条目内容,不要编造条目里没有的信息;不超过 120 个字。\n" +
+            "- 找不到相关条目时,answer 说明没有找到相关收藏,related_uuids 为空数组。\n\n" +
+            "${timeContext()}\n\n记忆条目列表:\n$list" + personaBlock(config)
+        val payload = complete(config, system, question, timeoutSeconds = 60)
+        val answer = payload.optString("answer").trim()
+        if (answer.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 answer", CurrentLang.value))
+        val validUuids = items.map { it.uuid }.toSet()
+        val relatedUuids = payload.optJSONArray("related_uuids")?.let { arr ->
+            (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotEmpty) }
+        }?.filter { it in validUuids } ?: emptyList()
+        return answer to relatedUuids
     }
 
     /** 把今天的事项列表改写成一句话汇总,突出重点事件(每日汇总通知正文)。 */
@@ -347,6 +492,20 @@ object DeepSeekClient {
         val insight = complete(config, system, stats, timeoutSeconds = 60).optString("insight")
         if (insight.isBlank()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 insight", CurrentLang.value))
         return insight
+    }
+
+    /** 定时任务(AI 例行任务)到点执行:用户自己写的指令(如"总结今日待办""看
+     * 天气给穿搭建议"),给出一句简短结果用于推送通知。与 iOS runRoutine 同构,
+     * 但这一轮 Android 不做 ReAct/联网(iOS "允许 ReAct 联网"),只是单轮直接
+     * 作答——指令依赖联网实时信息时模型会如实说明取决于自身知识范围,不会
+     * 编造。 */
+    suspend fun runRoutine(config: AIConfig, prompt: String): String {
+        val system = "你是提醒事项应用 lodo 的定时任务执行助手。用户设置了一条到点自动执行的指令," +
+            "现在到点了,请执行这条指令并给出结果,只返回 JSON,不要任何其他文字:\n" +
+            "{\"result\": \"执行结果,不超过 100 字\"}\n\n${timeContext()}" + personaBlock(config)
+        val result = complete(config, system, prompt, timeoutSeconds = 60).optString("result")
+        if (result.isBlank()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 result", CurrentLang.value))
+        return result
     }
 
     private fun taskJson(task: ParsedTask): JSONObject = JSONObject()

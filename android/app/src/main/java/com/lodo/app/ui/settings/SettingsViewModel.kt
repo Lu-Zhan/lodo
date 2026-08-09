@@ -1,6 +1,7 @@
 package com.lodo.app.ui.settings
 
 import android.app.Application
+import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,7 +11,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lodo.app.LodoApp
 import com.lodo.app.ai.DurationMemory
+import com.lodo.app.ai.GeminiNanoClient
 import com.lodo.app.ai.WebSearchClient
+import com.lodo.app.data.Backup
 import com.lodo.app.data.Settings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -33,6 +36,51 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     /** AI 记忆文件内容(编辑对话框用)。 */
     var memoryText by mutableStateOf("")
+
+    /** 端上 AI(Gemini Nano)可用性探测,对应 iOS Foundation Models 的
+     * availability 检查——null=未测过,不主动在 app 启动时测(探测本身要真的
+     * 跑一次推理,有成本),用户点"检测"才测一次。 */
+    var geminiNanoAvailable by mutableStateOf<Boolean?>(null)
+        private set
+    var geminiNanoChecking by mutableStateOf(false)
+        private set
+
+    fun checkGeminiNanoAvailability() = viewModelScope.launch {
+        geminiNanoChecking = true
+        geminiNanoAvailable = GeminiNanoClient.isAvailable(app)
+        geminiNanoChecking = false
+    }
+
+    /** 全量备份导入/导出的进行中状态与结果提示,对应 iOS 的备份导入导出。 */
+    var backupBusy by mutableStateOf(false)
+        private set
+    var backupMessage by mutableStateOf<String?>(null)
+
+    fun exportBackup(uri: Uri) = viewModelScope.launch {
+        backupBusy = true
+        backupMessage = null
+        try {
+            Backup.export(app, uri, app.database)
+            backupMessage = "已导出备份。"
+        } catch (e: Exception) {
+            backupMessage = "导出失败:${e.message}"
+        } finally {
+            backupBusy = false
+        }
+    }
+
+    fun importBackup(uri: Uri) = viewModelScope.launch {
+        backupBusy = true
+        backupMessage = null
+        try {
+            val result = Backup.import(app, uri, app.database)
+            backupMessage = "已导入 ${result.taskCount} 项待办、${result.memoryCount} 条记忆。"
+        } catch (e: Exception) {
+            backupMessage = "导入失败:${e.message}"
+        } finally {
+            backupBusy = false
+        }
+    }
 
     init {
         viewModelScope.launch {

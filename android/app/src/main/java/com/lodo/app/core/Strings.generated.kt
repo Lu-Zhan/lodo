@@ -133,6 +133,14 @@ object Strings {
         "android_notif.no_tasks_today" to mapOf(Lang.ZH to "今日暂无待办事项 🎉", Lang.EN to "No tasks today 🎉"),
         "android_notif.done" to mapOf(Lang.ZH to "完成", Lang.EN to "Done"),
         "android_notif.snooze" to mapOf(Lang.ZH to "稍等一会", Lang.EN to "Snooze"),
+        "shared.white" to mapOf(Lang.ZH to "白色", Lang.EN to "White"),
+        "shared.pink" to mapOf(Lang.ZH to "粉色", Lang.EN to "Pink"),
+        "shared.green" to mapOf(Lang.ZH to "绿色", Lang.EN to "Green"),
+        "shared.brown" to mapOf(Lang.ZH to "棕色", Lang.EN to "Brown"),
+        "shared.blue" to mapOf(Lang.ZH to "蓝色", Lang.EN to "Blue"),
+        "shared.black" to mapOf(Lang.ZH to "黑色", Lang.EN to "Black"),
+        "shared.daily" to mapOf(Lang.ZH to "每天", Lang.EN to "Daily"),
+        "shared.weekly" to mapOf(Lang.ZH to "每周", Lang.EN to "Weekly"),
     )
 
     fun of(key: String, lang: Lang): String =

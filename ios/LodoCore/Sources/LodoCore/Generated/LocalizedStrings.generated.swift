@@ -141,6 +141,14 @@ public enum LK: String, CaseIterable {
     case ios_notif_done
     case ios_notif_snooze
     case ios_notif_reschedule
+    case shared_white
+    case shared_pink
+    case shared_green
+    case shared_brown
+    case shared_blue
+    case shared_black
+    case shared_daily
+    case shared_weekly
 }
 
 public enum LocalizedStrings {
@@ -278,6 +286,14 @@ public enum LocalizedStrings {
         .ios_notif_done: [.zhHans: "完成", .en: "Done"],
         .ios_notif_snooze: [.zhHans: "稍等一会", .en: "Snooze"],
         .ios_notif_reschedule: [.zhHans: "改期", .en: "Reschedule"],
+        .shared_white: [.zhHans: "白色", .en: "White"],
+        .shared_pink: [.zhHans: "粉色", .en: "Pink"],
+        .shared_green: [.zhHans: "绿色", .en: "Green"],
+        .shared_brown: [.zhHans: "棕色", .en: "Brown"],
+        .shared_blue: [.zhHans: "蓝色", .en: "Blue"],
+        .shared_black: [.zhHans: "黑色", .en: "Black"],
+        .shared_daily: [.zhHans: "每天", .en: "Daily"],
+        .shared_weekly: [.zhHans: "每周", .en: "Weekly"],
     ]
 
     public static func text(_ key: LK, language: AppLanguage) -> String {

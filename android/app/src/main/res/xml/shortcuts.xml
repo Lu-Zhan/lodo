@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 长按桌面图标弹出的静态快捷方式:新建/AI 助手,对齐 iOS 的 Siri Shortcuts 入口。 -->
+<!-- 长按桌面图标弹出的静态快捷方式:新建/AI 助手,对齐 iOS 的 Siri Shortcuts 入口。
+     底部的 <capability> 是 Google Assistant App Actions 声明,对应 iOS Siri
+     App Intents(LodoIntents.swift 的 AddTaskIntent)——"Hey Google, 用 Lodo
+     创建一个待办" 这类语音指令由系统 Assistant 匹配到这条能力后,把说出的
+     标题通过 taskTitle 参数带进 MainActivity(consumeRouteIntent 的
+     "create_task" 分支),复用 agent 输入框走正常解析确认流程,不跳过用户
+     确认直接落库。注意:这条声明只在 Gradle/清单层面是完整、可编译的,
+     实际运行时是否被 Assistant 正确匹配需要 Google 的 App Actions Test Tool +
+     登录 Google 账号的真机/模拟器验证,这个沙箱环境没有这两样,无法端到端
+     验证——与 Siri Intents 在没有真机的环境下同样无法验证是同一类限制。 -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:shortcutId="agent"
@@ -27,4 +36,16 @@
             <extra android:name="route" android:value="add" />
         </intent>
     </shortcut>
+
+    <capability android:name="actions.intent.CREATE_TASK">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.lodo.app"
+            android:targetClass="com.lodo.app.MainActivity">
+            <extra android:name="route" android:value="create_task" />
+            <parameter
+                android:name="task.name"
+                android:key="taskTitle" />
+        </intent>
+    </capability>
 </shortcuts>

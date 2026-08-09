@@ -50,8 +50,10 @@ sealed interface AgentReply {
     data class Confirm(val lines: List<String>) : AgentReply
     /** 关键信息缺失,反问 + 候选补充。 */
     data class Clarify(val question: String, val options: List<String>) : AgentReply
-    /** 纯文字回应:撤销结果、联网搜索后直接回答的一般性问题。 */
+    /** 纯文字回应:撤销结果、联网搜索后直接回答的一般性问题、收藏问答。 */
     data class Message(val text: String) : AgentReply
+    /** AI 主动建议收藏(不落库),UI 上一个"收藏这条"按钮点了才存。 */
+    data class SuggestMemorize(val text: String) : AgentReply
 }
 
 /** agent 批量执行(performPendingActions)后留下的撤销记录,一条操作一个 case;
@@ -65,6 +67,9 @@ sealed interface UndoOp {
     /** insertedHistoryUuid:重复事项完成一次时插入的历史记录,撤销要连它一起删掉。 */
     data class Completed(val before: TaskEntity, val insertedHistoryUuid: String?) : UndoOp
     data class Deleted(val before: TaskEntity) : UndoOp
+    /** 批量操作里混了 memorize 时新建的记忆条目,撤销即删除——和 Created 对
+     * 待办的处理是同一个思路。 */
+    data class MemorizedItem(val uuid: String) : UndoOp
 }
 
 data class TodoUiState(
@@ -185,7 +190,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         repeat(3) {
             when (val result = DeepSeekClient.command(
                 app.settings.aiConfig(), currentText,
-                context.sortedBy { it.second.remindAt }, webSearchEnabled,
+                context.sortedBy { it.second.remindAt }, webSearchEnabled, memoryEnabled = true,
             )) {
                 is AICommandResult.Clarify -> return AgentReply.Clarify(result.question, result.options)
                 is AICommandResult.ToolCall -> {
@@ -216,13 +221,32 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                             "$text\n\n[抓取链接 $url 的内容]\n$observation\n\n" +
                                 "请基于以上内容继续处理最初的请求。"
                         }
+                        is AITool.SearchMemory -> {
+                            val observation = formatMemoryCandidates(app.memoryRepository.retrieveCandidates(tool.query))
+                            "$text\n\n[记忆检索“${tool.query}”的结果]\n$observation\n\n" +
+                                "请基于以上结果继续处理最初的请求。"
+                        }
                     }
                 }
                 is AICommandResult.Actions -> {
                     val actions = result.actions
                     if (actions.size == 1) {
-                        (actions[0] as? AIAction.Create)?.let {
-                            sheet = SheetMode.Create(it.task)
+                        (actions[0] as? AIAction.Create)?.let { create ->
+                            // 时长记忆本来只有"快速添加页"(addParse)在用,主聊天
+                            // 入口这条主路径反而没消费过——补上;走表单确认(不像
+                            // 批量操作那样直接落库),AI 补的时长用户在表单里还能
+                            // 看到/改掉,比直接落库更安全。
+                            var task = create.task
+                            if (task.durationMinutes == 0) {
+                                DurationMemory.content(app)?.let { memory ->
+                                    val minutes = runCatching {
+                                        DeepSeekClient.suggestDuration(
+                                            app.settings.aiConfig(), text, task.title, memory)
+                                    }.getOrDefault(0)
+                                    if (minutes > 0) task = task.copy(durationMinutes = minutes)
+                                }
+                            }
+                            sheet = SheetMode.Create(task)
                             return AgentReply.Routed
                         }
                         (actions[0] as? AIAction.Update)?.let { update ->
@@ -233,6 +257,12 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                             return AgentReply.Routed
                         }
                         (actions[0] as? AIAction.Answer)?.let { return AgentReply.Message(it.text) }
+                        (actions[0] as? AIAction.Memorize)?.let { memorize ->
+                            val item = app.memoryRepository.saveText(app.settings.aiConfig(), memorize.text)
+                            return AgentReply.Message("已收藏:${item.title.ifEmpty { "整理中…" }}")
+                        }
+                        (actions[0] as? AIAction.SuggestMemorize)?.let { return AgentReply.SuggestMemorize(it.text) }
+                        (actions[0] as? AIAction.AskMemory)?.let { return answerFromMemory(it.question) }
                     }
                     pendingActions = actions
                     return AgentReply.Confirm(actions.map(::describe))
@@ -240,6 +270,33 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         throw DeepSeekException("无法解析:多轮推理超过上限,换个说法试试")
+    }
+
+    /** search_memory/ReAct 观察文本的格式化,与 iOS route() 的拼接方式一致
+     * (待办历史条目前缀"[待办历史] ")。 */
+    private fun formatMemoryCandidates(candidates: List<com.lodo.app.ai.MemoryCandidate>): String {
+        if (candidates.isEmpty()) return "没有找到相关记忆内容"
+        return candidates.joinToString("\n") {
+            val prefix = if (it.uuid.startsWith("task:")) "[待办历史] " else ""
+            "$prefix「${it.title}」${it.excerpt}"
+        }
+    }
+
+    /** ask_memory 短路直达:检索候选 + 一次 AI 问答,与 iOS answerFromMemory 同构。
+     * 一条记忆/已完成事项都没有时不必浪费一次请求,直接给引导文案。 */
+    private suspend fun answerFromMemory(question: String): AgentReply.Message {
+        val candidates = app.memoryRepository.retrieveCandidates(question)
+        if (candidates.isEmpty()) {
+            return AgentReply.Message("你还没有任何收藏,先在「记忆」页收藏一些内容吧。")
+        }
+        val (answer, _) = DeepSeekClient.askMemory(app.settings.aiConfig(), question, candidates)
+        return AgentReply.Message(answer)
+    }
+
+    /** "收藏这条"按钮点了才真正落库,与 iOS suggestMemorize 的"不落库,点了才存"
+     * 一致。 */
+    fun memorizeSuggestion(text: String) = viewModelScope.launch {
+        app.memoryRepository.saveText(app.settings.aiConfig(), text)
     }
 
     private fun describe(action: AIAction): String = when (action) {
@@ -252,9 +309,15 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             "修改:${action.task.title}(${TimeFormat.format(action.task.remindAt)})"
         is AIAction.Complete -> "完成:${titleOf(action.uuid) ?: "未知事项"}"
         is AIAction.Delete -> "删除:${titleOf(action.uuid) ?: "未知事项"}"
-        // 防御性分支:agentRoute 已把单条 answer 短路直接返回,混合批次里理论上
+        // memorize 可以和待办操作混在同一句话里并存(如"明天9点开会,再记住门禁码
+        // 1234"),混合批次会真的走到这里,不是防御性分支。
+        is AIAction.Memorize -> "收藏:${action.text}"
+        // 防御性分支:agentRoute 已把单条 answer/askMemory/suggestMemorize 短路
+        // 直接返回(解析层的归一化也保证它们不会和写操作混批),混合批次里理论上
         // 不会出现,兜底给出可读描述。
         is AIAction.Answer -> "回答:${action.text}"
+        is AIAction.AskMemory -> "查记忆:${action.question}"
+        is AIAction.SuggestMemorize -> "建议收藏:${action.text}"
     }
 
     private fun titleOf(uuid: String): String? =
@@ -313,9 +376,15 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                         missingCount++
                     }
                 }
-                // 防御性分支:agentRoute 已把单条 answer 短路直接返回,正常不会
-                // 混进批次;没有可执行的落库动作。
+                is AIAction.Memorize -> {
+                    val item = app.memoryRepository.saveText(app.settings.aiConfig(), action.text)
+                    undoOps += UndoOp.MemorizedItem(item.uuid)
+                }
+                // 防御性分支:agentRoute 已把单条 answer/askMemory/suggestMemorize 短路
+                // 直接返回,正常不会混进批次;没有可执行的落库动作。
                 is AIAction.Answer -> {}
+                is AIAction.AskMemory -> {}
+                is AIAction.SuggestMemorize -> {}
             }
         }
         sheet = null
@@ -368,6 +437,12 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                     op.insertedHistoryUuid?.let { app.repository.removeIfExists(it) }
                 }
                 is UndoOp.Deleted -> app.repository.restoreSnapshot(op.before)
+                is UndoOp.MemorizedItem ->
+                    if (app.memoryRepository.byUuid(op.uuid) != null) {
+                        app.memoryRepository.delete(op.uuid)
+                    } else {
+                        missingCount++
+                    }
             }
         }
         return if (missingCount > 0) {

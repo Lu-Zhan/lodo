@@ -11,7 +11,10 @@ android {
 
     defaultConfig {
         applicationId = "com.lodo.app"
-        minSdk = 26
+        // 26 → 31:端上 AI(Gemini Nano / AICore,对应 iOS Foundation Models)
+        // 的 SDK 硬性要求 minSdk 31,用户已确认接受掉 Android 8.0-11 支持换取
+        // 这项能力(见相关讨论)。
+        minSdk = 31
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -51,6 +54,11 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.okhttp)
+    // 定时任务(AI 例行任务)执行调度,对应 iOS BGTaskScheduler 那一层。
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // 端上 AI(Gemini Nano),对应 iOS Foundation Models 的 Android 等价物;
+    // minSdk 31 硬性要求已在 defaultConfig 里说明。
+    implementation("com.google.ai.edge.aicore:aicore:0.0.1-exp01")
     testImplementation(libs.junit)
     // 纯 JVM 单测(不经 Robolectric/仪器化)链接的是 android.jar 里 org.json 的桩实现
     // (所有方法 throw "Stub!"),DeepSeekClient 的 JSON 解析逻辑要测就得在测试

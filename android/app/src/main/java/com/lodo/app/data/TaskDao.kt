@@ -16,6 +16,14 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE status = 'pending'")
     suspend fun pending(): List<TaskEntity>
 
+    /** 记忆问答检索"已完成待办历史"专用(MemoryRepository.retrieveCandidates)。 */
+    @Query("SELECT * FROM tasks WHERE status = 'done' ORDER BY doneAtMillis DESC")
+    suspend fun done(): List<TaskEntity>
+
+    /** 全量备份导出/导入去重专用(Backup)。 */
+    @Query("SELECT * FROM tasks")
+    suspend fun all(): List<TaskEntity>
+
     @Query("SELECT * FROM tasks WHERE uuid = :uuid LIMIT 1")
     suspend fun byUuid(uuid: String): TaskEntity?
 

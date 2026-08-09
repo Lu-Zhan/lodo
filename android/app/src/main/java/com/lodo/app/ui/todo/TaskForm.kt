@@ -238,7 +238,7 @@ fun TaskFormFields(
                             .clickable { editingTimeIndex = i }
                             .padding(vertical = 12.dp),
                     ) {
-                        Text(stringResource(R.string.android_ui_time_0), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.android_ui_time_0, i + 1), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                         Text(hhmm, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = {

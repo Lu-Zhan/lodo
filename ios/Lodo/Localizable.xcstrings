@@ -881,6 +881,22 @@
         }
       }
     },
+    "切换图标失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change Icon Failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换图标失败"
+          }
+        }
+      }
+    },
     "创建": {
       "localizations": {
         "en": {
@@ -1309,6 +1325,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "喜好"
+          }
+        }
+      }
+    },
+    "图标颜色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon Color"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "图标颜色"
           }
         }
       }
@@ -2641,6 +2673,22 @@
         }
       }
     },
+    "棕色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brown"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "棕色"
+          }
+        }
+      }
+    },
     "模型名称": {
       "localizations": {
         "en": {
@@ -3089,6 +3137,22 @@
         }
       }
     },
+    "白色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "White"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "白色"
+          }
+        }
+      }
+    },
     "确定": {
       "localizations": {
         "en": {
@@ -3217,6 +3281,22 @@
         }
       }
     },
+    "粉色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pink"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粉色"
+          }
+        }
+      }
+    },
     "粘贴收藏": {
       "localizations": {
         "en": {
@@ -3261,6 +3341,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "结果发通知"
+          }
+        }
+      }
+    },
+    "绿色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Green"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绿色"
           }
         }
       }
@@ -3373,6 +3469,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "苹果智能需要 iOS 26 及以上系统。"
+          }
+        }
+      }
+    },
+    "莫兰迪色系,默认白色。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Morandi color palette; white by default."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "莫兰迪色系,默认白色。"
+          }
+        }
+      }
+    },
+    "蓝色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blue"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "蓝色"
           }
         }
       }
@@ -4189,6 +4317,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "高效秘书"
+          }
+        }
+      }
+    },
+    "黑色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Black"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "黑色"
           }
         }
       }

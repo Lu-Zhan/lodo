@@ -131,6 +131,9 @@ fun TodoListScreen(
         when (val route = pendingRoute) {
             is PendingRoute.Agent -> vm.sheet = SheetMode.Agent(autoStart = route.autoStart)
             is PendingRoute.Reschedule -> vm.handleReschedule(route.uuid)
+            // Assistant 说出的标题直接送进 agent 输入框走一遍正常解析流程,不
+            // 跳过用户确认直接落库——和"add" App Shortcut 同一个安全边界。
+            is PendingRoute.CreateTask -> vm.sheet = SheetMode.Agent(prefill = route.title)
             null -> return@LaunchedEffect
         }
         app.pendingRoute.value = null
@@ -276,6 +279,7 @@ fun TodoListScreen(
             agentSilenceTimeoutSeconds = state.agentSilenceTimeoutSeconds,
             onSubmit = vm::agentRoute,
             onConfirm = { vm.performPendingActions() },
+            onMemorizeSuggestion = { vm.memorizeSuggestion(it) },
             onDismiss = {
                 // 清掉未确认的批量操作,避免残留
                 vm.clearPendingActions()
@@ -403,13 +407,15 @@ private fun AskDurationCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(R.string.android_ui_how_long_did_0_actually_take), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.android_ui_how_long_did_0_actually_take, title), style = MaterialTheme.typography.bodyMedium)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 chips.forEach { minutes ->
-                    OutlinedButton(onClick = { onAnswer(minutes) }) { Text(stringResource(R.string.android_ui_0_min)) }
+                    OutlinedButton(onClick = { onAnswer(minutes) }) {
+                        Text(stringResource(R.string.android_ui_0_min, minutes))
+                    }
                 }
                 TextButton(onClick = onSkip) { Text(stringResource(R.string.shared_skip)) }
             }
@@ -477,7 +483,7 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.android_ui_snooze_0_min))
+                    Text(stringResource(R.string.android_ui_snooze_0_min, snoozeMinutes))
                 }
             }
             vm.reschedule?.takeIf { it.first == task.uuid }?.let { (_, candidates) ->
