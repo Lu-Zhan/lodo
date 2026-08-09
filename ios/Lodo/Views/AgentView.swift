@@ -126,9 +126,7 @@ struct AgentView: View {
             // 只忽略 .container(不能用 .all):键盘安全区仍然生效,弹键盘时
             // 输入栏照常被顶上去。
             .ignoresSafeArea(.container, edges: .bottom)
-            // 抽屉推开时连标题一起清空:principal 那项被撤掉后,navigationTitle
-            // 会顶上来接着显示,和侧栏自己的标题挤在一起。
-            .navigationTitle(hidesToolbarChrome ? "" : threadTitle)
+            .navigationTitle(threadTitle)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -138,17 +136,23 @@ struct AgentView: View {
                 // 当前 AI 模式(服务商/思考强度/联网搜索),不然用户在对话里完全
                 // 看不出现在到底是哪个服务商、思考开没开、能不能联网搜索——
                 // 这些都要跳回设置页才看得到。
-                if !hidesToolbarChrome {
-                    ToolbarItem(placement: .principal) {
-                        VStack(spacing: 1) {
-                            Text(threadTitle)
-                                .font(.headline)
-                                .lineLimit(1)
-                            Text(aiModeSummary)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
+                // principal 项恒定渲染(只淡出内容),抽屉展开/拖拽时导航栏高度
+                // 才不会跟着两行标题的消失/出现联动跳变,chatColumn 紧贴在导航栏
+                // 下方布局,导航栏一变高聊天区就会跟着窜一下——这是纯文字 VStack,
+                // 没有 Liquid Glass 背景,可以放心用 opacity(不像下面两个按钮)。
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 1) {
+                        Text(threadTitle)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Text(aiModeSummary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
+                    .opacity(hidesToolbarChrome ? 0 : 1)
+                    .accessibilityHidden(hidesToolbarChrome)
+                }
+                if !hidesToolbarChrome {
                     ToolbarItem(placement: .navigation) {
                         Button {
                             isInputFocused = false
@@ -312,11 +316,14 @@ struct AgentView: View {
         withAnimation(.lodoAware(.lodoSidebar)) { showThreads = false }
     }
 
-    /// 窄屏抽屉推开时整组工具栏项(汉堡/标题/关闭)直接撤掉:工具栏挂在
-    /// NavigationStack 上、不会跟着 chatColumn 平移,留着的话汉堡会浮在侧栏上面,
-    /// 标题那个 "Lodo" 还会和侧栏自己的 "Lodo" 标题重复。这里必须是"移除"而不是
-    /// 给按钮加 .opacity(0)——iOS 26 工具栏按钮的 Liquid Glass 底是系统画的,
-    /// 不跟着 label 的透明度走,只调透明度会在顶上留下两个空玻璃圆圈。
+    /// 窄屏抽屉推开时汉堡/关闭两个按钮直接撤掉:工具栏挂在 NavigationStack 上、
+    /// 不会跟着 chatColumn 平移,留着的话汉堡会浮在侧栏上面。这里必须是"移除"
+    /// 而不是给按钮加 .opacity(0)——iOS 26 工具栏按钮的 Liquid Glass 底是系统
+    /// 画的,不跟着 label 的透明度走,只调透明度会在顶上留下两个空玻璃圆圈。
+    /// principal 标题项不受这条限制,恒定渲染只淡出内容(见上面 .toolbar 里的
+    /// 用法)——纯文字没有 Liquid Glass 背景,而且恒定渲染能让导航栏高度两态
+    /// 保持一致,不然两行标题一撤/一现,紧贴在导航栏下方的 chatColumn 就会跟着
+    /// 竖直跳一下,和水平推移的抽屉动画脱节。
     /// 判据是 sidebarProgress 而不是 showThreads:拖到一半时汉堡同样会浮在已经
     /// 露出来的那截侧栏上面,所以拖拽一起手就得撤掉,不能等松手落定。
     /// 宽屏常驻列不推开内容,工具栏照常显示。
