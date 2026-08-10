@@ -49,6 +49,13 @@ struct AgentView: View {
 
     /// 窄屏时表示抽屉是否展开,宽屏时表示常驻侧栏是否可见;两种布局共用同一个开关。
     @State private var showThreads = false
+    /// 设备物理安全区顶部高度(灵动岛/状态栏),不含 NavigationStack 内部给导航栏
+    /// 额外预留的那截——挂在 NavigationStack 外层的 background 上量,量到的是
+    /// "进入 NavigationStack 之前"的原始安全区,不会被内部导航栏放大。窄屏抽屉
+    /// 拉到物理顶部时(sidebarPanel 忽略了容器安全区)要拿这个值重新给侧栏 header
+    /// 加回顶部间距,不然文字会被灵动岛挡住;在 sidebarPanel 内部另开一个
+    /// GeometryReader 读不到这个值——那个位置已经在忽略安全区的子树里,读到的是 0。
+    @State private var deviceTopInset: CGFloat = 0
     /// 窄屏抽屉横向拖拽关闭手势的实时位移。
     @State private var sidebarDragOffset: CGFloat = 0
     /// 本次拖拽的起点 + 归属判定;起点变了就说明换了一次新拖拽,重新判定。
@@ -251,6 +258,17 @@ struct AgentView: View {
                 #endif
             }
         }
+        // 挂在 NavigationStack 外层:量到的是原始安全区,不会被 NavigationStack
+        // 内部给导航栏做的那次放大污染。
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { deviceTopInset = proxy.safeAreaInsets.top }
+                    .onChange(of: proxy.safeAreaInsets.top) { _, newValue in
+                        deviceTopInset = newValue
+                    }
+            }
+        )
         #if os(macOS)
         // 宽屏(macOS 恒为 .regular)默认展开常驻侧栏,460pt 老尺寸减去侧栏宽度后
         // 聊天区太窄,放宽到能同时容纳侧栏 + 舒适聊天区。iOS 上 agent 恒走
@@ -298,11 +316,21 @@ struct AgentView: View {
         }
     }
 
+    /// 窄屏抽屉能"拉到物理屏幕顶部":compactLayout 调用处会额外挂
+    /// .ignoresSafeArea(.container, edges: .top),面板因此不再吃 NavigationStack
+    /// 给导航栏预留的那截高度(展开时导航栏内容已撤空/淡出,那截空间只是视觉
+    /// 留白,侧栏没必要跟着往下让)。但忽略安全区之后这个子树内部再读
+    /// GeometryReader 只会读到 0(整块 container 安全区,包括设备硬件那部分,
+    /// 一起被忽略了,不是只去掉了导航栏那部分),所以顶部间距改用 deviceTopInset
+    /// ——挂在 NavigationStack 外层量出来的设备物理安全区(灵动岛/状态栏)。
+    /// regularLayout(宽屏常驻列)不挂 ignoresSafeArea,顶部间距继续是 0,
+    /// 行为和原来完全一样。
     private var sidebarPanel: some View {
         AgentThreadListView(currentThreadUUID: $currentThreadUUID) {
             if horizontalSizeClass != .regular { closeSidebar() }
         }
-        .frame(maxHeight: .infinity)
+        .padding(.top, horizontalSizeClass == .regular ? 0 : deviceTopInset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 日间用纯背景色而不是磨砂材质:材质会透出一块带灰的底,和参考图里
         // "面板和被推开的卡几乎同色、只靠投影分层"的观感对不上。用语义的
         // BackgroundStyle 而不是 UIKit 专有的 systemBackground,iOS/macOS 通吃。
@@ -398,6 +426,9 @@ struct AgentView: View {
             // 面板常驻渲染,靠 offset 推到屏幕外表示收起——这样拖拽中间态才有东西
             // 可跟手(条件渲染 + transition 做不到跟手,只能播一段固定动画)。
             sidebarPanel
+                // 拉到屏幕物理顶部,不吃 NavigationStack 给导航栏预留的那截安全区
+                // (展开时导航栏内容已经撤空/淡出,留着那截空白没意义)。
+                .ignoresSafeArea(.container, edges: .top)
                 .frame(width: DesignMetrics.sidebarWidth)
                 .offset(x: -(1 - sidebarProgress) * DesignMetrics.sidebarWidth)
                 .gesture(
