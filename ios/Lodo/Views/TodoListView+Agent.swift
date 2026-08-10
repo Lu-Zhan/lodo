@@ -100,10 +100,19 @@ extension TodoListView {
                         return .routeToForm(existing: nil, parsed: parsed)
                     }
                     if case .update(let uuid, let parsed) = actions[0] {
+                        // 修改不弹确认卡片,直接落库——用户已经在对话里指名道姓要改
+                        // 哪条、改成什么,不需要再点一次确认;记一份 lastUndo 兜底
+                        // AI 偶尔解析错的情况,和批量执行里 case .update 同一套写法
+                        // (performPendingActions,下面第 324 行左右)。
                         guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else {
                             throw DeepSeekError.parse("找不到要修改的事项")
                         }
-                        return .routeToForm(existing: task, parsed: parsed)
+                        let before = task.backup
+                        apply(parsed, to: task)
+                        WidgetBridge.sync(context: context)
+                        lastUndo = [.updated(before: before)]
+                        lastUndoThreadUUID = threadUUID
+                        return .updated(task: task, parsed: parsed)
                     }
                     if case .memorize(let text) = actions[0] {
                         guard let item = MemoryPipeline.saveText(text, context: context) else {

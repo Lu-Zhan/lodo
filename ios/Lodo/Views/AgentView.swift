@@ -932,6 +932,8 @@ struct AgentView: View {
                 switch reply {
                 case .routeToForm(let existing, let parsed):
                     appendTaskProposal(thread: thread, existingUUID: existing?.uuid, parsed: parsed)
+                case .updated(let task, let parsed):
+                    appendTaskResult(thread: thread, existingUUID: task.uuid, parsed: parsed)
                 case .confirm(let lines):
                     appendAssistant(thread: thread, kind: .confirm, content: lines.joined(separator: "\n"))
                 case .ask(let questions):
@@ -983,7 +985,8 @@ struct AgentView: View {
 
     private static func summaryInput(for reply: AgentReply) -> String {
         switch reply {
-        case .routeToForm(_, let parsed): return "新建/修改了事项:\(parsed.title)"
+        case .routeToForm(_, let parsed): return "新建了事项:\(parsed.title)"
+        case .updated(_, let parsed): return "修改了事项:\(parsed.title)"
         case .confirm(let lines): return lines.joined(separator: ";")
         case .ask(let questions): return questions.first?.question ?? ""
         case .answer(let text, _): return text
@@ -1054,6 +1057,11 @@ struct AgentView: View {
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
             appendTaskResult(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask)
+        }
+        // 修改结果卡片(带撤销按钮),和上面创建结果卡片(不带撤销按钮)对照截图用。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result-updated") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "开会挪到下午4点"))
+            appendTaskResult(thread: thread, existingUUID: UUID(), parsed: Self.demoParsedTask)
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-memory-result") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "记住wifi密码是8888"))

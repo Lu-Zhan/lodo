@@ -250,11 +250,20 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                             return AgentReply.Routed
                         }
                         (actions[0] as? AIAction.Update)?.let { update ->
-                            // 请求期间事项可能被完成/删除,用返回时的最新列表再匹配一次
-                            val entity = uiState.value.pending.firstOrNull { it.uuid == update.uuid }
-                                ?: throw DeepSeekException("无法解析:找不到要修改的事项")
-                            sheet = SheetMode.Edit(entity, update.task)
-                            return AgentReply.Routed
+                            // 修改不弹编辑表单,直接落库——用户已经在对话里指名道姓
+                            // 要改哪条、改成什么,不需要再确认一次;记一份 lastUndo
+                            // 兜底 AI 偶尔解析错的情况,和 performPendingActions 里
+                            // is AIAction.Update 同一套"落库前即时查一次最新状态"写法
+                            // (不用 uiState.value.pending 那份弹层打开时可能已过时的快照)。
+                            val before = app.repository.current(update.uuid)
+                            if (before == null || before.statusEnum != TaskStatus.PENDING) {
+                                throw DeepSeekException("无法解析:找不到要修改的事项")
+                            }
+                            app.repository.applyEdit(update.uuid, update.task)
+                            lastUndo = listOf(UndoOp.Updated(before))
+                            val token = ++lastUndoToken
+                            _undoAvailableEvents.emit(token)
+                            return AgentReply.Message("已修改:${update.task.title}")
                         }
                         (actions[0] as? AIAction.Answer)?.let { return AgentReply.Message(it.text) }
                         (actions[0] as? AIAction.Memorize)?.let { memorize ->

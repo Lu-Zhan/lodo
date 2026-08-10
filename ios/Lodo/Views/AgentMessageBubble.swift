@@ -185,12 +185,30 @@ struct AgentMessageBubble: View {
         }
     }
 
+    /// 修改结果(existingUUID != nil)带撤销按钮,只在最新一条可点——route() 里
+    /// 单条修改已经跳过确认卡片直接落库,这个按钮是唯一的事后反悔手段。新建结果
+    /// 不带这个按钮:新建走的是"确认新建"点了之后才落库,已经确认过一次,维持
+    /// 现状不加撤销。
     @ViewBuilder
     private var taskResultContent: some View {
         if let taskSnapshot {
             VStack(alignment: .leading, spacing: 10) {
                 Text(message.content).font(.body)
-                AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
+                if isLatest, taskSnapshot.existingUUID != nil {
+                    HStack(spacing: 8) {
+                        AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
+                        Button {
+                            onUndo()
+                        } label: {
+                            Label("撤销", systemImage: "arrow.uturn.backward")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("撤销")
+                    }
+                } else {
+                    AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
+                }
             }
         } else {
             Text(message.content).font(.body)

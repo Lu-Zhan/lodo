@@ -8,9 +8,14 @@ import UIKit
 
 /// 全局 agent 一次解析后的回应形态(AgentView 据此展示)。
 enum AgentReply {
-    /// 单条新建/修改:AgentView 追加一条待确认的 taskProposal 气泡(内联卡片 +
-    /// Cancel/Confirm),点卡片本身可跳到 TaskEditView 微调。
+    /// 单条新建:AgentView 追加一条待确认的 taskProposal 气泡(内联卡片 +
+    /// Cancel/Confirm),点卡片本身可跳到 TaskEditView 微调。修改不走这条
+    /// (见 .updated)——新建凭空产生内容,值得让用户确认;修改已经是用户
+    /// 指名道姓要改的既有事项,不需要再点一次。
     case routeToForm(existing: TaskItem?, parsed: ParsedTask)
+    /// 单条修改:route() 已经直接落库(带 lastUndo 快照),AgentView 追加一条
+    /// 只读结果卡片,卡片上带撤销按钮兜底 AI 偶尔解析错的情况。
+    case updated(task: TaskItem, parsed: ParsedTask)
     /// 需要确认的操作清单(批量或含完成/删除),元素为中文描述。
     case confirm([String])
     /// 关键信息缺失,反问用户:AgentView 追加一条可交互的询问卡(可翻页、
