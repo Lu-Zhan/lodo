@@ -105,6 +105,8 @@ public enum AppSettings {
     /// "自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
     public static let aiProviders: [(name: String, endpoint: String, model: String)] = [
         ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4-flash"),
+        ("GPT-5.6 Luna", "https://runapi.host/v1/chat/completions", "gpt-5.6-luna"),
+        ("Qwen3.5 Flash", "https://runapi.host/v1/chat/completions", "qwen3.5-flash"),
         ("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
         ("通义千问", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
         ("Kimi", "https://api.moonshot.cn/v1/chat/completions", "moonshot-v1-8k"),
@@ -122,10 +124,10 @@ public enum AppSettings {
         aiProvider == appleIntelligenceProvider
     }
 
-    /// "使用内置 API Key"开关(设置页,仅 DeepSeek 服务商下出现);实际是否
-    /// 生效还要看 BuiltInAPIKey.deepSeek 是否真的内置了 key,由
-    /// KeychainHelper.effectiveAPIKey 兜底判断。默认开——没内置 key 的构建
-    /// (BuiltInAPIKey.swift.example 的 nil)这个默认值不会有任何效果,
+    /// "使用内置 API Key"开关(设置页,仅当前服务商在 BuiltInAPIKey.key(for:)
+    /// 里真的有内置值时才出现,目前是 DeepSeek、GPT-5.6 Luna);实际是否
+    /// 生效由 KeychainHelper.effectiveAPIKey 兜底判断。默认开——没内置 key 的构建
+    /// (BuiltInAPIKey.swift.example 全是 nil)这个默认值不会有任何效果,
     /// 仍然安全退回钥匙串。
     public static var useBuiltInKey: Bool {
         UserDefaults.standard.object(forKey: useBuiltInKeyKey) == nil

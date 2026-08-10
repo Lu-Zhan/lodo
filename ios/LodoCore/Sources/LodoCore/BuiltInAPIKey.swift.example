@@ -1,8 +1,19 @@
 import Foundation
 
 /// 模板文件——复制成同目录下的 BuiltInAPIKey.swift(会被 .gitignore 排除)并填入
-/// 真实 key 才会生效;不改的话 deepSeek 为 nil,设置页"使用内置 API Key"这个
+/// 真实 key 才会生效;不改的话全是 nil,设置页"使用内置 API Key"这个
 /// 开关不会出现,不影响其他功能。
 public enum BuiltInAPIKey {
     public static let deepSeek: String? = nil
+    /// RunAPI(runapi.host)账号的 key,GPT-5.6 Luna、Qwen3.5 Flash 共用同一个账号/key。
+    public static let runAPI: String? = nil
+
+    /// 按服务商名查内置 key;没有对应内置值返回 nil。
+    public static func key(for provider: String) -> String? {
+        switch provider {
+        case "DeepSeek": return deepSeek
+        case "GPT-5.6 Luna", "Qwen3.5 Flash": return runAPI
+        default: return nil
+        }
+    }
 }

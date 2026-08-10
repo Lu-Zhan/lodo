@@ -60,14 +60,14 @@ public enum KeychainHelper {
         save(key, for: AppSettings.aiProvider)
     }
 
-    /// 实际发请求要用的 key:开了"使用内置 API Key"且当前是 DeepSeek 服务商、
-    /// 又真的内置了 key 时优先用内置的;否则退回钥匙串里用户自己存的 key。
+    /// 实际发请求要用的 key:开了"使用内置 API Key"且当前服务商真的内置了 key
+    /// 时优先用内置的;否则退回钥匙串里用户自己存的 key。
     /// DeepSeekClient 发请求统一走这个,不直接读 apiKey——Settings 页面的
     /// "已保存"状态判断则仍然只看钥匙串本身(apiKey),不受这个开关影响,
     /// 保持"钥匙串里存的是什么"和"这次请求实际用的是什么"两件事分开显示。
     public static var effectiveAPIKey: String? {
-        if AppSettings.useBuiltInKey, AppSettings.aiProvider == "DeepSeek",
-           let builtIn = BuiltInAPIKey.deepSeek, !builtIn.isEmpty {
+        if AppSettings.useBuiltInKey,
+           let builtIn = BuiltInAPIKey.key(for: AppSettings.aiProvider), !builtIn.isEmpty {
             return builtIn
         }
         return apiKey

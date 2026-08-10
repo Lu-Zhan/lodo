@@ -60,12 +60,12 @@ struct AISettingsView: View {
                     )
                     .plainKeyboard()
                 }
-                if aiProvider == "DeepSeek", BuiltInAPIKey.deepSeek != nil {
+                if BuiltInAPIKey.key(for: aiProvider) != nil {
                     Toggle("使用内置 API Key", isOn: $useBuiltInKey)
                 }
                 if aiProvider != AppSettings.appleIntelligenceProvider {
-                    if aiProvider == "DeepSeek", useBuiltInKey, BuiltInAPIKey.deepSeek != nil {
-                        Text("已使用内置 DeepSeek API Key,无需再填。")
+                    if useBuiltInKey, BuiltInAPIKey.key(for: aiProvider) != nil {
+                        Text("已使用内置 API Key,无需再填。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
