@@ -125,4 +125,90 @@ final class SchedulerTests: XCTestCase {
         XCTAssertEqual(t.phase, .start)
         XCTAssertEqual(t.nextRemindAt, t0.addingTimeInterval(minutes(24 * 60)))
     }
+
+    func testExplicitIgnoreDoublesInterval() {
+        var t = makeTask()
+        Scheduler.ignore(&t, now: t0, snoozeMinutes: 15)
+        XCTAssertEqual(t.ignoreStreak, 1)
+        XCTAssertEqual(t.nextRemindAt, t0.addingTimeInterval(minutes(30)))  // 15 * 2^1
+        let second = t.nextRemindAt
+        Scheduler.ignore(&t, now: second, snoozeMinutes: 15)
+        XCTAssertEqual(t.ignoreStreak, 2)
+        XCTAssertEqual(t.nextRemindAt, second.addingTimeInterval(minutes(60)))  // 15 * 2^2
+    }
+
+    func testIgnoreStreakCapsAtMaxInterval() {
+        var t = makeTask()
+        var now = t0
+        for _ in 0..<10 {  // 远超封顶次数
+            Scheduler.ignore(&t, now: now, snoozeMinutes: 15)
+            now = t.nextRemindAt
+        }
+        XCTAssertEqual(t.ignoreStreak, 8)
+        Scheduler.ignore(&t, now: now, snoozeMinutes: 15)
+        XCTAssertEqual(t.nextRemindAt, now.addingTimeInterval(minutes(240)))
+    }
+
+    func testIgnoreStreakResetsOnSnooze() {
+        var t = makeTask()
+        Scheduler.ignore(&t, now: t0, snoozeMinutes: 15)
+        Scheduler.ignore(&t, now: t.nextRemindAt, snoozeMinutes: 15)
+        XCTAssertEqual(t.ignoreStreak, 2)
+        Scheduler.snooze(&t, now: t.nextRemindAt, snoozeMinutes: 15)
+        XCTAssertEqual(t.ignoreStreak, 0)
+    }
+
+    func testIgnoreStreakResetsOnComplete() {
+        var t = makeTask()
+        Scheduler.ignore(&t, now: t0, snoozeMinutes: 15)
+        XCTAssertEqual(t.ignoreStreak, 1)
+        _ = Scheduler.advance(&t, now: t.nextRemindAt)
+        XCTAssertEqual(t.ignoreStreak, 0)
+        XCTAssertEqual(t.status, .done)
+    }
+
+    func testQuietHoursPushesTimeInsideWindowToWindowEnd() {
+        let inside = t0.addingTimeInterval(minutes(14 * 60 + 30))  // 当天 23:30
+        let expected = t0.addingTimeInterval(minutes(23 * 60))    // 次日 08:00
+        XCTAssertEqual(
+            Scheduler.applyQuietHours(inside, quietStart: "22:00", quietEnd: "08:00",
+                                      enabled: true, calendar: calendar),
+            expected)
+    }
+
+    func testQuietHoursLeavesTimeOutsideWindowUnchanged() {
+        let outside = t0.addingTimeInterval(minutes(3 * 60))  // 当天 12:00
+        XCTAssertEqual(
+            Scheduler.applyQuietHours(outside, quietStart: "22:00", quietEnd: "08:00",
+                                      enabled: true, calendar: calendar),
+            outside)
+    }
+
+    func testQuietHoursHandlesOvernightWrap() {
+        let evening = t0.addingTimeInterval(minutes(14 * 60 + 30))  // 当天 23:30
+        let eveningExpected = t0.addingTimeInterval(minutes(23 * 60))  // 次日 08:00
+        XCTAssertEqual(
+            Scheduler.applyQuietHours(evening, quietStart: "22:00", quietEnd: "08:00",
+                                      enabled: true, calendar: calendar),
+            eveningExpected)
+
+        let morning = t0.addingTimeInterval(minutes(18 * 60))  // 次日 03:00
+        let morningExpected = t0.addingTimeInterval(minutes(23 * 60))  // 次日 08:00,同一天
+        XCTAssertEqual(
+            Scheduler.applyQuietHours(morning, quietStart: "22:00", quietEnd: "08:00",
+                                      enabled: true, calendar: calendar),
+            morningExpected)
+    }
+
+    func testQuietHoursDisabledOrZeroWidthLeavesTimeUnchanged() {
+        let inside = t0.addingTimeInterval(minutes(14 * 60 + 30))  // 当天 23:30
+        XCTAssertEqual(
+            Scheduler.applyQuietHours(inside, quietStart: "22:00", quietEnd: "08:00",
+                                      enabled: false, calendar: calendar),
+            inside)
+        XCTAssertEqual(
+            Scheduler.applyQuietHours(inside, quietStart: "22:00", quietEnd: "22:00",
+                                      enabled: true, calendar: calendar),
+            inside)
+    }
 }

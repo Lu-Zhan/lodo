@@ -222,12 +222,23 @@ struct AgentView: View {
                 if !transcript.isEmpty { text = typedPrefix + transcript }
             }
             .onChange(of: speech.isRecording) { was, isRecording in
-                // 讲完话(录音停止)稍等最终转写落定后自动提交
+                // 讲完话(录音停止)稍等最终转写落定后自动提交。云端引擎不用这条:
+                // 停止录音那一刻转写还没开始,text 仍是空的,真正该发送的时机是
+                // 下面 isProcessing 变回 false 那一刻(转写结果已经落进 text)——
+                // 这两条严格分工,不能都对云端引擎生效,否则空 text 会先把
+                // 附件(如果有)提前发出去,漏掉随后才到的语音文字。
+                guard AppSettings.sttEngine != "qwenASR" else { return }
                 if was && !isRecording && !busy && errorText == nil {
                     Task {
                         try? await Task.sleep(nanoseconds: 600_000_000)
                         send()
                     }
+                }
+            }
+            .onChange(of: speech.isProcessing) { was, isProcessing in
+                // 云端引擎专用:转写请求刚结束(录音早已停止),没出错就自动提交。
+                if was && !isProcessing && !speech.isRecording && !busy && errorText == nil {
+                    send()
                 }
             }
             .onDisappear {
@@ -593,7 +604,10 @@ struct AgentView: View {
 
                 Spacer()
 
-                if showsInlineMic {
+                if speech.isProcessing {
+                    speechProcessingIndicator
+                        .transition(.scale.combined(with: .opacity))
+                } else if showsInlineMic {
                     inlineMicButton
                         .transition(.scale.combined(with: .opacity))
                 } else {
@@ -602,6 +616,7 @@ struct AgentView: View {
                 }
             }
             .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
+            .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isProcessing)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -619,6 +634,15 @@ struct AgentView: View {
     /// 用户就没有取消入口了。
     private var showsInlineMic: Bool {
         !busy && (speech.isRecording || !hasComposedContent)
+    }
+
+    /// 云端语音识别引擎:录音已停止、转写请求还没回来,替掉麦克风按钮的位置。
+    private var speechProcessingIndicator: some View {
+        ProgressView()
+            .controlSize(.small)
+            .frame(width: 36, height: 36)
+            .contentShape(Rectangle())
+            .accessibilityLabel("识别中")
     }
 
     private var inlineMicButton: some View {

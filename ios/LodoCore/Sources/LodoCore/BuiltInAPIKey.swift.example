@@ -7,12 +7,15 @@ public enum BuiltInAPIKey {
     public static let deepSeek: String? = nil
     /// RunAPI(runapi.host)账号的 key,GPT-5.6 Luna、Qwen3.5 Flash 共用同一个账号/key。
     public static let runAPI: String? = nil
+    /// 阿里云百炼 MaaS 部署的 Qwen 语音识别(qwen-audio-3.0-asr-flash)key。
+    public static let qwenASR: String? = nil
 
     /// 按服务商名查内置 key;没有对应内置值返回 nil。
     public static func key(for provider: String) -> String? {
         switch provider {
         case "DeepSeek": return deepSeek
         case "GPT-5.6 Luna", "Qwen3.5 Flash": return runAPI
+        case QwenASRClient.providerName: return qwenASR
         default: return nil
         }
     }

@@ -33,7 +33,7 @@ sealed interface PendingRoute {
 class LodoApp : Application() {
     val database: LodoDatabase by lazy { LodoDatabase.get(this) }
     val settings: SettingsRepository by lazy { SettingsRepository(this) }
-    val alarms: AlarmScheduler by lazy { AlarmScheduler(this) }
+    val alarms: AlarmScheduler by lazy { AlarmScheduler(this, settings) }
     val repository: TaskRepository by lazy {
         TaskRepository(this, database, settings, alarms)
     }

@@ -94,6 +94,7 @@ object Backup {
         .put("status", t.status).put("phase", t.phase)
         .put("nextRemindAtMillis", t.nextRemindAtMillis).put("createdAtMillis", t.createdAtMillis)
         .put("doneAtMillis", t.doneAtMillis ?: JSONObject.NULL)
+        .put("ignoreStreak", t.ignoreStreak)
 
     private fun taskFromJson(o: JSONObject) = TaskEntity(
         uuid = o.getString("uuid"), title = o.getString("title"),
@@ -104,6 +105,7 @@ object Backup {
         nextRemindAtMillis = o.getLong("nextRemindAtMillis"),
         createdAtMillis = o.optLong("createdAtMillis", o.getLong("remindAtMillis")),
         doneAtMillis = o.longOrNull("doneAtMillis"),
+        ignoreStreak = o.optInt("ignoreStreak", 0),
     )
 
     private fun memoryToJson(m: MemoryEntity) = JSONObject()

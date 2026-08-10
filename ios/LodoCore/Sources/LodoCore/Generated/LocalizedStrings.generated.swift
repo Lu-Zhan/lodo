@@ -84,6 +84,8 @@ public enum LK: String, CaseIterable {
     case ios_core_deepseek_api_key_not_configured_set_it
     case ios_core_deepseek_request_failed
     case ios_core_couldn_t_parse
+    case ios_core_qwen_asr_api_key_not_configured_set
+    case ios_core_qwen_asr_request_failed
     case ios_core_invalid_response_search_memory_is
     case ios_core_invalid_response_web_search_is_missing
     case ios_core_invalid_response_web_fetch_is_missing
@@ -141,6 +143,7 @@ public enum LK: String, CaseIterable {
     case ios_notif_done
     case ios_notif_snooze
     case ios_notif_reschedule
+    case ios_notif_ignore
     case shared_white
     case shared_pink
     case shared_green
@@ -229,6 +232,8 @@ public enum LocalizedStrings {
         .ios_core_deepseek_api_key_not_configured_set_it: [.zhHans: "未配置 DeepSeek API key,请到「设置」里填写。", .en: "DeepSeek API key not configured. Set it up in Settings."],
         .ios_core_deepseek_request_failed: [.zhHans: "调用 DeepSeek 失败:", .en: "DeepSeek request failed: "],
         .ios_core_couldn_t_parse: [.zhHans: "无法解析:", .en: "Couldn't parse: "],
+        .ios_core_qwen_asr_api_key_not_configured_set: [.zhHans: "未配置 Qwen 语音识别 API key,请到「设置」里填写。", .en: "Qwen speech recognition API key not configured. Set it up in Settings."],
+        .ios_core_qwen_asr_request_failed: [.zhHans: "调用 Qwen 语音识别失败:", .en: "Qwen speech recognition request failed: "],
         .ios_core_invalid_response_search_memory_is: [.zhHans: "返回格式异常:search_memory 缺少 query", .en: "Invalid response: search_memory is missing query"],
         .ios_core_invalid_response_web_search_is_missing: [.zhHans: "返回格式异常:web_search 缺少 query", .en: "Invalid response: web_search is missing query"],
         .ios_core_invalid_response_web_fetch_is_missing: [.zhHans: "返回格式异常:web_fetch 缺少 url", .en: "Invalid response: web_fetch is missing url"],
@@ -286,6 +291,7 @@ public enum LocalizedStrings {
         .ios_notif_done: [.zhHans: "完成", .en: "Done"],
         .ios_notif_snooze: [.zhHans: "稍等一会", .en: "Snooze"],
         .ios_notif_reschedule: [.zhHans: "改期", .en: "Reschedule"],
+        .ios_notif_ignore: [.zhHans: "忽略", .en: "Ignore"],
         .shared_white: [.zhHans: "白色", .en: "White"],
         .shared_pink: [.zhHans: "粉色", .en: "Pink"],
         .shared_green: [.zhHans: "绿色", .en: "Green"],

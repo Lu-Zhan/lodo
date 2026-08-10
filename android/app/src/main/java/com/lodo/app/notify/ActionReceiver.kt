@@ -13,6 +13,7 @@ class ActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_DONE = "com.lodo.app.action.DONE"
         const val ACTION_SNOOZE = "com.lodo.app.action.SNOOZE"
+        const val ACTION_IGNORE = "com.lodo.app.action.IGNORE"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -25,6 +26,7 @@ class ActionReceiver : BroadcastReceiver() {
                 when (action) {
                     ACTION_DONE -> app.repository.complete(uuid)
                     ACTION_SNOOZE -> app.repository.snooze(uuid)
+                    ACTION_IGNORE -> app.repository.ignore(uuid)
                 }
             } finally {
                 result.finish()

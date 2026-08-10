@@ -172,4 +172,9 @@
     <string name="android_ui_not_available_on_this_device">Not available on this device</string>
     <string name="android_ui_check">Check</string>
     <string name="android_ui_on_device_ai_footer">Powered by Gemini Nano, no network or API key needed; currently experimental and only available on select devices.</string>
+    <string name="android_ui_ignore">Ignore</string>
+    <string name="android_ui_quiet_hours">Quiet Hours</string>
+    <string name="android_ui_quiet_hours_start">Start Time</string>
+    <string name="android_ui_quiet_hours_end">End Time</string>
+    <string name="android_ui_quiet_hours_footer">When enabled, reminders due during quiet hours are delayed until the window ends; tasks still show as due on time — only the notification itself is delayed.</string>
 </resources>

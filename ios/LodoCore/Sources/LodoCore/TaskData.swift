@@ -36,6 +36,8 @@ public struct TaskData: Equatable, Sendable {
     public var phase: TaskPhase
     public var nextRemindAt: Date
     public var doneAt: Date?
+    /// 连续"忽略"次数,决定下次提醒间隔的翻倍倍数(见 Scheduler.ignore)。
+    public var ignoreStreak: Int
 
     public init(
         title: String,
@@ -48,7 +50,8 @@ public struct TaskData: Equatable, Sendable {
         status: TaskStatus = .pending,
         phase: TaskPhase = .start,
         nextRemindAt: Date? = nil,
-        doneAt: Date? = nil
+        doneAt: Date? = nil,
+        ignoreStreak: Int = 0
     ) {
         self.title = title
         self.remindAt = remindAt
@@ -61,6 +64,7 @@ public struct TaskData: Equatable, Sendable {
         self.phase = phase
         self.nextRemindAt = nextRemindAt ?? remindAt
         self.doneAt = doneAt
+        self.ignoreStreak = ignoreStreak
     }
 
     public var isRecurring: Bool { repeatType != .none }

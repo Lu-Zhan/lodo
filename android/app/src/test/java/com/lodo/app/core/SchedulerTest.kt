@@ -126,6 +126,98 @@ class SchedulerTest {
         assertEquals(t0.plusHours(24), next.nextRemindAt)
     }
 
+    // MARK: - 忽略(显式动作,间隔逐次翻倍)
+
+    @Test
+    fun testExplicitIgnoreDoublesInterval() {
+        val t = Scheduler.ignore(makeTask(), t0, 15)
+        assertEquals(1, t.ignoreStreak)
+        assertEquals(t0.plusMinutes(30), t.nextRemindAt)
+        val t2 = Scheduler.ignore(t, t0.plusMinutes(30), 15)
+        assertEquals(2, t2.ignoreStreak)
+        assertEquals(t0.plusMinutes(30).plusMinutes(60), t2.nextRemindAt)
+    }
+
+    @Test
+    fun testIgnoreStreakCapsAtMaxInterval() {
+        var t = makeTask()
+        repeat(10) { t = Scheduler.ignore(t, t0, 15) }
+        assertEquals(8, t.ignoreStreak)  // streak 本身封顶
+        assertEquals(t0.plusMinutes(240), t.nextRemindAt)  // 间隔封顶 240 分钟
+    }
+
+    @Test
+    fun testIgnoreStreakResetsOnSnooze() {
+        var t = Scheduler.ignore(makeTask(), t0, 15)
+        t = Scheduler.ignore(t, t0, 15)
+        assertEquals(2, t.ignoreStreak)
+        t = Scheduler.snooze(t, t0, 15)
+        assertEquals(0, t.ignoreStreak)
+        assertEquals(t0.plusMinutes(15), t.nextRemindAt)
+    }
+
+    @Test
+    fun testIgnoreStreakResetsOnComplete() {
+        val ignored = Scheduler.ignore(makeTask(), t0, 15)
+        assertEquals(1, ignored.ignoreStreak)
+        val (doneTask, finished) = Scheduler.advance(ignored, t0.plusMinutes(1))
+        assertTrue(finished)
+        assertEquals(0, doneTask.ignoreStreak)
+
+        // 重复事项完成一次同样清零
+        val recurringIgnored = Scheduler.ignore(
+            makeTask(repeatType = RepeatType.DAILY, repeatTimes = listOf("09:00")), t0, 15,
+        )
+        assertEquals(1, recurringIgnored.ignoreStreak)
+        val (advanced, recurringFinished) = Scheduler.advance(recurringIgnored, t0.plusMinutes(1))
+        assertTrue(recurringFinished)
+        assertEquals(0, advanced.ignoreStreak)
+    }
+
+    // MARK: - 免打扰时段(仅影响通知弹出时刻,不影响到期状态)
+
+    @Test
+    fun testQuietHoursPushesTimeInsideWindowToWindowEnd() {
+        // 09:00-18:00 免打扰,10:30 落在窗口内 → 顺延到当天 18:00
+        val time = LocalDateTime.of(2026, 7, 8, 10, 30)
+        val pushed = Scheduler.applyQuietHours(time, "09:00", "18:00", true)
+        assertEquals(LocalDateTime.of(2026, 7, 8, 18, 0), pushed)
+    }
+
+    @Test
+    fun testQuietHoursLeavesTimeOutsideWindowUnchanged() {
+        val time = LocalDateTime.of(2026, 7, 8, 20, 0)
+        val unchanged = Scheduler.applyQuietHours(time, "09:00", "18:00", true)
+        assertEquals(time, unchanged)
+    }
+
+    @Test
+    fun testQuietHoursHandlesOvernightWrap() {
+        // 22:00-08:00 跨零点免打扰
+        val evening = LocalDateTime.of(2026, 7, 8, 23, 30)
+        assertEquals(
+            LocalDateTime.of(2026, 7, 9, 8, 0),
+            Scheduler.applyQuietHours(evening, "22:00", "08:00", true),
+        )
+        val earlyMorning = LocalDateTime.of(2026, 7, 8, 3, 0)
+        assertEquals(
+            LocalDateTime.of(2026, 7, 8, 8, 0),
+            Scheduler.applyQuietHours(earlyMorning, "22:00", "08:00", true),
+        )
+        // 窗口边界外(如 08:00 本身、12:00)不受影响
+        val boundary = LocalDateTime.of(2026, 7, 8, 8, 0)
+        assertEquals(boundary, Scheduler.applyQuietHours(boundary, "22:00", "08:00", true))
+        val daytime = LocalDateTime.of(2026, 7, 8, 12, 0)
+        assertEquals(daytime, Scheduler.applyQuietHours(daytime, "22:00", "08:00", true))
+    }
+
+    @Test
+    fun testQuietHoursDisabledOrZeroWidthLeavesTimeUnchanged() {
+        val time = LocalDateTime.of(2026, 7, 8, 23, 30)
+        assertEquals(time, Scheduler.applyQuietHours(time, "22:00", "08:00", false))
+        assertEquals(time, Scheduler.applyQuietHours(time, "22:00", "22:00", true))
+    }
+
     // MARK: - 补充:可读文案与时间工具
 
     @Test

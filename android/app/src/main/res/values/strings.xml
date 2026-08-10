@@ -172,4 +172,9 @@
     <string name="android_ui_not_available_on_this_device">此设备不可用</string>
     <string name="android_ui_check">检测</string>
     <string name="android_ui_on_device_ai_footer">基于 Gemini Nano,不联网、不需要 API key;目前处于实验阶段,只在少数机型可用。</string>
+    <string name="android_ui_ignore">忽略</string>
+    <string name="android_ui_quiet_hours">免打扰时段</string>
+    <string name="android_ui_quiet_hours_start">开始时间</string>
+    <string name="android_ui_quiet_hours_end">结束时间</string>
+    <string name="android_ui_quiet_hours_footer">开启后,免打扰时段内到期的提醒会推迟到时段结束后再通知;事项仍按时显示为到期,只是不弹通知打扰你。</string>
 </resources>

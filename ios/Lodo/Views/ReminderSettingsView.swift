@@ -5,6 +5,9 @@ import LodoCore
 struct ReminderSettingsView: View {
     @AppStorage(AppSettings.snoozeMinutesKey) private var snoozeMinutes = 15
     @AppStorage(AppSettings.allDayTimeKey) private var allDayTime = "09:00"
+    @AppStorage(AppSettings.quietHoursEnabledKey) private var quietHoursEnabled = true
+    @AppStorage(AppSettings.quietHoursStartKey) private var quietHoursStart = "22:00"
+    @AppStorage(AppSettings.quietHoursEndKey) private var quietHoursEnd = "08:00"
     @AppStorage(AppSettings.digestEnabledKey) private var digestEnabled = false
     @AppStorage(AppSettings.digestTimesKey) private var digestTimesRaw = ""
     @AppStorage(AppSettings.digestRepeatTypeKey) private var digestRepeatType = "daily"
@@ -24,6 +27,18 @@ struct ReminderSettingsView: View {
                     Text("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
                     Text("只有日期、没有时间的事项,当天几点提醒。")
                 }
+            }
+
+            Section {
+                Toggle("免打扰时段", isOn: $quietHoursEnabled)
+                if quietHoursEnabled {
+                    DatePicker("开始", selection: timeBinding($quietHoursStart),
+                               displayedComponents: .hourAndMinute)
+                    DatePicker("结束", selection: timeBinding($quietHoursEnd),
+                               displayedComponents: .hourAndMinute)
+                }
+            } footer: {
+                Text("时段内到期事项照样显示为到期,只是不弹通知,时段结束后补发。")
             }
 
             Section {
@@ -71,6 +86,9 @@ struct ReminderSettingsView: View {
         .onChange(of: digestTimesRaw) { refreshDigest() }
         .onChange(of: digestRepeatType) { refreshDigest() }
         .onChange(of: digestDaysRaw) { refreshDigest() }
+        .onChange(of: quietHoursEnabled) { refreshDigest() }
+        .onChange(of: quietHoursStart) { refreshDigest() }
+        .onChange(of: quietHoursEnd) { refreshDigest() }
     }
 
     private func refreshDigest() {

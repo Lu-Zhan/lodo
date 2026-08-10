@@ -30,6 +30,7 @@ public struct BackupTask: Codable {
     public var attachmentText: String?
     public var attachmentURLString: String?
     public var attachmentFileName: String?
+    public var ignoreStreak: Int
 
     public init(
         uuid: UUID, title: String, remindAt: Date, durationMinutes: Int, allDay: Bool,
@@ -38,7 +39,7 @@ public struct BackupTask: Codable {
         ekIdentifier: String?, project: String? = nil, attachmentKindRaw: String?,
         attachmentTitle: String?,
         attachmentSummary: String?, attachmentText: String?, attachmentURLString: String?,
-        attachmentFileName: String?
+        attachmentFileName: String?, ignoreStreak: Int = 0
     ) {
         self.uuid = uuid
         self.title = title
@@ -61,6 +62,36 @@ public struct BackupTask: Codable {
         self.attachmentText = attachmentText
         self.attachmentURLString = attachmentURLString
         self.attachmentFileName = attachmentFileName
+        self.ignoreStreak = ignoreStreak
+    }
+
+    /// 手写 init(from:):ignoreStreak 是新增的非可选字段,老格式备份没有这个
+    /// key 时用 0 兜底(合成 Codable 只对可选属性的缺失 key 安全,理由同
+    /// BackupSettings/BackupPayload 的手写 init(from:))。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        uuid = try c.decode(UUID.self, forKey: .uuid)
+        title = try c.decode(String.self, forKey: .title)
+        remindAt = try c.decode(Date.self, forKey: .remindAt)
+        durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
+        allDay = try c.decode(Bool.self, forKey: .allDay)
+        repeatTypeRaw = try c.decode(String.self, forKey: .repeatTypeRaw)
+        repeatDays = try c.decode([Int].self, forKey: .repeatDays)
+        repeatTimes = try c.decode([String].self, forKey: .repeatTimes)
+        statusRaw = try c.decode(String.self, forKey: .statusRaw)
+        phaseRaw = try c.decode(String.self, forKey: .phaseRaw)
+        nextRemindAt = try c.decode(Date.self, forKey: .nextRemindAt)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        doneAt = try c.decodeIfPresent(Date.self, forKey: .doneAt)
+        ekIdentifier = try c.decodeIfPresent(String.self, forKey: .ekIdentifier)
+        project = try c.decodeIfPresent(String.self, forKey: .project)
+        attachmentKindRaw = try c.decodeIfPresent(String.self, forKey: .attachmentKindRaw)
+        attachmentTitle = try c.decodeIfPresent(String.self, forKey: .attachmentTitle)
+        attachmentSummary = try c.decodeIfPresent(String.self, forKey: .attachmentSummary)
+        attachmentText = try c.decodeIfPresent(String.self, forKey: .attachmentText)
+        attachmentURLString = try c.decodeIfPresent(String.self, forKey: .attachmentURLString)
+        attachmentFileName = try c.decodeIfPresent(String.self, forKey: .attachmentFileName)
+        ignoreStreak = try c.decodeIfPresent(Int.self, forKey: .ignoreStreak) ?? 0
     }
 }
 
@@ -74,7 +105,7 @@ extension TaskItem {
             ekIdentifier: ekIdentifier, project: project, attachmentKindRaw: attachmentKindRaw,
             attachmentTitle: attachmentTitle, attachmentSummary: attachmentSummary,
             attachmentText: attachmentText, attachmentURLString: attachmentURLString,
-            attachmentFileName: attachmentFileName)
+            attachmentFileName: attachmentFileName, ignoreStreak: ignoreStreak)
     }
 }
 
@@ -102,6 +133,7 @@ extension BackupTask {
         item.attachmentText = attachmentText
         item.attachmentURLString = attachmentURLString
         item.attachmentFileName = attachmentFileName
+        item.ignoreStreak = ignoreStreak
     }
 }
 
@@ -404,6 +436,12 @@ public struct BackupSettings: Codable {
     public var aiCustomEndpoint: String
     public var icloudSyncEnabled: Bool
     public var thinkingLevel: String
+    /// 老格式备份没有这几个 key,靠默认值兜底解码(同 contactRelationshipCount)。
+    public var sttEngine: String = "qwenASR"
+    public var useBuiltInSTTKey: Bool = true
+    public var quietHoursEnabled: Bool = true
+    public var quietHoursStart: String = "22:00"
+    public var quietHoursEnd: String = "08:00"
 
     public init(
         snoozeMinutes: Int, allDayTime: String, digestEnabled: Bool, digestTime: String,
@@ -411,7 +449,9 @@ public struct BackupSettings: Codable {
         insightEnabled: Bool, agentSilenceTimeoutSeconds: Int,
         agentPersonaStyle: String, agentPersonaCustom: String, aiProvider: String,
         aiModel: String, aiCustomEndpoint: String, icloudSyncEnabled: Bool,
-        thinkingLevel: String = "medium"
+        thinkingLevel: String = "medium", sttEngine: String = "qwenASR",
+        useBuiltInSTTKey: Bool = true, quietHoursEnabled: Bool = true,
+        quietHoursStart: String = "22:00", quietHoursEnd: String = "08:00"
     ) {
         self.snoozeMinutes = snoozeMinutes
         self.allDayTime = allDayTime
@@ -430,6 +470,41 @@ public struct BackupSettings: Codable {
         self.aiCustomEndpoint = aiCustomEndpoint
         self.icloudSyncEnabled = icloudSyncEnabled
         self.thinkingLevel = thinkingLevel
+        self.sttEngine = sttEngine
+        self.useBuiltInSTTKey = useBuiltInSTTKey
+        self.quietHoursEnabled = quietHoursEnabled
+        self.quietHoursStart = quietHoursStart
+        self.quietHoursEnd = quietHoursEnd
+    }
+
+    /// 手写 init(from:):sttEngine/useBuiltInSTTKey 是新增字段,老格式备份没有
+    /// 这两个 key 时用默认值兜底(属性声明处的默认值只影响构造,不影响解码——
+    /// 光靠那个不够,这里必须显式 decodeIfPresent,理由同 BackupPayload 的
+    /// contactRelationships 手写 init(from:))。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        snoozeMinutes = try c.decode(Int.self, forKey: .snoozeMinutes)
+        allDayTime = try c.decode(String.self, forKey: .allDayTime)
+        digestEnabled = try c.decode(Bool.self, forKey: .digestEnabled)
+        digestTime = try c.decode(String.self, forKey: .digestTime)
+        digestTimes = try c.decode(String.self, forKey: .digestTimes)
+        digestRepeatType = try c.decode(String.self, forKey: .digestRepeatType)
+        digestDays = try c.decode(String.self, forKey: .digestDays)
+        hapticsEnabled = try c.decode(Bool.self, forKey: .hapticsEnabled)
+        insightEnabled = try c.decode(Bool.self, forKey: .insightEnabled)
+        agentSilenceTimeoutSeconds = try c.decode(Int.self, forKey: .agentSilenceTimeoutSeconds)
+        agentPersonaStyle = try c.decode(String.self, forKey: .agentPersonaStyle)
+        agentPersonaCustom = try c.decode(String.self, forKey: .agentPersonaCustom)
+        aiProvider = try c.decode(String.self, forKey: .aiProvider)
+        aiModel = try c.decode(String.self, forKey: .aiModel)
+        aiCustomEndpoint = try c.decode(String.self, forKey: .aiCustomEndpoint)
+        icloudSyncEnabled = try c.decode(Bool.self, forKey: .icloudSyncEnabled)
+        thinkingLevel = try c.decodeIfPresent(String.self, forKey: .thinkingLevel) ?? "medium"
+        sttEngine = try c.decodeIfPresent(String.self, forKey: .sttEngine) ?? "qwenASR"
+        useBuiltInSTTKey = try c.decodeIfPresent(Bool.self, forKey: .useBuiltInSTTKey) ?? true
+        quietHoursEnabled = try c.decodeIfPresent(Bool.self, forKey: .quietHoursEnabled) ?? true
+        quietHoursStart = try c.decodeIfPresent(String.self, forKey: .quietHoursStart) ?? "22:00"
+        quietHoursEnd = try c.decodeIfPresent(String.self, forKey: .quietHoursEnd) ?? "08:00"
     }
 }
 

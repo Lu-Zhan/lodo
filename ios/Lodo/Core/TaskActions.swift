@@ -18,6 +18,7 @@ enum TaskActions {
         task.project = parsed.project
         task.phaseRaw = TaskPhase.start.rawValue
         task.nextRemindAt = parsed.remindAt
+        task.ignoreStreak = 0
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
         DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
@@ -49,6 +50,10 @@ enum TaskActions {
 
     static func snooze(_ task: TaskItem, context: ModelContext) {
         NotificationManager.shared.snooze(task, context: context)
+    }
+
+    static func ignore(_ task: TaskItem, context: ModelContext) {
+        NotificationManager.shared.ignore(task, context: context)
     }
 
     /// 逾期事项的 AI 改期候选(只读,不落库)。

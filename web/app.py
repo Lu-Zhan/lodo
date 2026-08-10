@@ -146,6 +146,8 @@ def task_fields(key: str, d: dict) -> Optional[Task]:
         repeat_type=repeat,
         repeat_days=repeat_days,
         repeat_times=times,
+        # ignore_streak 不传,新建/编辑保存(含"改期")都用默认值 0——
+        # 显式改时间等同于用户已经处理过,忽略间隔理应重置。
     )
     if task.is_recurring:
         first = scheduler.next_occurrence(task, datetime.now())
@@ -178,16 +180,34 @@ with st.sidebar:
         )
         digest_time_val = st.time_input("汇总提醒时间", value=default_t, step=300)
 
+    quiet_on = st.toggle("免打扰时段", value=settings.quiet_hours_enabled,
+                         help="时段内到期事项照样显示为到期,只是不弹通知,时段结束后补发")
+    qh_s, qh_e = map(int, settings.quiet_hours_start.split(":"))
+    qe_h, qe_m = map(int, settings.quiet_hours_end.split(":"))
+    q_col1, q_col2 = st.columns(2)
+    quiet_start_val = q_col1.time_input("开始", value=dtime(qh_s, qh_e), step=300,
+                                        key="quiet_start", disabled=not quiet_on)
+    quiet_end_val = q_col2.time_input("结束", value=dtime(qe_h, qe_m), step=300,
+                                      key="quiet_end", disabled=not quiet_on)
+
     new_digest = digest_time_val.strftime("%H:%M") if digest_time_val else None
     new_all_day = all_day_t.strftime("%H:%M")
+    new_quiet_start = quiet_start_val.strftime("%H:%M")
+    new_quiet_end = quiet_end_val.strftime("%H:%M")
     if (
         snooze != settings.snooze_minutes
         or new_digest != settings.daily_digest_time
         or new_all_day != settings.all_day_time
+        or quiet_on != settings.quiet_hours_enabled
+        or new_quiet_start != settings.quiet_hours_start
+        or new_quiet_end != settings.quiet_hours_end
     ):
         settings.snooze_minutes = int(snooze)
         settings.daily_digest_time = new_digest
         settings.all_day_time = new_all_day
+        settings.quiet_hours_enabled = quiet_on
+        settings.quiet_hours_start = new_quiet_start
+        settings.quiet_hours_end = new_quiet_end
         save_settings(db, settings)
 
 st.title("⏰ lodo")
@@ -288,7 +308,7 @@ def reminder_and_lists() -> None:
             else:
                 st.caption(task_caption(task))
                 done_label = "✅ 完成"
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             if c1.button(done_label, key=f"done_{task.id}", type="primary", width="stretch"):
                 finished = scheduler.advance(task, datetime.now())
                 db.update_task(task)
@@ -303,6 +323,12 @@ def reminder_and_lists() -> None:
                 st.rerun(scope="fragment")
             if c2.button(f"⏳ 稍等 {settings.snooze_minutes} 分钟", key=f"snooze_{task.id}", width="stretch"):
                 scheduler.snooze(task, datetime.now(), settings.snooze_minutes)
+                db.update_task(task)
+                st.session_state.active_reminders.discard(task.id)
+                st.rerun(scope="fragment")
+            if c3.button("🙈 忽略", key=f"ignore_{task.id}", width="stretch",
+                        help="和稍等不同:间隔逐次翻倍,直到稍等/完成/改期才重置"):
+                scheduler.ignore(task, datetime.now(), settings.snooze_minutes)
                 db.update_task(task)
                 st.session_state.active_reminders.discard(task.id)
                 st.rerun(scope="fragment")
@@ -337,6 +363,7 @@ def reminder_and_lists() -> None:
                     st.session_state.edit_ver += 1
                 st.rerun(scope="fragment")
             if c3.button("✓", key=f"list_done_{task.id}", help="标记完成"):
+                task.ignore_streak = 0
                 nxt = scheduler.next_occurrence(task, datetime.now())
                 if nxt is not None:
                     db.add_task(Task(

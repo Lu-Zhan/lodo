@@ -103,6 +103,13 @@ object Notifications {
                 .putExtra(AlarmScheduler.EXTRA_UUID, task.uuid),
             flags,
         )
+        val ignoreIntent = PendingIntent.getBroadcast(
+            context, notificationId(task.uuid),
+            Intent(context, ActionReceiver::class.java)
+                .setAction(ActionReceiver.ACTION_IGNORE)
+                .putExtra(AlarmScheduler.EXTRA_UUID, task.uuid),
+            flags,
+        )
         // "改期"要打开 UI(改期候选需要联网请求+展示),不像完成/稍等能在后台
         // 广播里静默处理,所以直接 getActivity 打开 App 并带上 uuid,由
         // MainActivity 转成 PendingRoute.Reschedule 交给 Compose 层消费。
@@ -123,6 +130,7 @@ object Notifications {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .addAction(0, Strings.translate("完成", lang), doneIntent)
             .addAction(0, Strings.translate("稍等一会", lang), snoozeIntent)
+            .addAction(0, Strings.translate("忽略", lang), ignoreIntent)
             .addAction(0, Strings.translate("改期", lang), rescheduleIntent)
             .build()
         NotificationManagerCompat.from(context).notify(notificationId(task.uuid), notification)

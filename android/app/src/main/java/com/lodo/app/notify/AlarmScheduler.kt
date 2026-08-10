@@ -5,8 +5,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.lodo.app.core.Scheduler
 import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.Settings
+import com.lodo.app.data.SettingsRepository
 import com.lodo.app.data.toEpochMillis
 import java.time.LocalDateTime
 
@@ -15,7 +17,7 @@ import java.time.LocalDateTime
  * ReminderReceiver 收到闹钟后发通知、把 nextRemindAt 顺延一个稍等间隔、再排下一个闹钟,
  * 纠缠式提醒因此自我延续——每个事项任一时刻只挂一个待触发闹钟。
  */
-class AlarmScheduler(private val context: Context) {
+class AlarmScheduler(private val context: Context, private val settings: SettingsRepository) {
     companion object {
         const val ACTION_REMIND = "com.lodo.app.action.REMIND"
         const val ACTION_DIGEST = "com.lodo.app.action.DIGEST"
@@ -26,8 +28,15 @@ class AlarmScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 
-    fun scheduleReminder(uuid: String, at: LocalDateTime) {
-        scheduleAt(reminderIntent(uuid), at.toEpochMillis())
+    /**
+     * 排一次提醒闹钟。免打扰时段是纯展示层特性——只推迟通知实际弹出的时刻,
+     * 事项的到期/顺延状态([TaskData.isDue] 等)完全不受影响,时段内到期的
+     * 事项在列表里仍照常显示为"已到期"。
+     */
+    suspend fun scheduleReminder(uuid: String, at: LocalDateTime) {
+        val s = settings.snapshot()
+        val adjusted = Scheduler.applyQuietHours(at, s.quietHoursStart, s.quietHoursEnd, s.quietHoursEnabled)
+        scheduleAt(reminderIntent(uuid), adjusted.toEpochMillis())
     }
 
     fun cancelReminder(uuid: String) {

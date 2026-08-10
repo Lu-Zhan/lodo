@@ -272,7 +272,12 @@ enum BackupManager {
             aiCustomEndpoint: UserDefaults.standard.string(
                 forKey: AppSettings.aiCustomEndpointKey) ?? "",
             icloudSyncEnabled: AppSettings.icloudSyncEnabled,
-            thinkingLevel: AppSettings.thinkingLevel)
+            thinkingLevel: AppSettings.thinkingLevel,
+            sttEngine: AppSettings.sttEngine,
+            useBuiltInSTTKey: AppSettings.useBuiltInSTTKey,
+            quietHoursEnabled: AppSettings.quietHoursEnabled,
+            quietHoursStart: AppSettings.quietHoursStart,
+            quietHoursEnd: AppSettings.quietHoursEnd)
     }
 
     /// icloudSyncEnabled 若被覆盖,要等下次启动才生效(ModelContainer 只在启动时
@@ -296,5 +301,10 @@ enum BackupManager {
         d.set(s.aiCustomEndpoint, forKey: AppSettings.aiCustomEndpointKey)
         d.set(s.icloudSyncEnabled, forKey: AppSettings.icloudSyncEnabledKey)
         d.set(s.thinkingLevel, forKey: AppSettings.thinkingLevelKey)
+        d.set(s.sttEngine, forKey: AppSettings.sttEngineKey)
+        d.set(s.useBuiltInSTTKey, forKey: AppSettings.useBuiltInSTTKeyKey)
+        d.set(s.quietHoursEnabled, forKey: AppSettings.quietHoursEnabledKey)
+        d.set(s.quietHoursStart, forKey: AppSettings.quietHoursStartKey)
+        d.set(s.quietHoursEnd, forKey: AppSettings.quietHoursEndKey)
     }
 }

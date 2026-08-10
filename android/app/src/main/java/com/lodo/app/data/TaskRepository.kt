@@ -80,6 +80,22 @@ class TaskRepository(
         Notifications.dismiss(context, uuid)
     }
 
+    /** 用户点"忽略"(通知按钮/界面按钮均走这里,与 complete/snooze 同一套
+     * updateIfPending 并发保护)。间隔逐次翻倍,直到用户主动稍等/完成/编辑
+     * 保存才清零,不像 snooze 那样固定间隔。 */
+    suspend fun ignore(uuid: String) {
+        val updated = db.withTransaction {
+            val entity = dao.byUuid(uuid) ?: return@withTransaction null
+            if (entity.statusEnum != TaskStatus.PENDING) return@withTransaction null
+            val d = Scheduler.ignore(entity.toData(), LocalDateTime.now(), settings.snapshot().snoozeMinutes)
+            val updated = entity.withData(d)
+            if (dao.updateIfPending(updated) == 0) return@withTransaction null
+            updated
+        } ?: return
+        alarms.scheduleReminder(uuid, updated.nextRemindAt)
+        Notifications.dismiss(context, uuid)
+    }
+
     suspend fun delete(uuid: String) {
         alarms.cancelReminder(uuid)
         Notifications.dismiss(context, uuid)
@@ -115,6 +131,7 @@ class TaskRepository(
                 repeatTimes = joinCsv(parsed.repeatTimes),
                 phase = TaskPhase.START.raw,
                 nextRemindAtMillis = parsed.remindAt.toEpochMillis(),
+                ignoreStreak = 0,
             )
             if (dao.updateIfPending(updated) == 0) return@withTransaction null
             updated

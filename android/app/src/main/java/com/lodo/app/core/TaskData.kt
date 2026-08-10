@@ -50,6 +50,9 @@ data class TaskData(
     val phase: TaskPhase = TaskPhase.START,
     val nextRemindAt: LocalDateTime = remindAt,
     val doneAt: LocalDateTime? = null,
+    /** 连续"忽略"次数(用户明确点忽略,区别于被动的 markNotified),用于让
+     * 忽略间隔逐次翻倍;稍等/完成/编辑保存都会把它清零。 */
+    val ignoreStreak: Int = 0,
 ) {
     val isRecurring: Boolean get() = repeatType != RepeatType.NONE
 

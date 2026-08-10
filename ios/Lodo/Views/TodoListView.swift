@@ -604,6 +604,7 @@ struct TodoListView: View {
         task.phaseRaw = TaskPhase.start.rawValue
         task.doneAt = nil
         task.nextRemindAt = task.remindAt
+        task.ignoreStreak = 0
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
     }

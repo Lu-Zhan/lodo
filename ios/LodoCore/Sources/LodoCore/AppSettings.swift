@@ -15,6 +15,11 @@ public enum AppSettings {
     public static let hapticsEnabledKey = "hapticsEnabled"
     public static let insightEnabledKey = "insightEnabled"
     public static let agentSilenceTimeoutSecondsKey = "agentSilenceTimeoutSeconds"
+    public static let quietHoursEnabledKey = "quietHoursEnabled"
+    public static let quietHoursStartKey = "quietHoursStart"
+    public static let quietHoursEndKey = "quietHoursEnd"
+    public static let sttEngineKey = "sttEngine"
+    public static let useBuiltInSTTKeyKey = "useBuiltInSTTKey"
     public static let agentPersonaStyleKey = "agentPersonaStyle"
     public static let agentPersonaCustomKey = "agentPersonaCustom"
     public static let aiProviderKey = "aiProvider"
@@ -44,6 +49,22 @@ public enum AppSettings {
 
     public static var digestTime: String {
         UserDefaults.standard.string(forKey: digestTimeKey) ?? "21:00"
+    }
+
+    /// 免打扰时段:只影响到期提醒是否弹通知,不影响到期状态本身;默认开、
+    /// 22:00–08:00。
+    public static var quietHoursEnabled: Bool {
+        UserDefaults.standard.object(forKey: quietHoursEnabledKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: quietHoursEnabledKey)
+    }
+
+    public static var quietHoursStart: String {
+        UserDefaults.standard.string(forKey: quietHoursStartKey) ?? "22:00"
+    }
+
+    public static var quietHoursEnd: String {
+        UserDefaults.standard.string(forKey: quietHoursEndKey) ?? "08:00"
     }
 
     /// 汇总提醒时间点列表("HH:MM");无新值时迁移旧的单一 digestTime。
@@ -99,6 +120,18 @@ public enum AppSettings {
         UserDefaults.standard.object(forKey: agentSilenceTimeoutSecondsKey) == nil
             ? 3
             : UserDefaults.standard.integer(forKey: agentSilenceTimeoutSecondsKey)
+    }
+
+    /// 语音转文字引擎:"qwenASR"(云端,默认)或 "system"(iOS 自带 SFSpeechRecognizer)。
+    public static var sttEngine: String {
+        UserDefaults.standard.string(forKey: sttEngineKey) ?? "qwenASR"
+    }
+
+    /// STT "使用内置 API Key"开关,默认开,语义与 useBuiltInKey 一致。
+    public static var useBuiltInSTTKey: Bool {
+        UserDefaults.standard.object(forKey: useBuiltInSTTKeyKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: useBuiltInSTTKeyKey)
     }
 
     /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 DeepSeek;

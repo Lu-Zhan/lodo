@@ -141,6 +141,7 @@ object Strings {
         "shared.black" to mapOf(Lang.ZH to "黑色", Lang.EN to "Black"),
         "shared.daily" to mapOf(Lang.ZH to "每天", Lang.EN to "Daily"),
         "shared.weekly" to mapOf(Lang.ZH to "每周", Lang.EN to "Weekly"),
+        "android_notif.ignore" to mapOf(Lang.ZH to "忽略", Lang.EN to "Ignore"),
     )
 
     fun of(key: String, lang: Lang): String =

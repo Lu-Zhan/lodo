@@ -72,4 +72,14 @@ public enum KeychainHelper {
         }
         return apiKey
     }
+
+    /// 语音转文字(Qwen 语音识别)实际发请求要用的 key,同一套内置/钥匙串
+    /// 优先级逻辑,只是服务商固定为 QwenASRClient.providerName。
+    public static var effectiveSTTKey: String? {
+        if AppSettings.useBuiltInSTTKey,
+           let builtIn = BuiltInAPIKey.key(for: QwenASRClient.providerName), !builtIn.isEmpty {
+            return builtIn
+        }
+        return apiKey(for: QwenASRClient.providerName)
+    }
 }

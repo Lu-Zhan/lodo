@@ -42,6 +42,7 @@ class Task:
     last_notified_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     done_at: Optional[datetime] = None
+    ignore_streak: int = 0  # 连续"忽略"次数,决定下次提醒间隔的翻倍倍数
 
     def __post_init__(self) -> None:
         if self.next_remind_at is None:

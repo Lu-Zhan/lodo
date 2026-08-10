@@ -128,6 +128,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         app.settings.setAllDayTime(hhmm)
     }
 
+    /** 免打扰时段变更后重排所有待办的闹钟,让新设置立即生效(与 setDigestEnabled
+     * 等汇总设置变更后 syncAlarms 的思路一致)。 */
+    fun setQuietHoursEnabled(enabled: Boolean) = viewModelScope.launch {
+        app.settings.setQuietHoursEnabled(enabled)
+        app.repository.syncAlarms()
+    }
+
+    fun setQuietHoursStart(hhmm: String) = viewModelScope.launch {
+        app.settings.setQuietHoursStart(hhmm)
+        app.repository.syncAlarms()
+    }
+
+    fun setQuietHoursEnd(hhmm: String) = viewModelScope.launch {
+        app.settings.setQuietHoursEnd(hhmm)
+        app.repository.syncAlarms()
+    }
+
     /** 汇总设置变更后立即重排汇总闹钟(对应 iOS refreshDigest)。 */
     fun setDigestEnabled(enabled: Boolean) = viewModelScope.launch {
         app.settings.setDigestEnabled(enabled)

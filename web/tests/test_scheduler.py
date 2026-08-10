@@ -118,6 +118,71 @@ def test_digest_disabled():
     assert not scheduler.should_show_digest(s, datetime(2026, 7, 8, 23, 59))
 
 
+def test_explicit_ignore_doubles_interval():
+    t = make_task()
+    scheduler.ignore(t, T0, 15)
+    assert t.ignore_streak == 1
+    assert t.next_remind_at == T0 + timedelta(minutes=30)  # 15 * 2^1
+    scheduler.ignore(t, t.next_remind_at, 15)
+    assert t.ignore_streak == 2
+    assert t.next_remind_at == T0 + timedelta(minutes=30 + 60)  # 15 * 2^2
+
+
+def test_ignore_streak_caps_at_max_interval():
+    t = make_task()
+    now = T0
+    for _ in range(10):  # 远超封顶次数
+        scheduler.ignore(t, now, 15)
+        now = t.next_remind_at
+    assert t.ignore_streak == scheduler._MAX_IGNORE_STREAK
+    assert t.next_remind_at - now <= timedelta(minutes=scheduler._MAX_IGNORE_INTERVAL_MINUTES)
+    # 再忽略一次也不应超过封顶间隔
+    scheduler.ignore(t, now, 15)
+    assert t.next_remind_at - now == timedelta(minutes=scheduler._MAX_IGNORE_INTERVAL_MINUTES)
+
+
+def test_ignore_streak_resets_on_snooze():
+    t = make_task()
+    scheduler.ignore(t, T0, 15)
+    scheduler.ignore(t, t.next_remind_at, 15)
+    assert t.ignore_streak == 2
+    scheduler.snooze(t, t.next_remind_at, 15)
+    assert t.ignore_streak == 0
+
+
+def test_ignore_streak_resets_on_complete():
+    t = make_task()
+    scheduler.ignore(t, T0, 15)
+    assert t.ignore_streak == 1
+    scheduler.advance(t, t.next_remind_at)
+    assert t.ignore_streak == 0
+    assert t.status == Status.DONE
+
+
+def test_quiet_hours_pushes_time_inside_window_to_window_end():
+    inside = datetime(2026, 7, 8, 23, 30)
+    adjusted = scheduler.apply_quiet_hours(inside, "22:00", "08:00", True)
+    assert adjusted == datetime(2026, 7, 9, 8, 0)
+
+
+def test_quiet_hours_leaves_time_outside_window_unchanged():
+    outside = datetime(2026, 7, 8, 12, 0)
+    assert scheduler.apply_quiet_hours(outside, "22:00", "08:00", True) == outside
+
+
+def test_quiet_hours_handles_overnight_wrap():
+    evening = datetime(2026, 7, 8, 23, 30)
+    assert scheduler.apply_quiet_hours(evening, "22:00", "08:00", True) == datetime(2026, 7, 9, 8, 0)
+    morning = datetime(2026, 7, 9, 3, 0)
+    assert scheduler.apply_quiet_hours(morning, "22:00", "08:00", True) == datetime(2026, 7, 9, 8, 0)
+
+
+def test_quiet_hours_disabled_or_zero_width_leaves_time_unchanged():
+    inside = datetime(2026, 7, 8, 23, 30)
+    assert scheduler.apply_quiet_hours(inside, "22:00", "08:00", False) == inside
+    assert scheduler.apply_quiet_hours(inside, "22:00", "22:00", True) == inside
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

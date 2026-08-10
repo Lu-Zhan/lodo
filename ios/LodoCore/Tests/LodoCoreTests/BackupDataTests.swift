@@ -65,6 +65,7 @@ final class BackupDataTests: XCTestCase {
         original.attachment = TaskAttachment(
             kind: .text, title: "备注", summary: "摘要", text: "正文", urlString: nil,
             originalFileName: nil)
+        original.ignoreStreak = 3
 
         let dto = original.backup
         let restored = TaskItem(title: "", remindAt: Date())
@@ -74,6 +75,7 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(restored.title, original.title)
         XCTAssertEqual(restored.durationMinutes, original.durationMinutes)
         XCTAssertEqual(restored.attachment?.title, "备注")
+        XCTAssertEqual(restored.ignoreStreak, 3)
     }
 
     func testTaskItemWithProjectBackupAndApplyRoundTrip() {
@@ -154,7 +156,22 @@ final class BackupDataTests: XCTestCase {
     func testOldFormatBackupPayloadDecodesWithoutNewKeys() throws {
         let oldFormatJSON = """
         {
-          "tasks": [],
+          "tasks": [
+            {
+              "uuid": "\(UUID().uuidString)",
+              "title": "老待办",
+              "remindAt": 0,
+              "durationMinutes": 0,
+              "allDay": false,
+              "repeatTypeRaw": "none",
+              "repeatDays": [],
+              "repeatTimes": [],
+              "statusRaw": "pending",
+              "phaseRaw": "start",
+              "nextRemindAt": 0,
+              "createdAt": 0
+            }
+          ],
           "memoryItems": [
             {
               "uuid": "\(UUID().uuidString)",
@@ -183,10 +200,17 @@ final class BackupDataTests: XCTestCase {
         """
         let decoded = try JSONDecoder().decode(
             BackupPayload.self, from: Data(oldFormatJSON.utf8))
+        XCTAssertEqual(decoded.tasks[0].title, "老待办")
+        XCTAssertEqual(decoded.tasks[0].ignoreStreak, 0)
         XCTAssertEqual(decoded.memoryItems[0].title, "老记录")
         XCTAssertEqual(decoded.memoryItems[0].attachmentRelativePaths, [])
         XCTAssertNil(decoded.memoryItems[0].contactNickname)
         XCTAssertTrue(decoded.contactRelationships.isEmpty)
+        XCTAssertEqual(decoded.settings.sttEngine, "qwenASR")
+        XCTAssertTrue(decoded.settings.useBuiltInSTTKey)
+        XCTAssertTrue(decoded.settings.quietHoursEnabled)
+        XCTAssertEqual(decoded.settings.quietHoursStart, "22:00")
+        XCTAssertEqual(decoded.settings.quietHoursEnd, "08:00")
     }
 
     func testAgentThreadAndMessageBackupAndApplyRoundTrip() {

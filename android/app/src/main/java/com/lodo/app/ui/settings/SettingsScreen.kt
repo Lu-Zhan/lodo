@@ -79,6 +79,8 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     var showAllDayPicker by remember { mutableStateOf(false) }
+    var showQuietStartPicker by remember { mutableStateOf(false) }
+    var showQuietEndPicker by remember { mutableStateOf(false) }
     var editingDigestIndex by remember { mutableStateOf<Int?>(null) }
     var showMemoryEditor by remember { mutableStateOf(false) }
     var confirmMemoryReset by remember { mutableStateOf(false) }
@@ -143,6 +145,28 @@ fun SettingsScreen(
             TimeRow("全天事项提醒时间", settings.allDayTime) { showAllDayPicker = true }
             FooterText("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
             FooterText("只有日期、没有时间的事项,当天几点提醒。")
+
+            SectionHeader(stringResource(R.string.android_ui_quiet_hours))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.android_ui_quiet_hours),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(checked = settings.quietHoursEnabled, onCheckedChange = vm::setQuietHoursEnabled)
+            }
+            if (settings.quietHoursEnabled) {
+                TimeRow(
+                    stringResource(R.string.android_ui_quiet_hours_start), settings.quietHoursStart,
+                ) { showQuietStartPicker = true }
+                TimeRow(
+                    stringResource(R.string.android_ui_quiet_hours_end), settings.quietHoursEnd,
+                ) { showQuietEndPicker = true }
+            }
+            FooterText(stringResource(R.string.android_ui_quiet_hours_footer))
 
             SectionHeader(stringResource(R.string.android_ui_daily_digest))
             Row(
@@ -492,6 +516,26 @@ fun SettingsScreen(
                 showAllDayPicker = false
             },
             onDismiss = { showAllDayPicker = false },
+        )
+    }
+    if (showQuietStartPicker) {
+        LodoTimePickerDialog(
+            initial = TimeFormat.localTime(settings.quietHoursStart),
+            onConfirm = {
+                vm.setQuietHoursStart(TimeFormat.hhmm(it))
+                showQuietStartPicker = false
+            },
+            onDismiss = { showQuietStartPicker = false },
+        )
+    }
+    if (showQuietEndPicker) {
+        LodoTimePickerDialog(
+            initial = TimeFormat.localTime(settings.quietHoursEnd),
+            onConfirm = {
+                vm.setQuietHoursEnd(TimeFormat.hhmm(it))
+                showQuietEndPicker = false
+            },
+            onDismiss = { showQuietEndPicker = false },
         )
     }
     editingDigestIndex?.let { index ->

@@ -17,6 +17,18 @@ public enum Scheduler {
     /// 用户点"稍等"。
     public static func snooze(_ task: inout TaskData, now: Date, snoozeMinutes: Int) {
         task.nextRemindAt = now.addingTimeInterval(TimeInterval(snoozeMinutes * 60))
+        task.ignoreStreak = 0
+    }
+
+    static let maxIgnoreStreak = 8
+    static let maxIgnoreIntervalMinutes = 240
+
+    /// 用户点"忽略"——和"稍等"不同,每忽略一次下次提醒间隔翻倍
+    /// (封顶 240 分钟/4 小时),直到"稍等"/完成/改期才重置回默认间隔。
+    public static func ignore(_ task: inout TaskData, now: Date, snoozeMinutes: Int) {
+        task.ignoreStreak = min(task.ignoreStreak + 1, maxIgnoreStreak)
+        let minutes = min(snoozeMinutes * (1 << task.ignoreStreak), maxIgnoreIntervalMinutes)
+        task.nextRemindAt = now.addingTimeInterval(TimeInterval(minutes * 60))
     }
 
     /// 重复事项在 after 之后的下一次提醒时间。
@@ -65,6 +77,7 @@ public enum Scheduler {
     public static func advance(
         _ task: inout TaskData, now: Date, calendar: Calendar = .current
     ) -> Bool {
+        task.ignoreStreak = 0
         if task.phase == .start && task.durationMinutes > 0 {
             task.phase = .end
             task.nextRemindAt = now.addingTimeInterval(TimeInterval(task.durationMinutes * 60))
@@ -79,5 +92,32 @@ public enum Scheduler {
             task.doneAt = now
         }
         return true
+    }
+
+    /// 免打扰时段:把落在时段内的时刻顺延到时段结束,只用于计算"实际什么
+    /// 时候该弹通知";不改 nextRemindAt 本身,到期状态与这个函数无关。
+    /// quietStart/quietEnd 是 "HH:MM",支持跨零点(如 22:00-08:00);
+    /// 起止时间相同或 enabled=false 视为关闭,原样返回。
+    public static func applyQuietHours(
+        _ time: Date, quietStart: String, quietEnd: String, enabled: Bool,
+        calendar: Calendar = .current
+    ) -> Date {
+        guard enabled, quietStart != quietEnd else { return time }
+        let startParts = quietStart.split(separator: ":").compactMap { Int($0) }
+        let endParts = quietEnd.split(separator: ":").compactMap { Int($0) }
+        guard startParts.count == 2, endParts.count == 2 else { return time }
+        let s = startParts[0] * 60 + startParts[1]
+        let e = endParts[0] * 60 + endParts[1]
+        let comps = calendar.dateComponents([.hour, .minute], from: time)
+        let t = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+        let wraps = s > e
+        let inWindow = wraps ? (t >= s || t < e) : (s <= t && t < e)
+        guard inWindow else { return time }
+        let dayOffset = (wraps && t >= s) ? 1 : 0
+        guard let endDay = calendar.date(byAdding: .day, value: dayOffset,
+                                         to: calendar.startOfDay(for: time)),
+              let result = calendar.date(bySettingHour: endParts[0], minute: endParts[1],
+                                         second: 0, of: endDay) else { return time }
+        return result
     }
 }

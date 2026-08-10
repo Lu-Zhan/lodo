@@ -52,6 +52,8 @@ data class TaskEntity(
     val nextRemindAtMillis: Long,
     val createdAtMillis: Long,
     val doneAtMillis: Long?,
+    /** 连续"忽略"次数,语义见 core.TaskData.ignoreStreak。 */
+    val ignoreStreak: Int = 0,
 ) {
     val repeatTypeEnum: RepeatType get() = RepeatType.from(repeatType)
     val statusEnum: TaskStatus get() = TaskStatus.from(status)
@@ -75,7 +77,7 @@ data class TaskEntity(
         title = title, remindAt = remindAt, durationMinutes = durationMinutes,
         allDay = allDay, repeatType = repeatTypeEnum, repeatDays = repeatDaysList,
         repeatTimes = repeatTimesList, status = statusEnum, phase = phaseEnum,
-        nextRemindAt = nextRemindAt, doneAt = doneAt,
+        nextRemindAt = nextRemindAt, doneAt = doneAt, ignoreStreak = ignoreStreak,
     )
 
     /** 把调度计算结果写回模型。 */
@@ -91,6 +93,7 @@ data class TaskEntity(
         phase = d.phase.raw,
         nextRemindAtMillis = d.nextRemindAt.toEpochMillis(),
         doneAtMillis = d.doneAt?.toEpochMillis(),
+        ignoreStreak = d.ignoreStreak,
     )
 
     /** 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"。 */

@@ -609,6 +609,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
 
     fun delete(uuid: String) = viewModelScope.launch { app.repository.delete(uuid) }
     fun snooze(uuid: String) = viewModelScope.launch { app.repository.snooze(uuid) }
+    fun ignore(uuid: String) = viewModelScope.launch { app.repository.ignore(uuid) }
     fun saveNew(parsed: ParsedTask) = viewModelScope.launch { app.repository.saveNew(parsed) }
     fun applyEdit(uuid: String, parsed: ParsedTask) =
         viewModelScope.launch { app.repository.applyEdit(uuid, parsed) }

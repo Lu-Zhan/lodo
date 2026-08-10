@@ -15,6 +15,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let doneAction = "LODO_DONE"
     static let snoozeAction = "LODO_SNOOZE"
     static let rescheduleAction = "LODO_RESCHEDULE"
+    static let ignoreAction = "LODO_IGNORE"
     static let digestID = "lodo-digest"
     private static let chainLength = 8
 
@@ -44,8 +45,13 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let reschedule = UNNotificationAction(identifier: Self.rescheduleAction,
                                               title: LocalizedStrings.translate("改期", language: language),
                                               options: [.foreground])
+        // 和"稍等"不同:间隔逐次翻倍,直到稍等/完成/改期才重置(见 Scheduler.ignore)。
+        let ignore = UNNotificationAction(identifier: Self.ignoreAction,
+                                          title: LocalizedStrings.translate("忽略", language: language),
+                                          options: [])
         center.setNotificationCategories([
-            UNNotificationCategory(identifier: Self.nagCategory, actions: [done, snooze, reschedule],
+            UNNotificationCategory(identifier: Self.nagCategory,
+                                   actions: [done, snooze, ignore, reschedule],
                                    intentIdentifiers: [], options: []),
         ])
         center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
@@ -76,7 +82,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                                        snoozeMinutes: AppSettings.snoozeMinutes)
         let starting = task.phase == .start && task.durationMinutes > 0
         for i in 0..<min(chainLength, Self.chainLength) {
-            let fire = anchor.addingTimeInterval(interval * Double(i))
+            // 免打扰时段:只调整实际弹通知的时刻,不碰 task.nextRemindAt——
+            // 到期状态与这个调整无关(见 Scheduler.applyQuietHours)。
+            let fire = Scheduler.applyQuietHours(
+                anchor.addingTimeInterval(interval * Double(i)),
+                quietStart: AppSettings.quietHoursStart, quietEnd: AppSettings.quietHoursEnd,
+                enabled: AppSettings.quietHoursEnabled)
             guard fire > now else { continue }
             let content = UNMutableNotificationContent()
             content.title = task.title
@@ -315,6 +326,15 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         rebuild(for: task)
     }
 
+    @MainActor
+    func ignore(_ task: TaskItem, context: ModelContext) {
+        var d = task.data
+        Scheduler.ignore(&d, now: Date(), snoozeMinutes: AppSettings.snoozeMinutes)
+        task.apply(d)
+        try? context.save()
+        rebuild(for: task)
+    }
+
     // MARK: - UNUserNotificationCenterDelegate
 
     func userNotificationCenter(
@@ -350,6 +370,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 self.complete(task, context: context)
             case Self.snoozeAction:
                 self.snooze(task, context: context)
+            case Self.ignoreAction:
+                self.ignore(task, context: context)
             case Self.rescheduleAction:
                 UserDefaults.standard.set(uuidString, forKey: Self.pendingRescheduleUUIDKey)
                 NotificationCenter.default.post(name: Self.rescheduleHandoff, object: nil,

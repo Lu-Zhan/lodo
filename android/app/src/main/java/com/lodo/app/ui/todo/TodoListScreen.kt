@@ -485,6 +485,15 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
                     Spacer(Modifier.width(4.dp))
                     Text(stringResource(R.string.android_ui_snooze_0_min, snoozeMinutes))
                 }
+                OutlinedButton(onClick = { vm.ignore(task.uuid) }) {
+                    Icon(
+                        Icons.Filled.NotificationsOff,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.android_ui_ignore))
+                }
             }
             vm.reschedule?.takeIf { it.first == task.uuid }?.let { (_, candidates) ->
                 FlowRow(

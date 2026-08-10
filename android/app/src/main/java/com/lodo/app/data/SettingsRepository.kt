@@ -73,6 +73,12 @@ data class Settings(
     val notifyMissCount: Int = 0,
     /** 应用内语言开关,不跟随系统语言,默认中文("zh"/"en")。 */
     val language: String = "zh",
+    /** 免打扰时段:仅影响通知实际弹出的时刻,不影响事项的到期/顺延状态——
+     * 时段内到期的事项仍照常显示为到期(红色),只是推迟到时段结束后才真的
+     * 弹通知。默认开,22:00-08:00。 */
+    val quietHoursEnabled: Boolean = true,
+    val quietHoursStart: String = "22:00",
+    val quietHoursEnd: String = "08:00",
 )
 
 /** 应用设置(Preferences DataStore);API key 经 AndroidKeyStore 加密后存储,对应 iOS 钥匙串。 */
@@ -98,6 +104,9 @@ class SettingsRepository(private val context: Context) {
         val NOTIFICATION_PERMISSION_DENIED = booleanPreferencesKey("notificationPermissionDenied")
         val NOTIFY_MISS_COUNT = intPreferencesKey("notifyMissCount")
         val LANGUAGE = stringPreferencesKey("language")
+        val QUIET_HOURS_ENABLED = booleanPreferencesKey("quietHoursEnabled")
+        val QUIET_HOURS_START = stringPreferencesKey("quietHoursStart")
+        val QUIET_HOURS_END = stringPreferencesKey("quietHoursEnd")
         /** 旧版单一 DeepSeek key,读取时兼容。 */
         val API_KEY_ENCRYPTED = stringPreferencesKey("apiKeyEncrypted")
 
@@ -131,6 +140,9 @@ class SettingsRepository(private val context: Context) {
             notificationPermissionDenied = p[Keys.NOTIFICATION_PERMISSION_DENIED] ?: false,
             notifyMissCount = p[Keys.NOTIFY_MISS_COUNT] ?: 0,
             language = p[Keys.LANGUAGE] ?: "zh",
+            quietHoursEnabled = p[Keys.QUIET_HOURS_ENABLED] ?: true,
+            quietHoursStart = p[Keys.QUIET_HOURS_START] ?: "22:00",
+            quietHoursEnd = p[Keys.QUIET_HOURS_END] ?: "08:00",
         )
     }
 
@@ -212,6 +224,18 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[Keys.LANGUAGE] = language }
         com.lodo.app.core.CurrentLang.value =
             if (language == "en") com.lodo.app.core.Lang.EN else com.lodo.app.core.Lang.ZH
+    }
+
+    suspend fun setQuietHoursEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.QUIET_HOURS_ENABLED] = enabled }
+    }
+
+    suspend fun setQuietHoursStart(hhmm: String) {
+        context.dataStore.edit { it[Keys.QUIET_HOURS_START] = hhmm }
+    }
+
+    suspend fun setQuietHoursEnd(hhmm: String) {
+        context.dataStore.edit { it[Keys.QUIET_HOURS_END] = hhmm }
     }
 
     suspend fun setNotificationPermissionDenied(denied: Boolean) {

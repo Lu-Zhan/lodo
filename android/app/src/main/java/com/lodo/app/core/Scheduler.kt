@@ -17,9 +17,20 @@ object Scheduler {
     fun markNotified(task: TaskData, now: LocalDateTime, snoozeMinutes: Int): TaskData =
         task.copy(nextRemindAt = now.plusMinutes(snoozeMinutes.toLong()))
 
-    /** 用户点"稍等"。 */
+    /** 用户点"稍等"——明确的正常交互,不是逃避,清零忽略连击。 */
     fun snooze(task: TaskData, now: LocalDateTime, snoozeMinutes: Int): TaskData =
-        task.copy(nextRemindAt = now.plusMinutes(snoozeMinutes.toLong()))
+        task.copy(nextRemindAt = now.plusMinutes(snoozeMinutes.toLong()), ignoreStreak = 0)
+
+    /**
+     * 用户明确点"忽略"(区别于弹出提醒但未操作时被动触发的 markNotified)。
+     * 间隔按连续忽略次数逐次翻倍,封顶 240 分钟;streak 本身也封顶在 8
+     * (2^8 倍已经远超上限,再往上纯粹是防 Int 溢出,对结果没有影响)。
+     */
+    fun ignore(task: TaskData, now: LocalDateTime, snoozeMinutes: Int): TaskData {
+        val streak = minOf(task.ignoreStreak + 1, 8)
+        val minutes = minOf(snoozeMinutes * (1 shl streak), 240)
+        return task.copy(ignoreStreak = streak, nextRemindAt = now.plusMinutes(minutes.toLong()))
+    }
 
     /**
      * 重复事项在 after 之后的下一次提醒时间。
@@ -60,9 +71,36 @@ object Scheduler {
         }
         val next = nextOccurrence(task, now)
         return if (next != null) {
-            task.copy(phase = TaskPhase.START, remindAt = next, nextRemindAt = next) to true
+            // 完成一次即视为"重新投入",忽略连击清零
+            task.copy(phase = TaskPhase.START, remindAt = next, nextRemindAt = next, ignoreStreak = 0) to true
         } else {
-            task.copy(status = TaskStatus.DONE, doneAt = now) to true
+            task.copy(status = TaskStatus.DONE, doneAt = now, ignoreStreak = 0) to true
+        }
+    }
+
+    /**
+     * 免打扰时段:仅影响通知实际弹出的时刻,不改变事项的到期/顺延语义
+     * (nextRemindAt 的调度计算完全不经过这个函数,由调用方——AlarmScheduler——
+     * 在真正排闹钟前对结果时间做一次调整)。quietStart == quietEnd 视为
+     * 零宽窗口,等同于关闭。
+     *
+     * 跨零点(quietStart > quietEnd,如 22:00-08:00)时窗口分两段:
+     * [quietStart, 24:00) 和 [00:00, quietEnd)。落在前一段,顺延到"次日" quietEnd;
+     * 落在后一段,顺延到"当日" quietEnd。不跨零点时窗口是 [quietStart, quietEnd),
+     * 顺延到"当日" quietEnd。
+     */
+    fun applyQuietHours(time: LocalDateTime, quietStart: String, quietEnd: String, enabled: Boolean): LocalDateTime {
+        if (!enabled || quietStart == quietEnd) return time
+        val s = TimeFormat.localTime(quietStart)
+        val e = TimeFormat.localTime(quietEnd)
+        val t = time.toLocalTime()
+        val wraps = s > e
+        val inWindow = if (wraps) (t >= s || t < e) else (t >= s && t < e)
+        if (!inWindow) return time
+        return if (wraps && t >= s) {
+            time.toLocalDate().plusDays(1).atTime(e)
+        } else {
+            time.toLocalDate().atTime(e)
         }
     }
 }

@@ -27,6 +27,20 @@ def mark_notified(task: Task, now: datetime, snooze_minutes: int) -> Task:
 def snooze(task: Task, now: datetime, snooze_minutes: int) -> Task:
     """用户点"稍等"。"""
     task.next_remind_at = now + timedelta(minutes=snooze_minutes)
+    task.ignore_streak = 0
+    return task
+
+
+_MAX_IGNORE_STREAK = 8
+_MAX_IGNORE_INTERVAL_MINUTES = 240
+
+
+def ignore(task: Task, now: datetime, snooze_minutes: int) -> Task:
+    """用户点"忽略"——和"稍等"不同,每忽略一次下次提醒间隔翻倍
+    (封顶 240 分钟/4 小时),直到"稍等"/完成/改期才重置回默认间隔。"""
+    task.ignore_streak = min(task.ignore_streak + 1, _MAX_IGNORE_STREAK)
+    minutes = min(snooze_minutes * (1 << task.ignore_streak), _MAX_IGNORE_INTERVAL_MINUTES)
+    task.next_remind_at = now + timedelta(minutes=minutes)
     return task
 
 
@@ -61,6 +75,7 @@ def advance(task: Task, now: datetime) -> bool:
       在实际开始时间 + 时长后提醒确认完成,返回 False。
     - 其余情况即完成:一次性事项标记 done;重复事项排到下一次提醒。
     """
+    task.ignore_streak = 0
     if task.phase == Phase.START and task.duration_minutes > 0:
         task.phase = Phase.END
         task.next_remind_at = now + timedelta(minutes=task.duration_minutes)
@@ -74,6 +89,29 @@ def advance(task: Task, now: datetime) -> bool:
         task.status = Status.DONE
         task.done_at = now
     return True
+
+
+def apply_quiet_hours(
+    time: datetime, quiet_start: str, quiet_end: str, enabled: bool = True
+) -> datetime:
+    """免打扰时段:把落在时段内的时刻顺延到时段结束,只用于计算"实际什么
+    时候该弹通知";不改 next_remind_at 本身,到期状态与这个函数无关。
+    quiet_start/quiet_end 是 "HH:MM",支持跨零点(如 22:00-08:00);
+    起止时间相同或 enabled=False 视为关闭,原样返回。
+    """
+    if not enabled or quiet_start == quiet_end:
+        return time
+    start_h, start_m = map(int, quiet_start.split(":"))
+    end_h, end_m = map(int, quiet_end.split(":"))
+    s = start_h * 60 + start_m
+    e = end_h * 60 + end_m
+    t = time.hour * 60 + time.minute
+    wraps = s > e
+    in_window = (t >= s or t < e) if wraps else (s <= t < e)
+    if not in_window:
+        return time
+    end_day = time.date() + timedelta(days=1) if (wraps and t >= s) else time.date()
+    return datetime.combine(end_day, datetime.min.time()).replace(hour=end_h, minute=end_m)
 
 
 def should_show_digest(settings: AppSettings, now: datetime) -> bool:

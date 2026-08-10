@@ -105,6 +105,13 @@ struct TaskRowView: View {
                 }
                 .tint(.orange)
                 .accessibilityLabel("稍等 \(AppSettings.snoozeMinutes) 分钟")
+                Button {
+                    Haptics.impact(.light)
+                    TaskActions.ignore(task, context: context)
+                } label: {
+                    Label("忽略", systemImage: "bell.slash")
+                }
+                .tint(.gray)
             } else {
                 Button(role: .destructive) {
                     Haptics.impact()

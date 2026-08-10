@@ -12,6 +12,8 @@ struct AISettingsView: View {
     @AppStorage(AppSettings.agentPersonaStyleKey) private var personaStyle = "默认"
     @AppStorage(AppSettings.agentPersonaCustomKey) private var personaCustom = ""
     @AppStorage(AppSettings.agentSilenceTimeoutSecondsKey) private var agentSilenceTimeoutSeconds = 3
+    @AppStorage(AppSettings.sttEngineKey) private var sttEngine = "qwenASR"
+    @AppStorage(AppSettings.useBuiltInSTTKeyKey) private var useBuiltInSTTKey = true
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -24,6 +26,10 @@ struct AISettingsView: View {
     // ---- 联网搜索(Tavily) ----
     @State private var tavilyKey = KeychainHelper.apiKey(for: "Tavily") ?? ""
     @State private var tavilyKeySaved = KeychainHelper.apiKey(for: "Tavily") != nil
+
+    // ---- 语音识别(Qwen 语音识别) ----
+    @State private var sttApiKey = KeychainHelper.apiKey(for: QwenASRClient.providerName) ?? ""
+    @State private var sttKeySaved = KeychainHelper.apiKey(for: QwenASRClient.providerName) != nil
 
     var body: some View {
         Form {
@@ -112,12 +118,33 @@ struct AISettingsView: View {
             }
 
             Section {
+                Picker("语音识别引擎", selection: $sttEngine) {
+                    Text("Qwen 语音识别(云端,默认)").tag("qwenASR")
+                    Text("系统语音识别(iOS 自带)").tag("system")
+                }
+                if sttEngine == "qwenASR" {
+                    if BuiltInAPIKey.key(for: QwenASRClient.providerName) != nil {
+                        Toggle("使用内置 API Key", isOn: $useBuiltInSTTKey)
+                    }
+                    if useBuiltInSTTKey, BuiltInAPIKey.key(for: QwenASRClient.providerName) != nil {
+                        Text("已使用内置 API Key,无需再填。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        SecureField("API Key", text: $sttApiKey)
+                        Button(sttKeySaved ? "已保存" : "保存 API Key") {
+                            KeychainHelper.save(sttApiKey, for: QwenASRClient.providerName)
+                            sttKeySaved = true
+                        }
+                        .disabled(sttKeySaved)
+                    }
+                }
                 Stepper("静音自动停止:\(agentSilenceTimeoutSeconds) 秒",
                         value: $agentSilenceTimeoutSeconds, in: 0...30, step: 1)
             } header: {
                 Text("语音交互")
             } footer: {
-                Text("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
+                Text("Qwen 语音识别整段录音后一次性转写,停止录音到出结果会有短暂等待;系统语音识别边说边出字,但仅本机可用。语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
             }
 
             Section {

@@ -50,6 +50,7 @@ _NEW_COLUMNS = {
     "repeat_type": "TEXT NOT NULL DEFAULT 'none'",
     "repeat_days": "TEXT NOT NULL DEFAULT ''",
     "repeat_times": "TEXT NOT NULL DEFAULT ''",
+    "ignore_streak": "INTEGER NOT NULL DEFAULT 0",
 }
 
 
@@ -81,6 +82,7 @@ def _row_to_task(row: sqlite3.Row) -> Task:
         last_notified_at=_dt(row["last_notified_at"]),
         created_at=_dt(row["created_at"]),
         done_at=_dt(row["done_at"]),
+        ignore_streak=row["ignore_streak"],
     )
 
 
@@ -95,8 +97,8 @@ class Database:
         cur = self.conn.execute(
             "INSERT INTO tasks (title, remind_at, duration_minutes, all_day,"
             " repeat_type, repeat_days, repeat_times, status, phase,"
-            " next_remind_at, created_at, done_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " next_remind_at, created_at, done_at, ignore_streak)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 task.title,
                 task.remind_at.isoformat(),
@@ -110,6 +112,7 @@ class Database:
                 (task.next_remind_at or task.remind_at).isoformat(),
                 now.isoformat(),
                 task.done_at.isoformat() if task.done_at else None,
+                task.ignore_streak,
             ),
         )
         self.conn.commit()
@@ -121,7 +124,8 @@ class Database:
         self.conn.execute(
             "UPDATE tasks SET title=?, remind_at=?, duration_minutes=?, all_day=?,"
             " repeat_type=?, repeat_days=?, repeat_times=?, status=?,"
-            " phase=?, next_remind_at=?, last_notified_at=?, done_at=? WHERE id=?",
+            " phase=?, next_remind_at=?, last_notified_at=?, done_at=?, ignore_streak=?"
+            " WHERE id=?",
             (
                 task.title,
                 task.remind_at.isoformat(),
@@ -135,6 +139,7 @@ class Database:
                 task.next_remind_at.isoformat(),
                 task.last_notified_at.isoformat() if task.last_notified_at else None,
                 task.done_at.isoformat() if task.done_at else None,
+                task.ignore_streak,
                 task.id,
             ),
         )

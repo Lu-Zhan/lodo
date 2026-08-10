@@ -22,6 +22,8 @@ public final class TaskItem {
     public var nextRemindAt: Date = Date.now
     public var createdAt: Date = Date.now
     public var doneAt: Date?
+    /// 连续"忽略"次数,决定下次提醒间隔的翻倍倍数(见 Scheduler.ignore)。
+    public var ignoreStreak: Int = 0
     /// 导出到系统提醒事项后的 EKReminder identifier(或导入来源),用于去重与更新。
     public var ekIdentifier: String?
     /// 这件事属于哪个项目/主题,AI 新建时自动推断、用户可在表单里改;纯展示/
@@ -101,7 +103,7 @@ public final class TaskItem {
             title: title, remindAt: remindAt, durationMinutes: durationMinutes,
             allDay: allDay, repeatType: repeatType, repeatDays: repeatDays,
             repeatTimes: repeatTimes, status: status, phase: phase,
-            nextRemindAt: nextRemindAt, doneAt: doneAt
+            nextRemindAt: nextRemindAt, doneAt: doneAt, ignoreStreak: ignoreStreak
         )
     }
 
@@ -118,6 +120,7 @@ public final class TaskItem {
         phaseRaw = d.phase.rawValue
         nextRemindAt = d.nextRemindAt
         doneAt = d.doneAt
+        ignoreStreak = d.ignoreStreak
     }
 
     /// 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"。
