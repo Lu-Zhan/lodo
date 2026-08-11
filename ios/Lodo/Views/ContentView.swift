@@ -8,6 +8,11 @@ struct ContentView: View {
     @State private var selection: AppTab = .overview
     @AppStorage(AppSettings.hasSeenOnboardingKey) private var hasSeenOnboarding = false
     @State private var showOnboarding = false
+    @AppStorage(AppSettings.openAgentOnLaunchKey) private var openAgentOnLaunch = true
+    /// 只在这次进程生命周期里的第一次 onAppear 生效一次,防止退到后台再回前台
+    /// (不会重新触发这个 tabs 视图的 onAppear)之外的任何重复挂载把 AI 助手
+    /// 反复弹出来。
+    @State private var didAutoOpenAgentOnLaunch = false
     /// 非 nil 时由待办页弹出全局 agent 并预填文本(lodo://agent 深链触发,空串=无预填)。
     @State private var agentRequest: String?
     /// 非 nil 时由总览页跳到该事项并自动发起改期请求(通知"改期"按钮交接)。
@@ -81,6 +86,19 @@ struct ContentView: View {
                         text: "演示正文"))
                 }
                 #endif
+                // 冷启动默认进入 AI 助手:首次引导还没做完时不弹(会和引导全屏页
+                // 叠在一起),截图/UI 测试用的 --demo-* 场景也跳过,避免抢在
+                // 目标 tab/弹层之前打断自动化流程。
+                if hasSeenOnboarding, openAgentOnLaunch, !didAutoOpenAgentOnLaunch {
+                    didAutoOpenAgentOnLaunch = true
+                    #if DEBUG
+                    if !ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--demo-") }) {
+                        openAgent()
+                    }
+                    #else
+                    openAgent()
+                    #endif
+                }
             }
             #if DEBUG
             .sheet(isPresented: $showAgentSkillsDemo) {

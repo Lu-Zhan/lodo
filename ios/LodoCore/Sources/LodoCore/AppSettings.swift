@@ -32,6 +32,7 @@ public enum AppSettings {
     public static let assetDisplayCurrencyKey = "assetDisplayCurrency"
     public static let languageKey = "appLanguage"
     public static let appIconStyleKey = "appIconStyle"
+    public static let openAgentOnLaunchKey = "openAgentOnLaunch"
 
     public static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)
@@ -113,6 +114,14 @@ public enum AppSettings {
         UserDefaults.standard.object(forKey: insightEnabledKey) == nil
             ? true
             : UserDefaults.standard.bool(forKey: insightEnabledKey)
+    }
+
+    /// 冷启动完成引导后是否直接弹出 AI 助手,默认开。只在真正的冷启动生效
+    /// (ContentView 用一次性 @State 标记防止重复触发),不影响退到后台再回前台。
+    public static var openAgentOnLaunch: Bool {
+        UserDefaults.standard.object(forKey: openAgentOnLaunchKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: openAgentOnLaunchKey)
     }
 
     /// 语音录音静音多少秒后自动停止,默认 3 秒;0 = 关闭,不自动停止。

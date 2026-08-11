@@ -11,6 +11,7 @@ struct SettingsView: View {
 
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
+    @AppStorage(AppSettings.openAgentOnLaunchKey) private var openAgentOnLaunch = true
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -79,6 +80,12 @@ struct SettingsView: View {
                     Toggle("振动反馈", isOn: $hapticsEnabled)
                 } footer: {
                     Text("滑动完成、删除等操作时轻微振动。")
+                }
+
+                Section {
+                    Toggle("打开 App 后默认进入 AI 助手", isOn: $openAgentOnLaunch)
+                } footer: {
+                    Text("开启后,完成首次引导的下一次冷启动会直接弹出 AI 助手;退到后台再回前台不会重复弹出。")
                 }
                 #endif
 
