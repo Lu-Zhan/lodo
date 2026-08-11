@@ -27,6 +27,12 @@ enum AgentReply {
     case suggestMemorize(text: String)
     /// 单条收藏已直接落库(memorize),AgentView 据 uuid 展示记忆结果卡片。
     case memorized(uuid: UUID)
+    /// auto_memorize 是当轮唯一动作时:AI 已经静默记下一条重点事实,
+    /// AgentView 据 uuid 展示和 .memorized 同款的结果卡片,但文案不同
+    /// ("已自动记录"而不是"已收藏"),不让用户把这两种来源的记忆混为一谈。
+    /// 和其他操作混在同一轮时不会走到这个 case——auto_memorize 那时仍然
+    /// 静默落库,但没有专属的回执(见 route() 里的处理)。
+    case autoMemorized(uuid: UUID)
 }
 
 /// 记忆条目左滑"转为待办"交接的载荷(见 ContentView)。

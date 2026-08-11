@@ -14,11 +14,14 @@ struct MemoryTagManageView: View {
     @State private var renaming: String?
     @State private var renameText = ""
 
-    /// "资产"是保留标签,有自己专门的入口(记忆页筛选里的资产开关 + 详情页
-    /// 的金额字段),不在这里跟普通标签混着改名/删除——改名会让资产筛选
-    /// 失效,删除会让所有资产条目"消失"(其实只是摘了标签,数据还在)。
+    /// "资产""人脉""AI记录"都是保留标签,各自有专门的入口(记忆页筛选里的
+    /// 资产/人脉开关 + 详情页的金额/联系方式字段、auto_memorize 的区分标记),
+    /// 都不在这里跟普通标签混着改名/删除——改名会让判定失效,删除会让相应
+    /// 条目"失去标记"(其实只是摘了标签,数据还在)。统一引用
+    /// `MemoryItem.reservedTagNames`,不要在这里单独维护一份排除列表。
     private var entries: [(name: String, count: Int)] {
-        MemoryTags.entries(in: context).filter { $0.name != MemoryItem.assetTagName }
+        MemoryTags.entries(in: context)
+            .filter { !MemoryItem.reservedTagNames.contains($0.name) }
     }
 
     var body: some View {

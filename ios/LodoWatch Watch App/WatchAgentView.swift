@@ -151,7 +151,7 @@ struct WatchAgentView: View {
             // 偏好不受 memoryEnabled 门控,Watch 上也会出现。手机端是静默落盘,
             // 手表这边没有对话流可以回执,索性让它跟着确认清单走一遍(确认即写入)。
             return "记住偏好:\(text)"
-        case .memorize, .askMemory, .answer, .suggestMemorize:
+        case .memorize, .askMemory, .answer, .suggestMemorize, .autoMemorize:
             // 死代码安全阀:Watch 调 command 不传 memoryEnabled/webSearchEnabled
             // (无 MemoryItem 数据层、也没有联网搜索),这几支不会被模型返回,
             // 仅为满足穷尽 switch。
@@ -197,7 +197,7 @@ struct WatchAgentView: View {
                 context.delete(task)
             case .rememberPreference(let text):
                 AgentPreferences.append(text)
-            case .memorize, .askMemory, .answer, .suggestMemorize:
+            case .memorize, .askMemory, .answer, .suggestMemorize, .autoMemorize:
                 // 死代码安全阀:Watch 未开 memoryEnabled/webSearchEnabled,不会实际出现。
                 continue
             }

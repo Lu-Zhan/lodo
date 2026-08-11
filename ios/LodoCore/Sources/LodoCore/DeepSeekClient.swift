@@ -59,7 +59,7 @@ extension ParsedTask {
 }
 
 /// AI 总入口解析出的单个操作。
-/// memorize/askMemory 仅在 command(memoryEnabled: true) 时会出现
+/// memorize/askMemory/autoMemorize 仅在 command(memoryEnabled: true) 时会出现
 /// (iOS/macOS 主 app;Watch 无记忆数据层,不开启)。answer 仅在
 /// command(webSearchEnabled: true) 时会出现(配置了 Tavily key 才开启)。
 public enum AIAction {
@@ -78,6 +78,11 @@ public enum AIAction {
     /// 以后每轮 command 都带进 prompt。和 memorize 的区别:那个存的是资料内容本身,
     /// 这个改的是 AI 以后怎么做事。
     case rememberPreference(text: String)
+    /// 对话中顺带提到的重点事实/事件(如"班主任喜欢收贺卡"),不是用户明确要求
+    /// 收藏,也不需要 suggestMemorize 那样等用户点按钮——直接静默落库,打
+    /// `MemoryItem.autoTagName` 区分。title/text 由本轮 command 顺带给出,
+    /// 不再像 memorize 那样额外调用一次整理接口,省一次网络请求。
+    case autoMemorize(title: String, text: String)
 }
 
 /// AI 总入口的返回:操作列表、关键信息缺失时的反问(一次可问多道,每道带
@@ -353,6 +358,15 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:建议收藏内容为空")
                 }
                 actions.append(.suggestMemorize(text: text))
+            case "auto_memorize" where memoryEnabled:
+                let title = (raw["title"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let text = (raw["text"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !title.isEmpty, !text.isEmpty else {
+                    throw DeepSeekError.parse("返回格式异常:自动记录内容为空")
+                }
+                actions.append(.autoMemorize(title: title, text: text))
             case "remember_preference":
                 let text = (raw["text"] as? String)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

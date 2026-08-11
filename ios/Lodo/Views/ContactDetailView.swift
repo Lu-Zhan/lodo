@@ -43,7 +43,9 @@ struct ContactDetailView: View {
 
     init(item: MemoryItem) {
         self.item = item
-        _tagsText = State(initialValue: item.tags.joined(separator: "、"))
+        // 保留标签(资产/人脉/AI记录)不进这个通用编辑框,见 commitEdits。
+        _tagsText = State(initialValue: item.tags
+            .filter { !MemoryItem.reservedTagNames.contains($0) }.joined(separator: "、"))
         _nickname = State(initialValue: item.contactNickname ?? "")
         _phone = State(initialValue: item.contactPhone ?? "")
         _email = State(initialValue: item.contactEmail ?? "")
@@ -269,7 +271,7 @@ struct ContactDetailView: View {
     }
 
     private var existingTags: [String] {
-        MemoryTags.all(in: context)
+        MemoryTags.all(in: context).filter { !MemoryItem.reservedTagNames.contains($0) }
     }
 
     private var currentTags: [String] {
@@ -307,7 +309,9 @@ struct ContactDetailView: View {
 
     private func commitEdits() {
         guard !deleted else { return }
-        let tags = Self.parseTags(tagsText)
+        // 保留标签只保留原样,不受这个编辑框影响(和 MemoryDetailView 同思路)。
+        let reserved = item.tags.filter { MemoryItem.reservedTagNames.contains($0) }
+        let tags = reserved + Self.parseTags(tagsText).filter { !MemoryItem.reservedTagNames.contains($0) }
         if tags != item.tags { item.tags = tags }
         item.contactNickname = nickname.isEmpty ? nil : nickname
         item.contactPhone = phone.isEmpty ? nil : phone

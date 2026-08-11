@@ -74,15 +74,30 @@ extension TodoListView {
                 reasoningHistory.append((role: "user", content: "链接内容:\n\(observation)"))
                 currentText = "(请基于以上链接内容继续处理最初的请求:\(text))"
             case .actions(let rawActions):
-                // 偏好是副作用,不是待办的增删改:先摘出来静默落盘,剩下的动作才走
-                // 后面的路径。这样 pendingActions/确认清单/撤销永远看不到它——
-                // 偏好不该进确认页,也不该被"撤销上一批"连坐删掉。
+                // 偏好、自动记录的重点事实都是副作用,不是待办的增删改:先摘出来
+                // 静默落盘,剩下的动作才走后面的路径。这样 pendingActions/确认清单/
+                // 撤销永远看不到它们——偏好/自动记录都不该进确认页,也不该被
+                // "撤销上一批"连坐删掉。
                 var actions = rawActions
                 for case .rememberPreference(let line) in actions {
                     AgentPreferences.append(line)
                 }
                 actions.removeAll { if case .rememberPreference = $0 { return true } else { return false } }
+                // 当轮唯一动作就是 auto_memorize 时,记住受影响条目的 uuid——
+                // 这种情况下 actions 会被下面这行清空,route() 需要用它返回一个
+                // 专属的 .autoMemorized 回执,而不是和真实问答共用的通用"好的,
+                // 我记住了。"(和其他操作混在一起时仍然保持静默,不展示这张卡片,
+                // 见 AgentReply.autoMemorized 的注释)。
+                var autoMemorizedUUID: UUID?
+                for case .autoMemorize(let title, let text) in actions {
+                    autoMemorizedUUID = MemoryPipeline.saveAutoMemory(
+                        title: title, text: text, context: context)?.uuid
+                }
+                actions.removeAll { if case .autoMemorize = $0 { return true } else { return false } }
                 guard !actions.isEmpty else {
+                    if let autoMemorizedUUID {
+                        return .autoMemorized(uuid: autoMemorizedUUID)
+                    }
                     return .answer(text: "好的,我记住了。", related: [])
                 }
                 if actions.count == 1 {
@@ -308,6 +323,9 @@ extension TodoListView {
         case .rememberPreference(let text):
             // 防御性分支:route() 已经在进确认清单之前把偏好摘走了。
             return "记住偏好:\(MemorySearch.truncate(text, limit: 20))"
+        case .autoMemorize(let title, _):
+            // 防御性分支:route() 已经在进确认清单之前把自动记录摘走落盘了。
+            return "自动记录:\(title)"
         }
     }
 
@@ -359,11 +377,11 @@ extension TodoListView {
                 if let created = MemoryPipeline.saveText(text, context: context) {
                     undoOps.append(.memorized(uuid: created.uuid))
                 }
-            case .askMemory, .answer, .suggestMemorize, .rememberPreference:
+            case .askMemory, .answer, .suggestMemorize, .rememberPreference, .autoMemorize:
                 // 防御性分支:查询/回答/建议收藏类操作没有可执行的落库动作
                 // (suggest_memorize 要用户点了"收藏这条"才真正落库,不能在这里
-                // 静默自动执行——那样就和 memorize 没区别了);偏好在 route() 里
-                // 已经落过盘,批次里理论上不会再出现。
+                // 静默自动执行——那样就和 memorize 没区别了);偏好、自动记录都在
+                // route() 里已经落过盘,批次里理论上不会再出现。
                 break
             }
         }

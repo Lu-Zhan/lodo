@@ -48,7 +48,7 @@ struct MemoryListView: View {
     /// 筛选开关,不跟其他标签混在一起,更醒目也避免用户把它们当成普通标签删掉)。
     private var allTags: [String] {
         MemoryTags.all(in: context)
-            .filter { $0 != MemoryItem.assetTagName && $0 != MemoryItem.contactTagName }
+            .filter { !MemoryItem.hiddenByDefaultTagNames.contains($0) }
     }
 
     /// 出现过的来源格式,按固定顺序(与内容标签是两套独立的筛选)。
@@ -563,7 +563,11 @@ private struct MemoryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: item.kind.symbol)
+            // AI 自动记录的条目(auto_memorize,打了 autoTagName)用 sparkles
+            // 图标取代内容类型图标(反正这类条目恒为 .text,类型图标本来也没有
+            // 信息量),和聊天里 memoryResultContent 的图标语言保持一致,让用户
+            // 一眼能从列表里认出"这条是 AI 自己记的",不用点进详情看标签。
+            Image(systemName: item.isAutoRecorded ? "sparkles" : item.kind.symbol)
                 .foregroundStyle(.tint)
                 .frame(width: 22)
                 .padding(.top, 2)

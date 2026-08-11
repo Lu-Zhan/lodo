@@ -426,6 +426,61 @@ final class CommandParseTests: XCTestCase {
         XCTAssertEqual(actions.count, 2)
     }
 
+    // MARK: - auto_memorize(自动记录对话中的重点事实)
+
+    func testAutoMemorizeValidWhenEnabled() throws {
+        let payload: [String: Any] = ["actions": [
+            ["action": "auto_memorize", "title": "班主任喜好", "text": "班主任王老师喜欢收到贺卡"]
+        ]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .autoMemorize(let title, let text) = actions[0] else {
+            XCTFail("expected single autoMemorize action")
+            return
+        }
+        XCTAssertEqual(title, "班主任喜好")
+        XCTAssertEqual(text, "班主任王老师喜欢收到贺卡")
+    }
+
+    func testAutoMemorizeEmptyTextThrows() {
+        let payload: [String: Any] = ["actions": [
+            ["action": "auto_memorize", "title": "标题", "text": "  "]
+        ]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true))
+    }
+
+    func testAutoMemorizeEmptyTitleThrows() {
+        let payload: [String: Any] = ["actions": [
+            ["action": "auto_memorize", "title": "  ", "text": "内容"]
+        ]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true))
+    }
+
+    func testAutoMemorizeWhenDisabledThrowsUnknownAction() {
+        let payload: [String: Any] = ["actions": [
+            ["action": "auto_memorize", "title": "标题", "text": "内容"]
+        ]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
+
+    /// 一句话里同时新建待办 + 顺带提到一件重点事实:两条操作都保留
+    /// (auto_memorize 和 memorize 一样不受"信息类操作与写操作混合丢弃"的归一化影响)。
+    func testAutoMemorizeCoexistsWithCreate() throws {
+        let payload: [String: Any] = ["actions": [
+            taskPayload(action: "create"),
+            ["action": "auto_memorize", "title": "过敏", "text": "孩子对花生过敏"]
+        ]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .actions(let actions) = result else {
+            XCTFail("expected actions")
+            return
+        }
+        XCTAssertEqual(actions.count, 2)
+    }
+
     // MARK: - ReAct 工具调用(search_memory)
 
     func testToolCallSearchMemory() throws {

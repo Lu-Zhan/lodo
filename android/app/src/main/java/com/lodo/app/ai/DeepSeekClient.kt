@@ -125,9 +125,12 @@ object DeepSeekClient {
 
     private val formatAndRules = "返回格式(不适用的字段用默认值):\n$taskSchema\n\n$taskRules"
 
-    /** 联网搜索 skill,概念与 iOS AgentSkillStore 的 webSearch skill 一致(Android
-     * 没有记忆功能,规则里去掉了"收藏/查记忆"相关的措辞);仅 webSearchEnabled
-     * (配置了 Tavily key)时拼进 command() 的 system prompt。 */
+    /** 联网搜索 skill,与 iOS AgentSkillStore 的 webSearch skill 逐字一致
+     * (包括下面 answer 判断规则里"且和新建/修改待办、收藏/查记忆都无关"这一句——
+     * Android 现在也有记忆功能了,不能再省掉这个排除条件,否则 memoryEnabled
+     * 同时开启时,一句话里同时问"待办安排"之外的一般性问题、又想查记忆,
+     * 可能被错误地当成 answer 处理);仅 webSearchEnabled(配置了 Tavily key)
+     * 时拼进 command() 的 system prompt。 */
     private val webSearchSkill = """
         额外支持的操作:
         - 直接回答:{"action": "answer", "text": "给用户的完整回答"}(用户的问题是一般性提问/最新信息查询,不是要新建/修改待办时用;可以是你已经确定知道答案、不需要查的情况,也可以是联网搜索后给出的)
@@ -137,15 +140,20 @@ object DeepSeekClient {
         - 抓取链接内容:{"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "用户给的链接原样"}(用户直接给了一个具体链接、要你总结/回答链接里的内容时用,直接抓取该链接本身,不要把链接当关键词去 web_search;同样每次交流最多用一次,拿到页面内容后必须在下一轮给出真正的最终答案)
 
         额外判断规则:
-        - 用户提出一般性问题(如"今天天气怎么样""XX最新价格""这个词是什么意思")且和新建/修改待办都无关 → answer,此时整个 actions 只放这一条,不与其他操作混用(如果一句话里同时有新建待办和提问,只处理新建待办,提问可以重新单独问)。
+        - 用户提出一般性问题(如"今天天气怎么样""XX最新价格""这个词是什么意思")且和新建/修改待办、收藏/查记忆都无关 → answer,此时整个 actions 只放这一条,不与其他操作混用(如果一句话里同时有新建待办和提问,只处理新建待办,提问可以重新单独问)。
         - 涉及待办本身的问题(如"我明天有什么安排""这个事项还有多久到期")按当前待办列表自己回答,不需要联网搜索。
         - 用户消息里包含具体链接(http/https 开头)且意图是了解/总结该链接内容时,用 web_fetch 直接抓取那个链接,不要用 web_search 搜链接文字本身。
         - 需要最新/实时信息(新闻、天气、价格、赛事结果等)但没有具体链接、或你不确定答案是否过时时,用 web_search 查关键词,不要凭空编内容;已经拿到搜索/抓取结果的,直接用结果内容给最终答案,不要重复搜/重复抓。
     """.trimIndent()
 
-    /** 记忆 skill,与 iOS AgentSkillStore.defaultMemory 逐字一致(资产/人脉子功能
-     * 目前仅 iOS 有,这份文案本身没提到它们,不需要额外裁剪)。仅 memoryEnabled
-     * (记忆数据层已接入)时拼进 command() 的 system prompt。 */
+    /** 记忆 skill:与 iOS AgentSkillStore.defaultMemory 共享的子集(memorize/
+     * ask_memory/suggest_memorize/search_memory 及各自的判断规则)逐字一致,
+     * 资产/人脉子功能目前仅 iOS 有、这份文案本身没提到它们不需要额外裁剪;
+     * 但 iOS 独有的 auto_memorize(对话中顺带记录重点事实,见 CLAUDE.md)及其
+     * 判断规则、以及那条与 remember_preference 互斥的说明,Android 没有对应
+     * 功能,不在这份文案里——不是遗漏,是这份 skill 是 iOS 全文的一个真子集,
+     * 不要理解成"完全逐字对齐"。仅 memoryEnabled(记忆数据层已接入)时拼进
+     * command() 的 system prompt。 */
     private val memorySkill = """
         额外支持的操作:
         - 收藏:{"action": "memorize", "text": "要收藏的内容原文"}

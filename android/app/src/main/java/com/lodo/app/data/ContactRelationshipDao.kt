@@ -10,6 +10,10 @@ interface ContactRelationshipDao {
     @Query("SELECT * FROM contact_relationships")
     fun observeAll(): Flow<List<ContactRelationshipEntity>>
 
+    /** 一次性取全量,备份导出用(与 MemoryDao.all() 同样的用途)。 */
+    @Query("SELECT * FROM contact_relationships")
+    suspend fun all(): List<ContactRelationshipEntity>
+
     @Query("SELECT * FROM contact_relationships WHERE fromUuid = :uuid OR toUuid = :uuid")
     suspend fun forContact(uuid: String): List<ContactRelationshipEntity>
 

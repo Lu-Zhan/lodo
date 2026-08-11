@@ -218,7 +218,14 @@ struct AgentMessageBubble: View {
     @ViewBuilder
     private var memoryResultContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(message.content).font(.body)
+            if let item = resultMemoryItem, item.isAutoRecorded {
+                // AI 主动记下的重点事实(auto_memorize)和用户主动收藏(memorize/
+                // suggestMemorize 确认)共用这张卡片,但要让用户一眼看出这条是
+                // AI 自己记的、不是自己刚收藏的——用 sparkles 图标 + 不同文案区分。
+                Label(message.content, systemImage: "sparkles").font(.body)
+            } else {
+                Text(message.content).font(.body)
+            }
             if let item = resultMemoryItem {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: item.kind.symbol)

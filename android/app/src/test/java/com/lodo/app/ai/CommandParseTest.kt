@@ -9,8 +9,9 @@ import org.junit.Test
 
 /** DeepSeekClient.parseCommandResult 离线单测(不发网络请求),1:1 移植自
  * ios/LodoCore/Tests/LodoCoreTests/CommandParseTests.swift 里和 Android 已对齐
- * 的部分(create/update/complete/delete/answer/web_search);Android 没有
- * memorize/ask_memory,不移植那部分。 */
+ * 的部分(create/update/complete/delete/answer/web_search/web_fetch/memorize/
+ * suggest_memorize/ask_memory/search_memory)。Android 没有 auto_memorize/
+ * remember_preference(iOS 独有,见 CLAUDE.md),不移植那两部分。 */
 class CommandParseTest {
     private fun taskPayload(
         action: String, uuid: String? = null,
@@ -226,5 +227,171 @@ class CommandParseTest {
         val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
         assertEquals(1, actions.size)
         assertEquals(AIAction.Answer("回答一"), actions[0])
+    }
+
+    // ---- memorize(收藏)----
+
+    @Test
+    fun memorizeValidWhenEnabled() {
+        val payload = payloadWithActions(
+            JSONObject().put("action", "memorize").put("text", "wifi密码是8888"))
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(1, actions.size)
+        assertEquals(AIAction.Memorize("wifi密码是8888"), actions[0])
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun memorizeEmptyTextThrows() {
+        val payload = payloadWithActions(JSONObject().put("action", "memorize").put("text", "  "))
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+    }
+
+    /** memoryEnabled == false(如未开启记忆功能)时,即使模型幻觉出 memorize,
+     * 也按未知 action 处理,保持旧行为。 */
+    @Test(expected = DeepSeekException::class)
+    fun memorizeWhenDisabledThrowsUnknownAction() {
+        val payload = payloadWithActions(
+            JSONObject().put("action", "memorize").put("text", "wifi密码是8888"))
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = false)
+    }
+
+    /** 一句话里同时收藏 + 新建:两条操作都保留(memorize 不受归一化影响,
+     * 和写操作可以并存)。 */
+    @Test
+    fun memorizeCoexistsWithCreate() {
+        val payload = payloadWithActions(
+            taskPayload("create"),
+            JSONObject().put("action", "memorize").put("text", "门禁码1234"),
+        )
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(2, actions.size)
+    }
+
+    // ---- suggest_memorize(AI 主动建议收藏)----
+
+    @Test
+    fun suggestMemorizeValidWhenEnabled() {
+        val payload = payloadWithActions(
+            JSONObject().put("action", "suggest_memorize").put("text", "周三下午一般没空"))
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(1, actions.size)
+        assertEquals(AIAction.SuggestMemorize("周三下午一般没空"), actions[0])
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun suggestMemorizeEmptyTextThrows() {
+        val payload = payloadWithActions(JSONObject().put("action", "suggest_memorize").put("text", "  "))
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun suggestMemorizeWhenDisabledThrowsUnknownAction() {
+        val payload = payloadWithActions(
+            JSONObject().put("action", "suggest_memorize").put("text", "周三下午一般没空"))
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = false)
+    }
+
+    /** suggest_memorize 是信息类操作(和 ask_memory/answer 同一组),与写操作
+     * 混在一句话里返回时应该被丢弃,不像 memorize 那样可以共存。 */
+    @Test
+    fun suggestMemorizeMixedWithCreateDropsSuggestion() {
+        val payload = payloadWithActions(
+            taskPayload("create"),
+            JSONObject().put("action", "suggest_memorize").put("text", "周三下午一般没空"),
+        )
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(1, actions.size)
+        assertTrue(actions[0] is AIAction.Create)
+    }
+
+    // ---- ask_memory(查记忆)+ 归一化兜底 ----
+
+    @Test
+    fun askMemoryAlone() {
+        val payload = payloadWithActions(
+            JSONObject().put("action", "ask_memory").put("question", "wifi密码是多少"))
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(1, actions.size)
+        assertEquals(AIAction.AskMemory("wifi密码是多少"), actions[0])
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun askMemoryEmptyQuestionThrows() {
+        val payload = payloadWithActions(JSONObject().put("action", "ask_memory").put("question", ""))
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun askMemoryWhenDisabledThrowsUnknownAction() {
+        val payload = payloadWithActions(
+            JSONObject().put("action", "ask_memory").put("question", "wifi密码是多少"))
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = false)
+    }
+
+    /** 模型不守"ask_memory 单独出现"的规则、返回多条时只留第一条。 */
+    @Test
+    fun multipleAskMemoryCollapsesToFirst() {
+        val payload = payloadWithActions(
+            JSONObject().put("action", "ask_memory").put("question", "问题一"),
+            JSONObject().put("action", "ask_memory").put("question", "问题二"),
+        )
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(1, actions.size)
+        assertEquals(AIAction.AskMemory("问题一"), actions[0])
+    }
+
+    /** ask_memory 与写操作混在一句话里返回时,丢弃 ask_memory 只留写操作。 */
+    @Test
+    fun askMemoryMixedWithCreateDropsAskMemory() {
+        val payload = payloadWithActions(
+            taskPayload("create"),
+            JSONObject().put("action", "ask_memory").put("question", "问题一"),
+        )
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(1, actions.size)
+        assertTrue(actions[0] is AIAction.Create)
+    }
+
+    // ---- ReAct 工具调用(search_memory)----
+
+    @Test
+    fun toolCallSearchMemory() {
+        val payload = JSONObject()
+            .put("thought", "需要先看看装备清单写了什么")
+            .put("tool", "search_memory")
+            .put("query", "爬山装备清单")
+        val result = DeepSeekClient.parseCommandResult(
+            payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+        val toolCall = result as? AICommandResult.ToolCall ?: return fail("expected toolCall")
+        assertEquals("需要先看看装备清单写了什么", toolCall.thought)
+        assertEquals("爬山装备清单", (toolCall.tool as AITool.SearchMemory).query)
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun toolCallSearchMemoryMissingQueryThrows() {
+        val payload = JSONObject().put("thought", "…").put("tool", "search_memory")
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = true)
+    }
+
+    /** memoryEnabled == false 时 prompt 里根本没提过这个选项,模型幻觉出来也不认,
+     * 落到 actions 解析(这里没给 actions,按"缺少 actions"报错)。 */
+    @Test(expected = DeepSeekException::class)
+    fun toolCallIgnoredWhenMemoryDisabled() {
+        val payload = JSONObject().put("tool", "search_memory").put("query", "x")
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = false)
     }
 }

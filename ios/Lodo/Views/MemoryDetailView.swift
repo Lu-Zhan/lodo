@@ -22,7 +22,10 @@ struct MemoryDetailView: View {
 
     init(item: MemoryItem) {
         self.item = item
-        _tagsText = State(initialValue: item.tags.joined(separator: "、"))
+        // 保留标签(资产/人脉/AI记录)不进这个通用编辑框——它们各有专门的
+        // 语义,不该被当成普通标签在这里手滑加上/摘掉,见 commitEdits。
+        _tagsText = State(initialValue: item.tags
+            .filter { !MemoryItem.reservedTagNames.contains($0) }.joined(separator: "、"))
         _assetValueText = State(initialValue: item.assetValue.map { String($0) } ?? "")
         _assetCurrency = State(initialValue: item.assetCurrencyOrDefault)
         _assetLiabilityText = State(initialValue: item.assetLiability.map { String($0) } ?? "")
@@ -56,7 +59,7 @@ struct MemoryDetailView: View {
                 LabeledContent("收藏于", value: TaskItem.format(item.createdAt))
             }
 
-            if currentTags.contains(MemoryItem.assetTagName) {
+            if item.isAsset {
                 Section("资产金额") {
                     HStack {
                         Picker("币种", selection: $assetCurrency) {
@@ -154,8 +157,9 @@ struct MemoryDetailView: View {
     }
 
     /// 全部可选标签(点选行);toggle 与输入框共用 tagsText 这一份来源。
+    /// 不含保留标签——那几个不该出现在这个通用编辑器的候选/输入范围内。
     private var existingTags: [String] {
-        MemoryTags.all(in: context)
+        MemoryTags.all(in: context).filter { !MemoryItem.reservedTagNames.contains($0) }
     }
 
     private var currentTags: [String] {
@@ -180,9 +184,12 @@ struct MemoryDetailView: View {
     /// 更安全。
     private func commitEdits() {
         guard !deleted else { return }
-        let tags = Self.parseTags(tagsText)
+        // 保留标签只保留原样,不受这个编辑框影响——即使用户手滑在输入框里
+        // 打了"资产"/"人脉"/"AI记录"字样,也不会被当成真的加上/摘掉。
+        let reserved = item.tags.filter { MemoryItem.reservedTagNames.contains($0) }
+        let tags = reserved + Self.parseTags(tagsText).filter { !MemoryItem.reservedTagNames.contains($0) }
         if tags != item.tags { item.tags = tags }
-        if tags.contains(MemoryItem.assetTagName) {
+        if reserved.contains(MemoryItem.assetTagName) {
             let trimmedValue = assetValueText.trimmingCharacters(in: .whitespaces)
             item.assetValue = trimmedValue.isEmpty ? nil : (Double(trimmedValue) ?? item.assetValue)
             item.assetCurrency = item.assetValue == nil ? nil : assetCurrency

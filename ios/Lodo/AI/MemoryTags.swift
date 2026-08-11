@@ -26,18 +26,27 @@ enum MemoryTags {
         entries(in: context).map(\.name)
     }
 
-    /// 主动创建标签(去重:全集里已有同名标签则不重复建)。
+    /// 主动创建标签(去重:全集里已有同名标签则不重复建)。不允许创建和
+    /// 保留标签同名的标签行——即使当下没有条目使用它,留着也容易被误认成
+    /// 真的"资产"/"人脉"/"AI记录"入口。
     static func create(_ name: String, context: ModelContext) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !all(in: context).contains(trimmed) else { return }
+        guard !trimmed.isEmpty, !MemoryItem.reservedTagNames.contains(trimmed),
+              !all(in: context).contains(trimmed) else { return }
         context.insert(MemoryTag(name: trimmed))
         try? context.save()
     }
 
-    /// 改名:同步改所有条目里的这个标签;用户创建的标签行一并改名。
+    /// 改名:同步改所有条目里的这个标签;用户创建的标签行一并改名。保留标签
+    /// 本身不能被改名(会让 isAsset/isContact/isAutoRecorded 判定失效),
+    /// 也不能把一个普通标签改成和保留标签同名(会让一批不相关的条目突然被
+    /// 当成资产/人脉/AI记录对待)——这两条不能只靠 UI 层不展示保留标签来
+    /// 保证,调用方之后新增入口也不会漏掉。
     static func rename(_ old: String, to new: String, context: ModelContext) {
         let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed != old else { return }
+        guard !trimmed.isEmpty, trimmed != old,
+              !MemoryItem.reservedTagNames.contains(old),
+              !MemoryItem.reservedTagNames.contains(trimmed) else { return }
         let items = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
         for item in items where item.tags.contains(old) {
             var tags = item.tags.filter { $0 != old }
@@ -50,7 +59,9 @@ enum MemoryTags {
     }
 
     /// 删除:从所有条目里摘掉这个标签;用户创建的标签行一并删除。条目本身不动。
+    /// 保留标签不能被删除,理由同 rename。
     static func delete(_ name: String, context: ModelContext) {
+        guard !MemoryItem.reservedTagNames.contains(name) else { return }
         let items = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
         for item in items where item.tags.contains(name) {
             item.tags = item.tags.filter { $0 != name }
@@ -60,8 +71,11 @@ enum MemoryTags {
         try? context.save()
     }
 
-    /// 单个条目上添/摘标签(详情页点选)。
+    /// 单个条目上添/摘标签(详情页点选)。保留标签不走这个通用入口——
+    /// 资产/人脉的字段编辑、auto_memorize 的落库各自直接操作 item.tags,
+    /// 不该被这里的通用增删逻辑误伤。
     static func toggle(_ name: String, on item: MemoryItem, context: ModelContext) {
+        guard !MemoryItem.reservedTagNames.contains(name) else { return }
         if item.tags.contains(name) {
             item.tags = item.tags.filter { $0 != name }
         } else {

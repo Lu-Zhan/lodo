@@ -142,6 +142,23 @@ public final class MemoryItem {
     /// 保留标签:打了这个标签的记忆条目按"人脉"对待,和资产同一套隐藏/筛选规则。
     public static let contactTagName = "人脉"
     public var isContact: Bool { tags.contains(Self.contactTagName) }
+    /// 保留标签:AI 在对话中主动捕捉到的重点事实/事件(不是用户明确要求收藏,
+    /// 也不像 suggestMemorize 那样需要用户点按钮确认),打这个标签和用户
+    /// 主动收藏/确认过的记忆区分开;不参与资产/人脉那套隐藏筛选,正常显示。
+    public static let autoTagName = "AI记录"
+    public var isAutoRecorded: Bool { tags.contains(Self.autoTagName) }
+    /// 全部保留标签的集合,供 UI 层统一过滤(标签管理页的可管理列表、详情页
+    /// 标签编辑器的候选与手输校验都应该引用这一份定义,不要各自维护一份
+    /// 排除规则——历史上就是因为三处各写各的,漏了"人脉"没被
+    /// MemoryTagManageView 保护)。这份集合只管"能不能被当成普通标签改名/
+    /// 删除/手动增删",和下面 `hiddenByDefaultTagNames`(默认隐藏筛选)是
+    /// 两个不同维度——"AI记录"是保留标签但不隐藏,不能共用同一份集合。
+    public static let reservedTagNames: Set<String> = [assetTagName, contactTagName, autoTagName]
+    /// 默认从记忆列表/附件选择器隐藏、需要显式打开对应开关才显示的标签
+    /// (资产、人脉都是隐私/结构化数据,不该跟日常收藏混在一起刷屏)。
+    /// "AI记录"不在这份集合里——它是保留标签,但仍应正常显示、可被当成
+    /// 普通标签筛选,只是不能被改名/删除。
+    public static let hiddenByDefaultTagNames: Set<String> = [assetTagName, contactTagName]
 
     /// 本地即时过滤的匹配:标题/摘要/标签/原文任一命中即可。
     public func matches(_ query: String) -> Bool {

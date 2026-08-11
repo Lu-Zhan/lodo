@@ -269,14 +269,16 @@ struct SettingsView: View {
 
     private func performImport(strategy: BackupManager.MergeStrategy) {
         guard let url = pendingImportURL else { return }
-        do {
-            try BackupManager.commit(zipURL: url, strategy: strategy, context: context)
-            importSuccessMessage = "待办、记忆与 AI 对话已导入;如果设置项有变化(如 iCloud 同步),需要退出并重新打开 App 才能生效。"
-        } catch {
-            importErrorMessage = error.localizedDescription
+        Task {
+            do {
+                try await BackupManager.commit(zipURL: url, strategy: strategy, context: context)
+                importSuccessMessage = "待办、记忆与 AI 对话已导入;如果设置项有变化(如 iCloud 同步),需要退出并重新打开 App 才能生效。"
+            } catch {
+                importErrorMessage = error.localizedDescription
+            }
+            pendingImportURL = nil
+            pendingImportManifest = nil
         }
-        pendingImportURL = nil
-        pendingImportManifest = nil
     }
 
     private func importSummary(_ manifest: BackupManifest) -> String {

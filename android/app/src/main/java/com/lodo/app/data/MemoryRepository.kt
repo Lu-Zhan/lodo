@@ -3,10 +3,12 @@ package com.lodo.app.data
 import com.lodo.app.ai.AIConfig
 import com.lodo.app.ai.DeepSeekClient
 import com.lodo.app.ai.MemoryCandidate
+import com.lodo.app.core.ContactRelationships
 import com.lodo.app.core.MemorySearch
 import com.lodo.app.core.TimeFormat
 import kotlinx.coroutines.flow.Flow
 import java.net.URI
+import java.util.UUID
 
 /**
  * 记忆/收藏业务层,与 iOS MemoryPipeline + retrieveMemoryCandidates 同构的
@@ -155,8 +157,22 @@ class MemoryRepository(
 
     fun observeRelationships(): Flow<List<ContactRelationshipEntity>> = db.contactRelationshipDao().observeAll()
 
+    /** 新建或更新一条人脉关系边:同一对联系人(不分先后顺序)已有边时复用
+     * 那条边的 uuid 只改 label,不重复插入(否则每次重复选同一对联系人都会
+     * 多出一条正向/反向的重复边,与 iOS MemoryPipeline.upsertContactRelationship
+     * 的判定逻辑对齐)。 */
     suspend fun addRelationship(fromUuid: String, toUuid: String, label: String) {
-        db.contactRelationshipDao().upsert(ContactRelationshipEntity.create(fromUuid, toUuid, label))
+        val trimmed = label.trim()
+        if (trimmed.isEmpty() || fromUuid == toUuid) return
+        val existing = db.contactRelationshipDao().forContact(fromUuid)
+        val uuid = ContactRelationships.resolveUpsertUuid(
+            existing, fromUuid, toUuid,
+            uuidOf = { it.uuid }, fromOf = { it.fromUuid }, toOf = { it.toUuid },
+            newUuid = { UUID.randomUUID().toString() },
+        )
+        db.contactRelationshipDao().upsert(
+            ContactRelationshipEntity(uuid = uuid, fromUuid = fromUuid, toUuid = toUuid, label = trimmed)
+        )
     }
 
     suspend fun deleteRelationship(uuid: String) = db.contactRelationshipDao().delete(uuid)

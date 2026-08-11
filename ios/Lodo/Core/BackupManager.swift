@@ -110,7 +110,7 @@ enum BackupManager {
 
     // MARK: - 导入提交
 
-    static func commit(zipURL: URL, strategy: MergeStrategy, context: ModelContext) throws {
+    static func commit(zipURL: URL, strategy: MergeStrategy, context: ModelContext) async throws {
         let entries = try ZipArchive.read(try Data(contentsOf: zipURL))
         guard let dataEntry = entries.first(where: { $0.path == dataPath }) else {
             throw BackupError.invalidZip
@@ -133,6 +133,7 @@ enum BackupManager {
             dto.apply(to: item)
         }
 
+        var importedMemoryItems: [MemoryItem] = []
         for dto in payload.memoryItems {
             let uuid = dto.uuid
             let existing = ((try? context.fetch(FetchDescriptor<MemoryItem>(
@@ -144,6 +145,7 @@ enum BackupManager {
             }()
             dto.apply(to: item)
             restoreFile(for: dto, entries: entries)
+            importedMemoryItems.append(item)
         }
 
         for dto in payload.memoryTags {
@@ -203,6 +205,9 @@ enum BackupManager {
         applySettings(payload.settings)
 
         try? context.save()
+        // 备份不含 MemoryChunk/embedding,恢复写回的条目要在这里补一次重建,
+        // 否则语义检索("问 AI")永远命中不了这些条目,只能靠关键词兜底。
+        await MemoryPipeline.reindexAll(importedMemoryItems, context: context)
         WidgetBridge.sync(context: context)
     }
 

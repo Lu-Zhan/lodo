@@ -973,6 +973,9 @@ struct AgentView: View {
                 case .memorized(let uuid):
                     appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
                                     resultMemoryUUID: uuid)
+                case .autoMemorized(let uuid):
+                    appendAssistant(thread: thread, kind: .memoryResult, content: "已自动记录",
+                                    resultMemoryUUID: uuid)
                 }
                 if isFirstMessage {
                     refineThreadTitle(thread: thread, userText: trimmed, reply: reply)
@@ -1016,6 +1019,7 @@ struct AgentView: View {
         case .answer(let text, _): return text
         case .suggestMemorize(let text): return text
         case .memorized: return "已收藏一条记忆"
+        case .autoMemorized: return "自动记录了一条信息"
         }
     }
 

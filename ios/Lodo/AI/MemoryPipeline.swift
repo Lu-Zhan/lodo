@@ -56,6 +56,46 @@ enum MemoryPipeline {
         return item
     }
 
+    /// AI 在对话中顺带自动记录的重点事实/事件(route() 消费 auto_memorize 时调用):
+    /// title/text 已经在本轮 command 请求里由模型给出,不像 saveText 那样再调用
+    /// memorize() 额外整理一次(省一次网络请求),直接落成 ready 状态并打
+    /// autoTagName 区分,和 saveAsset/saveContact 跳过 AI 整理的思路一致。
+    /// 去重:同一件事被反复提到时不重复落库(和 AgentPreferences.append 同样的
+    /// "互相包含即算重复"客户端判定)——这条路径是模型静默触发的,没有用户
+    /// 确认那道关卡挡重复,不去重会被闲聊反复提及的同一件事刷屏。新内容比
+    /// 已有记录更详细(包含旧摘要且更长,如过敏原后来又多了一种)时原地更新
+    /// 那条记录,不新开一条也不静默丢弃——否则更完整的新信息会被当"重复"吞掉,
+    /// 旧的简略版本却留在库里。返回受影响的条目(新建的、被更新的,或识别出
+    /// 的重复项本身)——route() 拿它的 uuid 在聊天里展示"已自动记录"结果卡片,
+    /// 不再是完全无声(即使命中纯重复分支,也指向那条已存在的记录,不是 nil)。
+    @discardableResult
+    static func saveAutoMemory(title: String, text: String, context: ModelContext) -> MemoryItem? {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty, !trimmedText.isEmpty else { return nil }
+        let autoItems = ((try? context.fetch(FetchDescriptor<MemoryItem>())) ?? [])
+            .filter { $0.tags.contains(MemoryItem.autoTagName) }
+        if let elaborated = autoItems.first(where: {
+            trimmedText.count > $0.summary.count && trimmedText.localizedStandardContains($0.summary)
+        }) {
+            elaborated.title = trimmedTitle
+            elaborated.summary = trimmedText
+            elaborated.sourceText = MemorySearch.truncate(trimmedText)
+            saveAndReindex(elaborated, context: context)
+            return elaborated
+        }
+        if let duplicate = autoItems.first(where: { $0.summary.localizedStandardContains(trimmedText) }) {
+            return duplicate
+        }
+        let item = MemoryItem(
+            kind: .text, title: trimmedTitle, summary: trimmedText,
+            tags: [MemoryItem.autoTagName], sourceText: MemorySearch.truncate(trimmedText),
+            status: .ready)
+        context.insert(item)
+        saveAndReindex(item, context: context)
+        return item
+    }
+
     /// 记一笔资产:字段已经是结构化的(名称/金额/负债/利率/分类/备注),不需要
     /// 像文字/文件收藏那样靠 AI 提炼标题摘要,直接落成 ready 状态;仍然跑分片 +
     /// 向量索引,备注也能被"问 AI"检索到。category 非空时额外打一个子分类标签,
@@ -77,11 +117,7 @@ enum MemoryPipeline {
             assetCurrency: value != nil ? currency : nil,
             assetLiability: liability, assetInterestRate: interestRate)
         context.insert(item)
-        try? context.save()
-        Task { @MainActor in
-            await reindexChunks(item, context: context)
-            try? context.save()
-        }
+        saveAndReindex(item, context: context)
     }
 
     /// 记一位人脉:字段是结构化的(姓名/昵称/联系方式/生日/喜好/备注),不需要
@@ -116,11 +152,7 @@ enum MemoryPipeline {
         }
         item.attachmentRelativePaths = attachmentFileURLs.compactMap(copyContactAttachment)
         context.insert(item)
-        try? context.save()
-        Task { @MainActor in
-            await reindexChunks(item, context: context)
-            try? context.save()
-        }
+        saveAndReindex(item, context: context)
         return item
     }
 
@@ -270,11 +302,14 @@ enum MemoryPipeline {
             if !extraction.text.isEmpty { item.sourceText = extraction.text }
             do {
                 guard DeepSeekClient.isConfigured else { throw DeepSeekError.noKey }
+                // autoTagName 是"AI 自动记录"的保留标签,不该被这里的常规收藏
+                // 整理复用(会和 saveAutoMemory 那条路径的区分意图混淆)。
                 let entry = try await DeepSeekClient.memorize(
                     text: item.sourceText,
                     filename: item.originalFileName ?? item.urlString,
                     kind: item.kind.label,
-                    existingTags: MemoryTags.all(in: context))
+                    existingTags: MemoryTags.all(in: context)
+                        .filter { $0 != MemoryItem.autoTagName })
                 item.title = entry.title
                 item.summary = entry.summary
                 item.tags = entry.tags
@@ -308,6 +343,31 @@ enum MemoryPipeline {
             await reindexChunks(item, context: context)
             try? context.save()
         }
+    }
+
+    /// 落库收尾:保存 + 后台重建 chunk 索引再保存一次。saveAsset/saveContact/
+    /// saveAutoMemory(新建、以及"更详细内容原地更新"两个分支)都要走这一步——
+    /// 这些都是"字段已经现成、不需要再调 AI 整理"的直接落库场景,只是各自构造/
+    /// 修改 item 的方式不同,收尾完全一样;调用方负责在需要时先 context.insert。
+    private static func saveAndReindex(_ item: MemoryItem, context: ModelContext) {
+        try? context.save()
+        Task { @MainActor in
+            await reindexChunks(item, context: context)
+            try? context.save()
+        }
+    }
+
+    /// 备份恢复(BackupManager.commit)专用:批量重建导入/更新的记忆条目的
+    /// MemoryChunk。备份 zip 本身不含 chunk/embedding(可以从 sourceText 重新
+    /// 派生,不值得塞进备份),此前 commit 写回条目后没有调用这一步,导致恢复
+    /// 的条目关键词检索能命中、语义检索("问 AI")却永远命中不了,直到用户
+    /// 手动编辑或点"重试"。只重建索引,不重跑 AI 整理——标题/摘要/标签就该是
+    /// 备份里存的那份,不该因为一次恢复动作又花一次 API 调用去改写。
+    static func reindexAll(_ items: [MemoryItem], context: ModelContext) async {
+        for item in items {
+            await reindexChunks(item, context: context)
+        }
+        try? context.save()
     }
 
     /// 重新分片 + 算向量,替换这条记忆现有的 MemoryChunk(sourceText 变了就要重算)。
