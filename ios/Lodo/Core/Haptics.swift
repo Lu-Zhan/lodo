@@ -36,6 +36,15 @@ enum Haptics {
         UIImpactFeedbackGenerator(style: style.uiKitStyle).impactOccurred()
         #endif
     }
+
+    /// 逐字级别的高频反馈(AI 助手对话页打字/回复逐字动画用):比 impact 更轻,
+    /// 专为连续快速触发设计,不会像 impact 那样越连打越闷。
+    static func tick() {
+        #if os(iOS)
+        guard AppSettings.hapticsEnabled else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+        #endif
+    }
 }
 
 #if os(iOS)

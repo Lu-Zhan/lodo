@@ -2,6 +2,9 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import LodoCore
+#if os(iOS)
+import UIKit
+#endif
 
 /// 右下角"添加"按钮触发的 AI 对话页:持久保存多个 thread(左上角切换/新建),
 /// 每轮请求真的带上前几轮对话历史;右下角语音、左侧 + 号传照片/文件。
@@ -46,6 +49,12 @@ struct AgentView: View {
     @FocusState private var isInputFocused: Bool
     /// 开始录音时已输入的文字,听写结果追加在其后。
     @State private var typedPrefix = ""
+    /// 长按气泡选了"引用"后待发送的那条消息;输入框上方的引用预览行据此渲染,
+    /// 发送时会把它的文本折进 outgoing(不写回气泡展示用的 content)。
+    @State private var quotedMessage: AgentMessage?
+    /// 长按气泡选了"修改"后待确认的目标;只是打开确认弹窗,真正的截断删除
+    /// 发生在用户在 confirmationDialog 里点确认之后。
+    @State private var pendingEdit: AgentMessage?
 
     /// 窄屏时表示抽屉是否展开,宽屏时表示常驻侧栏是否可见;两种布局共用同一个开关。
     @State private var showThreads = false
@@ -193,6 +202,18 @@ struct AgentView: View {
                     }
                 }
             }
+            .confirmationDialog(
+                "修改这条消息?", isPresented: Binding(
+                    get: { pendingEdit != nil }, set: { if !$0 { pendingEdit = nil } }
+                ), titleVisibility: .visible
+            ) {
+                Button("修改", role: .destructive) {
+                    if let message = pendingEdit { performEdit(message) }
+                    pendingEdit = nil
+                }
+            } message: {
+                Text("之后的对话记录会一并删除,不可恢复。")
+            }
             .fileImporter(
                 isPresented: $showFileImporter,
                 allowedContentTypes: [.pdf, .image, .plainText, .presentation, .data],
@@ -266,6 +287,29 @@ struct AgentView: View {
                     isInputFocused = false
                     showThreads = true
                 }
+                // 截图验证用:模拟长按气泡选了"引用"——simctl 没法长按弹
+                // contextMenu,直接把状态摆出来看输入框上方的预览行(超长文本
+                // 单行省略号截断)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-quote-preview"),
+                   let thread = activeThread {
+                    let quoted = AgentMessage(
+                        threadUUID: thread.uuid, role: .assistant,
+                        content: "你收藏的 wifi 密码是 8888,这是一段特意写得很长很长用来测试单行省略号截断效果的引用预览文本。")
+                    context.insert(quoted)
+                    try? context.save()
+                    quotedMessage = quoted
+                }
+                // 截图验证用:模拟长按气泡选了"修改"——直接弹出截断确认弹窗
+                // (simctl 没法长按+点菜单项)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-edit-confirm"),
+                   let thread = activeThread {
+                    let target = AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会")
+                    context.insert(target)
+                    context.insert(AgentMessage(threadUUID: thread.uuid, role: .assistant, kind: .text,
+                                                content: "好的,已经帮你记下明天下午3点开会。"))
+                    try? context.save()
+                    pendingEdit = target
+                }
                 #endif
             }
         }
@@ -309,12 +353,16 @@ struct AgentView: View {
                                 onTaskProposalTap: handleTaskProposalTap,
                                 onAskSubmit: handleAskSubmit,
                                 onAskCancel: handleAskCancel,
-                                onExamplePrompt: { send(overrideText: $0) })
+                                onExamplePrompt: { send(overrideText: $0) },
+                                onCopy: copyMessageContent,
+                                onQuote: quoteMessage,
+                                onEdit: requestEdit)
                 .id(thread.uuid)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(spacing: 0) {
                         thinkingRow
                         attachmentChipsRow
+                        quotedPreviewRow
                         if let error = errorText ?? speech.errorText {
                             Text(error).font(.footnote).foregroundStyle(.red)
                                 .padding(.horizontal)
@@ -535,6 +583,36 @@ struct AgentView: View {
         }
     }
 
+    /// 长按气泡选"引用"后,输入框上方出现的单行预览:超长文本尾部省略号截断,
+    /// 右侧 X 取消引用。一次只会有一条引用,所以是独立整行,不走多附件那套
+    /// HorizontalChipRow。
+    @ViewBuilder
+    private var quotedPreviewRow: some View {
+        if let quoted = quotedMessage {
+            HStack(spacing: 6) {
+                Image(systemName: "quote.bubble")
+                    .foregroundStyle(.secondary)
+                Text(quoted.content)
+                    .font(.footnote)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 8)
+                Button {
+                    quotedMessage = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
+    }
+
     private func attachmentChip(_ attachment: PendingAttachment) -> some View {
         HStack(spacing: 4) {
             Label(attachment.displayName, systemImage: attachment.symbol)
@@ -575,6 +653,14 @@ struct AgentView: View {
                 .lineLimit(1...5)
                 .focused($isInputFocused)
                 .onSubmit { send() }
+                // 只在真的是"敲一个字/删一个字"(前后字数差 1)时振动——程序化
+                // 整段赋值(发送后清空、引用/修改回填、语音听写追加一大段)
+                // 一次性变化好几个字,不算"逐字输入",不触发。
+                .onChange(of: text) { oldValue, newValue in
+                    if abs(newValue.count - oldValue.count) == 1 {
+                        Haptics.tick()
+                    }
+                }
 
             HStack(alignment: .center, spacing: 8) {
                 Menu {
@@ -888,6 +974,45 @@ struct AgentView: View {
         pendingAttachments = []
     }
 
+    // MARK: - 长按气泡:复制/引用/修改
+
+    private func copyMessageContent(_ message: AgentMessage) {
+        #if os(iOS)
+        UIPasteboard.general.string = message.content
+        #else
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(message.content, forType: .string)
+        #endif
+        Haptics.success()
+    }
+
+    private func quoteMessage(_ message: AgentMessage) {
+        quotedMessage = message
+        isInputFocused = true
+    }
+
+    /// 只是打开确认弹窗,真正的截断删除发生在用户点确认之后(见 performEdit)。
+    private func requestEdit(_ message: AgentMessage) {
+        pendingEdit = message
+    }
+
+    /// 删除这条消息及其后(按 createdAt)所有历史(含 AI 回复),把原文回填输入框。
+    private func performEdit(_ message: AgentMessage) {
+        let threadUUID = message.threadUUID
+        let cutoff = message.createdAt
+        let toDelete = (try? context.fetch(FetchDescriptor<AgentMessage>(
+            predicate: #Predicate<AgentMessage> {
+                $0.threadUUID == threadUUID && $0.createdAt >= cutoff
+            }))) ?? []
+        for item in toDelete { context.delete(item) }
+        try? context.save()
+        if let quoted = quotedMessage, toDelete.contains(where: { $0.uuid == quoted.uuid }) {
+            quotedMessage = nil
+        }
+        text = message.content
+        isInputFocused = true
+    }
+
     // MARK: - 提交
 
     /// hidesUserBubble:这次提交不代表用户"说了一句话",不插用户气泡也不动
@@ -909,13 +1034,16 @@ struct AgentView: View {
 
         let attachments = pendingAttachments
         pendingAttachments = []
+        let quoted = quotedMessage
+        quotedMessage = nil
         text = ""
 
         var userMessage: AgentMessage?
         if !hidesUserBubble {
             let message = AgentMessage(
                 threadUUID: thread.uuid, role: .user, content: trimmed,
-                attachmentMemoryUUIDs: attachments.compactMap(\.memoryUUID))
+                attachmentMemoryUUIDs: attachments.compactMap(\.memoryUUID),
+                quotedContent: quoted?.content)
             context.insert(message)
             userMessage = message
             }
@@ -931,6 +1059,9 @@ struct AgentView: View {
 
         let history = recentHistory(in: thread, excluding: userMessage)
         var outgoing = trimmed
+        if let quoted {
+            outgoing = "引用消息:「\(quoted.content)」\n\n" + outgoing
+        }
         for attachment in attachments {
             outgoing += "\n\n[附件:\(attachment.displayName)]\n\(attachment.extractedText)"
         }
@@ -1097,6 +1228,21 @@ struct AgentView: View {
             appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
                             resultMemoryUUID: item?.uuid)
         }
+        // 打字机动画:插入一条 createdAt 晚于 typingBaseline 的 .text 回复,
+        // 触发逐字显示 + 逐字振动(和加载已有历史消息时的"整段直接显示"对照)。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-text-reply") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "帮我看看今天忙不忙"))
+            appendAssistant(thread: thread, kind: .text,
+                            content: "今天你只有一件事——下午3点开会,其余时间都空着,可以安排点别的。")
+        }
+        // 用户气泡带引用摘要(quote.bubble 图标 + 单行截断),对照气泡渲染用。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-quoted") {
+            let quoted = AgentMessage(threadUUID: thread.uuid, role: .assistant,
+                                      content: "你收藏的 wifi 密码是 8888。")
+            context.insert(quoted)
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "谢谢",
+                                        quotedContent: quoted.content))
+        }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-threads") {
             for title in ["记住wifi密码是8888", "我想去香山爬山"] {
                 let extra = AgentThread()
@@ -1178,8 +1324,16 @@ private struct AgentMessageListView: View {
     let onAskSubmit: (AgentMessage, [[String]]) -> Void
     let onAskCancel: (AgentMessage) -> Void
     let onExamplePrompt: (String) -> Void
+    let onCopy: (AgentMessage) -> Void
+    let onQuote: (AgentMessage) -> Void
+    let onEdit: (AgentMessage) -> Void
 
     @Query private var messages: [AgentMessage]
+    /// 这个 thread 视图这次打开的时间点;晚于它 createdAt 的 .text 回复才播打字机
+    /// 动画("这次会话里刚收到的新回复"),早于它的历史消息一律整段直接显示。
+    /// .id(thread.uuid) 强制换 thread 时这个 struct 连带 @State 一起重建,
+    /// 天然按 thread 各自归零,不需要额外重置逻辑。
+    @State private var typingBaseline = Date()
 
     init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
          onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
@@ -1188,7 +1342,10 @@ private struct AgentMessageListView: View {
          onTaskProposalTap: @escaping (AgentMessage) -> Void,
          onAskSubmit: @escaping (AgentMessage, [[String]]) -> Void,
          onAskCancel: @escaping (AgentMessage) -> Void,
-         onExamplePrompt: @escaping (String) -> Void) {
+         onExamplePrompt: @escaping (String) -> Void,
+         onCopy: @escaping (AgentMessage) -> Void,
+         onQuote: @escaping (AgentMessage) -> Void,
+         onEdit: @escaping (AgentMessage) -> Void) {
         self.thread = thread
         self.onConfirmAction = onConfirmAction
         self.onUndo = onUndo
@@ -1199,6 +1356,9 @@ private struct AgentMessageListView: View {
         self.onAskSubmit = onAskSubmit
         self.onAskCancel = onAskCancel
         self.onExamplePrompt = onExamplePrompt
+        self.onCopy = onCopy
+        self.onQuote = onQuote
+        self.onEdit = onEdit
         let uuid = thread.uuid
         _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == uuid },
                           sort: [SortDescriptor(\.createdAt)])
@@ -1222,7 +1382,11 @@ private struct AgentMessageListView: View {
                             onTaskProposalCancel: { onTaskProposalCancel(message) },
                             onTaskProposalTap: { onTaskProposalTap(message) },
                             onAskSubmit: { onAskSubmit(message, $0) },
-                            onAskCancel: { onAskCancel(message) })
+                            onAskCancel: { onAskCancel(message) },
+                            onCopy: { onCopy(message) },
+                            onQuote: { onQuote(message) },
+                            onEdit: { onEdit(message) },
+                            typingBaseline: typingBaseline)
                         .id(message.uuid)
                     }
                 }

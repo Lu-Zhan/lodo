@@ -30,6 +30,14 @@ struct AgentMessageBubble: View {
     var onTaskProposalTap: () -> Void = {}
     var onAskSubmit: ([[String]]) -> Void = { _ in }
     var onAskCancel: () -> Void = {}
+    var onCopy: () -> Void = {}
+    var onQuote: () -> Void = {}
+    /// 仅用户气泡的长按菜单会用到,AI 气泡不传。
+    var onEdit: () -> Void = {}
+    /// 打字机动画的分界线:createdAt 早于这个时间的 .text 回复直接整段显示
+    /// (对话历史滚回视野时不重播),晚于它的才当作"这次会话里刚收到的新回复"
+    /// 播放逐字动画。默认 .distantPast——不传就等于永远不播。
+    var typingBaseline: Date = .distantPast
 
     @Environment(\.modelContext) private var context
 
@@ -85,6 +93,13 @@ struct AgentMessageBubble: View {
                             .lineLimit(1)
                     }
                 }
+                if let quoted = message.quotedContent, !quoted.isEmpty {
+                    Label(quoted, systemImage: "quote.bubble")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
                 if !message.content.isEmpty {
                     Text(message.content)
                 }
@@ -92,16 +107,33 @@ struct AgentMessageBubble: View {
             .padding(12)
             .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             .foregroundStyle(.primary)
+            .contextMenu {
+                Button { onCopy() } label: { Label("复制", systemImage: "doc.on.doc") }
+                Button { onQuote() } label: { Label("引用", systemImage: "quote.bubble") }
+                Button { onEdit() } label: { Label("修改", systemImage: "pencil") }
+            }
         }
     }
 
+    @ViewBuilder
     private var assistantBubble: some View {
         HStack {
-            content
+            if hasCopyableContent {
+                content.contextMenu {
+                    Button { onCopy() } label: { Label("复制", systemImage: "doc.on.doc") }
+                    Button { onQuote() } label: { Label("引用", systemImage: "quote.bubble") }
+                }
+            } else {
+                content
+            }
             // 询问卡/记录卡本身就是一整块卡片,铺满消息列表的宽度(左右留白对称);
             // 其余气泡保留右侧那 40pt 让位,和右对齐的用户气泡区分开。
             if !fillsWidth { Spacer(minLength: 40) }
         }
+    }
+
+    private var hasCopyableContent: Bool {
+        !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var fillsWidth: Bool {
@@ -112,7 +144,7 @@ struct AgentMessageBubble: View {
     private var content: some View {
         switch message.kind {
         case .text:
-            markdownText(message.content)
+            TypewriterText(fullText: message.content, animates: message.createdAt > typingBaseline)
                 .font(.body)
                 .textSelection(.enabled)
         case .confirm:
@@ -323,19 +355,6 @@ struct AgentMessageBubble: View {
         .agentCard()
     }
 
-    /// 尽量把助手的纯文本渲染成 Markdown(粗体/斜体/行内代码/链接等)——DeepSeek
-    /// 输出不保证是合法 Markdown,只解析行内语法(不识别标题/列表等块级语法,
-    /// 避免一句话开头恰好是 "#"/"-" 被误判成块级结构),解析失败就原样退化成
-    /// 字面文本,不会丢内容或崩溃。
-    private func markdownText(_ raw: String) -> Text {
-        if let attributed = try? AttributedString(
-            markdown: raw,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-            return Text(attributed)
-        }
-        return Text(raw)
-    }
-
     private func icon(for line: String) -> String {
         if line.hasPrefix("新建") { return "plus.circle" }
         if line.hasPrefix("修改") { return "pencil.circle" }
@@ -343,6 +362,53 @@ struct AgentMessageBubble: View {
         if line.hasPrefix("删除") { return "trash.circle" }
         if line.hasPrefix("收藏") { return "bookmark.circle" }
         return "circle"
+    }
+}
+
+/// 尽量把助手的纯文本渲染成 Markdown(粗体/斜体/行内代码/链接等)——DeepSeek
+/// 输出不保证是合法 Markdown,只解析行内语法(不识别标题/列表等块级语法,
+/// 避免一句话开头恰好是 "#"/"-" 被误判成块级结构),解析失败就原样退化成
+/// 字面文本,不会丢内容或崩溃。TypewriterText 逐字动画期间也用这个解析
+/// 逐段增长的前缀——中途撞上没闭合的 Markdown 语法会短暂显示原始符号,
+/// 下一个字补上后自然纠正,是打字机效果本身能接受的过渡态。
+private func markdownText(_ raw: String) -> Text {
+    if let attributed = try? AttributedString(
+        markdown: raw,
+        options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+        return Text(attributed)
+    }
+    return Text(raw)
+}
+
+/// AI 纯文字回复的打字机效果:animates 为 true 时逐字显示 + 每字一次轻触振动,
+/// 为 false 时直接整段显示(历史消息滚回视野走这条路,不重播动画)。
+/// 用 Character(不是 UTF8 字节)计数逐字前进,emoji/组合字符也不会切断。
+private struct TypewriterText: View {
+    let fullText: String
+    let animates: Bool
+
+    @State private var revealedCount = 0
+
+    private var characters: [Character] { Array(fullText) }
+
+    var body: some View {
+        Group {
+            if animates {
+                markdownText(String(characters.prefix(revealedCount)))
+            } else {
+                markdownText(fullText)
+            }
+        }
+        .task(id: fullText) {
+            guard animates else { return }
+            revealedCount = 0
+            for _ in characters {
+                guard !Task.isCancelled else { return }
+                try? await Task.sleep(nanoseconds: 28_000_000)
+                revealedCount += 1
+                Haptics.tick()
+            }
+        }
     }
 }
 

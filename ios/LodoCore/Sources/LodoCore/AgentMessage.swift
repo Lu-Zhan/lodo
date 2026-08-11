@@ -60,13 +60,16 @@ public final class AgentMessage {
     public var taskSnapshotData: Data? = nil
     /// memoryResult 消息指向的 MemoryItem;其余 kind 恒为 nil。
     public var resultMemoryUUID: UUID? = nil
+    /// 发送这条消息时用户引用的另一条消息的文本快照;没有引用为 nil。存快照而不是
+    /// UUID 引用——"修改"会删除历史消息,UUID 引用可能悬空,快照更稳。
+    public var quotedContent: String? = nil
     public var createdAt: Date = Date.now
 
     public init(
         threadUUID: UUID, role: AgentMessageRole, kind: AgentMessageKind = .text,
         content: String, relatedTitles: [String] = [], askSnapshotData: Data? = nil,
         attachmentMemoryUUIDs: [UUID] = [], taskSnapshotData: Data? = nil,
-        resultMemoryUUID: UUID? = nil
+        resultMemoryUUID: UUID? = nil, quotedContent: String? = nil
     ) {
         self.uuid = UUID()
         self.threadUUID = threadUUID
@@ -78,6 +81,7 @@ public final class AgentMessage {
         self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         self.taskSnapshotData = taskSnapshotData
         self.resultMemoryUUID = resultMemoryUUID
+        self.quotedContent = quotedContent
         self.createdAt = Date()
     }
 
