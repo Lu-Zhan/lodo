@@ -280,6 +280,11 @@ struct AgentView: View {
                     busy = true
                     thinkingText = "思考中…"
                 }
+                // 截图验证用:直接把 isRecording 摆成 true,不真的起录音——
+                // simctl 没有麦克风可触发,用来看麦克风按钮的呼吸动效。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-recording") {
+                    speech.isRecording = true
+                }
                 // 截图验证用:直接推开侧栏(simctl 没法点汉堡也没法滑手势),
                 // 顺带塞几条历史对话把列表填出来。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-sidebar") {
@@ -740,11 +745,17 @@ struct AgentView: View {
                 speech.toggle()
             }
         } label: {
-            Image(systemName: speech.isRecording ? "stop.fill" : "mic.fill")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(speech.isRecording ? Color.red : Color.accentColor)
-                .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
+            Group {
+                if speech.isRecording {
+                    BreathingMicIcon()
+                } else {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .frame(width: 36, height: 36)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         #if os(iOS)
@@ -752,6 +763,30 @@ struct AgentView: View {
         #endif
         .disabled(busy)
         .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
+    }
+
+    /// 正在录音时麦克风按钮的"呼吸"动效:红色 stop 图标透明度 + 缩放按约 1.2s
+    /// 周期起伏,和 ShimmerText(仓库里唯一的循环动效先例)同一个写法——用
+    /// TimelineView(.animation) 按时间连续重绘,不用 withAnimation(.repeatForever)。
+    /// 同样遵守"减弱动态效果":开启时退化成当前这版静态红色图标。
+    private struct BreathingMicIcon: View {
+        var body: some View {
+            if DesignMetrics.reduceMotionEnabled {
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.red)
+            } else {
+                TimelineView(.animation) { context in
+                    let t = context.date.timeIntervalSinceReferenceDate
+                    let phase = (sin(t * 2 * .pi / 1.2) + 1) / 2
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color.red)
+                        .opacity(0.55 + phase * 0.45)
+                        .scaleEffect(1 + phase * 0.14)
+                }
+            }
+        }
     }
 
     /// busy 时按钮不再禁用,改成取消——点了就中断这次请求(输入区其余控件

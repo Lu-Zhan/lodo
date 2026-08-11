@@ -7,7 +7,7 @@ final class QwenASRClientTests: XCTestCase {
         let wav = Data([0x52, 0x49, 0x46, 0x46])
         let body = QwenASRClient.requestBody(wavData: wav)
 
-        XCTAssertEqual(body["model"] as? String, "qwen-audio-3.0-asr-flash")
+        XCTAssertEqual(body["model"] as? String, "qwen3-asr-flash")
         XCTAssertEqual(body["stream"] as? Bool, false)
         guard let messages = body["messages"] as? [[String: Any]], messages.count == 1,
               let content = messages[0]["content"] as? [[String: Any]], content.count == 1,

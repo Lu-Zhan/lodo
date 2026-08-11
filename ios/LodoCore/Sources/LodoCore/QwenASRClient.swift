@@ -22,7 +22,7 @@ public enum QwenASRError: LocalizedError {
     }
 }
 
-/// 阿里云百炼 MaaS 部署的 Qwen 语音识别(qwen-audio-3.0-asr-flash),OpenAI 兼容
+/// 阿里云百炼 MaaS 部署的 Qwen 语音识别(qwen3-asr-flash),OpenAI 兼容
 /// 的 chat/completions 接口,一次请求整段音频拿整段转写结果(非流式)。
 /// 放进 LodoCore 是为了和 DeepSeekClient 同层,将来 Watch App 需要的话可直接复用。
 public enum QwenASRClient {
@@ -30,7 +30,11 @@ public enum QwenASRClient {
     public static let providerName = "Qwen 语音识别"
     private static let endpoint = URL(string:
         "https://llm-kff4se94wpiqfdoy.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions")!
-    private static let model = "qwen-audio-3.0-asr-flash"
+    /// 注意:不是 qwen-audio-3.0-asr-flash——那个模型官方标注的调用方式是
+    /// DashScope 原生协议(HTTP、DashScope SDK),请求体是完全不同的 input/
+    /// parameters 结构;OpenAI 兼容的 chat/completions 协议官方只认
+    /// qwen3-asr-flash,拿错模型名去打这个 endpoint 会直接 400。
+    private static let model = "qwen3-asr-flash"
 
     /// 当前是否已配置可用(内置 key 或用户自存 key)。
     public static var isConfigured: Bool {
