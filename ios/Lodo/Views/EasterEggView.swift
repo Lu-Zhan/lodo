@@ -14,7 +14,7 @@ struct EasterEggView: View {
         var message: String {
             switch self {
             case .birthday: return "爱lota每一天～"
-            case .anniversary: return "结婚一周年快乐\n余生请多指教～"
+            case .anniversary: return "结婚一周年快乐\n爱你扬扬～"
             }
         }
 
@@ -54,14 +54,14 @@ struct EasterEggView: View {
     ]
 
     private static let hearts: [BalloonSpec] = [
-        BalloonSpec(xFraction: 0.10, size: 34, hue: .pink, duration: 8.5, delay: 0.0),
-        BalloonSpec(xFraction: 0.26, size: 24, hue: .red, duration: 6.5, delay: 1.2),
-        BalloonSpec(xFraction: 0.42, size: 40, hue: .pink, duration: 9.5, delay: 0.6),
-        BalloonSpec(xFraction: 0.58, size: 22, hue: .red, duration: 7.0, delay: 2.0),
-        BalloonSpec(xFraction: 0.74, size: 36, hue: .pink, duration: 8.0, delay: 0.3),
-        BalloonSpec(xFraction: 0.88, size: 26, hue: .red, duration: 6.0, delay: 2.8),
-        BalloonSpec(xFraction: 0.18, size: 20, hue: .pink, duration: 5.5, delay: 3.4),
-        BalloonSpec(xFraction: 0.66, size: 28, hue: .red, duration: 7.5, delay: 1.8),
+        BalloonSpec(xFraction: 0.10, size: 68, hue: .pink, duration: 8.5, delay: 0.0),
+        BalloonSpec(xFraction: 0.26, size: 50, hue: .red, duration: 6.5, delay: 1.2),
+        BalloonSpec(xFraction: 0.42, size: 82, hue: .pink, duration: 9.5, delay: 0.6),
+        BalloonSpec(xFraction: 0.58, size: 46, hue: .red, duration: 7.0, delay: 2.0),
+        BalloonSpec(xFraction: 0.74, size: 72, hue: .pink, duration: 8.0, delay: 0.3),
+        BalloonSpec(xFraction: 0.88, size: 54, hue: .red, duration: 6.0, delay: 2.8),
+        BalloonSpec(xFraction: 0.18, size: 42, hue: .pink, duration: 5.5, delay: 3.4),
+        BalloonSpec(xFraction: 0.66, size: 58, hue: .red, duration: 7.5, delay: 1.8),
     ]
 
     var body: some View {
