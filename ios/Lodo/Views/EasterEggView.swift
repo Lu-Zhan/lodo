@@ -14,7 +14,7 @@ struct EasterEggView: View {
         var message: String {
             switch self {
             case .birthday: return "爱lota每一天～"
-            case .anniversary: return "结婚一周年快乐\n爱你扬扬～"
+            case .anniversary: return "结婚一周年快乐\n爱你书扬～"
             }
         }
 
