@@ -7,7 +7,8 @@ import LodoCore
 /// "system"(默认改前的行为)是 AVAudioEngine 采集 + SFSpeechRecognizer 实时转写,
 /// 边说边出局部文本;"qwenASR"(现默认)是 AVAudioRecorder 整段录音,停止后一次性
 /// 上传给 QwenASRClient 拿转写结果,没有局部文本,靠 isProcessing 表示"识别中"。
-/// 转写结果通过 `transcript` 更新,停止后保留最终文本。
+/// 转写结果通过 `transcript` 更新,停止后保留最终文本。`stop()` 结束采集并转写/
+/// 保留结果;`cancel()` 同样结束采集,但丢弃已录内容、不转写、不留 transcript。
 @MainActor
 @Observable
 final class SpeechInput {
@@ -16,6 +17,8 @@ final class SpeechInput {
     /// 云端引擎专用:录音已停止、转写请求仍在进行中。系统引擎路径这个值恒为 false。
     var isProcessing = false
     var errorText: String?
+    /// 录音中的实时电平,归一化到 0...1,供 UI 画波形动画用。非录音状态恒为 0。
+    private(set) var audioLevel: Float = 0
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
     private let audioEngine = AVAudioEngine()
@@ -24,11 +27,16 @@ final class SpeechInput {
     /// 静音自动停止:最近一次识别到新内容/检测到声音(或开始录音)的时刻。
     private var lastActivityAt = Date()
     private var silenceWatchTask: Task<Void, Never>?
+    /// 云端引擎专用:比静音检测(300ms 一次)更密的电平采样循环,给波形动画用。
+    /// 系统引擎路径不需要这个——它的电平直接在 installTap 的缓冲区回调里顺带算。
+    private var levelWatchTask: Task<Void, Never>?
 
     private var audioRecorder: AVAudioRecorder?
     private var recordingURL: URL?
     /// 电平低于这个值(dBFS)视为静音,用于云端引擎路径的静音自动停止判断。
     private static let silenceThresholdDB: Float = -35
+    /// 波形电平归一化的 dB 下限——低于这个值一律视为静止(振幅 0)。
+    private static let levelFloorDB: Float = -50
 
     func toggle() {
         if isRecording {
@@ -78,8 +86,10 @@ final class SpeechInput {
 
             let input = audioEngine.inputNode
             let format = input.outputFormat(forBus: 0)
-            input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
                 request.append(buffer)
+                let level = Self.normalizedLevel(fromDB: Self.averageDB(of: buffer))
+                Task { @MainActor in self?.audioLevel = level }
             }
             audioEngine.prepare()
             try audioEngine.start()
@@ -143,9 +153,23 @@ final class SpeechInput {
             isRecording = true
             lastActivityAt = Date()
             watchSilence()
+            watchLevel()
         } catch {
             errorText = "无法启动录音:\(error.localizedDescription)"
             stop()
+        }
+    }
+
+    /// 云端引擎专用:每 80ms 读一次 AVAudioRecorder 的电平,写进 audioLevel。
+    private func watchLevel() {
+        levelWatchTask?.cancel()
+        levelWatchTask = Task { [weak self] in
+            while let self, self.isRecording, !Task.isCancelled {
+                self.audioRecorder?.updateMeters()
+                let db = self.audioRecorder?.averagePower(forChannel: 0) ?? Self.levelFloorDB
+                self.audioLevel = Self.normalizedLevel(fromDB: db)
+                try? await Task.sleep(nanoseconds: 80_000_000)
+            }
         }
     }
 
@@ -178,7 +202,10 @@ final class SpeechInput {
         guard isRecording || audioEngine.isRunning || (audioRecorder?.isRecording ?? false) else { return }
         silenceWatchTask?.cancel()
         silenceWatchTask = nil
+        levelWatchTask?.cancel()
+        levelWatchTask = nil
         isRecording = false
+        audioLevel = 0
 
         if AppSettings.sttEngine == "qwenASR" {
             audioRecorder?.stop()
@@ -200,6 +227,66 @@ final class SpeechInput {
                 false, options: .notifyOthersOnDeactivation)
             #endif
         }
+    }
+
+    /// 取消采集:和 stop() 一样结束录音/引擎,但丢弃已录内容——不转写、不留
+    /// transcript。系统引擎路径用 task?.cancel() 而不是 endAudio() 等最终结果,
+    /// 避免取消后异步冒出一段迟到的转写文本。
+    func cancel() {
+        guard isRecording else { return }
+        silenceWatchTask?.cancel()
+        silenceWatchTask = nil
+        levelWatchTask?.cancel()
+        levelWatchTask = nil
+        isRecording = false
+        audioLevel = 0
+        transcript = ""
+        errorText = nil
+
+        if AppSettings.sttEngine == "qwenASR" {
+            audioRecorder?.stop()
+            audioRecorder = nil
+            let url = recordingURL
+            recordingURL = nil
+            #if os(iOS)
+            try? AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation)
+            #endif
+            if let url { try? FileManager.default.removeItem(at: url) }
+        } else {
+            task?.cancel()
+            task = nil
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+            request?.endAudio()
+            request = nil
+            #if os(iOS)
+            try? AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation)
+            #endif
+        }
+    }
+
+    /// 缓冲区的均方根电平(dBFS),用于系统引擎路径的波形动画——安静时数值很小,
+    /// log10(0) 会得 -inf,提前收口到 levelFloorDB。
+    private static func averageDB(of buffer: AVAudioPCMBuffer) -> Float {
+        guard let channelData = buffer.floatChannelData?[0] else { return levelFloorDB }
+        let frameLength = Int(buffer.frameLength)
+        guard frameLength > 0 else { return levelFloorDB }
+        var sum: Float = 0
+        for i in 0..<frameLength {
+            let sample = channelData[i]
+            sum += sample * sample
+        }
+        let rms = sqrt(sum / Float(frameLength))
+        guard rms > 0 else { return levelFloorDB }
+        return 20 * log10(rms)
+    }
+
+    /// dBFS 归一化到 0...1,levelFloorDB 以下视为静止,0dB(满量程)视为最大振幅。
+    private static func normalizedLevel(fromDB db: Float) -> Float {
+        let clamped = max(levelFloorDB, min(0, db))
+        return (clamped - levelFloorDB) / -levelFloorDB
     }
 
     private func transcribeQwenASR(fileURL: URL) async {

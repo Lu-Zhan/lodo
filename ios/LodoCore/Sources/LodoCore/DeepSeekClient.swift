@@ -553,7 +553,7 @@ public enum DeepSeekClient {
     /// 定时任务只产出文字,不碰待办。
     public static func runRoutine(
         name: String, instruction: String, taskContext: String? = nil,
-        webSearchEnabled: Bool = false,
+        locationContext: String? = nil, webSearchEnabled: Bool = false,
         history: [(role: String, content: String)] = []
     ) async throws -> AIRoutineOutcome {
         let tools = webSearchEnabled ? """
@@ -567,6 +567,7 @@ public enum DeepSeekClient {
         不能一直用工具占位不给结果。
         """ : ""
         let tasks = taskContext.map { "\n\n今天的待办:\n\($0)" } ?? ""
+        let location = locationContext.map { "\n\n当前城市:\($0)" } ?? ""
         let system = """
         你是提醒事项应用 lodo 的定时任务助手。用户预先设定了一条会自动执行的例行任务,\
         现在到了执行时间,你要按用户写的指令生成这一次的内容,直接展示给用户看。
@@ -581,7 +582,7 @@ public enum DeepSeekClient {
 
         \(timeContext)\(preferencesBlock)
 
-        任务名:\(name)\(tasks)\(personaBlock)\(historyBlock(history))
+        任务名:\(name)\(tasks)\(location)\(personaBlock)\(historyBlock(history))
         """
         return try parseRoutine(await payload(system: system, user: instruction, timeout: 60),
                                 webSearchEnabled: webSearchEnabled)

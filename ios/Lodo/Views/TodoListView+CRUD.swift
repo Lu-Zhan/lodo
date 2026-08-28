@@ -76,6 +76,13 @@ extension TodoListView {
                 allDay: true, durationMinutes: 0, repeatType: .none, repeatDays: [],
                 repeatTimes: []))
         }
+
+        // 验证"定时任务混排进待办页"——今天稍晚触发一次,今天筛选态里应该
+        // 和上面几条待办混排出现。
+        let routine = AIRoutine(preset: AIRoutine.presets[1])
+        routine.timesRaw = AppSettings.hhmm(from: now.addingTimeInterval(3600))
+        context.insert(routine)
+        try? context.save()
     }
 
     /// 截图/测试用(--demo-project-list/--demo-project-timeline,仅在待办为空时

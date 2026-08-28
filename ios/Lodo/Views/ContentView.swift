@@ -33,6 +33,33 @@ struct ContentView: View {
     /// 上次前台全量重排的时间,30 秒内重复 active 不再触发(避免频繁切换的重排风暴)。
     @State private var lastActiveRefresh = Date.distantPast
 
+    /// 冷启动要不要自动进 AI 助手,构造阶段就算好、一次性喂给 TodoListView 的
+    /// init(见下面 init() 和 initialAgentPrefill 参数)——不复用 agentRequest
+    /// 这个响应式 binding,否则它会一直停在 "" 出不来,之后同样想设成 "" 的
+    /// 触发(比如再点一次悬浮 AI 按钮)会因为 "值没变" 而被 onChange 吞掉。
+    private let autoOpenAgentPrefill: String?
+
+    init() {
+        let shouldAutoOpen = Self.shouldAutoOpenAgentOnLaunch()
+        _selection = State(initialValue: shouldAutoOpen ? .todo : .overview)
+        _didAutoOpenAgentOnLaunch = State(initialValue: shouldAutoOpen)
+        autoOpenAgentPrefill = shouldAutoOpen ? "" : nil
+    }
+
+    /// 和下面 .onAppear 里"冷启动默认进入 AI 助手"那段判断逻辑完全一致,只是
+    /// 挪到构造阶段同步算——这样 selection/TodoListView 的 sheet 能在第一帧
+    /// 组装前就摆好"AI 助手已打开"的状态,fullScreenCover 就不会有"从无到有"
+    /// 的滑入过渡,消除先看到主界面再弹出的闪烁。UserDefaults/ProcessInfo 都是
+    /// 同步读取,init 里读没有副作用。
+    private static func shouldAutoOpenAgentOnLaunch() -> Bool {
+        guard AppSettings.hasSeenOnboarding else { return false }
+        guard AppSettings.openAgentOnLaunch else { return false }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--demo-") }) { return false }
+        #endif
+        return true
+    }
+
     var body: some View {
         tabs
             .onAppear {
@@ -225,7 +252,8 @@ struct ContentView: View {
                 OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
             }
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
-                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
+                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest,
+                             initialAgentPrefill: autoOpenAgentPrefill)
             }
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
                 MemoryListView(onConvertToTodo: convertToTodo)
@@ -274,7 +302,8 @@ struct ContentView: View {
                 OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
             }
             Tab("待办", systemImage: "checklist", value: AppTab.todo) {
-                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
+                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest,
+                             initialAgentPrefill: autoOpenAgentPrefill)
             }
             Tab("记忆", systemImage: "sparkles.rectangle.stack", value: AppTab.memory) {
                 MemoryListView(onConvertToTodo: convertToTodo)
@@ -355,7 +384,8 @@ struct ContentView: View {
             case .overview:
                 OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
             case .todo:
-                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
+                TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest,
+                             initialAgentPrefill: autoOpenAgentPrefill)
             case .memory:
                 MemoryListView(onConvertToTodo: convertToTodo)
             case .add:
@@ -369,7 +399,8 @@ struct ContentView: View {
             OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
                 .tabItem { Label("总览", systemImage: "square.stack.3d.up") }
                 .tag(AppTab.overview)
-            TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest)
+            TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest,
+                         initialAgentPrefill: autoOpenAgentPrefill)
                 .tabItem { Label("待办", systemImage: "checklist") }
                 .tag(AppTab.todo)
             MemoryListView(onConvertToTodo: convertToTodo)

@@ -81,6 +81,9 @@ struct AgentView: View {
     @State private var showMemoryPicker = false
     @State private var photoSelection: PhotosPickerItem?
     @State private var formTarget: FormTarget?
+    /// 小彩蛋:输入框内容恰好是 "0707" 时弹一个全屏气球动画,见下面的
+    /// .onChange(of: text) 和 EasterEggView。
+    @State private var showEasterEgg = false
 
     init(prefill: String? = nil,
          submit: @escaping (
@@ -239,6 +242,15 @@ struct AgentView: View {
                     }
                 }
             }
+            .fullScreenCover(isPresented: $showEasterEgg) {
+                EasterEggView()
+            }
+            .onChange(of: text) { _, newValue in
+                if newValue.trimmingCharacters(in: .whitespacesAndNewlines) == "0707" {
+                    text = ""
+                    showEasterEgg = true
+                }
+            }
             .onChange(of: speech.transcript) { _, transcript in
                 if !transcript.isEmpty { text = typedPrefix + transcript }
             }
@@ -284,6 +296,10 @@ struct AgentView: View {
                 // simctl 没有麦克风可触发,用来看麦克风按钮的呼吸动效。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-recording") {
                     speech.isRecording = true
+                }
+                // 截图验证用:直接弹彩蛋全屏页(simctl 没法打字触发 0707)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-easter-egg") {
+                    showEasterEgg = true
                 }
                 // 截图验证用:直接推开侧栏(simctl 没法点汉堡也没法滑手势),
                 // 顺带塞几条历史对话把列表填出来。
@@ -637,23 +653,44 @@ struct AgentView: View {
     }
 
     /// 参考 Claude app 的输入栏:一整块合并的磨砂卡片悬浮在内容上方(四周留白,
-    /// 不贴屏幕物理边缘),卡片内竖直分两行——上面纯文本输入框(没有自己的胶囊
-    /// 背景,直接落在卡片底色上),下面是控件行:左边 + 号纯图标(无背景),
-    /// 右边麦克风/发送纯图标或强调色圆按钮。没在打字/正在录音时是麦克风(点了
-    /// 直接开始/停止录音);一旦有内容待发送,同一个槽位换成强调色发送按钮——
-    /// 是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标。只有发送/停止
-    /// 这一个控件保留实心玻璃填充,+/麦克风都是纯图标,靠卡片本身的玻璃背景
-    /// 衬底,不需要各自再套一层——因此不再需要 `GlassEffectContainer`:那是给
-    /// 多个相邻独立玻璃形状互相感知融合用的,现在只剩"一张卡 + 一个独立强调色
-    /// 按钮",`.glassProminentButton()` 已经能正确渲染自己的玻璃层,不需要外层
-    /// 容器配合。
+    /// 不贴屏幕物理边缘)。非录音态(composingBar)卡片内竖直分两行——上面纯
+    /// 文本输入框(没有自己的胶囊背景,直接落在卡片底色上),下面是控件行:
+    /// 左边 + 号纯图标(无背景),右边麦克风/发送纯图标或强调色圆按钮,没在
+    /// 打字时是麦克风(点了开始录音);一旦有内容待发送,同一个槽位换成强调色
+    /// 发送按钮——是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标。只有
+    /// 发送/停止这一个控件保留实心玻璃填充,+/麦克风都是纯图标,靠卡片本身的
+    /// 玻璃背景衬底,不需要各自再套一层——因此不再需要 `GlassEffectContainer`:
+    /// 那是给多个相邻独立玻璃形状互相感知融合用的,现在只剩"一张卡 + 一个独立
+    /// 强调色按钮",`.glassProminentButton()` 已经能正确渲染自己的玻璃层,不需要
+    /// 外层容器配合。录音态(recordingBar)整条换成"取消 / 波形 / 确认"三段式,
+    /// 同一张卡片容器,不再有文本框/+/麦克风。
     private var inputBar: some View {
         inputBarRow
     }
 
     private var inputBarRow: some View {
+        Group {
+            if speech.isRecording {
+                recordingBar
+                    .transition(.scale.combined(with: .opacity))
+            } else {
+                composingBar
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isRecording)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom, 18)
+    }
+
+    private var composingBar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            TextField("说点什么…", text: $text, axis: .vertical)
+            TextField("试试加入一个待办/记忆…", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($isInputFocused)
@@ -709,22 +746,114 @@ struct AgentView: View {
             .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
             .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isProcessing)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
-        .padding(.horizontal)
-        .padding(.top, 8)
-        .padding(.bottom, 18)
     }
 
-    /// 正在录音时即便文字已经有内容(实时转写填进了输入框)也继续显示麦克风
-    /// (这时候是"停止"按钮),不能被发送按钮抢先弹出来。busy 期间发送按钮变成
-    /// 取消,必须强制显示——不然请求一发出、输入框被清空,hasComposedContent
-    /// 又变 false,取消按钮会被这条规则顶掉、换回(此时禁用的)麦克风按钮,
-    /// 用户就没有取消入口了。
+    /// 录音时整条输入条换成的"取消 / 波形 / 确认"胶囊,参考 iMessage/微信语音
+    /// 消息录制条:左边取消(丢弃录音、不转写、不发送),中间波形随音量起伏,
+    /// 右边确认(等同原先"录音中再点一次麦克风"——停止并走已有的自动发送流程)。
+    private var recordingBar: some View {
+        HStack(spacing: 12) {
+            cancelRecordingButton
+            RecordingWaveform(level: speech.audioLevel)
+                .frame(maxWidth: .infinity)
+            confirmRecordingButton
+        }
+        .frame(height: 40)
+    }
+
+    private var cancelRecordingButton: some View {
+        Button {
+            speech.cancel()
+            text = typedPrefix
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.primary)
+                .frame(width: 36, height: 36)
+                .background(.quaternary, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("取消录音")
+    }
+
+    private var confirmRecordingButton: some View {
+        Button {
+            speech.stop()
+        } label: {
+            Image(systemName: "checkmark")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Color.accentColor, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("完成录音")
+    }
+
+    /// 录音条中间的波形:固定数量竖条,用系统 Shape(Capsule)组合而成——不是
+    /// Canvas 自绘。每根条按时间连续起伏(TimelineView(.animation),和
+    /// BreathingMicIcon/ShimmerText 同一个写法),相邻条相位错开一点,视觉上像
+    /// 一条波浪从左往右流动,而不是一排各自独立跳变的柱子;起伏幅度按 level
+    /// (SpeechInput.audioLevel,0...1)放大——声音越大摆动越明显,安静时也保留
+    /// 一点点小幅起伏(呼吸感),不会瘫平成死气沉沉的静止条。遵守"减弱动态
+    /// 效果":开启时退化成等高静止的条,不逐帧重绘。
+    private struct RecordingWaveform: View {
+        let level: Float
+
+        private static let barCount = 24
+        private static let barWidth: CGFloat = 3
+        private static let barSpacing: CGFloat = 3
+        private static let minBarHeight: CGFloat = 5
+        private static let maxBarHeight: CGFloat = 34
+        /// 相邻条的相位间隔,决定"波浪流动"的疏密。
+        private static let phaseStep: Double = 0.34
+        /// 起伏一个完整周期的时长(秒)。
+        private static let period: Double = 0.9
+        /// 静音时仍保留的最小摆动幅度(0...1),避免完全静止。
+        private static let idleAmplitude: Double = 0.18
+
+        var body: some View {
+            if DesignMetrics.reduceMotionEnabled {
+                staticBars
+            } else {
+                TimelineView(.animation) { context in
+                    bars(time: context.date.timeIntervalSinceReferenceDate)
+                }
+            }
+        }
+
+        private var staticBars: some View {
+            HStack(spacing: Self.barSpacing) {
+                ForEach(0..<Self.barCount, id: \.self) { _ in
+                    Capsule()
+                        .fill(Color.primary.opacity(0.75))
+                        .frame(width: Self.barWidth, height: Self.minBarHeight)
+                }
+            }
+        }
+
+        private func bars(time: Double) -> some View {
+            let amplitude = Self.idleAmplitude + (1 - Self.idleAmplitude) * Double(level)
+            return HStack(alignment: .center, spacing: Self.barSpacing) {
+                ForEach(0..<Self.barCount, id: \.self) { index in
+                    let phase = Double(index) * Self.phaseStep
+                    let wave = (sin(time * 2 * .pi / Self.period - phase) + 1) / 2
+                    let height = Self.minBarHeight
+                        + (Self.maxBarHeight - Self.minBarHeight) * CGFloat(amplitude * wave)
+                    Capsule()
+                        .fill(Color.primary.opacity(0.75))
+                        .frame(width: Self.barWidth, height: height)
+                }
+            }
+        }
+    }
+
+    /// 录音态由 inputBarRow 整条换成 recordingBar,不会走到这里——这个开关只管
+    /// "没在录音"时麦克风 ↔ 发送按钮的切换。busy 期间发送按钮变成取消,必须强制
+    /// 显示——不然请求一发出、输入框被清空,hasComposedContent 又变 false,取消
+    /// 按钮会被这条规则顶掉、换回(此时禁用的)麦克风按钮,用户就没有取消入口了。
     private var showsInlineMic: Bool {
-        !busy && (speech.isRecording || !hasComposedContent)
+        !busy && !hasComposedContent
     }
 
     /// 云端语音识别引擎:录音已停止、转写请求还没回来,替掉麦克风按钮的位置。
@@ -738,55 +867,21 @@ struct AgentView: View {
 
     private var inlineMicButton: some View {
         Button {
-            if speech.isRecording {
-                speech.stop()
-            } else {
-                typedPrefix = text
-                speech.toggle()
-            }
+            typedPrefix = text
+            speech.toggle()
         } label: {
-            Group {
-                if speech.isRecording {
-                    BreathingMicIcon()
-                } else {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
-            .frame(width: 36, height: 36)
-            .contentShape(Rectangle())
+            Image(systemName: "mic.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         #if os(iOS)
         .hoverEffect(.highlight)
         #endif
         .disabled(busy)
-        .accessibilityLabel(speech.isRecording ? "停止语音输入" : "语音输入")
-    }
-
-    /// 正在录音时麦克风按钮的"呼吸"动效:红色 stop 图标透明度 + 缩放按约 1.2s
-    /// 周期起伏,和 ShimmerText(仓库里唯一的循环动效先例)同一个写法——用
-    /// TimelineView(.animation) 按时间连续重绘,不用 withAnimation(.repeatForever)。
-    /// 同样遵守"减弱动态效果":开启时退化成当前这版静态红色图标。
-    private struct BreathingMicIcon: View {
-        var body: some View {
-            if DesignMetrics.reduceMotionEnabled {
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color.red)
-            } else {
-                TimelineView(.animation) { context in
-                    let t = context.date.timeIntervalSinceReferenceDate
-                    let phase = (sin(t * 2 * .pi / 1.2) + 1) / 2
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.red)
-                        .opacity(0.55 + phase * 0.45)
-                        .scaleEffect(1 + phase * 0.14)
-                }
-            }
-        }
+        .accessibilityLabel("语音输入")
     }
 
     /// busy 时按钮不再禁用,改成取消——点了就中断这次请求(输入区其余控件

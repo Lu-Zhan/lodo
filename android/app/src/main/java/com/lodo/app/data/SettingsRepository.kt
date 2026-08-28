@@ -63,9 +63,9 @@ data class Settings(
     /** AI 个性:"默认"=无个性,"自定义"用 personaCustom,其余取预设。 */
     val personaStyle: String = "默认",
     val personaCustom: String = "",
-    /** AI 助手的思考强度:off/low/medium/high,默认 medium。只作用于 AI 助手
+    /** AI 助手的思考强度:off/low/medium/high,默认 low。只作用于 AI 助手
      * 对话入口,不影响解析/汇总等后台小请求。 */
-    val thinkingLevel: String = "medium",
+    val thinkingLevel: String = "low",
     /** 通知权限是否被拒绝(SDK<33 恒为 false),供待办列表顶部横幅展示。 */
     val notificationPermissionDenied: Boolean = false,
     /** 闹钟触发但因权限缺失未能展示通知的连续次数,展示成功后清零,
@@ -136,7 +136,7 @@ class SettingsRepository(private val context: Context) {
             aiCustomEndpoint = p[Keys.AI_CUSTOM_ENDPOINT] ?: "",
             personaStyle = p[Keys.PERSONA_STYLE] ?: "默认",
             personaCustom = p[Keys.PERSONA_CUSTOM] ?: "",
-            thinkingLevel = p[Keys.THINKING_LEVEL] ?: "medium",
+            thinkingLevel = p[Keys.THINKING_LEVEL] ?: "low",
             notificationPermissionDenied = p[Keys.NOTIFICATION_PERMISSION_DENIED] ?: false,
             notifyMissCount = p[Keys.NOTIFY_MISS_COUNT] ?: 0,
             language = p[Keys.LANGUAGE] ?: "zh",

@@ -64,6 +64,20 @@ struct TodoListView: View {
     /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,见 ContentView)。
     @Binding var convertToTodoRequest: ConvertToTodoRequest?
 
+    /// initialAgentPrefill 非 nil 时(冷启动默认进入 AI 助手,见 ContentView.init),
+    /// 在构造阶段就把 sheet 种成 .agent(...),不等 onAppear/onChange 才反应式地
+    /// 打开——这样 fullScreenCover 在第一帧就已经是"展示中",没有从无到有的滑入
+    /// 过渡,不会先露出待办列表再弹出 AI 助手。其余触发口(深链、悬浮 AI 按钮、
+    /// Siri 交接、--demo-agent)不受影响,仍走 consumeRoutes() 那条响应式路径。
+    init(agentRequest: Binding<String?>, convertToTodoRequest: Binding<ConvertToTodoRequest?>,
+         initialAgentPrefill: String? = nil) {
+        self._agentRequest = agentRequest
+        self._convertToTodoRequest = convertToTodoRequest
+        if let initialAgentPrefill {
+            _sheet = State(initialValue: .agent(prefill: initialAgentPrefill.isEmpty ? nil : initialAgentPrefill))
+        }
+    }
+
     // 以下几个跨 extension 文件(TodoListView+Agent/+CRUD)被读写,
     // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
     @Environment(\.modelContext) var context
@@ -77,6 +91,15 @@ struct TodoListView: View {
     @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "done" },
            sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
     var doneTasks: [TaskItem]
+    /// 待办页里混排展示的定时任务(仅启用的);已停用的只在设置页管理,
+    /// 不占待办页的位置。
+    @Query(filter: #Predicate<AIRoutine> { $0.enabled },
+           sort: \AIRoutine.createdAt)
+    private var routines: [AIRoutine]
+    /// 用于查"今天跑过没":按天筛选在 `latestRunToday` 里做,这里只按时间倒序,
+    /// 取第一条命中的就是最新一条。
+    @Query(sort: [SortDescriptor(\AIRoutineRun.createdAt, order: .reverse)])
+    private var routineRuns: [AIRoutineRun]
 
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
@@ -136,12 +159,15 @@ struct TodoListView: View {
         case create(ParsedTask?, TaskAttachment?)
         /// 编辑事项;agent 路由到修改时带上解析出的新字段预填表单。
         case edit(TaskItem, ParsedTask?)
+        /// 待办页里点了一条定时任务行:复用设置页同款的编辑表单。
+        case editRoutine(AIRoutine)
 
         var id: String {
             switch self {
             case .agent: return "agent"
             case .create: return "create"
             case .edit(let task, _): return task.uuid.uuidString
+            case .editRoutine(let routine): return routine.uuid.uuidString
             }
         }
     }
@@ -194,6 +220,8 @@ struct TodoListView: View {
             TaskEditView(existing: task, parsed: parsed, attachment: task.attachment) {
                 apply($0, to: task)
             }
+        case .editRoutine(let routine):
+            RoutineEditView(routine: routine, isNew: false)
         }
     }
 
@@ -218,12 +246,89 @@ struct TodoListView: View {
     private var futureTasks: [TaskItem] {
         upcoming.filter { !Calendar.current.isDateInToday($0.nextRemindAt) }
     }
-    /// "全部"筛选态的内容:全部待办(含到期未处理的)按天分组、升序;
-    /// 到期项同样冒泡进"今天"那组。
-    private var allGroupedByDay: [(date: Date, tasks: [TaskItem])] {
-        let groups = Dictionary(grouping: pending) { effectiveDay($0) }
-        return groups.sorted { $0.key < $1.key }.map { (date: $0.key, tasks: $0.value) }
+    // MARK: - 定时任务混排(今天/未来/全部三个筛选态;已完成没有定时任务)
+
+    /// 待办页 List 行的统一形态:定时任务与待办事项混排、按时间排序。
+    /// 定时任务只贡献"下一次触发"这一行(不展开每次历史执行),
+    /// 与循环待办只显示 nextRemindAt 这一个虚拟行是同一个心智模型。
+    private struct TodoRow: Identifiable {
+        enum Kind {
+            case task(TaskItem)
+            case routine(AIRoutine)
+        }
+        let kind: Kind
+        /// 混排排序键:待办用 nextRemindAt,定时任务用 routineSortDate(_:)。
+        let sortDate: Date
+
+        var id: AnyHashable {
+            switch kind {
+            case .task(let task): return task.persistentModelID
+            case .routine(let routine): return routine.uuid
+            }
+        }
     }
+
+    private func taskRow(_ task: TaskItem) -> TodoRow {
+        TodoRow(kind: .task(task), sortDate: task.nextRemindAt)
+    }
+
+    private func routineRow(_ routine: AIRoutine) -> TodoRow {
+        TodoRow(kind: .routine(routine), sortDate: routineSortDate(routine))
+    }
+
+    /// 今天已经跑过的最新一条结果(没跑过则 nil),直接显示在行下面。
+    private func latestRunToday(_ routine: AIRoutine) -> AIRoutineRun? {
+        let uuid = routine.uuid
+        return routineRuns.first {
+            $0.routineUUID == uuid && Calendar.current.isDate($0.createdAt, inSameDayAs: now)
+        }
+    }
+
+    /// 定时任务算作哪一天:今天已经跑过就算今天(哪怕下一次计划时间是明天),
+    /// 否则按下一次计划触发时间的日期算;两者都没有(没设置有效时间点)就不展示。
+    private func effectiveRoutineDay(_ routine: AIRoutine) -> Date? {
+        let calendar = Calendar.current
+        if latestRunToday(routine) != nil { return calendar.startOfDay(for: now) }
+        guard let next = routine.nextRun(after: now) else { return nil }
+        return calendar.startOfDay(for: next)
+    }
+
+    /// 混排用的排序时间:今天跑过就用运行时刻(保持在它原本的时间位置附近),
+    /// 否则用下一次计划触发时间。
+    private func routineSortDate(_ routine: AIRoutine) -> Date {
+        latestRunToday(routine)?.createdAt ?? routine.nextRun(after: now) ?? .distantFuture
+    }
+
+    private var todayRows: [TodoRow] {
+        let today = Calendar.current.startOfDay(for: now)
+        let taskRows = todayTasks.map(taskRow)
+        let routineRows = routines.filter { effectiveRoutineDay($0) == today }.map(routineRow)
+        return (taskRows + routineRows).sorted { $0.sortDate < $1.sortDate }
+    }
+
+    private var futureRows: [TodoRow] {
+        let today = Calendar.current.startOfDay(for: now)
+        let taskRows = futureTasks.map(taskRow)
+        let routineRows = routines.filter {
+            guard let day = effectiveRoutineDay($0) else { return false }
+            return day > today
+        }.map(routineRow)
+        return (taskRows + routineRows).sorted { $0.sortDate < $1.sortDate }
+    }
+
+    private var allRowsGroupedByDay: [(date: Date, rows: [TodoRow])] {
+        var byDay: [Date: [TodoRow]] = [:]
+        for task in pending {
+            byDay[effectiveDay(task), default: []].append(taskRow(task))
+        }
+        for routine in routines {
+            guard let day = effectiveRoutineDay(routine) else { continue }
+            byDay[day, default: []].append(routineRow(routine))
+        }
+        return byDay.sorted { $0.key < $1.key }
+            .map { (date: $0.key, rows: $0.value.sorted { $0.sortDate < $1.sortDate }) }
+    }
+
     /// "已完成"筛选态的内容:全部已完成事项按完成日分组、降序(最近完成的在前)。
     private var doneGroupedByDay: [(date: Date, tasks: [TaskItem])] {
         let calendar = Calendar.current
@@ -462,6 +567,24 @@ struct TodoListView: View {
         }
     }
 
+    /// 混排行的分支渲染:待办事项走 TaskRowView,定时任务走 RoutineRowView
+    /// (今天/未来/全部三个筛选态共用)。
+    @ViewBuilder
+    private func todoRow(_ row: TodoRow) -> some View {
+        switch row.kind {
+        case .task(let task):
+            TaskRowView(task: task, now: now,
+                        onEdit: { sheet = .edit(task, nil) },
+                        onAskDuration: { title, planned in
+                            askDurationQueue.append((title, planned))
+                        })
+        case .routine(let routine):
+            RoutineRowView(routine: routine, now: now,
+                          latestRunToday: latestRunToday(routine),
+                          onEdit: { sheet = .editRoutine(routine) })
+        }
+    }
+
     /// 按天分组的 Section 标题(全部/已完成共用):今天/明天/昨天,其余按
     /// "月日 周X" 格式,跨过去/今天/未来都覆盖到。
     private func dayLabel(_ date: Date) -> String {
@@ -488,7 +611,7 @@ struct TodoListView: View {
     /// 这里、时间标红,见 effectiveDay/taskRow),不再单独有一个"到期提醒"区块。
     private var todaySection: some View {
         Section {
-            if pending.isEmpty {
+            if pending.isEmpty && routines.isEmpty {
                 ContentUnavailableView {
                     Label("暂无待办事项", systemImage: "checkmark.circle")
                 } description: {
@@ -497,15 +620,11 @@ struct TodoListView: View {
                     Button("开始添加") { sheet = .agent(prefill: nil) }
                         .glassProminentButton()
                 }
-            } else if todayTasks.isEmpty {
+            } else if todayRows.isEmpty {
                 Text("今天暂无待办").foregroundStyle(.secondary)
             }
-            ForEach(todayTasks) { task in
-                TaskRowView(task: task, now: now,
-                            onEdit: { sheet = .edit(task, nil) },
-                            onAskDuration: { title, planned in
-                                askDurationQueue.append((title, planned))
-                            })
+            ForEach(todayRows) { row in
+                todoRow(row)
             }
         } header: {
             Text("今天待办")
@@ -515,15 +634,11 @@ struct TodoListView: View {
     /// "未来"筛选态:明天及以后,平铺一个列表(每行自带日期,见 TaskItem.caption)。
     private var futureSection: some View {
         Section {
-            if futureTasks.isEmpty {
+            if futureRows.isEmpty {
                 Text("没有未来待办").foregroundStyle(.secondary)
             }
-            ForEach(futureTasks) { task in
-                TaskRowView(task: task, now: now,
-                            onEdit: { sheet = .edit(task, nil) },
-                            onAskDuration: { title, planned in
-                                askDurationQueue.append((title, planned))
-                            })
+            ForEach(futureRows) { row in
+                todoRow(row)
             }
         } header: {
             Text("未来待办")
@@ -533,21 +648,17 @@ struct TodoListView: View {
     /// "全部"筛选态:全部待办(含到期未处理的)按天分 Section,上下滑动浏览。
     @ViewBuilder
     private var allSections: some View {
-        if pending.isEmpty {
+        if pending.isEmpty && routines.isEmpty {
             Section {
                 Text("没有待办").foregroundStyle(.secondary)
             } header: {
                 Text("全部待办")
             }
         } else {
-            ForEach(allGroupedByDay, id: \.date) { group in
+            ForEach(allRowsGroupedByDay, id: \.date) { group in
                 Section(dayLabel(group.date)) {
-                    ForEach(group.tasks) { task in
-                        TaskRowView(task: task, now: now,
-                                    onEdit: { sheet = .edit(task, nil) },
-                                    onAskDuration: { title, planned in
-                                        askDurationQueue.append((title, planned))
-                                    })
+                    ForEach(group.rows) { row in
+                        todoRow(row)
                     }
                 }
             }

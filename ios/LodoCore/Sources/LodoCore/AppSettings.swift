@@ -95,11 +95,11 @@ public enum AppSettings {
             : UserDefaults.standard.bool(forKey: icloudSyncEnabledKey)
     }
 
-    /// AI 助手的思考强度:off/low/medium/high,默认 medium。通过 reasoning_effort
+    /// AI 助手的思考强度:off/low/medium/high,默认 low。通过 reasoning_effort
     /// 传给支持推理的服务商/模型(OpenAI 兼容接口的通用字段名),不支持的会忽略这个参数,
     /// 不影响正常使用。只作用于 AI 助手对话入口,不影响解析/汇总等后台小请求。
     public static var thinkingLevel: String {
-        UserDefaults.standard.string(forKey: thinkingLevelKey) ?? "medium"
+        UserDefaults.standard.string(forKey: thinkingLevelKey) ?? "low"
     }
 
     /// 滑动操作振动反馈,默认开。

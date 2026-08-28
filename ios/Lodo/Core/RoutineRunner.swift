@@ -142,6 +142,9 @@ enum RoutineRunner {
                                  useWebSearch: Bool, context: ModelContext) async throws -> String {
         let webSearchEnabled = useWebSearch && WebSearchClient.isConfigured
         let taskContext = includeTasks ? todayTaskSummary(context: context) : nil
+        // 定位只在联网型任务上尝试——只有能查资料的任务才用得上"当前城市"这个
+        // 上下文,未授权/超时静默返回 nil,不影响任务正常执行。
+        let locationContext = webSearchEnabled ? await LocationHelper.requestCity() : nil
         let instruction = prompt
         var history: [(role: String, content: String)] = []
         var currentText = instruction
@@ -149,6 +152,7 @@ enum RoutineRunner {
         for _ in 0..<maxRounds {
             switch try await DeepSeekClient.runRoutine(
                 name: name, instruction: currentText, taskContext: taskContext,
+                locationContext: locationContext,
                 webSearchEnabled: webSearchEnabled, history: history) {
             case .text(let text):
                 return text
