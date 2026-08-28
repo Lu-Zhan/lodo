@@ -81,9 +81,10 @@ struct AgentView: View {
     @State private var showMemoryPicker = false
     @State private var photoSelection: PhotosPickerItem?
     @State private var formTarget: FormTarget?
-    /// 小彩蛋:输入框内容恰好是 "0707" 时弹一个全屏气球动画,见下面的
-    /// .onChange(of: text) 和 EasterEggView。
+    /// 小彩蛋:输入框内容恰好是 "0707"(气球生日祝福)或 "0829"(结婚一周年,
+    /// 爱心)时弹一个全屏动画,见下面的 .onChange(of: text) 和 EasterEggView。
     @State private var showEasterEgg = false
+    @State private var easterEggOccasion: EasterEggView.Occasion = .birthday
 
     init(prefill: String? = nil,
          submit: @escaping (
@@ -243,12 +244,20 @@ struct AgentView: View {
                 }
             }
             .fullScreenCover(isPresented: $showEasterEgg) {
-                EasterEggView()
+                EasterEggView(occasion: easterEggOccasion)
             }
             .onChange(of: text) { _, newValue in
-                if newValue.trimmingCharacters(in: .whitespacesAndNewlines) == "0707" {
+                switch newValue.trimmingCharacters(in: .whitespacesAndNewlines) {
+                case "0707":
                     text = ""
+                    easterEggOccasion = .birthday
                     showEasterEgg = true
+                case "0829":
+                    text = ""
+                    easterEggOccasion = .anniversary
+                    showEasterEgg = true
+                default:
+                    break
                 }
             }
             .onChange(of: speech.transcript) { _, transcript in
@@ -297,8 +306,13 @@ struct AgentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-recording") {
                     speech.isRecording = true
                 }
-                // 截图验证用:直接弹彩蛋全屏页(simctl 没法打字触发 0707)。
+                // 截图验证用:直接弹彩蛋全屏页(simctl 没法打字触发 0707/0829)。
                 if ProcessInfo.processInfo.arguments.contains("--demo-easter-egg") {
+                    easterEggOccasion = .birthday
+                    showEasterEgg = true
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-easter-egg-anniversary") {
+                    easterEggOccasion = .anniversary
                     showEasterEgg = true
                 }
                 // 截图验证用:直接推开侧栏(simctl 没法点汉堡也没法滑手势),
