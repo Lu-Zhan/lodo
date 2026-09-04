@@ -33,6 +33,8 @@ public enum AppSettings {
     public static let languageKey = "appLanguage"
     public static let appIconStyleKey = "appIconStyle"
     public static let openAgentOnLaunchKey = "openAgentOnLaunch"
+    /// 侧栏里被"常驻"到折叠区外面的记忆标签,换行分隔的标签名(顺序即展示顺序)。
+    public static let sidebarPinnedTagsKey = "sidebarPinnedTags"
 
     public static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)

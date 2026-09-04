@@ -6,11 +6,16 @@ import LodoCore
 import UIKit
 #endif
 
-/// 右下角"添加"按钮触发的 AI 对话页:持久保存多个 thread(左上角切换/新建),
+/// AI 对话页(抽屉里的四个平级页面之一):持久保存多个 thread(在侧栏切换/新建),
 /// 每轮请求真的带上前几轮对话历史;右下角语音、左侧 + 号传照片/文件。
 /// 单条新建/修改叠一个 TaskEditView 在本页上面("表单即确认"这个体验保留),
 /// 保存后往当前 thread 追加一条结果消息,不关掉聊天页。
+/// 对话列表和抽屉本身归外壳(AppShellView/AppSidebarView),这里只管聊天区。
 struct AgentView: View {
+    /// 非 nil 时把文本预填进输入框(深链/Siri 交接/小组件"+"),消费后置 nil。
+    @Binding var pendingPrefill: String?
+    /// 当前对话。外壳持有——侧栏的对话历史列表和这里看的是同一个值。
+    @Binding var currentThreadUUID: UUID?
     /// 解析并路由输入文本 + 最近对话历史;onThought 在 ReAct 循环中间步骤时被调用
     /// (如"正在查记忆…"),驱动 thinkingText 那条轻量提示。返回本页要展示的回应形态。
     /// 带上当前 thread 的 uuid——同时开着好几个 thread 时,批量操作确认/撤销
@@ -26,23 +31,19 @@ struct AgentView: View {
     let onUndo: (UUID) -> AgentReply
     /// 单条新建/修改保存,existing 为 nil 表示新建。
     let saveTask: (TaskItem?, ParsedTask) -> Void
-    /// 抽屉里点了"总览/待办事项/记忆"应用导航行(仅窄屏抽屉展示,见
-    /// sidebarPanel 的 showsAppNav);由 TodoListView 负责切到对应的全屏目的地。
-    let openSection: (AgentSection) -> Void
-
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    /// 抽屉推开/拖拽过程中要淡出导航栏上的标题(见 body 的 .toolbar);
+    /// 判据由外壳算好经 Environment 下发,这里不重复一套。
+    @Environment(\.sidebarChrome) private var sidebarChrome
     @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
     private var threads: [AgentThread]
 
-    @State private var currentThreadUUID: UUID?
     /// ReAct 循环中间步骤的轻量提示(如"正在查记忆…");不落库,循环一结束就清空。
     @State private var thinkingText: String?
 
-    @State private var text: String
+    @State private var text = ""
     @State private var busy = false
     /// 发送中的请求;busy 时发送按钮变成取消,点了就 cancel 这个 Task。
     @State private var sendTask: Task<Void, Never>?
@@ -59,26 +60,6 @@ struct AgentView: View {
     /// 发生在用户在 confirmationDialog 里点确认之后。
     @State private var pendingEdit: AgentMessage?
 
-    /// 窄屏时表示抽屉是否展开,宽屏时表示常驻侧栏是否可见;两种布局共用同一个开关。
-    @State private var showThreads = false
-    /// 设备物理安全区顶部高度(灵动岛/状态栏),不含 NavigationStack 内部给导航栏
-    /// 额外预留的那截——挂在 NavigationStack 外层的 background 上量,量到的是
-    /// "进入 NavigationStack 之前"的原始安全区,不会被内部导航栏放大。窄屏抽屉
-    /// 拉到物理顶部时(sidebarPanel 忽略了容器安全区)要拿这个值重新给侧栏 header
-    /// 加回顶部间距,不然文字会被灵动岛挡住;在 sidebarPanel 内部另开一个
-    /// GeometryReader 读不到这个值——那个位置已经在忽略安全区的子树里,读到的是 0。
-    @State private var deviceTopInset: CGFloat = 0
-    /// 窄屏抽屉横向拖拽关闭手势的实时位移。
-    @State private var sidebarDragOffset: CGFloat = 0
-    /// 本次拖拽的起点 + 归属判定;起点变了就说明换了一次新拖拽,重新判定。
-    /// 不只靠 onEnded 复位:手势被系统中断时 onEnded 不一定会来,只靠它复位会让
-    /// 下一次右滑整个失灵。
-    @State private var dragSession: (start: CGPoint, intent: DragIntent)?
-
-    /// 整页任意位置都能右滑唤出侧栏,所以这个手势和消息列表的纵向滚动是并行挂着的
-    /// (simultaneousGesture)。哪一方接管这次拖拽在**第一帧**就定死、之后不再改判:
-    /// 否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地跳出来。
-    private enum DragIntent { case sidebar, ignored }
     @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showFileImporter = false
     @State private var showMemoryPicker = false
@@ -89,20 +70,31 @@ struct AgentView: View {
     @State private var showEasterEgg = false
     @State private var easterEggOccasion: EasterEggView.Occasion = .birthday
 
-    init(prefill: String? = nil,
+    /// @State 属性都是 private,合成的 memberwise init 会跟着降级成 private、
+    /// 别的文件用不了,所以显式写一个。
+    init(pendingPrefill: Binding<String?>,
+         currentThreadUUID: Binding<UUID?>,
          submit: @escaping (
             String, UUID, [(role: String, content: String)], @escaping (String) -> Void
          ) async throws -> AgentReply,
          onConfirm: @escaping (UUID) -> Void,
          onUndo: @escaping (UUID) -> AgentReply,
-         saveTask: @escaping (TaskItem?, ParsedTask) -> Void,
-         openSection: @escaping (AgentSection) -> Void) {
+         saveTask: @escaping (TaskItem?, ParsedTask) -> Void) {
+        self._pendingPrefill = pendingPrefill
+        self._currentThreadUUID = currentThreadUUID
         self.submit = submit
         self.onConfirm = onConfirm
         self.onUndo = onUndo
         self.saveTask = saveTask
-        self.openSection = openSection
-        _text = State(initialValue: prefill ?? "")
+    }
+
+    /// 消费外壳递进来的预填文本。空串表示"只是把页面切过来",不覆盖用户已经
+    /// 打了一半的内容(和原来 prefill 为空时不动 text 的行为一致)。
+    private func consumePrefill() {
+        guard let request = pendingPrefill else { return }
+        pendingPrefill = nil
+        if !request.isEmpty { text = request }
+        isInputFocused = true
     }
 
     private var activeThread: AgentThread? {
@@ -114,6 +106,8 @@ struct AgentView: View {
 
     /// 标题栏正标题:当前对话的标题(首轮消息后换成 AI 总结的那版);还没发过
     /// 消息的空 thread 用和侧栏列表一致的"新对话"占位。
+    private var hidesToolbarChrome: Bool { sidebarChrome?.hidesChrome ?? false }
+
     private var threadTitle: String {
         let title = activeThread?.title ?? ""
         return title.isEmpty ? "新对话" : title
@@ -139,13 +133,7 @@ struct AgentView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if horizontalSizeClass == .regular {
-                    regularLayout
-                } else {
-                    compactLayout
-                }
-            }
+            chatColumn
             // 整页按屏幕物理底边布局,不给 home indicator 预留一条死白边——
             // 输入栏那三个玻璃胶囊因此贴到真正的屏幕底部,聊天内容也一路铺满。
             // 只忽略 .container(不能用 .all):键盘安全区仍然生效,弹键盘时
@@ -164,7 +152,8 @@ struct AgentView: View {
                 // principal 项恒定渲染(只淡出内容),抽屉展开/拖拽时导航栏高度
                 // 才不会跟着两行标题的消失/出现联动跳变,chatColumn 紧贴在导航栏
                 // 下方布局,导航栏一变高聊天区就会跟着窜一下——这是纯文字 VStack,
-                // 没有 Liquid Glass 背景,可以放心用 opacity(不像下面两个按钮)。
+                // 没有 Liquid Glass 背景,可以放心用 opacity(☰ 那颗不行,它带
+                // 系统画的 Liquid Glass 底,见 sidebarToolbarButton 的注释)。
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 1) {
                         Text(threadTitle)
@@ -177,29 +166,8 @@ struct AgentView: View {
                     .opacity(hidesToolbarChrome ? 0 : 1)
                     .accessibilityHidden(hidesToolbarChrome)
                 }
-                if !hidesToolbarChrome {
-                    ToolbarItem(placement: .navigation) {
-                        Button {
-                            isInputFocused = false
-                            withAnimation(.lodoAware(.lodoSidebar)) {
-                                showThreads.toggle()
-                            }
-                        } label: {
-                            Image(systemName: "line.3.horizontal")
-                        }
-                        .accessibilityLabel("对话列表")
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            speech.stop()
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                        }
-                        .accessibilityLabel("关闭")
-                    }
-                }
             }
+            .sidebarToolbarButton()
             .sheet(item: $formTarget) { target in
                 TaskEditView(existing: target.existing, parsed: target.parsed,
                              attachment: target.existing?.attachment) { savedParsed in
@@ -248,9 +216,16 @@ struct AgentView: View {
                     }
                 }
             }
+            // macOS 没有 fullScreenCover(API 本身就不可用),用窗口 sheet 代替。
+            #if os(iOS)
             .fullScreenCover(isPresented: $showEasterEgg) {
                 EasterEggView(occasion: easterEggOccasion)
             }
+            #else
+            .sheet(isPresented: $showEasterEgg) {
+                EasterEggView(occasion: easterEggOccasion)
+            }
+            #endif
             .onChange(of: text) { _, newValue in
                 switch newValue.trimmingCharacters(in: .whitespacesAndNewlines) {
                 case "0707":
@@ -295,7 +270,7 @@ struct AgentView: View {
             .task {
                 ensureThreadExists()
                 isInputFocused = true
-                if horizontalSizeClass == .regular { showThreads = true }
+                consumePrefill()
                 #if DEBUG
                 seedDemoMessagesIfNeeded()
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-hascontent") {
@@ -320,12 +295,11 @@ struct AgentView: View {
                     easterEggOccasion = .anniversary
                     showEasterEgg = true
                 }
-                // 截图验证用:直接推开侧栏(simctl 没法点汉堡也没法滑手势),
-                // 顺带塞几条历史对话把列表填出来。
+                // 截图验证用:塞几条历史对话把侧栏列表填出来(推开抽屉那步由
+                // AppShellView 的 --demo-agent-sidebar/--demo-sidebar 负责)。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-sidebar") {
                     seedDemoThreads()
                     isInputFocused = false
-                    showThreads = true
                 }
                 // 截图验证用:模拟长按气泡选了"引用"——simctl 没法长按弹
                 // contextMenu,直接把状态摆出来看输入框上方的预览行(超长文本
@@ -353,29 +327,12 @@ struct AgentView: View {
                 #endif
             }
         }
-        // 挂在 NavigationStack 外层:量到的是原始安全区,不会被 NavigationStack
-        // 内部给导航栏做的那次放大污染。
-        .background(
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear { deviceTopInset = proxy.safeAreaInsets.top }
-                    .onChange(of: proxy.safeAreaInsets.top) { _, newValue in
-                        deviceTopInset = newValue
-                    }
-            }
-        )
-        #if os(macOS)
-        // 宽屏(macOS 恒为 .regular)默认展开常驻侧栏,460pt 老尺寸减去侧栏宽度后
-        // 聊天区太窄,放宽到能同时容纳侧栏 + 舒适聊天区。iOS 上 agent 恒走
-        // fullScreenCover(见 TodoListView.swift),没有 sheet 尺寸/手势可调,
-        // 这里不需要 iOS 分支。
-        .frame(minWidth: 760, idealWidth: 860, minHeight: 560, idealHeight: 640)
-        #endif
+        .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
     }
 
-    // MARK: - 左侧对话列表侧栏(窄屏抽屉 / 宽屏常驻列)
+    // MARK: - 聊天区
 
-    /// 消息列表 + 输入栏这一整块;两种布局都直接复用,不重复接线。
+    /// 消息列表 + 输入栏这一整块。
     @ViewBuilder
     private var chatColumn: some View {
         if let thread = activeThread {
@@ -413,196 +370,6 @@ struct AgentView: View {
         } else {
             ProgressView()
         }
-    }
-
-    /// 窄屏抽屉能"拉到物理屏幕顶部":compactLayout 调用处会额外挂
-    /// .ignoresSafeArea(.container, edges: .top),面板因此不再吃 NavigationStack
-    /// 给导航栏预留的那截高度(展开时导航栏内容已撤空/淡出,那截空间只是视觉
-    /// 留白,侧栏没必要跟着往下让)。但忽略安全区之后这个子树内部再读
-    /// GeometryReader 只会读到 0(整块 container 安全区,包括设备硬件那部分,
-    /// 一起被忽略了,不是只去掉了导航栏那部分),所以顶部间距改用 deviceTopInset
-    /// ——挂在 NavigationStack 外层量出来的设备物理安全区(灵动岛/状态栏)。
-    /// regularLayout(宽屏常驻列)不挂 ignoresSafeArea,顶部间距继续是 0,
-    /// 行为和原来完全一样。
-    private var sidebarPanel: some View {
-        AgentThreadListView(
-            currentThreadUUID: $currentThreadUUID,
-            // 应用导航行只在窄屏抽屉展示——宽屏(iPad 常规宽度/macOS)常驻侧栏
-            // 保持现状,总览/待办/记忆在那些平台上仍然是各自独立的 tab/侧边栏项,
-            // 不需要在这个对话历史面板里重复一份入口。
-            showsAppNav: horizontalSizeClass != .regular,
-            onOpenSection: { section in
-                closeSidebar()
-                openSection(section)
-            }
-        ) {
-            if horizontalSizeClass != .regular { closeSidebar() }
-        }
-        .padding(.top, horizontalSizeClass == .regular ? 0 : deviceTopInset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // 日间用纯背景色而不是磨砂材质:材质会透出一块带灰的底,和参考图里
-        // "面板和被推开的卡几乎同色、只靠投影分层"的观感对不上。用语义的
-        // BackgroundStyle 而不是 UIKit 专有的 systemBackground,iOS/macOS 通吃。
-        // 夜间仍用材质:近黑背景上投影几乎看不见,面板再跟着变纯黑就和被推开的
-        // 那张卡糊成一片,分不出边界了(和下面 sidebarScrim 是同一个理由)。
-        .background(colorScheme == .dark
-                    ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.background))
-    }
-
-    private func closeSidebar() {
-        withAnimation(.lodoAware(.lodoSidebar)) { showThreads = false }
-    }
-
-    /// 窄屏抽屉推开时汉堡/关闭两个按钮直接撤掉:工具栏挂在 NavigationStack 上、
-    /// 不会跟着 chatColumn 平移,留着的话汉堡会浮在侧栏上面。这里必须是"移除"
-    /// 而不是给按钮加 .opacity(0)——iOS 26 工具栏按钮的 Liquid Glass 底是系统
-    /// 画的,不跟着 label 的透明度走,只调透明度会在顶上留下两个空玻璃圆圈。
-    /// principal 标题项不受这条限制,恒定渲染只淡出内容(见上面 .toolbar 里的
-    /// 用法)——纯文字没有 Liquid Glass 背景,而且恒定渲染能让导航栏高度两态
-    /// 保持一致,不然两行标题一撤/一现,紧贴在导航栏下方的 chatColumn 就会跟着
-    /// 竖直跳一下,和水平推移的抽屉动画脱节。
-    /// 判据是 sidebarProgress 而不是 showThreads:拖到一半时汉堡同样会浮在已经
-    /// 露出来的那截侧栏上面,所以拖拽一起手就得撤掉,不能等松手落定。
-    /// 宽屏常驻列不推开内容,工具栏照常显示。
-    private var hidesToolbarChrome: Bool {
-        horizontalSizeClass != .regular && sidebarProgress > 0
-    }
-
-    /// 侧栏推开时盖在聊天卡上的那层遮罩:日间照参考图压一层半透明**白**——内容
-    /// 被洗淡、卡片比侧栏更白,"这块暂时不能操作"的意思出来了,又不会像灰黑遮罩
-    /// 那样把整张卡压成一块灰框;夜间白色反而刺眼,仍用原来的半透明黑压暗。
-    /// 这层遮罩同时是"点一下关闭"和展开后"左滑收回"的手势承载层,不能省掉。
-    private var sidebarScrim: some View {
-        (colorScheme == .dark ? Color.black.opacity(0.35) : Color.white.opacity(0.5))
-    }
-
-    /// 0 = 完全收起,1 = 完全展开;拖拽期间取中间值,松手后回到 0/1。
-    /// 抽屉的所有视觉量(推移/缩放/圆角/变暗)都从这一个进度插值出来,
-    /// 开合两个方向才能同样跟手。
-    private var sidebarProgress: CGFloat {
-        let base: CGFloat = showThreads ? 1 : 0
-        return min(1, max(0, base + sidebarDragOffset / DesignMetrics.sidebarWidth))
-    }
-
-    /// 松手后按"已拖过 30% 宽 或 甩动预测能到 50% 宽"判定落到哪一端,开合对称。
-    private func settleSidebar(_ value: DragGesture.Value, opening: Bool) {
-        let width = DesignMetrics.sidebarWidth
-        let sign: CGFloat = opening ? 1 : -1
-        let passed = value.translation.width * sign > width * 0.3
-            || value.predictedEndTranslation.width * sign > width * 0.5
-        withAnimation(.lodoAware(.lodoSidebar)) {
-            sidebarDragOffset = 0
-            if passed { showThreads = opening }
-        }
-    }
-
-    /// 整页右滑唤出 / 右滑收回的手势本体,聊天内容和变暗遮罩上各挂一份。
-    private func sidebarDrag() -> some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { value in
-                let intent: DragIntent
-                if let session = dragSession, session.start == value.startLocation {
-                    intent = session.intent
-                } else {
-                    // 一次拖拽的第一帧:横向为主 + 方向对(收起时向右开、展开时
-                    // 向左关)才接管;纵向滚动和反方向的横滑一律让给底下的视图。
-                    let horizontal = abs(value.translation.width) > abs(value.translation.height)
-                    let rightDirection = showThreads
-                        ? value.translation.width < 0 : value.translation.width > 0
-                    intent = (horizontal && rightDirection) ? .sidebar : .ignored
-                    dragSession = (value.startLocation, intent)
-                }
-                guard intent == .sidebar else { return }
-                sidebarDragOffset = showThreads
-                    ? min(0, value.translation.width) : max(0, value.translation.width)
-            }
-            .onEnded { value in
-                let wasSidebar = dragSession?.intent == .sidebar
-                dragSession = nil
-                if wasSidebar { settleSidebar(value, opening: !showThreads) }
-            }
-    }
-
-    /// 窄屏(iPhone、紧凑宽度 iPad):侧栏从左滑入,主内容整体推移变暗。
-    /// 开合都能手势拖,而且**整页任意位置**右滑都算(不只左边缘那条窄带):
-    /// 收起时在聊天区右滑唤出,展开后在变暗的聊天区(或面板上)左滑收回。
-    /// (早先只做关闭手势是因为那时 AgentView 还是 .sheet、会和下拉关闭抢手势;
-    /// 现在改成了 fullScreenCover,没有下拉关闭手势,可以放心加开启手势。)
-    private var compactLayout: some View {
-        ZStack(alignment: .leading) {
-            // 侧栏排在前面 = 画在底下:聊天卡盖在它上面,卡片的投影才能落到侧栏上
-            // (参考图就是这个层次)。面板自己因此不带投影。
-            // 面板常驻渲染,靠 offset 推到屏幕外表示收起——这样拖拽中间态才有东西
-            // 可跟手(条件渲染 + transition 做不到跟手,只能播一段固定动画)。
-            sidebarPanel
-                // 拉到屏幕物理顶部,不吃 NavigationStack 给导航栏预留的那截安全区
-                // (展开时导航栏内容已经撤空/淡出,留着那截空白没意义)。
-                .ignoresSafeArea(.container, edges: .top)
-                .frame(width: DesignMetrics.sidebarWidth)
-                .offset(x: -(1 - sidebarProgress) * DesignMetrics.sidebarWidth)
-                .gesture(
-                    DragGesture()
-                        .onChanged { sidebarDragOffset = min(0, $0.translation.width) }
-                        .onEnded { settleSidebar($0, opening: false) }
-                )
-
-            // 顺序要紧:先叠遮罩、再 clipShape 圆角,最后才缩放+推移。
-            // clipShape 必须排在 offset 前面——offset 是布局中立的渲染位移,排在它
-            // 后面的 clipShape 仍按"没被推移的原始 frame"裁切,圆角会落在被侧栏盖住
-            // 的屏幕左边缘外,推出来的那张卡看上去就是一条笔直的硬边。遮罩也放进
-            // 裁切范围内,不然方角的遮罩会盖住卡片的圆角。
-            chatColumn
-                // 收起时手势挂在聊天内容上(和消息列表的滚动并行)。
-                .simultaneousGesture(showThreads ? nil : sidebarDrag())
-                // allowsHitTesting 只罩聊天内容本身,不能挂到遮罩外面去——遮罩要
-                // 继续吃"点一下关闭"和"左滑收回"这两个手势。
-                .allowsHitTesting(!showThreads)
-                .overlay {
-                    if sidebarProgress > 0 {
-                        sidebarScrim
-                            .opacity(sidebarProgress)
-                            .contentShape(Rectangle())
-                            .onTapGesture { closeSidebar() }
-                            .gesture(sidebarDrag())
-                    }
-                }
-                // 圆角不再按 progress 插值:参考图里被推开的那张卡从一开始就是整块
-                // 手机尺寸的圆角。完全收起时才给 0,免得静止满屏时裁出一圈和真机
-                // 屏幕遮罩对不上的角;刚离开 0 那一瞬间卡还基本满屏,44pt 的圆角落在
-                // 屏幕自身的遮罩里面,看不出跳变。
-                .clipShape(RoundedRectangle(
-                    cornerRadius: sidebarProgress > 0 ? DesignMetrics.deviceCornerRadius : 0,
-                    style: .continuous))
-                // 拖拽/弹簧动画期间这块阴影每帧都要重算,compositingGroup 先把整张
-                // 聊天卡(消息列表+输入栏)拍平成一张位图再算阴影,不然 SwiftUI 会对
-                // 卡片内部一整棵视图树逐层算阴影,消息一多拖拽就跟不上手、animation
-                // 收尾那截也容易掉帧。
-                .compositingGroup()
-                .shadow(color: .black.opacity(0.18 * sidebarProgress), radius: 14, x: -3)
-                // 只平移不缩放:聊天卡保持原大小整块推出去(右侧推出屏幕外),
-                // 缩小那版看着像整页被"捏小",不是参考图里那种一张卡被推开的感觉。
-                .offset(x: sidebarProgress * DesignMetrics.sidebarWidth)
-        }
-        // 只对 showThreads 挂动画:拖拽中 sidebarDragOffset 的变化要 1:1 跟手,
-        // 不能被动画平滑掉(松手归位那下由 settleSidebar 里的 withAnimation 负责)。
-        .animation(.lodoAware(.lodoSidebar), value: showThreads)
-    }
-
-    /// 宽屏(iPad 横屏、macOS):侧栏常驻展示,同一个汉堡按钮收起/展开,不做推移动画。
-    private var regularLayout: some View {
-        HStack(spacing: 0) {
-            if showThreads {
-                sidebarPanel
-                    .frame(width: DesignMetrics.sidebarWidth)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                Divider()
-                    .transition(.opacity)
-            }
-            chatColumn
-        }
-        // 和窄屏拖拽版侧栏同一条 lodoSidebar 曲线——都是"同一个汉堡按钮展开/
-        // 收起对话列表"这一件事,之前这里单用 easeInOut,两种屏宽下手感不一致。
-        .animation(.lodoAware(.lodoSidebar), value: showThreads)
     }
 
     // MARK: - ReAct 中间步骤的轻量提示
@@ -1411,11 +1178,8 @@ struct AgentView: View {
                 context.insert(AgentMessage(threadUUID: extra.uuid, role: .user, content: title))
             }
             try? context.save()
-            // 侧栏现在是内联 body 内容(不再是挂在工具栏按钮上的 popover),
-            // 但当帧展开偶发还没吃到新插入的 thread 数据,延后一点再展开更稳。
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                showThreads = true
-            }
+            // 抽屉归外壳管,这里只负责把数据塞出来;要连带推开抽屉截图的话
+            // 配合 --demo-sidebar 一起传(见 AppShellView.applyDemoArguments)。
         }
     }
 

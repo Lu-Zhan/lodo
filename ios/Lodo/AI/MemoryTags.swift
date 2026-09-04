@@ -8,8 +8,14 @@ enum MemoryTags {
 
     /// 全部标签及使用条数,按使用次数降序、同次数按名称升序。
     static func entries(in context: ModelContext) -> [(name: String, count: Int)] {
-        let created = (try? context.fetch(FetchDescriptor<MemoryTag>())) ?? []
-        let items = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+        entries(items: (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? [],
+                created: (try? context.fetch(FetchDescriptor<MemoryTag>())) ?? [])
+    }
+
+    /// 同上,但吃调用方已经拿在手里的数组。侧栏每帧都要重算标签行(抽屉拖拽时
+    /// 外层视图逐帧重建),那里用 @Query 的结果直接调这个纯内存版本,不再每帧
+    /// 打两次 fetch。
+    static func entries(items: [MemoryItem], created: [MemoryTag]) -> [(name: String, count: Int)] {
         var counts: [String: Int] = [:]
         for name in created.map(\.name) where !name.isEmpty {
             counts[name] = counts[name] ?? 0

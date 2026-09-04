@@ -27,9 +27,12 @@ struct LodoApp: App {
         .modelContainer(container)
         // 定时任务的后台刷新:系统在接近计划时间时给一小段执行时间,跑完直接把
         // 结果推成通知(见 RoutineRunner)。给不给、什么时候给由系统决定,
-        // 所以另有到点提醒通知兜底。
+        // 所以另有到点提醒通知兜底。macOS 没有 .appRefresh 这个后台任务类型
+        // (API 本身不可用),那边只靠回前台时的补跑(见 ContentView 的 scenePhase)。
+        #if os(iOS)
         .backgroundTask(.appRefresh(RoutineRunner.backgroundTaskID)) {
             await RoutineRunner.handleBackgroundRefresh(container: container)
         }
+        #endif
     }
 }

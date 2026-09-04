@@ -8,7 +8,6 @@ import UIKit
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
@@ -83,16 +82,12 @@ struct SettingsView: View {
                     Text("滑动完成、删除等操作时轻微振动。")
                 }
 
-                // iPhone(紧凑宽度)上 AI 助手已经是恒定的主界面(见 ContentView
-                // 的 phonePrimaryShell),这个开关没有意义了;iPad 常规宽度仍是
-                // "总览/待办/记忆三个 tab + 悬浮 AI 按钮"的旧布局,这个开关继续
-                // 保留原本"悬浮按钮 vs 冷启动自动弹出"的语义。
-                if horizontalSizeClass != .compact {
-                    Section {
-                        Toggle("打开 App 后默认进入 AI 助手", isOn: $openAgentOnLaunch)
-                    } footer: {
-                        Text("开启后,完成首次引导的下一次冷启动会直接弹出 AI 助手;退到后台再回前台不会重复弹出。")
-                    }
+                // 四个页面平级之后这个开关在所有尺寸下都有意义:决定冷启动
+                // 落在 AI 页还是总览页(见 AppShellView.shouldOpenAgentOnLaunch)。
+                Section {
+                    Toggle("打开 App 后默认进入 AI 助手", isOn: $openAgentOnLaunch)
+                } footer: {
+                    Text("开启后,完成首次引导的下一次冷启动会直接落在 AI 助手页;退到后台再回前台不受影响。")
                 }
                 #endif
 
@@ -196,9 +191,16 @@ struct SettingsView: View {
                 importErrorMessage: $importErrorMessage,
                 importSuccessMessage: $importSuccessMessage
             )
+            // macOS 没有 fullScreenCover(API 本身就不可用),用窗口 sheet 代替。
+            #if os(iOS)
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView(onFinish: { showOnboarding = false })
             }
+            #else
+            .sheet(isPresented: $showOnboarding) {
+                OnboardingView(onFinish: { showOnboarding = false })
+            }
+            #endif
             #if os(iOS)
             .alert("切换图标失败", isPresented: Binding(
                 get: { iconChangeErrorMessage != nil },

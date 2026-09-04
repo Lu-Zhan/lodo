@@ -2,8 +2,9 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// 全局 agent 路由、批量操作确认。
-extension TodoListView {
+/// 全局 agent 路由、批量操作确认。原先是 `extension TodoListView`(那时 AI 是从
+/// 待办页弹出的模态),AI 改成平级页面后整段搬到 `AgentHostView` 上,逻辑一行未改。
+extension AgentHostView {
     /// 全局 agent:带上当前待办列表,把一句话解析成操作(开启记忆能力:
     /// 收藏/记忆问答也走同一入口)。单条新建/修改直达表单(表单即确认);
     /// 批量或含完成/删除的进确认清单;单条收藏/查记忆直接执行/作答;
@@ -123,7 +124,7 @@ extension TodoListView {
                             throw DeepSeekError.parse("找不到要修改的事项")
                         }
                         let before = task.backup
-                        apply(parsed, to: task)
+                        TaskActions.apply(parsed, to: task, context: context)
                         WidgetBridge.sync(context: context)
                         lastUndo = [.updated(before: before)]
                         lastUndoThreadUUID = threadUUID
@@ -346,12 +347,12 @@ extension TodoListView {
         for action in pendingActions {
             switch action {
             case .create(let parsed):
-                let created = saveNew(parsed)
+                let created = TaskActions.create(parsed, context: context)
                 undoOps.append(.created(uuid: created.uuid))
             case .update(let uuid, let parsed):
                 if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
                     undoOps.append(.updated(before: task.backup))
-                    apply(parsed, to: task)
+                    TaskActions.apply(parsed, to: task, context: context)
                 } else {
                     missingCount += 1
                 }
@@ -459,15 +460,5 @@ extension TodoListView {
 
     private func taskByUUID(_ uuid: UUID) -> TaskItem? {
         pending.first(where: { $0.uuid == uuid }) ?? doneTasks.first(where: { $0.uuid == uuid })
-    }
-
-    /// 消费深链/tab 按钮的路由请求;有 sheet 打开时不打断(如 agent 正在确认),
-    /// 由 sheet onDismiss 再补一次消费。
-    func consumeRoutes() {
-        guard sheet == nil else { return }
-        if let request = agentRequest {
-            agentRequest = nil
-            sheet = .agent(prefill: request.isEmpty ? nil : request)
-        }
     }
 }

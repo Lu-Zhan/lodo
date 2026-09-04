@@ -7,14 +7,15 @@ import UIKit
 #endif
 
 /// "记忆" tab:AI 整理后的收藏条目列表。顶部搜索框输入即本地过滤 + 标签筛选;
-/// 自然语言问答统一走右下角全局 agent 入口(TodoListView+Agent.answerFromMemory)。
+/// 自然语言问答统一走侧栏的「AI 助手」页(AgentHostView+Routing.answerFromMemory)。
 struct MemoryListView: View {
-    /// 左滑"转为待办"交接:切到待办 tab 并弹出预填标题+内容附件的新建表单(见 ContentView)。
+    /// 左滑"转为待办"交接:切到待办页并弹出预填标题+内容附件的新建表单(见 AppShellView)。
     let onConvertToTodo: (String, TaskAttachment) -> Void
-    /// 非 nil 时工具栏多展示一个关闭按钮(仅 iPhone"AI 为主界面"布局把这个
-    /// 视图当全屏目的地弹出时传入,用来退回 AI 对话页);其余布局里记忆是
-    /// 常驻 tab,不需要这个按钮,保持默认值不传。
-    var onClose: (() -> Void)? = nil
+    /// 条目详情的 push 栈。由外壳持有:深链回记忆页时要能弹回根,外壳也要据此
+    /// 知道现在在不在二级页(在的话屏幕左边缘归系统返回手势,抽屉的唤出带要让开)。
+    @Binding var path: [MemoryItem]
+    /// 非 nil 时按这个标签筛选(侧栏标签行交接),消费后置 nil。
+    @Binding var tagFilter: String?
 
     @Environment(\.modelContext) private var context
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
@@ -87,8 +88,25 @@ struct MemoryListView: View {
             rates: ExchangeRateStore.shared)
     }
 
+    /// 侧栏点了某个标签行:资产/人脉各有自己独立的显示开关(它们默认从列表隐藏),
+    /// 其余标签走普通的标签筛选。每次都先清掉上一轮的筛选,不做叠加——侧栏那一下
+    /// 是"我要看这一类",不是"再加一个条件"。
+    private func consumeTagFilter(_ tag: String?) {
+        guard let tag else { return }
+        tagFilter = nil
+        selectedTags = []
+        selectedKinds = []
+        showAssets = false
+        showContacts = false
+        switch tag {
+        case MemoryItem.assetTagName: showAssets = true
+        case MemoryItem.contactTagName: showContacts = true
+        default: selectedTags = [tag]
+        }
+    }
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if let overview = assetOverview, !filtered.isEmpty {
                     // 单独一个 Section,和下面的条目列表分开——不然共用同一个隐式
@@ -113,13 +131,10 @@ struct MemoryListView: View {
                             description: Text(showAssets ? "点右上角「+」记一笔资产。" : "换个关键词,或取消选中的筛选。"))
                     } else {
                         ForEach(filtered) { item in
-                            NavigationLink {
-                                if item.isContact {
-                                    ContactDetailView(item: item)
-                                } else {
-                                    MemoryDetailView(item: item)
-                                }
-                            } label: {
+                            // 目的地统一挂在下面的 navigationDestination 上:
+                            // NavigationStack(path:) 要靠值驱动才能把 push 栈
+                            // 暴露给外壳(见上面 path 的注释)。
+                            NavigationLink(value: item) {
                                 MemoryRow(item: item)
                             }
                             .swipeActions(edge: .trailing) {
@@ -144,6 +159,8 @@ struct MemoryListView: View {
             }
             .navigationTitle("记忆")
             .onAppear {
+                // 首次挂载时侧栏可能已经把标签放进来了(外壳先切页面再设筛选)
+                consumeTagFilter(tagFilter)
                 #if DEBUG
                 // 截图验证用:直接弹出筛选浮层(popover 挂在工具栏按钮上,
                 // appear 当帧触发有时不生效,延后一点再弹)
@@ -181,6 +198,14 @@ struct MemoryListView: View {
                 }
                 #endif
                 #endif
+            }
+            .onChange(of: tagFilter) { _, tag in consumeTagFilter(tag) }
+            .navigationDestination(for: MemoryItem.self) { item in
+                if item.isContact {
+                    ContactDetailView(item: item)
+                } else {
+                    MemoryDetailView(item: item)
+                }
             }
             .searchable(text: $query, prompt: "搜索收藏")
             .searchSuggestions {
@@ -266,15 +291,8 @@ struct MemoryListView: View {
                             .presentationCompactAdaptation(.popover)
                     }
                 }
-                if let onClose {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: onClose) {
-                            Image(systemName: "xmark")
-                        }
-                        .accessibilityLabel("关闭")
-                    }
-                }
             }
+            .sidebarToolbarButton()
             .sheet(isPresented: $showCompose) {
                 MemoryComposeView()
             }

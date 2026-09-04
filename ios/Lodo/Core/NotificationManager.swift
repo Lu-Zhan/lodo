@@ -290,7 +290,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// 完成/开始了:advance;重复事项完成一次会记入历史并排下一次。
     @MainActor
     /// 返回值:重复事项完成一次时插入的已完成历史记录(非重复/两阶段"开始了"
-    /// 时为 nil)。撤销(TodoListView+Agent.swift 的 undo)靠这个 uuid 把这条
+    /// 时为 nil)。撤销(AgentHostView+Routing.swift 的 undo)靠这个 uuid 把这条
     /// 历史记录也一并删掉,单纯 fire-and-forget 的调用方可以忽略返回值。
     @discardableResult
     func complete(_ task: TaskItem, context: ModelContext) -> TaskItem? {

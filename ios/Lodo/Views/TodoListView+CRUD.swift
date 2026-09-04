@@ -22,17 +22,7 @@ extension TodoListView {
 
     @discardableResult
     func saveNew(_ parsed: ParsedTask, attachment: TaskAttachment? = nil) -> TaskItem {
-        let task = TaskItem(
-            title: parsed.title, remindAt: parsed.remindAt,
-            durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
-            repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
-            repeatTimes: parsed.repeatTimes, project: parsed.project)
-        task.attachment = attachment
-        context.insert(task)
-        try? context.save()
-        NotificationManager.shared.rebuild(for: task)
-        DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
-        return task
+        TaskActions.create(parsed, attachment: attachment, context: context)
     }
 
     func apply(_ parsed: ParsedTask, to task: TaskItem) {

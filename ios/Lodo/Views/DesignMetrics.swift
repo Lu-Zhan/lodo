@@ -16,8 +16,12 @@ enum DesignMetrics {
     /// AI 助手输入栏合并玻璃卡片的圆角——比 bubbleRadius 更圆润(更接近
     /// "squircle"手感),不到 deviceCornerRadius 那种整机屏幕圆角。
     static let composerRadius: CGFloat = 26
-    /// AI 助手对话列表侧栏(窄屏抽屉 / 宽屏常驻列)的固定宽度。
+    /// 应用导航侧栏(窄屏抽屉 / 宽屏常驻列)的固定宽度。
     static let sidebarWidth: CGFloat = 300
+    /// 窄屏抽屉「从左边缘右滑唤出」的可触发带宽。刻意做窄:待办/记忆/总览的
+    /// 列表行本身有滑动操作(完成/改期/稍等/删除、转为待办),整页横滑手势会
+    /// 和它们抢,只有贴着屏幕左边缘这一条窄带才当作"要开抽屉"。
+    static let sidebarEdgeWidth: CGFloat = 20
     /// 侧栏展开时被推移缩小的主内容圆角——刻意贴近真机屏幕圆角(而不是
     /// cardRadius 那种小圆角),让被推开的内容看起来像一整块"缩小的设备屏幕"。
     static let deviceCornerRadius: CGFloat = 44
