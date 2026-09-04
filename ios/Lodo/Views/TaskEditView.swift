@@ -62,6 +62,9 @@ struct TaskEditView: View {
             }
             .formStyle(.grouped)
             .navigationTitle(existing == nil ? "新建事项" : "编辑事项")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消", role: .cancel) { dismiss() }

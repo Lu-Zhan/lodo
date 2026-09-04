@@ -126,7 +126,8 @@ struct RoutineListView: View {
                 .labelsHidden()
             }
         }
-        .swipeActions(edge: .leading) {
+        // 收在 trailing:向右拖归抽屉(见 TaskRowView 同款注释)。
+        .swipeActions(edge: .trailing) {
             Button {
                 runNow(routine)
             } label: {

@@ -75,6 +75,9 @@ struct DoneListView: View {
                 }
             }
             .navigationTitle("已完成")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .task { await loadInsight() }
         }
     }
@@ -89,8 +92,8 @@ struct DoneListView: View {
             }
         }
         .nagSwipeActions(
-            leadingLabel: "未完成", leadingSystemImage: "arrow.uturn.backward", leadingTint: .orange,
-            onLeading: { restore(task) },
+            primaryLabel: "未完成", primarySystemImage: "arrow.uturn.backward", primaryTint: .orange,
+            onPrimary: { restore(task) },
             onDelete: {
                 context.delete(task)
                 try? context.save()

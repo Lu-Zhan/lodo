@@ -85,7 +85,7 @@ struct AppShellView: View {
     /// 非 nil 时切到记忆页并按这个标签筛选(侧栏标签行)。
     @State private var memoryTagFilter: String?
     /// 记忆页的 push 栈。提到这里持有有两个用处:深链回记忆页时能弹回根,
-    /// 以及下面 edgeGestureEnabled 要知道现在是不是在二级页。
+    /// 以及下面 swipeGestureEnabled 要知道现在是不是在二级页。
     @State private var memoryPath: [MemoryItem] = []
 
     /// 窄屏时表示抽屉是否展开,宽屏时表示常驻侧栏是否可见;两种布局共用同一个开关。
@@ -106,6 +106,11 @@ struct AppShellView: View {
     /// 挡住;在 sidebarPanel 内部另开一个 GeometryReader 读不到这个值——那个
     /// 位置已经在忽略安全区的子树里,读到的是 0。
     @State private var deviceTopInset: CGFloat = 0
+    /// 同上,底部那截(home indicator)。整个抽屉容器忽略安全区之后,侧栏底部
+    /// 那排浮层按钮会一路贴到屏幕物理底边、被 home indicator 压住,得手动加回来。
+    /// 页面自己不用管:它们各有 NavigationStack,系统照常给内部的滚动视图留出
+    /// 底部安全区(AI 页的输入栏就一直是对的)。
+    @State private var deviceBottomInset: CGFloat = 0
 
     /// 关闭手势(遮罩上左滑)是和内容并行挂着的,哪一方接管这次拖拽在**第一帧**
     /// 就定死、之后不再改判:否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地
@@ -142,9 +147,15 @@ struct AppShellView: View {
         .background(
             GeometryReader { proxy in
                 Color.clear
-                    .onAppear { deviceTopInset = proxy.safeAreaInsets.top }
+                    .onAppear {
+                        deviceTopInset = proxy.safeAreaInsets.top
+                        deviceBottomInset = proxy.safeAreaInsets.bottom
+                    }
                     .onChange(of: proxy.safeAreaInsets.top) { _, newValue in
                         deviceTopInset = newValue
+                    }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, newValue in
+                        deviceBottomInset = newValue
                     }
             }
         )
@@ -249,6 +260,7 @@ struct AppShellView: View {
             onSelect: { if horizontalSizeClass != .regular { closeSidebar() } }
         )
         .padding(.top, horizontalSizeClass == .regular ? 0 : deviceTopInset)
+        .padding(.bottom, horizontalSizeClass == .regular ? 0 : deviceBottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignMetrics.panelBackground(colorScheme))
     }
@@ -336,15 +348,17 @@ struct AppShellView: View {
     }
 
     /// 记忆页是四个页面里唯一能 push 二级页的(条目详情)。二级页里屏幕左边缘
-    /// 归系统的返回手势,我们那条唤出带必须让开,否则两者互抢、返回手势失灵。
-    private var edgeGestureEnabled: Bool {
+    /// 归系统的返回手势,唤出手势必须整个让开,否则两者互抢、返回手势失灵。
+    /// 手势从"只认左边缘窄带"改成整页之后这条更要紧了——不让开的话在详情页里
+    /// 往右拖会开抽屉,而不是用户预期的返回。
+    private var swipeGestureEnabled: Bool {
         section != .memory || memoryPath.isEmpty
     }
 
     /// 窄屏(iPhone、紧凑宽度 iPad):侧栏从左滑入,页面整体推移变暗。
-    /// 唤出只认屏幕左边缘那条窄带(见 DesignMetrics.sidebarEdgeWidth 的注释:
-    /// 待办/记忆的列表行自己有滑动操作,整页横滑会跟它们抢);收回则是展开后
-    /// 在遮罩上任意位置左滑,或者点一下遮罩。
+    /// **整页任意位置**往右拖都能唤出(不再限于左边缘那条窄带);为此全 app 的
+    /// 行操作都收在了向左滑那一侧,没有任何 leading action 跟它抢方向。
+    /// 收回则是展开后在遮罩上任意位置左滑,或者点一下遮罩。
     private var compactLayout: some View {
         ZStack(alignment: .leading) {
             // 侧栏排在前面 = 画在底下:页面盖在它上面,页面的投影才能落到侧栏上。
@@ -369,18 +383,19 @@ struct AppShellView: View {
             // 盖住的屏幕左边缘外,推出来的那张卡看上去就是一条笔直的硬边。遮罩也
             // 放进裁切范围内,不然方角的遮罩会盖住卡片的圆角。
             sectionStack
+                // 页面底色 + 铺到物理屏幕边缘:各页面 List 的系统 grouped 背景只
+                // 画在安全区之内,状态栏和 home indicator 那两截会露出窗口底色,
+                // 推开时那张卡上下各短一截、44pt 圆角悬在屏幕中间。自己铺一层
+                // 和侧栏同源的底色(DesignMetrics.panelBackground)并忽略安全区,
+                // 卡才是完整的一块"设备屏幕"。
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(DesignMetrics.panelBackground(colorScheme))
+                // 收起时手势挂在页面内容上,和列表的纵向滚动并行(sidebarDrag 第一帧
+                // 就按"横向为主 + 方向对"定死归属,纵向滚动照常让给底下的视图)。
+                .simultaneousGesture(showSidebar || !swipeGestureEnabled ? nil : sidebarDrag())
                 // allowsHitTesting 只罩页面内容本身,不能挂到遮罩外面去——遮罩要
                 // 继续吃"点一下关闭"和"左滑收回"这两个手势。
                 .allowsHitTesting(!showSidebar)
-                .overlay(alignment: .leading) {
-                    if !showSidebar, edgeGestureEnabled {
-                        Color.clear
-                            .frame(width: DesignMetrics.sidebarEdgeWidth)
-                            .frame(maxHeight: .infinity)
-                            .contentShape(Rectangle())
-                            .gesture(sidebarDrag())
-                    }
-                }
                 .overlay {
                     if sidebarProgress > 0 {
                         sidebarScrim
@@ -409,6 +424,13 @@ struct AppShellView: View {
         // 只对 showSidebar 挂动画:拖拽中 sidebarDragOffset 的变化要 1:1 跟手,
         // 不能被动画平滑掉(松手归位那下由 settleSidebar 里的 withAnimation 负责)。
         .animation(.lodoAware(.lodoSidebar), value: showSidebar)
+        // 整个抽屉容器铺到物理屏幕边缘。**必须挂在这一层**,不能只挂在 sectionStack
+        // 上:挂在里面时 clipShape 仍按"安全区之内"那个 frame 裁切,推开的卡上下
+        // 各短一截、圆角悬在屏幕中间(实测卡内是 249,249,251、上下两截是纯白)。
+        // 挂在最外层之后 sectionStack 才拿到整屏的 frame,44pt 圆角落在屏幕真正的
+        // 四角上。deviceTopInset 是在 body 的 background 上量的(在这一层之外),
+        // 不受影响,侧栏 header 该让开灵动岛还是照让。
+        .ignoresSafeArea()
     }
 
     /// 宽屏(iPad 横屏、macOS):侧栏常驻并排,同一颗 ☰ 收起/展开,不做推移动画,
@@ -422,7 +444,11 @@ struct AppShellView: View {
                 Divider()
                     .transition(.opacity)
             }
+            // 同样补页面底色(理由见 compactLayout),但常驻侧栏不推移、不裁圆角,
+            // 也就不需要忽略安全区。
             sectionStack
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(DesignMetrics.panelBackground(colorScheme))
         }
         .animation(.lodoAware(.lodoSidebar), value: showSidebar)
     }

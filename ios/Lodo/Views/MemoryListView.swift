@@ -139,14 +139,9 @@ struct MemoryListView: View {
                             }
                             // 和 TaskRowView 同一档紧凑内边距(默认竖向 11)。
                             .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
+                            // 全部收在 trailing:向右拖归抽屉(见 TaskRowView 同款注释)。
+                            // "转为待办"排在最靠外当 full swipe,删除挪到里面。
                             .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    pendingDelete = item
-                                } label: {
-                                    Label("删除", systemImage: "trash")
-                                }
-                            }
-                            .swipeActions(edge: .leading) {
                                 Button {
                                     let attachment = MemoryPipeline.makeAttachment(from: item)
                                     onConvertToTodo(attachment.title, attachment)
@@ -154,12 +149,20 @@ struct MemoryListView: View {
                                     Label("转为待办", systemImage: "checklist")
                                 }
                                 .tint(.accentColor)
+                                Button(role: .destructive) {
+                                    pendingDelete = item
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
                             }
                         }
                     }
                 }
             }
             .navigationTitle("记忆")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .onAppear {
                 // 首次挂载时侧栏可能已经把标签放进来了(外壳先切页面再设筛选)
                 consumeTagFilter(tagFilter)

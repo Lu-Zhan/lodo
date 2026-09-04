@@ -10,6 +10,9 @@ struct MemoryEditView: View {
             .font(.body.monospaced())
             .padding(.horizontal, 8)
             .navigationTitle("AI 记忆")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {

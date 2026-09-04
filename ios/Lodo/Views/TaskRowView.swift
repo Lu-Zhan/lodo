@@ -78,7 +78,12 @@ struct TaskRowView: View {
         // 比系统默认的行内边距紧一档(默认竖向 11):一屏能多放几条,配合上面
         // 小一号的字号,列表整体更密。横向沿用 insetGrouped 的 16,不动。
         .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
-        .swipeActions(edge: .leading) {
+        // 全部行操作都收在 trailing(向左滑)这一侧:向右拖是抽屉的方向,
+        // 留任何 leading action 都会和它抢同一个手势(见 AppShellView.sidebarDrag)。
+        // "完成"排在最靠外 = 它是 full swipe 那一个,等于把原来"用力右滑完成"
+        // 原样镜像过来,方向变了但力度语义没变;顺带把删除从第一个挤走,
+        // 用力一滑就误删的路也就没了。
+        .swipeActions(edge: .trailing) {
             Button {
                 Haptics.success()
                 complete()
@@ -89,11 +94,7 @@ struct TaskRowView: View {
                       ? "play.fill" : "checkmark")
             }
             .tint(.green)
-        }
-        .swipeActions(edge: .trailing) {
             if overdue {
-                // 改期是第一个 action:长滑(full swipe)直接触发它;
-                // 稍等作为第二个 action,短滑露出后需要点按。
                 Button {
                     requestReschedule()
                 } label: {

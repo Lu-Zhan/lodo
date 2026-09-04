@@ -309,6 +309,9 @@ struct TodoListView: View {
             .animation(.lodoAware(.snappy), value: ListAnimationKey(
                 dueUUIDs: due.map(\.uuid), askTitles: askDurationQueue.map(\.title), filter: filter))
             .navigationTitle("待办")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem {
                     Menu {
@@ -606,8 +609,8 @@ struct TodoListView: View {
             }
         }
         .nagSwipeActions(
-            leadingLabel: "未完成", leadingSystemImage: "arrow.uturn.backward", leadingTint: .orange,
-            onLeading: { restoreDoneTask(task) },
+            primaryLabel: "未完成", primarySystemImage: "arrow.uturn.backward", primaryTint: .orange,
+            onPrimary: { restoreDoneTask(task) },
             onDelete: {
                 context.delete(task)
                 try? context.save()

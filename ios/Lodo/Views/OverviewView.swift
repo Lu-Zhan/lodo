@@ -132,6 +132,9 @@ struct OverviewView: View {
                 }
             }
             .navigationTitle("总览")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .sidebarToolbarButton()
             .sheet(item: $editingTask) { task in
                 TaskEditView(existing: task, parsed: nil, attachment: task.attachment) {
