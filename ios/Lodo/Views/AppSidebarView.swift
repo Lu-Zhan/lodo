@@ -11,6 +11,7 @@ import LodoCore
 /// 一行,所以不会把列表挤短,也不加渐隐遮罩)。
 struct AppSidebarView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.colorScheme) private var colorScheme
     @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
     private var threads: [AgentThread]
     /// 只为按正文过滤 thread;个人对话历史量级不大,内存里按 threadUUID
@@ -335,8 +336,9 @@ struct AppSidebarView: View {
             .buttonStyle(SidebarIconButtonStyle())
             // 这颗浮在列表上方,底下要垫一层不透明底色——SidebarIconButtonStyle
             // 那圈浅灰是半透明的,不垫的话最后一条对话的文字会从圆钮里透出来。
-            // 右边"新建对话"胶囊本身不透明,不需要这层。
-            .background(Circle().fill(.background))
+            // 垫的必须是面板自己的底色,不能是 .background(纯白):面板是分组灰,
+            // 白圆底会在上面显成一个白点。右边"新建对话"胶囊本身不透明,不需要这层。
+            .background(Circle().fill(DesignMetrics.panelBackground(colorScheme)))
             .accessibilityLabel("设置")
 
             Spacer()

@@ -250,13 +250,7 @@ struct AppShellView: View {
         )
         .padding(.top, horizontalSizeClass == .regular ? 0 : deviceTopInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // 日间用纯背景色而不是磨砂材质:材质会透出一块带灰的底,和"面板和被推开
-        // 的卡几乎同色、只靠投影分层"的观感对不上。用语义的 BackgroundStyle 而
-        // 不是 UIKit 专有的 systemBackground,iOS/macOS 通吃。夜间仍用材质:
-        // 近黑背景上投影几乎看不见,面板再跟着变纯黑就和被推开的那张卡糊成一片,
-        // 分不出边界了(和下面 sidebarScrim 是同一个理由)。
-        .background(colorScheme == .dark
-                    ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.background))
+        .background(DesignMetrics.panelBackground(colorScheme))
     }
 
     // MARK: - 抽屉机制

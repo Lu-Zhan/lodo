@@ -26,6 +26,24 @@ enum DesignMetrics {
     /// cardRadius 那种小圆角),让被推开的内容看起来像一整块"缩小的设备屏幕"。
     static let deviceCornerRadius: CGFloat = 44
 
+    /// 侧栏面板的底色。刻意和三个页面的 List 分组底色取同一个值——抽屉推开时
+    /// 面板和被推开的那张卡因此是同色的,只靠投影分层(面板原来是纯白,推开时
+    /// 白/灰并排会看到一条明显的界)。没有跨平台的语义 ShapeStyle 能拿到"分组底"
+    /// 这个颜色,只能按平台取系统色。
+    /// **夜间仍用材质**:近黑背景上投影几乎看不见,面板再跟着变成同一个近黑色就
+    /// 和被推开的那张卡糊成一片、分不出边界了——那种情况下"同色 + 投影"这套分层
+    /// 本身失效,只能靠材质那点亮度差顶上。
+    static func panelBackground(_ scheme: ColorScheme) -> AnyShapeStyle {
+        if scheme == .dark { return AnyShapeStyle(.regularMaterial) }
+        #if os(iOS)
+        return AnyShapeStyle(Color(uiColor: .systemGroupedBackground))
+        #elseif os(macOS)
+        return AnyShapeStyle(Color(nsColor: .windowBackgroundColor))
+        #else
+        return AnyShapeStyle(.background)
+        #endif
+    }
+
     /// 系统"减弱动态效果"辅助功能开关。之前全仓库没有任何地方读过这个值,
     /// 所有弹簧/过渡动画不分青红皂白照放——`Animation.lodoAware(_:)` 统一
     /// 收敛在这一处判断,调用方不用各自 `#if os(iOS)` 分支。
