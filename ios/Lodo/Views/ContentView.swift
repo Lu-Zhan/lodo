@@ -19,6 +19,9 @@ struct ContentView: View {
     @State private var rescheduleRequestUUID: String?
     /// 非 nil 时由待办页弹出新建表单并预填标题+内容附件(记忆条目"转为待办"交接)。
     @State private var convertToTodoRequest: ConvertToTodoRequest?
+    /// 为真时由 iPhone"AI 为主界面"布局(phonePrimaryShell)弹出记忆全屏页
+    /// (lodo://memory 深链交接);其余布局忽略,继续靠 selection 切 tab。
+    @State private var memoryRequest = false
     #if DEBUG
     @State private var showAgentSkillsDemo = false
     @State private var showAgentSkillEditDemo = false
@@ -38,12 +41,18 @@ struct ContentView: View {
     /// 这个响应式 binding,否则它会一直停在 "" 出不来,之后同样想设成 "" 的
     /// 触发(比如再点一次悬浮 AI 按钮)会因为 "值没变" 而被 onChange 吞掉。
     private let autoOpenAgentPrefill: String?
+    /// iPhone(紧凑宽度)"AI 为主界面"布局专用的初始预填——不看
+    /// openAgentOnLaunch 这个设置项:那个布局下 AI 恒为主界面,没有"落地在总览"
+    /// 这个替代选项可言,只要过了首次引导就该直接是 AI(避免和引导全屏页叠在
+    /// 一起)。其余三个既有布局分支继续用上面的 autoOpenAgentPrefill。
+    private let phoneInitialAgentPrefill: String?
 
     init() {
         let shouldAutoOpen = Self.shouldAutoOpenAgentOnLaunch()
         _selection = State(initialValue: shouldAutoOpen ? .todo : .overview)
         _didAutoOpenAgentOnLaunch = State(initialValue: shouldAutoOpen)
         autoOpenAgentPrefill = shouldAutoOpen ? "" : nil
+        phoneInitialAgentPrefill = AppSettings.hasSeenOnboarding ? "" : nil
     }
 
     /// 和下面 .onAppear 里"冷启动默认进入 AI 助手"那段判断逻辑完全一致,只是
@@ -198,8 +207,10 @@ struct ContentView: View {
                     selection = .todo
                     agentRequest = text ?? ""
                 case "memory":
-                    // 分享收藏后从系统分享面板跳回时直达记忆 tab
+                    // 分享收藏后从系统分享面板跳回时直达记忆 tab(iPad/macOS 分支);
+                    // iPhone"AI 为主界面"布局靠 memoryRequest 开抽屉里的记忆全屏页。
                     selection = .memory
+                    memoryRequest = true
                 default:
                     break
                 }
@@ -208,6 +219,22 @@ struct ContentView: View {
 
     @ViewBuilder
     private var tabs: some View {
+        #if os(iOS)
+        if horizontalSizeClass == .compact {
+            // iPhone(紧凑宽度):AI 对话页是唯一主界面,总览/待办/记忆收进它
+            // 左滑抽屉里的应用导航行(见 phonePrimaryShell)。iPad 常规宽度/
+            // macOS 不受影响,继续走下面这套三 tab + 悬浮 AI 按钮的既有布局。
+            phonePrimaryShell
+        } else {
+            existingTabs
+        }
+        #else
+        existingTabs
+        #endif
+    }
+
+    @ViewBuilder
+    private var existingTabs: some View {
         if #available(iOS 26.0, macOS 26.0, *) {
             // iOS 26+:AI 入口用系统 Tab(role: .search)承载(见
             // modernTabsWithSearchAI),标签栏随内容下滑收起(仅 iOS)。
@@ -228,14 +255,29 @@ struct ContentView: View {
             #endif
         } else if #available(iOS 18.0, macOS 15.0, *) {
             modernTabs
-        } else if horizontalSizeClass == .regular {
+        } else {
             // iOS 18 以下没有 sidebarAdaptable(仅 iOS 18+ 才有);宽屏(iPad/旧版 macOS)
             // 手动搭一个 NavigationSplitView 侧边栏,不能让还在用旧系统的 iPad
-            // 落到纯 iPhone 式的底部 tab bar。
+            // 落到纯 iPhone 式的底部 tab bar。紧凑宽度(iOS 17 手机)已经被上面
+            // `tabs` 里的 horizontalSizeClass == .compact 分支拦截到
+            // phonePrimaryShell 去了,走不到这里,原来的 legacyTabs(纯 iOS 17
+            // 手机的三 tab 布局)因此成了不可达的死代码,已删除。
             legacySidebarTabs
-        } else {
-            legacyTabs
         }
+    }
+
+    /// iPhone(紧凑宽度)"AI 为主界面"布局:AI 对话页(AgentView,经
+    /// TodoListView 的 sheet = .agent(...) 弹出)直接是唯一内容,不套 TabView。
+    /// 总览/待办事项/记忆通过 AgentView 左滑抽屉里新增的应用导航行(见
+    /// AgentThreadListView 的 showsAppNav)触达,由 TodoListView 统一持有的
+    /// sheet: SheetMode? 在"待办列表本身"与三个全屏目的地
+    /// (.agent/.memory/.overview)之间切换——待办列表就是这个 TodoListView
+    /// 自己的 body,不需要额外套一层。
+    private var phonePrimaryShell: some View {
+        TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest,
+                     rescheduleRequestUUID: $rescheduleRequestUUID, memoryRequest: $memoryRequest,
+                     showsReturnToAgentButton: true,
+                     initialAgentPrefill: phoneInitialAgentPrefill)
     }
 
     /// iOS 18 / macOS 15 起的新 Tab 写法,iOS 18-25 与 macOS 走这条路径。
@@ -391,21 +433,6 @@ struct ContentView: View {
             case .add:
                 Color.clear
             }
-        }
-    }
-
-    private var legacyTabs: some View {
-        TabView(selection: $selection) {
-            OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
-                .tabItem { Label("总览", systemImage: "square.stack.3d.up") }
-                .tag(AppTab.overview)
-            TodoListView(agentRequest: $agentRequest, convertToTodoRequest: $convertToTodoRequest,
-                         initialAgentPrefill: autoOpenAgentPrefill)
-                .tabItem { Label("待办", systemImage: "checklist") }
-                .tag(AppTab.todo)
-            MemoryListView(onConvertToTodo: convertToTodo)
-                .tabItem { Label("记忆", systemImage: "sparkles.rectangle.stack") }
-                .tag(AppTab.memory)
         }
     }
 }

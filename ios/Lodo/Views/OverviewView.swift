@@ -9,6 +9,10 @@ import LodoCore
 struct OverviewView: View {
     /// 非 nil 时跳到该事项并自动发起改期请求(通知"改期"按钮交接,见 ContentView)。
     @Binding var rescheduleRequestUUID: String?
+    /// 非 nil 时工具栏多展示一个关闭按钮(仅 iPhone"AI 为主界面"布局把这个
+    /// 视图当全屏目的地弹出时传入,用来退回 AI 对话页);其余布局里总览是
+    /// 常驻 tab,不需要这个按钮,保持默认值不传。
+    var onClose: (() -> Void)? = nil
 
     // 以下几个跨 extension 文件(OverviewView+Reschedule)被读写,
     // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
@@ -139,6 +143,14 @@ struct OverviewView: View {
                         showSettings = true
                     } label: {
                         Label("设置", systemImage: "gearshape")
+                    }
+                }
+                if let onClose {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("关闭")
                     }
                 }
             }

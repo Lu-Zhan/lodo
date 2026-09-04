@@ -8,6 +8,7 @@ import UIKit
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
@@ -82,10 +83,16 @@ struct SettingsView: View {
                     Text("滑动完成、删除等操作时轻微振动。")
                 }
 
-                Section {
-                    Toggle("打开 App 后默认进入 AI 助手", isOn: $openAgentOnLaunch)
-                } footer: {
-                    Text("开启后,完成首次引导的下一次冷启动会直接弹出 AI 助手;退到后台再回前台不会重复弹出。")
+                // iPhone(紧凑宽度)上 AI 助手已经是恒定的主界面(见 ContentView
+                // 的 phonePrimaryShell),这个开关没有意义了;iPad 常规宽度仍是
+                // "总览/待办/记忆三个 tab + 悬浮 AI 按钮"的旧布局,这个开关继续
+                // 保留原本"悬浮按钮 vs 冷启动自动弹出"的语义。
+                if horizontalSizeClass != .compact {
+                    Section {
+                        Toggle("打开 App 后默认进入 AI 助手", isOn: $openAgentOnLaunch)
+                    } footer: {
+                        Text("开启后,完成首次引导的下一次冷启动会直接弹出 AI 助手;退到后台再回前台不会重复弹出。")
+                    }
                 }
                 #endif
 

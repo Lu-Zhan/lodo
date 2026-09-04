@@ -26,6 +26,9 @@ struct AgentView: View {
     let onUndo: (UUID) -> AgentReply
     /// 单条新建/修改保存,existing 为 nil 表示新建。
     let saveTask: (TaskItem?, ParsedTask) -> Void
+    /// 抽屉里点了"总览/待办事项/记忆"应用导航行(仅窄屏抽屉展示,见
+    /// sidebarPanel 的 showsAppNav);由 TodoListView 负责切到对应的全屏目的地。
+    let openSection: (AgentSection) -> Void
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -92,11 +95,13 @@ struct AgentView: View {
          ) async throws -> AgentReply,
          onConfirm: @escaping (UUID) -> Void,
          onUndo: @escaping (UUID) -> AgentReply,
-         saveTask: @escaping (TaskItem?, ParsedTask) -> Void) {
+         saveTask: @escaping (TaskItem?, ParsedTask) -> Void,
+         openSection: @escaping (AgentSection) -> Void) {
         self.submit = submit
         self.onConfirm = onConfirm
         self.onUndo = onUndo
         self.saveTask = saveTask
+        self.openSection = openSection
         _text = State(initialValue: prefill ?? "")
     }
 
@@ -420,7 +425,17 @@ struct AgentView: View {
     /// regularLayout(宽屏常驻列)不挂 ignoresSafeArea,顶部间距继续是 0,
     /// 行为和原来完全一样。
     private var sidebarPanel: some View {
-        AgentThreadListView(currentThreadUUID: $currentThreadUUID) {
+        AgentThreadListView(
+            currentThreadUUID: $currentThreadUUID,
+            // 应用导航行只在窄屏抽屉展示——宽屏(iPad 常规宽度/macOS)常驻侧栏
+            // 保持现状,总览/待办/记忆在那些平台上仍然是各自独立的 tab/侧边栏项,
+            // 不需要在这个对话历史面板里重复一份入口。
+            showsAppNav: horizontalSizeClass != .regular,
+            onOpenSection: { section in
+                closeSidebar()
+                openSection(section)
+            }
+        ) {
             if horizontalSizeClass != .regular { closeSidebar() }
         }
         .padding(.top, horizontalSizeClass == .regular ? 0 : deviceTopInset)

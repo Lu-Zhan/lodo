@@ -11,6 +11,10 @@ import UIKit
 struct MemoryListView: View {
     /// 左滑"转为待办"交接:切到待办 tab 并弹出预填标题+内容附件的新建表单(见 ContentView)。
     let onConvertToTodo: (String, TaskAttachment) -> Void
+    /// 非 nil 时工具栏多展示一个关闭按钮(仅 iPhone"AI 为主界面"布局把这个
+    /// 视图当全屏目的地弹出时传入,用来退回 AI 对话页);其余布局里记忆是
+    /// 常驻 tab,不需要这个按钮,保持默认值不传。
+    var onClose: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var context
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
@@ -260,6 +264,14 @@ struct MemoryListView: View {
                     .popover(isPresented: $showFilters) {
                         filterContent
                             .presentationCompactAdaptation(.popover)
+                    }
+                }
+                if let onClose {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("关闭")
                     }
                 }
             }

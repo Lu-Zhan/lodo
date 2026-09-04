@@ -56,6 +56,12 @@ enum UndoOp {
     case memorized(uuid: UUID)
 }
 
+/// AI 对话页左滑抽屉里的应用导航入口(仅 iPhone 紧凑宽度下的"AI 为主界面"
+/// 布局会展示,见 AgentView.sidebarPanel/AgentThreadListView 的 showsAppNav)。
+enum AgentSection: Hashable {
+    case overview, todo, memory
+}
+
 /// 待办页:顶部 4 个筛选胶囊(今天/未来/全部/已完成)、到期卡片(完成/稍等,
 /// 不受筛选影响永远显示)、按筛选态切换的待办/已完成列表。
 struct TodoListView: View {
@@ -63,6 +69,17 @@ struct TodoListView: View {
     @Binding var agentRequest: String?
     /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,见 ContentView)。
     @Binding var convertToTodoRequest: ConvertToTodoRequest?
+    /// 非 nil 时跳到该事项并自动发起改期请求(通知"改期"按钮交接,见 ContentView)。
+    /// 仅 iPhone"AI 为主界面"布局用到——那时总览是从这里弹出的 .overview 全屏页,
+    /// 不再由 ContentView 直接持有 OverviewView;其余布局用不到,保持默认值不传。
+    @Binding var rescheduleRequestUUID: String?
+    /// 为真时弹出"记忆"全屏页(lodo://memory 深链,见 ContentView),用完自动
+    /// 复位。同样仅 iPhone"AI 为主界面"布局用到。
+    @Binding var memoryRequest: Bool
+    /// 为真时工具栏显示一个"返回 AI 助手"入口——仅 iPhone"AI 为主界面"布局
+    /// 传 true(那个布局下待办列表本身也是从 agent 全屏页"退出"后才看到的一个
+    /// 目的地,需要一条路走回去);其余布局待办本来就是常驻 tab,不需要这个按钮。
+    let showsReturnToAgentButton: Bool
 
     /// initialAgentPrefill 非 nil 时(冷启动默认进入 AI 助手,见 ContentView.init),
     /// 在构造阶段就把 sheet 种成 .agent(...),不等 onAppear/onChange 才反应式地
@@ -70,9 +87,15 @@ struct TodoListView: View {
     /// 过渡,不会先露出待办列表再弹出 AI 助手。其余触发口(深链、悬浮 AI 按钮、
     /// Siri 交接、--demo-agent)不受影响,仍走 consumeRoutes() 那条响应式路径。
     init(agentRequest: Binding<String?>, convertToTodoRequest: Binding<ConvertToTodoRequest?>,
+         rescheduleRequestUUID: Binding<String?> = .constant(nil),
+         memoryRequest: Binding<Bool> = .constant(false),
+         showsReturnToAgentButton: Bool = false,
          initialAgentPrefill: String? = nil) {
         self._agentRequest = agentRequest
         self._convertToTodoRequest = convertToTodoRequest
+        self._rescheduleRequestUUID = rescheduleRequestUUID
+        self._memoryRequest = memoryRequest
+        self.showsReturnToAgentButton = showsReturnToAgentButton
         if let initialAgentPrefill {
             _sheet = State(initialValue: .agent(prefill: initialAgentPrefill.isEmpty ? nil : initialAgentPrefill))
         }
@@ -161,6 +184,10 @@ struct TodoListView: View {
         case edit(TaskItem, ParsedTask?)
         /// 待办页里点了一条定时任务行:复用设置页同款的编辑表单。
         case editRoutine(AIRoutine)
+        /// 仅 iPhone"AI 为主界面"布局:AI 抽屉里选了"记忆"。
+        case memory
+        /// 仅 iPhone"AI 为主界面"布局:AI 抽屉里选了"总览"。
+        case overview
 
         var id: String {
             switch self {
@@ -168,29 +195,56 @@ struct TodoListView: View {
             case .create: return "create"
             case .edit(let task, _): return task.uuid.uuidString
             case .editRoutine(let routine): return routine.uuid.uuidString
+            case .memory: return "memory"
+            case .overview: return "overview"
             }
         }
     }
 
     #if os(iOS)
-    private var isAgentFullScreen: Bool {
-        if case .agent = sheet { return true }
-        return false
+    /// .agent/.memory/.overview 都是"整块应用界面"级别的目的地,走全屏;
+    /// .create/.edit/.editRoutine 是叠在当前界面上的小卡片表单,走 sheet。
+    private var isSectionFullScreen: Bool {
+        switch sheet {
+        case .agent, .memory, .overview: return true
+        case .create, .edit, .editRoutine, nil: return false
+        }
     }
 
-    private var fullScreenAgentBinding: Binding<SheetMode?> {
-        Binding(get: { isAgentFullScreen ? sheet : nil }, set: { if $0 == nil { sheet = nil } })
+    private var fullScreenSectionBinding: Binding<SheetMode?> {
+        Binding(get: { isSectionFullScreen ? sheet : nil }, set: { if $0 == nil { sheet = nil } })
     }
 
     private var cardSheetBinding: Binding<SheetMode?> {
-        Binding(get: { isAgentFullScreen ? nil : sheet }, set: { if $0 == nil { sheet = nil } })
+        Binding(get: { isSectionFullScreen ? nil : sheet }, set: { if $0 == nil { sheet = nil } })
     }
     #endif
+
+    /// 从一个已经在展示的全屏目的地切到另一个(如 agent→memory,或 memory→
+    /// agent),或从全屏切到卡片 sheet(如 memory 里"转为待办"→.create):
+    /// SwiftUI 的 sheet(item:)/fullScreenCover(item:) 直接从一个非 nil 值改到
+    /// 另一个不同 case 的非 nil 值不可靠,必须先落回 nil 触发真实 dismiss,
+    /// 在 handleSheetDismiss() 里再呈现新值。sheet 已经是 nil 时(比如从待办
+    /// 列表本身打开某个目的地)不需要这道手续,直接赋值即可。
+    @State private var deferredSheet: SheetMode?
+
+    private func switchFullScreen(to newMode: SheetMode?) {
+        if sheet == nil {
+            sheet = newMode
+        } else {
+            deferredSheet = newMode
+            sheet = nil
+        }
+    }
 
     /// 清掉 agent 会话残留,避免旧的批量操作被后续"确认执行";
     /// 并消费 sheet/fullScreenCover 打开期间积压的深链路由。
     private func handleSheetDismiss() {
         pendingActions = []
+        if let deferred = deferredSheet {
+            deferredSheet = nil
+            sheet = deferred
+        }
         DispatchQueue.main.async { consumeRoutes() }
     }
 
@@ -211,6 +265,13 @@ struct TodoListView: View {
                           } else {
                               saveNew(parsed)
                           }
+                      },
+                      openSection: { section in
+                          switch section {
+                          case .todo: switchFullScreen(to: nil)
+                          case .memory: switchFullScreen(to: .memory)
+                          case .overview: switchFullScreen(to: .overview)
+                          }
                       })
         case .create(let parsed, let attachment):
             TaskEditView(existing: nil, parsed: parsed, attachment: attachment) {
@@ -222,6 +283,18 @@ struct TodoListView: View {
             }
         case .editRoutine(let routine):
             RoutineEditView(routine: routine, isNew: false)
+        case .memory:
+            MemoryListView(onConvertToTodo: { title, attachment in
+                // 与 consumeConvertToTodo(_:) 同一套默认值(见 TodoListView+CRUD.swift):
+                // 时间用默认值待用户手动调整,原记忆条目不受影响。
+                let parsed = ParsedTask(
+                    title: title, remindAt: Date().addingTimeInterval(300), allDay: false,
+                    durationMinutes: 0, repeatType: .none, repeatDays: [], repeatTimes: [])
+                switchFullScreen(to: .create(parsed, attachment))
+            }, onClose: { switchFullScreen(to: .agent(prefill: nil)) })
+        case .overview:
+            OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID,
+                         onClose: { switchFullScreen(to: .agent(prefill: nil)) })
         }
     }
 
@@ -371,6 +444,17 @@ struct TodoListView: View {
                 dueUUIDs: due.map(\.uuid), askTitles: askDurationQueue.map(\.title), filter: filter))
             .navigationTitle("待办")
             .toolbar {
+                #if os(iOS)
+                if showsReturnToAgentButton {
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            sheet = .agent(prefill: nil)
+                        } label: {
+                            Label("AI 助手", systemImage: "sparkles")
+                        }
+                    }
+                }
+                #endif
                 ToolbarItem {
                     Menu {
                         Button("按项目查看", systemImage: "folder") { showProjectList = true }
@@ -406,7 +490,7 @@ struct TodoListView: View {
             .sheet(item: cardSheetBinding, onDismiss: handleSheetDismiss) { mode in
                 sheetContent(mode)
             }
-            .fullScreenCover(item: fullScreenAgentBinding, onDismiss: handleSheetDismiss) { mode in
+            .fullScreenCover(item: fullScreenSectionBinding, onDismiss: handleSheetDismiss) { mode in
                 sheetContent(mode)
             }
             #else
@@ -429,6 +513,15 @@ struct TodoListView: View {
             .onChange(of: convertToTodoRequest) { _, request in
                 consumeConvertToTodo(request)
             }
+            .onChange(of: memoryRequest) { _, requested in
+                if requested {
+                    memoryRequest = false
+                    switchFullScreen(to: .memory)
+                }
+            }
+            .onChange(of: rescheduleRequestUUID) { _, uuid in
+                if uuid != nil { switchFullScreen(to: .overview) }
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { checkNotificationAuthorization() }
             }
@@ -449,11 +542,28 @@ struct TodoListView: View {
                 // 冷启动时深链可能先于本视图出现,补一次检查
                 consumeRoutes()
                 consumeConvertToTodo(convertToTodoRequest)
+                if memoryRequest {
+                    memoryRequest = false
+                    switchFullScreen(to: .memory)
+                }
+                if rescheduleRequestUUID != nil {
+                    switchFullScreen(to: .overview)
+                }
                 checkNotificationAuthorization()
                 #if DEBUG
                 // 截图验证用:--demo-agent 启动参数直接弹出 AI 助手
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent") {
                     sheet = .agent(prefill: nil)
+                }
+                // 截图验证用:iPhone"AI 为主界面"抽屉里的"记忆"/"总览"全屏
+                // 目的地,simctl 没法点抽屉行,直接摆状态(走 switchFullScreen,
+                // 不能直接赋值——这时 sheet 多半已经被 initialAgentPrefill 种成
+                // .agent 了,见 switchFullScreen 上面的注释)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-open-memory") {
+                    switchFullScreen(to: .memory)
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-open-overview") {
+                    switchFullScreen(to: .overview)
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-ask-duration") {
                     askDurationQueue.append((title: "开周会", planned: 60))

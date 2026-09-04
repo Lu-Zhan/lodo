@@ -15,6 +15,13 @@ struct AgentThreadListView: View {
     @Query private var allMessages: [AgentMessage]
 
     @Binding var currentThreadUUID: UUID?
+    /// 为真时在"最近"分组之上多展示一组应用导航行(总览/待办事项/记忆)——
+    /// 仅 AgentView 的窄屏抽屉传 true,宽屏常驻侧栏(iPad 常规宽度/macOS)
+    /// 保持现状,不展示这组行(那些平台上总览/待办/记忆本来就是独立的
+    /// tab/侧边栏项)。
+    var showsAppNav: Bool = false
+    /// 点了应用导航行时调用,由 AgentView 转发给 TodoListView 切换全屏目的地。
+    var onOpenSection: ((AgentSection) -> Void)? = nil
     /// 选中/新建一个 thread 后调用,外层用来收起侧栏(窄屏抽屉才需要;宽屏常驻列保持展开)。
     let onSelect: () -> Void
 
@@ -49,6 +56,11 @@ struct AgentThreadListView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
             List {
+                if showsAppNav {
+                    appNavRow(title: "总览", systemImage: "square.stack.3d.up", section: .overview)
+                    appNavRow(title: "待办事项", systemImage: "checklist", section: .todo)
+                    appNavRow(title: "记忆", systemImage: "sparkles.rectangle.stack", section: .memory)
+                }
                 Text("最近")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -118,6 +130,26 @@ struct AgentThreadListView: View {
         } message: {
             Text("对话记录会一并删除,不可恢复。")
         }
+    }
+
+    /// "总览/待办事项/记忆"三个应用导航行之一,和下面对话历史行同一套样式
+    /// (行高/内边距/分隔线),只是图标换成和原来三个 tab 一致的 SF Symbol,
+    /// 保持视觉延续性;不需要"当前项"高亮(不是可切换的持久态)。
+    private func appNavRow(title: String, systemImage: String, section: AgentSection) -> some View {
+        Button {
+            onOpenSection?(section)
+        } label: {
+            HStack {
+                Label(title, systemImage: systemImage)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+            .frame(minHeight: 48)
+        }
+        .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     /// 顶部常驻行:左边应用名(参考图那种衬线体 wordmark,仍是系统字体),
