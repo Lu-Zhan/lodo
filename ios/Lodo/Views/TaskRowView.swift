@@ -34,6 +34,7 @@ struct TaskRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(task.title)
+                            .font(.subheadline)
                         if overdue, rescheduleLoading {
                             Spacer()
                             ProgressView().controlSize(.small)
@@ -41,7 +42,7 @@ struct TaskRowView: View {
                         }
                     }
                     Text(overdue ? dueCaption : task.caption)
-                        .font(.footnote)
+                        .font(.caption)
                         .foregroundStyle(overdue ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
                 }
             }
@@ -74,6 +75,9 @@ struct TaskRowView: View {
                 Text(rescheduleError).font(.caption2).foregroundStyle(.red)
             }
         }
+        // 比系统默认的行内边距紧一档(默认竖向 11):一屏能多放几条,配合上面
+        // 小一号的字号,列表整体更密。横向沿用 insetGrouped 的 16,不动。
+        .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
         .swipeActions(edge: .leading) {
             Button {
                 Haptics.success()

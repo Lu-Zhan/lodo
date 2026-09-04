@@ -3,10 +3,12 @@ import SwiftData
 import LodoCore
 
 /// 应用侧栏(导航栏)的面板内容;窄屏抽屉和宽屏常驻列共用同一份视图。
-/// 自上而下:「Lodo 衬线体 wordmark + 搜索图标」固定头部 → 四个页面导航行
-/// (记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→「最近」对话
-/// 历史滚动区 → 底部浮层(左「设置」、右「新建对话」)。列表内容直接从底部浮层
-/// 下面滚过去(不是布局内的一行,所以不会把列表挤短,也不加渐隐遮罩)。
+/// 自上而下:「Lodo 衬线体 wordmark + 搜索图标」固定头部 → 总览/待办/记忆三个
+/// 页面导航行(记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→
+/// 「最近」对话历史滚动区 → 底部浮层(左「设置」、右「新建对话」)。
+/// AI 页没有自己的导航行——点一条历史对话或「新建对话」就是进 AI 页,
+/// 再单列一行只会和它们重复。列表内容直接从底部浮层下面滚过去(不是布局内的
+/// 一行,所以不会把列表挤短,也不加渐隐遮罩)。
 struct AppSidebarView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
@@ -98,10 +100,9 @@ struct AppSidebarView: View {
             }
             List {
                 navRow(.overview, title: "总览", systemImage: "square.stack.3d.up")
-                navRow(.todo, title: "待办事项", systemImage: "checklist")
+                navRow(.todo, title: "待办", systemImage: "checklist")
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
                 memoryTagRows
-                navRow(.agent, title: "AI 助手", systemImage: "sparkles")
 
                 Text("最近")
                     .font(.subheadline)
@@ -224,19 +225,21 @@ struct AppSidebarView: View {
             Button {
                 showMoreTags.toggle()
             } label: {
-                HStack(spacing: 6) {
+                // 和标签行/导航行同一个 Label 结构:图标槽放会转的 chevron,
+                // 文字才跟上面几行落在同一条竖线上。
+                Label {
+                    Text("更多标签")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                } icon: {
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(showMoreTags ? 90 : 0))
-                    Text("更多标签")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
                 }
-                .frame(minHeight: 36)
+                .frame(minHeight: 40)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .listRowInsets(EdgeInsets(top: 0, leading: 40, bottom: 0, trailing: 20))
+            .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
             if showMoreTags {
@@ -247,27 +250,37 @@ struct AppSidebarView: View {
         }
     }
 
+    /// 标签行的图标。资产/人脉/AI记录 这三个保留标签各自沿用记忆页里已经在用的
+    /// 那个符号(筛选开关、"记一笔资产"菜单项、AI 记录条目的行图标),不另挑一套;
+    /// 普通标签用通用的 tag,和搜索建议/"管理标签"入口一致。
+    private func tagSymbol(_ tag: String) -> String {
+        switch tag {
+        case MemoryItem.assetTagName: return "creditcard"
+        case MemoryItem.contactTagName: return "person.crop.circle"
+        case MemoryItem.autoTagName: return "sparkles"
+        default: return "tag"
+        }
+    }
+
     /// 单个记忆标签行:点进去 = 打开记忆页并按这个标签筛选;左滑切换"常驻"
-    /// (常驻的平铺在"记忆"下面,其余收进"更多标签")。缩进比导航行深一级,
-    /// 层级关系一眼看得出。
+    /// (常驻的平铺在"记忆"下面,其余收进"更多标签")。缩进和字号都跟导航行一致
+    /// ——Label 的图标槽宽度是跟着字号走的,字号一变文字就落不到同一条竖线上了;
+    /// 行高比导航行矮一点,标签多的时候不至于把"最近"整个挤下去。
     private func tagRow(_ tag: String, pinned: Bool) -> some View {
         Button {
             onSelectTag(tag)
             onSelect()
         } label: {
-            HStack(spacing: 6) {
-                Text("#")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text(tag)
-                    .font(.subheadline)
+            HStack {
+                Label(tag, systemImage: tagSymbol(tag))
+                    .font(.body)
                     .lineLimit(1)
                     .foregroundStyle(.primary)
                 Spacer()
             }
-            .frame(minHeight: 36)
+            .frame(minHeight: 40)
         }
-        .listRowInsets(EdgeInsets(top: 0, leading: 40, bottom: 0, trailing: 20))
+        .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .swipeActions(edge: .trailing) {

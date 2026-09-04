@@ -137,6 +137,8 @@ struct MemoryListView: View {
                             NavigationLink(value: item) {
                                 MemoryRow(item: item)
                             }
+                            // 和 TaskRowView 同一档紧凑内边距(默认竖向 11)。
+                            .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     pendingDelete = item
@@ -604,17 +606,18 @@ private struct MemoryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
+                        .font(.subheadline)
                         .lineLimit(1)
                     if let assetValue = item.assetValue {
                         Spacer(minLength: 8)
                         Text(AssetFormat.currency(assetValue, code: item.assetCurrencyOrDefault))
-                            .font(.subheadline.monospacedDigit())
+                            .font(.footnote.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                 }
                 if !item.summary.isEmpty {
                     Text(item.summary)
-                        .font(.subheadline)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -627,7 +630,7 @@ private struct MemoryRow: View {
                             Text("利率 " + AssetFormat.percent(rate))
                         }
                     }
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.red)
                 }
                 HStack(spacing: 6) {
@@ -640,13 +643,13 @@ private struct MemoryRow: View {
                         .foregroundStyle(.red)
                     } else if !item.tags.isEmpty {
                         Text(item.tags.prefix(3).map { "#\($0)" }.joined(separator: " "))
-                            .font(.footnote)
+                            .font(.caption)
                             .foregroundStyle(.tint)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                     Text(TaskItem.format(item.createdAt))
-                        .font(.footnote)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -655,7 +658,6 @@ private struct MemoryRow: View {
                     .controlSize(.small)
             }
         }
-        .padding(.vertical, 2)
     }
 }
 
