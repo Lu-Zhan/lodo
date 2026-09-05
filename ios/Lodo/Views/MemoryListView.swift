@@ -27,11 +27,9 @@ struct MemoryListView: View {
 
     @State private var query = ""
     @State private var selectedTags: Set<String> = []
-    @State private var selectedKinds: Set<MemoryKind> = []
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @State private var showAssets = false
     @State private var showContacts = false
-    @State private var showFilters = false
     @State private var showCompose = false
     @State private var showAssetCompose = false
     @State private var showContactCompose = false
@@ -58,18 +56,24 @@ struct MemoryListView: View {
             .filter { !MemoryItem.hiddenByDefaultTagNames.contains($0) }
     }
 
-    /// 出现过的来源格式,按固定顺序(与内容标签是两套独立的筛选)。
-    private var availableKinds: [MemoryKind] {
-        let present = Set(items.map(\.kind))
-        return [MemoryKind.text, .link, .pdf, .image, .file].filter(present.contains)
-    }
-
     private var activeFilterCount: Int {
-        selectedTags.count + selectedKinds.count + (showAssets ? 1 : 0) + (showContacts ? 1 : 0)
+        selectedTags.count + (showAssets ? 1 : 0) + (showContacts ? 1 : 0)
     }
 
-    /// 文字过滤、格式筛选、标签筛选取交集;格式内部是"任一命中"
-    /// (一条只有一种格式),标签内部是"同时具备"。资产/人脉条目默认隐藏——
+    /// 当前筛选的一句话描述,给列表顶部那行"清除筛选"用。
+    private var filterSummary: String {
+        if showAssets { return MemoryItem.assetTagName }
+        if showContacts { return MemoryItem.contactTagName }
+        return selectedTags.sorted().map { "#" + $0 }.joined(separator: " ")
+    }
+
+    private func clearFilters() {
+        selectedTags = []
+        showAssets = false
+        showContacts = false
+    }
+
+    /// 文字过滤与标签筛选取交集,标签内部是"同时具备"。资产/人脉条目默认隐藏——
     /// 不是各自的筛选没打开就永远不会出现在任何列表里,是这类私密/结构化条目
     /// 不该跟日常收藏混在一起刷屏,筛选里显式选中才看得到。两个维度互相独立
     /// (不会出现"资产"打开时人脉也跟着冒出来)。
@@ -77,7 +81,6 @@ struct MemoryListView: View {
         items.filter { item in
             (item.isAsset ? showAssets : true)
                 && (item.isContact ? showContacts : true)
-                && (selectedKinds.isEmpty || selectedKinds.contains(item.kind))
                 && selectedTags.allSatisfy { item.tags.contains($0) }
                 && item.matches(query)
         }
@@ -96,10 +99,7 @@ struct MemoryListView: View {
     private func consumeTagFilter(_ tag: String?) {
         guard let tag else { return }
         tagFilter = nil
-        selectedTags = []
-        selectedKinds = []
-        showAssets = false
-        showContacts = false
+        clearFilters()
         switch tag {
         case MemoryItem.assetTagName: showAssets = true
         case MemoryItem.contactTagName: showContacts = true
@@ -117,6 +117,19 @@ struct MemoryListView: View {
                     // 下面的条目卡片一样(同一套边距/圆角,大小才能对得上)。
                     Section {
                         AssetOverviewCard(overview: overview)
+                    }
+                }
+                if activeFilterCount > 0 {
+                    // 筛选现在只从侧栏(标签/资产/人脉行)和搜索建议进来,工具栏
+                    // 那颗筛选按钮已经撤掉——不给一个就地取消的入口的话,点进某个
+                    // 标签之后就出不来了。
+                    Section {
+                        Button(role: .destructive) {
+                            clearFilters()
+                        } label: {
+                            Label("清除筛选:\(filterSummary)", systemImage: "xmark.circle")
+                                .font(.subheadline)
+                        }
                     }
                 }
                 Section {
@@ -169,12 +182,9 @@ struct MemoryListView: View {
                 // 首次挂载时侧栏可能已经把标签放进来了(外壳先切页面再设筛选)
                 consumeTagFilter(tagFilter)
                 #if DEBUG
-                // 截图验证用:直接弹出筛选浮层(popover 挂在工具栏按钮上,
-                // appear 当帧触发有时不生效,延后一点再弹)
+                // 截图验证用:摆出"按标签筛选中"的状态,看列表顶部那行清除入口。
                 if ProcessInfo.processInfo.arguments.contains("--demo-memory-filters") {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        showFilters = true
-                    }
+                    selectedTags = Set(allTags.prefix(1))
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-seed-memory"), items.isEmpty {
                     seedDemoMemory()
@@ -249,7 +259,10 @@ struct MemoryListView: View {
                         }
                         #endif
                     }
-                    ToolbarItem(placement: .navigation) {
+                    // 收藏入口放右上角(primaryAction),不再挤在左上角 ☰ 旁边。
+                    // 原先占着这个位置的筛选按钮已经撤掉:标签/资产/人脉现在从
+                    // 侧栏进,列表顶部那行负责取消。
+                    ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button("粘贴收藏", systemImage: "doc.on.clipboard") {
                                 pasteFromClipboard()
@@ -284,19 +297,6 @@ struct MemoryListView: View {
                             }
                         } label: {
                             Label("收藏", systemImage: "plus")
-                        }
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showFilters = true
-                        } label: {
-                            Label("筛选", systemImage: activeFilterCount > 0
-                                  ? "line.3.horizontal.decrease.circle.fill"
-                                  : "line.3.horizontal.decrease.circle")
-                        }
-                        .popover(isPresented: $showFilters) {
-                            filterContent
-                                .presentationCompactAdaptation(.popover)
                         }
                     }
                 }
@@ -389,75 +389,6 @@ struct MemoryListView: View {
                 }
             }
         }
-    }
-
-    // MARK: - 筛选浮层
-
-    /// 工具栏"筛选"按钮弹出的浮层:两行独立的 chips——第一行按来源格式筛,
-    /// 第二行按内容标签筛,点选即筛(可多选,再点取消)。
-    @ViewBuilder
-    private var filterContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("筛选").font(.headline)
-            HStack(spacing: 8) {
-                Toggle(isOn: $showAssets) {
-                    Label("资产", systemImage: "creditcard")
-                }
-                Toggle(isOn: $showContacts) {
-                    Label("人脉", systemImage: "person.crop.circle")
-                }
-            }
-            .toggleStyle(.button)
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(.accentColor)
-            .font(.footnote)
-            if availableKinds.count > 1 {
-                HorizontalChipRow {
-                    ForEach(availableKinds, id: \.self) { kind in
-                        Toggle(isOn: Binding(
-                            get: { selectedKinds.contains(kind) },
-                            set: { on in
-                                if on { selectedKinds.insert(kind) } else { selectedKinds.remove(kind) }
-                            }
-                        )) {
-                            Label(kind.label, systemImage: kind.symbol)
-                        }
-                        .toggleStyle(.button)
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.capsule)
-                        .font(.footnote)
-                    }
-                }
-            }
-            if !allTags.isEmpty {
-                HorizontalChipRow {
-                    ForEach(allTags, id: \.self) { tag in
-                        Toggle("#\(tag)", isOn: Binding(
-                            get: { selectedTags.contains(tag) },
-                            set: { on in
-                                if on { selectedTags.insert(tag) } else { selectedTags.remove(tag) }
-                            }
-                        ))
-                        .toggleStyle(.button)
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.capsule)
-                        .font(.footnote)
-                    }
-                }
-            }
-            if activeFilterCount > 0 {
-                Button("清除筛选", role: .destructive) {
-                    selectedKinds.removeAll()
-                    selectedTags.removeAll()
-                    showAssets = false
-                    showContacts = false
-                }
-                .font(.footnote)
-            }
-        }
-        .padding()
-        .frame(width: 280)
     }
 
     // MARK: - 粘贴收藏(优先级:图片 > 链接 > 文字)
