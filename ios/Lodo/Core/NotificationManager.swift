@@ -54,6 +54,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                                    actions: [done, snooze, ignore, reschedule],
                                    intentIdentifiers: [], options: []),
         ])
+        #if DEBUG
+        // 截图验证用:全新安装第一次启动会弹系统通知授权框,simctl 点不掉,
+        // 整台模拟器就卡在那张弹窗后面(privacy 子命令也管不到通知这一项)。
+        // 带 --demo-* 参数跑的都是截图场景,不需要真的申请。
+        if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--demo-") }) { return }
+        #endif
         center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 

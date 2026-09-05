@@ -31,6 +31,9 @@ struct AgentView: View {
     let onUndo: (UUID) -> AgentReply
     /// 单条新建/修改保存,existing 为 nil 表示新建。
     let saveTask: (TaskItem?, ParsedTask) -> Void
+    /// 新建结果卡片上那一下点击。传当前有效事项的 uuid = 删掉它并返回 nil;
+    /// 传 nil = 按快照重新建一条并返回新 uuid。
+    let toggleCreatedTask: (UUID?, ParsedTask) -> UUID?
     @Environment(\.modelContext) private var context
     /// 抽屉推开/拖拽过程中要淡出导航栏上的标题(见 body 的 .toolbar);
     /// 判据由外壳算好经 Environment 下发,这里不重复一套。
@@ -84,13 +87,15 @@ struct AgentView: View {
          ) async throws -> AgentReply,
          onConfirm: @escaping (UUID) -> Void,
          onUndo: @escaping (UUID) -> AgentReply,
-         saveTask: @escaping (TaskItem?, ParsedTask) -> Void) {
+         saveTask: @escaping (TaskItem?, ParsedTask) -> Void,
+         toggleCreatedTask: @escaping (UUID?, ParsedTask) -> UUID?) {
         self._pendingPrefill = pendingPrefill
         self._currentThreadUUID = currentThreadUUID
         self.submit = submit
         self.onConfirm = onConfirm
         self.onUndo = onUndo
         self.saveTask = saveTask
+        self.toggleCreatedTask = toggleCreatedTask
     }
 
     /// 消费外壳递进来的预填文本。空串表示"只是把页面切过来",不覆盖用户已经
@@ -352,6 +357,7 @@ struct AgentView: View {
                                 onUndo: handleUndo,
                                 onMemorizeSuggestion: handleMemorizeSuggestion,
                                 onCancelMemoryResult: handleCancelMemoryResult,
+                                onToggleCreatedTask: handleToggleCreatedTask,
                                 onTaskProposalConfirm: handleTaskProposalConfirm,
                                 onTaskProposalCancel: handleTaskProposalCancel,
                                 onTaskProposalTap: handleTaskProposalTap,
@@ -871,6 +877,24 @@ struct AgentView: View {
         }
     }
 
+    /// 新建结果卡片的开关:有效 → 删掉事项、对号变灰 ✕;已取消 → 按同一份快照
+    /// 重新建一条(uuid 是新的,写回快照,卡片据此回到蓝色对号)。改写
+    /// taskSnapshotData 同时也是让这条气泡重新渲染的触发点——@Query 盯的是消息,
+    /// 光删掉那个 TaskItem 不会让气泡刷新。
+    private func handleToggleCreatedTask(_ message: AgentMessage) {
+        guard let data = message.taskSnapshotData,
+              var snapshot = try? JSONDecoder().decode(AgentTaskSnapshot.self, from: data),
+              snapshot.createdUUID != nil
+        else { return }
+        let newUUID = toggleCreatedTask(snapshot.isCreatedActive ? snapshot.createdUUID : nil,
+                                        snapshot.parsed)
+        snapshot.createdRemoved = (newUUID == nil)
+        if let newUUID { snapshot.createdUUID = newUUID }
+        message.taskSnapshotData = try? JSONEncoder().encode(snapshot)
+        try? context.save()
+        Haptics.tick()
+    }
+
     /// 记忆结果卡片右边那颗 ✕:收藏(以及 AI 自动记录)也是**默认就存**,这颗
     /// 是事后反悔的入口。直接把这条消息原地改写成一句纯文本——条目删掉之后卡片
     /// 本来就渲染不出来了(memoryResultContent 查不到 item),留着"已收藏"四个字
@@ -1196,7 +1220,15 @@ struct AgentView: View {
             appendTaskResult(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask,
                              createdUUID: UUID())
         }
-        // 修改结果卡片(带撤销按钮),和上面新建结果卡片(带 ✕)对照截图用。
+        // 新建结果卡片被点掉之后的样子(灰色 ✕ + "已取消新建")。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result-removed") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
+            let snapshot = AgentTaskSnapshot(existingUUID: nil, parsed: Self.demoParsedTask,
+                                             createdUUID: UUID(), createdRemoved: true)
+            appendAssistant(thread: thread, kind: .taskResult, content: "已新建",
+                            taskSnapshotData: try? JSONEncoder().encode(snapshot))
+        }
+        // 修改结果卡片(带撤销按钮),和上面新建结果卡片(带对号开关)对照截图用。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result-updated") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "开会挪到下午4点"))
             appendTaskResult(thread: thread, existingUUID: UUID(), parsed: Self.demoParsedTask)
@@ -1295,6 +1327,7 @@ private struct AgentMessageListView: View {
     let onUndo: () -> Void
     let onMemorizeSuggestion: (AgentMessage) -> Void
     let onCancelMemoryResult: (AgentMessage) -> Void
+    let onToggleCreatedTask: (AgentMessage) -> Void
     let onTaskProposalConfirm: (AgentMessage) -> Void
     let onTaskProposalCancel: (AgentMessage) -> Void
     let onTaskProposalTap: (AgentMessage) -> Void
@@ -1322,6 +1355,7 @@ private struct AgentMessageListView: View {
     init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
          onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
          onCancelMemoryResult: @escaping (AgentMessage) -> Void,
+         onToggleCreatedTask: @escaping (AgentMessage) -> Void,
          onTaskProposalConfirm: @escaping (AgentMessage) -> Void,
          onTaskProposalCancel: @escaping (AgentMessage) -> Void,
          onTaskProposalTap: @escaping (AgentMessage) -> Void,
@@ -1337,6 +1371,7 @@ private struct AgentMessageListView: View {
         self.onUndo = onUndo
         self.onMemorizeSuggestion = onMemorizeSuggestion
         self.onCancelMemoryResult = onCancelMemoryResult
+        self.onToggleCreatedTask = onToggleCreatedTask
         self.onTaskProposalConfirm = onTaskProposalConfirm
         self.onTaskProposalCancel = onTaskProposalCancel
         self.onTaskProposalTap = onTaskProposalTap
@@ -1367,6 +1402,7 @@ private struct AgentMessageListView: View {
                             onUndo: onUndo,
                             onMemorizeSuggestion: { onMemorizeSuggestion(message) },
                             onCancelMemoryResult: { onCancelMemoryResult(message) },
+                            onToggleCreatedTask: { onToggleCreatedTask(message) },
                             onTaskProposalConfirm: { onTaskProposalConfirm(message) },
                             onTaskProposalCancel: { onTaskProposalCancel(message) },
                             onTaskProposalTap: { onTaskProposalTap(message) },
@@ -1381,7 +1417,14 @@ private struct AgentMessageListView: View {
                 }
                 .padding()
                 .animation(.lodoAware(.snappy), value: messages.count)
+                // 内容比屏幕短时也把这一坨顶到底部,最后一条消息紧挨着输入栏
+                // ——短对话原来是从顶上开始排,和输入栏之间空出一大片。
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
+            // 一打开就停在最后一条(不是从头开始往下找)。onAppear 里那句
+            // scrollTo 是兜底:LazyVStack 首帧还没把最后一条建出来时,单靠
+            // scrollTo 会落空。
+            .defaultScrollAnchor(.bottom)
             .onChange(of: messages.count) { _, _ in
                 if let last = messages.last {
                     withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }

@@ -26,6 +26,7 @@ struct AgentMessageBubble: View {
     var onUndo: () -> Void = {}
     var onMemorizeSuggestion: () -> Void = {}
     var onCancelMemoryResult: () -> Void = {}
+    var onToggleCreatedTask: () -> Void = {}
     var onTaskProposalConfirm: () -> Void = {}
     var onTaskProposalCancel: () -> Void = {}
     var onTaskProposalTap: () -> Void = {}
@@ -218,30 +219,37 @@ struct AgentMessageBubble: View {
         }
     }
 
-    /// 新建和修改都是先落库再报告(见 route()),这张卡右边那颗按钮是唯一的事后
-    /// 反悔手段,只在最新一条可点(再往前的记录不给按钮,免得翻旧账时撤销掉的是
-    /// 后来那批)。两者图标/文案有意不同:新建给 ✕「取消」——语义是"这条别要了";
-    /// 修改给「撤销」箭头——语义是"改回原样"。两颗都走同一套 lastUndo 快照。
-    /// 老对话里点"确认新建"产生的结果卡 createdUUID 是 nil,照旧不带按钮
+    /// 新建和修改都是先落库再报告(见 route()),这张卡是事后反悔的入口,但两者
+    /// 形态有意不同:
+    /// - **新建**:整张卡就是个开关,最左边一枚蓝色对号表示"这条有效",点一下删掉
+    ///   事项、对号变成灰色 ✕,再点一下按同一份快照重新建回来。开关不限"最新一条"
+    ///   ——它动的就是卡片上写着的那一条,翻旧账也不会误伤别的东西(不像"撤销上
+    ///   一批"那样依赖当前上下文)。
+    /// - **修改**:右边一颗撤销箭头,语义是"改回原样",走 lastUndo 快照,因此仍然
+    ///   只在最新一条可点。
+    /// 老对话里点"确认新建"产生的结果卡 createdUUID 是 nil,两种按钮都不带
     /// (那种流程本来就已经确认过一次)。
     @ViewBuilder
     private var taskResultContent: some View {
         if let taskSnapshot {
             VStack(alignment: .leading, spacing: 10) {
-                Text(message.content).font(.body)
-                if isLatest, taskSnapshot.existingUUID != nil || taskSnapshot.createdUUID != nil {
-                    let isCreate = taskSnapshot.createdUUID != nil
+                Text(taskSnapshot.createdRemoved == true ? "已取消新建" : message.content)
+                    .font(.body)
+                if taskSnapshot.createdUUID != nil {
+                    AgentTaskCard(snapshot: taskSnapshot,
+                                  isActive: taskSnapshot.isCreatedActive,
+                                  onTap: onToggleCreatedTask)
+                } else if isLatest, taskSnapshot.existingUUID != nil {
                     HStack(spacing: 8) {
                         AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
                         Button {
                             onUndo()
                         } label: {
-                            Label(isCreate ? "取消" : "撤销",
-                                  systemImage: isCreate ? "xmark" : "arrow.uturn.backward")
+                            Label("撤销", systemImage: "arrow.uturn.backward")
                                 .labelStyle(.iconOnly)
                         }
                         .buttonStyle(.bordered)
-                        .accessibilityLabel(isCreate ? "取消新建" : "撤销")
+                        .accessibilityLabel("撤销")
                     }
                 } else {
                     AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
@@ -432,27 +440,45 @@ private struct TypewriterText: View {
 }
 
 /// taskProposal/taskResult 共用的事项卡片:标题 + caption,视觉上贴近
-/// TaskRowView 但不带 swipe actions。onTap 为 nil 时不可点(结果卡片是只读
-/// 历史,不像提案卡片那样能跳去表单微调)。
+/// TaskRowView 但不带 swipe actions。onTap 为 nil 时不可点(只读历史,不像
+/// 提案卡片/新建开关那样能点)。
+/// isActive 非 nil 时最左边多一枚状态图标:蓝色对号 = 这条事项有效,灰色 ✕ =
+/// 已被点掉。**只读态是靠 .disabled 变灰的**,所以带状态图标那种(可点)标题
+/// 是正常的主色黑字,不会被 disabled 洗淡。
 private struct AgentTaskCard: View {
     let snapshot: AgentTaskSnapshot
+    var isActive: Bool?
     var onTap: (() -> Void)?
 
     var body: some View {
         Button {
             onTap?()
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(snapshot.parsed.title)
-                Text(snapshot.parsed.caption)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            HStack(alignment: .center, spacing: 10) {
+                if let isActive {
+                    Image(systemName: isActive ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(isActive ? AnyShapeStyle(Color.accentColor)
+                                                  : AnyShapeStyle(.secondary))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(snapshot.parsed.title)
+                        .foregroundStyle(.primary)
+                    Text(snapshot.parsed.caption)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(onTap == nil)
+        .accessibilityLabel(isActive == nil ? snapshot.parsed.title
+                            : (isActive == true ? "已新建:\(snapshot.parsed.title),点两下取消"
+                                                : "已取消:\(snapshot.parsed.title),点两下重新新建"))
     }
 }

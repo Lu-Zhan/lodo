@@ -52,6 +52,28 @@ struct AgentHostView: View {
                 } else {
                     TaskActions.create(parsed, context: context)
                 }
+            },
+            toggleCreatedTask: { uuid, parsed in
+                if let uuid, let task = pending.first(where: { $0.uuid == uuid })
+                    ?? doneTasks.first(where: { $0.uuid == uuid }) {
+                    // 删的步骤和 performUndo 里 .created 那支一致:先撤掉已排的
+                    // 通知链,再删事项。
+                    NotificationManager.shared.cancelChain(for: task.uuid)
+                    context.delete(task)
+                    try? context.save()
+                    WidgetBridge.sync(context: context)
+                    // 这条正是 lastUndo 记着的那次新建的话,顺手清掉——不然之后
+                    // 打字"撤销"会去删一个已经不在的事项,只换来一句"无法撤销"。
+                    if case .created(let recorded)? = lastUndo?.first, recorded == uuid,
+                       lastUndo?.count == 1 {
+                        lastUndo = nil
+                        lastUndoThreadUUID = nil
+                    }
+                    return nil
+                }
+                let created = TaskActions.create(parsed, context: context)
+                WidgetBridge.sync(context: context)
+                return created.uuid
             })
         .alert("提示", isPresented: Binding(
             get: { actionsWarning != nil },

@@ -18,7 +18,12 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 /** AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),与 iOS AppSettings 一致。 */
 data class AIProviderPreset(val name: String, val endpoint: String, val model: String)
 
+/** 没选过服务商时用哪个（与 iOS AppSettings.defaultAIProvider 一致）。 */
+const val DEFAULT_AI_PROVIDER = "DeepSeek V4 Flash Vision"
+
 val aiProviderPresets = listOf(
+    AIProviderPreset(DEFAULT_AI_PROVIDER, "https://api.deepseek.com/chat/completions",
+        "deepseek-v4-flash-vision-exp"),
     AIProviderPreset("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4-flash"),
     AIProviderPreset("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
     AIProviderPreset("通义千问", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
@@ -56,7 +61,7 @@ data class Settings(
     /** 语音输入静音多少秒后自动停止,默认 3 秒;0 = 关闭,不自动停止。 */
     val agentSilenceTimeoutSeconds: Int = 3,
     /** AI 服务商("自定义"用自定义端点),默认 DeepSeek。 */
-    val aiProvider: String = "DeepSeek",
+    val aiProvider: String = DEFAULT_AI_PROVIDER,
     /** 模型覆盖值,空=用服务商默认。 */
     val aiModel: String = "",
     val aiCustomEndpoint: String = "",
@@ -131,7 +136,7 @@ class SettingsRepository(private val context: Context) {
             insightEnabled = p[Keys.INSIGHT_ENABLED] ?: true,
             agentAutoRecordOnOpen = p[Keys.AGENT_AUTO_RECORD_ON_OPEN] ?: true,
             agentSilenceTimeoutSeconds = p[Keys.AGENT_SILENCE_TIMEOUT_SECONDS] ?: 3,
-            aiProvider = p[Keys.AI_PROVIDER] ?: "DeepSeek",
+            aiProvider = p[Keys.AI_PROVIDER] ?: DEFAULT_AI_PROVIDER,
             aiModel = p[Keys.AI_MODEL] ?: "",
             aiCustomEndpoint = p[Keys.AI_CUSTOM_ENDPOINT] ?: "",
             personaStyle = p[Keys.PERSONA_STYLE] ?: "默认",

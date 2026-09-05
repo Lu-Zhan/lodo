@@ -148,6 +148,10 @@ public enum AppSettings {
     /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 DeepSeek;
     /// "自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
     public static let aiProviders: [(name: String, endpoint: String, model: String)] = [
+        // 排第一个 = 默认服务商(见 defaultAIProvider)。和下面那条纯文本的
+        // DeepSeek 走同一个接口、同一把 key,区别只在 model 字段。
+        ("DeepSeek V4 Flash Vision", "https://api.deepseek.com/chat/completions",
+         "deepseek-v4-flash-vision-exp"),
         ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4-flash"),
         ("GPT-5.6 Luna", "https://runapi.host/v1/chat/completions", "gpt-5.6-luna"),
         ("Qwen3.5 Flash", "https://runapi.host/v1/chat/completions", "qwen3.5-flash"),
@@ -160,8 +164,12 @@ public enum AppSettings {
     /// 苹果智能(端侧 Foundation Models)的服务商名。
     public static let appleIntelligenceProvider = "苹果智能"
 
+    /// 没选过服务商时用哪个。改这个值会让"从没进过设置页"的老用户也一起换过去
+    /// ——他们本来就没做过选择,跟着默认走是预期行为。
+    public static let defaultAIProvider = "DeepSeek V4 Flash Vision"
+
     public static var aiProvider: String {
-        UserDefaults.standard.string(forKey: aiProviderKey) ?? "DeepSeek"
+        UserDefaults.standard.string(forKey: aiProviderKey) ?? defaultAIProvider
     }
 
     public static var usesAppleIntelligence: Bool {

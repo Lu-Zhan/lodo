@@ -4,7 +4,7 @@ import LodoCore
 /// 设置 → AI 设置:AI 相关设置统一收在这一个入口下——服务商/API Key、思考强度、
 /// 联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑。
 struct AISettingsView: View {
-    @AppStorage(AppSettings.aiProviderKey) private var aiProvider = "DeepSeek"
+    @AppStorage(AppSettings.aiProviderKey) private var aiProvider = AppSettings.defaultAIProvider
     @AppStorage(AppSettings.aiModelKey) private var aiModel = ""
     @AppStorage(AppSettings.aiCustomEndpointKey) private var aiCustomEndpoint = ""
     @AppStorage(AppSettings.thinkingLevelKey) private var thinkingLevel = "low"
