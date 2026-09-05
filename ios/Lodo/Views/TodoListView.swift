@@ -313,14 +313,19 @@ struct TodoListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem {
-                    Menu {
-                        Button("按项目查看", systemImage: "folder") { showProjectList = true }
-                        Button("并行时间线", systemImage: "calendar.day.timeline.left") {
-                            showProjectTimeline = true
+                // 抽屉推开时整颗撤掉,理由同 ☰(sidebarToolbarButton 的注释):
+                // 工具栏挂在 NavigationStack 上、不跟着内容平移,留着会浮在
+                // 已经露出来的侧栏上面,而且照样能点。
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem {
+                        Menu {
+                            Button("按项目查看", systemImage: "folder") { showProjectList = true }
+                            Button("并行时间线", systemImage: "calendar.day.timeline.left") {
+                                showProjectTimeline = true
+                            }
+                        } label: {
+                            Label("项目视图", systemImage: "square.grid.2x2")
                         }
-                    } label: {
-                        Label("项目视图", systemImage: "square.grid.2x2")
                     }
                 }
             }

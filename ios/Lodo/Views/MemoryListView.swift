@@ -9,6 +9,8 @@ import UIKit
 /// "记忆" tab:AI 整理后的收藏条目列表。顶部搜索框输入即本地过滤 + 标签筛选;
 /// 自然语言问答统一走侧栏的「AI 助手」页(AgentHostView+Routing.answerFromMemory)。
 struct MemoryListView: View {
+    /// 抽屉推开时要把整条工具栏撤掉(理由同 ☰,见 sidebarToolbarButton 的注释)。
+    @Environment(\.sidebarChrome) private var sidebarChrome
     /// 左滑"转为待办"交接:切到待办页并弹出预填标题+内容附件的新建表单(见 AppShellView)。
     let onConvertToTodo: (String, TaskAttachment) -> Void
     /// 条目详情的 push 栈。由外壳持有:深链回记忆页时要能弹回根,外壳也要据此
@@ -228,72 +230,74 @@ struct MemoryListView: View {
                 }
             }
             .toolbar {
-                if showContacts {
-                    ToolbarItem(placement: .navigation) {
-                        Button {
-                            showContactGraph = true
-                        } label: {
-                            Label("关系图谱", systemImage: "point.3.connected.trianglepath.dotted")
-                        }
-                    }
-                    #if os(iOS)
-                    ToolbarItem(placement: .navigation) {
-                        Button {
-                            Task { await beginContactExport() }
-                        } label: {
-                            Label("批量导出到通讯录", systemImage: "square.and.arrow.up")
-                        }
-                    }
-                    #endif
-                }
-                ToolbarItem(placement: .navigation) {
-                    Menu {
-                        Button("粘贴收藏", systemImage: "doc.on.clipboard") {
-                            pasteFromClipboard()
-                        }
-                        Button("选择文件", systemImage: "folder") {
-                            showFileImporter = true
-                        }
-                        Button("输入文字", systemImage: "square.and.pencil") {
-                            showCompose = true
-                        }
-                        Divider()
-                        Button("记一笔资产", systemImage: "creditcard") {
-                            showAssetCompose = true
-                        }
-                        Button("记一位人脉", systemImage: "person.crop.circle.badge.plus") {
-                            showContactCompose = true
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    if showContacts {
+                        ToolbarItem(placement: .navigation) {
+                            Button {
+                                showContactGraph = true
+                            } label: {
+                                Label("关系图谱", systemImage: "point.3.connected.trianglepath.dotted")
+                            }
                         }
                         #if os(iOS)
-                        Button("从通讯录批量导入", systemImage: "person.crop.circle.badge.plus") {
-                            showContactImportConfirm = true
-                        }
-                        Button("从通讯录选择导入", systemImage: "person.crop.circle.badge.checkmark") {
-                            // CNContactPickerViewController 不需要先申请通讯录权限——
-                            // 系统会把选人这一步隔离到独立进程,选完只把用户选中的那
-                            // 几条给回 app,不算读取整个通讯录,直接弹选择器即可。
-                            showContactPicker = true
+                        ToolbarItem(placement: .navigation) {
+                            Button {
+                                Task { await beginContactExport() }
+                            } label: {
+                                Label("批量导出到通讯录", systemImage: "square.and.arrow.up")
+                            }
                         }
                         #endif
-                        Divider()
-                        Button("管理标签", systemImage: "tag") {
-                            showTagManage = true
+                    }
+                    ToolbarItem(placement: .navigation) {
+                        Menu {
+                            Button("粘贴收藏", systemImage: "doc.on.clipboard") {
+                                pasteFromClipboard()
+                            }
+                            Button("选择文件", systemImage: "folder") {
+                                showFileImporter = true
+                            }
+                            Button("输入文字", systemImage: "square.and.pencil") {
+                                showCompose = true
+                            }
+                            Divider()
+                            Button("记一笔资产", systemImage: "creditcard") {
+                                showAssetCompose = true
+                            }
+                            Button("记一位人脉", systemImage: "person.crop.circle.badge.plus") {
+                                showContactCompose = true
+                            }
+                            #if os(iOS)
+                            Button("从通讯录批量导入", systemImage: "person.crop.circle.badge.plus") {
+                                showContactImportConfirm = true
+                            }
+                            Button("从通讯录选择导入", systemImage: "person.crop.circle.badge.checkmark") {
+                                // CNContactPickerViewController 不需要先申请通讯录权限——
+                                // 系统会把选人这一步隔离到独立进程,选完只把用户选中的那
+                                // 几条给回 app,不算读取整个通讯录,直接弹选择器即可。
+                                showContactPicker = true
+                            }
+                            #endif
+                            Divider()
+                            Button("管理标签", systemImage: "tag") {
+                                showTagManage = true
+                            }
+                        } label: {
+                            Label("收藏", systemImage: "plus")
                         }
-                    } label: {
-                        Label("收藏", systemImage: "plus")
                     }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showFilters = true
-                    } label: {
-                        Label("筛选", systemImage: activeFilterCount > 0
-                              ? "line.3.horizontal.decrease.circle.fill"
-                              : "line.3.horizontal.decrease.circle")
-                    }
-                    .popover(isPresented: $showFilters) {
-                        filterContent
-                            .presentationCompactAdaptation(.popover)
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showFilters = true
+                        } label: {
+                            Label("筛选", systemImage: activeFilterCount > 0
+                                  ? "line.3.horizontal.decrease.circle.fill"
+                                  : "line.3.horizontal.decrease.circle")
+                        }
+                        .popover(isPresented: $showFilters) {
+                            filterContent
+                                .presentationCompactAdaptation(.popover)
+                        }
                     }
                 }
             }

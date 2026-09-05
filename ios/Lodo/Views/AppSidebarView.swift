@@ -147,6 +147,9 @@ struct AppSidebarView: View {
                     }
                     .listRowBackground(
                         rowHighlight(section == .agent && thread.uuid == effectiveCurrentUUID))
+                    .accessibilityAddTraits(
+                        section == .agent && thread.uuid == effectiveCurrentUUID
+                            ? .isSelected : [])
                 }
             }
             .listStyle(.plain)
@@ -154,10 +157,12 @@ struct AppSidebarView: View {
             // 系统默认最小行高是 44pt,比这里给各行定的 minHeight 还高,不清零的话
             // 行高由它说了算、把 frame(minHeight:) 那几个数字架空。
             .environment(\.defaultMinListRowHeight, 0)
-            // 给底部浮层让出高度,最后一条对话仍能滚到浮层上方。
-            .contentMargins(.bottom, 66, for: .scrollContent)
+            // 底栏交给安全区,不再 overlay + 写死一个 contentMargins:那样一来
+            // 动态字体调大、或者 macOS 换了控件尺寸,底栏比预留的高,最后一条
+            // 对话就被压在下面看不见了。safeAreaInset 的视觉效果和 overlay 一样
+            // (列表照样从它背后滚过去),但让出的高度是量出来的。
+            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         }
-        .overlay(alignment: .bottom) { bottomBar }
         #if DEBUG
         // 截图验证用:simctl 点不了行,直接把"常驻 + 展开折叠区"两态摆出来。
         .onAppear {
@@ -216,6 +221,8 @@ struct AppSidebarView: View {
         .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
         .listRowSeparator(.hidden)
         .listRowBackground(rowHighlight(section == target))
+        // 选中态只靠那块浅灰底表达,旁白看不见颜色,得显式给 trait。
+        .accessibilityAddTraits(section == target ? .isSelected : [])
     }
 
     // MARK: - 记忆标签块(嵌在"记忆"行下面)
@@ -358,7 +365,9 @@ struct AppSidebarView: View {
                 Label("新建对话", systemImage: "square.and.pencil")
                     .font(.subheadline.weight(.medium))
                     .padding(.horizontal, 6)
-                    .frame(height: 36)
+                    // 最小高度而不是固定高度:辅助功能字号下这行字会换行/变高,
+                    // 写死 36 会把它硬裁掉。
+                    .frame(minHeight: 36)
             }
             // 侧栏里唯一的主操作,符合 Liquid Glass "只给独立主操作"的使用边界
             // (旧系统自动回退 .borderedProminent)。设置那颗是次要入口,保持低调

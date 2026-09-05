@@ -106,7 +106,9 @@ struct TaskRowView: View {
                     Haptics.impact(.light)
                     TaskActions.snooze(task, context: context)
                 } label: {
-                    Label("+\(AppSettings.snoozeMinutes)M", systemImage: "clock")
+                    // 全 app 文案是中文,这里别留一个英文缩写("+15M");具体多少
+                    // 分钟放旁白标签里,滑动按钮本身在窄屏上多半只显示图标。
+                    Label("稍等", systemImage: "clock")
                 }
                 .tint(.orange)
                 .accessibilityLabel("稍等 \(AppSettings.snoozeMinutes) 分钟")

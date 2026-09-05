@@ -1,9 +1,6 @@
 import SwiftUI
 import SwiftData
 import LodoCore
-#if os(iOS)
-import UIKit
-#endif
 
 /// app 的四个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
@@ -70,6 +67,26 @@ struct AppShellView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
+    /// 读环境值而不是 DesignMetrics 里那个静态属性:静态属性直接问 UIKit/AppKit
+    /// 全局状态,不建立 SwiftUI 依赖,用户在设置里现场改了"减弱动态效果"这边
+    /// 不会刷新。抽屉是全 app 位移幅度最大的动画,这里单独走环境值。
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// 常驻并排(而不是抽屉)布局。macOS 上 horizontalSizeClass 可能是 nil
+    /// (窗口、预览、自定义宿主都出现过),按 `== .regular` 判会掉进窄屏抽屉分支,
+    /// 而产品上 macOS 就是常驻侧栏,直接按平台定死。
+    private var usesRegularLayout: Bool {
+        #if os(macOS)
+        return true
+        #else
+        return horizontalSizeClass == .regular
+        #endif
+    }
+
+    /// 抽屉开合统一用这条曲线;"减弱动态效果"下退化成一次几乎瞬时的短过渡。
+    private var sidebarAnimation: Animation {
+        reduceMotion ? .linear(duration: 0.05) : .lodoSidebar
+    }
 
     @State private var section: AppSection
     /// 已经打开过的页面。四个页面用 ZStack 叠着、只显示当前那个(切回来时筛选
@@ -113,10 +130,25 @@ struct AppShellView: View {
     /// 那排浮层按钮和页面内容都会一路贴到屏幕物理底边、被 home indicator 压住,
     /// 得手动加回来(侧栏用 padding,页面用 safeAreaInset)。
     @State private var deviceBottomInset: CGFloat = 0
-    /// 键盘是否弹起。补回底部安全区那截是为了躲 home indicator,但键盘弹起时
-    /// 系统的键盘安全区已经把内容顶上去了,这时再叠一截会让输入栏浮在键盘上方
-    /// 34pt 处、中间空出一条。键盘期间归零即可。
-    @State private var keyboardVisible = false
+    /// 键盘顶上来的那截高度。容器安全区已经在抽屉容器那层被忽略掉了,所以在
+    /// 那棵子树里量到的底部安全区**只剩键盘**这一项——拿它反推还该给页面补多少
+    /// home indicator:没键盘时是 0、补满;键盘顶上来时它已经比 home indicator
+    /// 高,补 0。这是从布局里算出来的,不再监听 keyboardWillShow/Hide 通知:
+    /// 那是进程级通知(不分 scene/window),浮动键盘明明不占底部安全区也会发,
+    /// 交互式下拉收键盘的中间态更没法用一个布尔表达。
+    @State private var keyboardInset: CGFloat = 0
+    /// 收起动画还在播。sidebarProgress 是从 showSidebar 直接算的,点☰/点遮罩
+    /// 关闭时它瞬间变 0,而页面还在往回滑——只看它的话导航栏那颗 ☰ 会提前冒出来,
+    /// 悬在还没滑回去的页面上。收起期间靠这个标记把 chrome 继续压住,动画回调
+    /// 里才放开。
+    @State private var isClosingSidebar = false
+    /// 横向拖拽是否仍在进行。系统中断手势(来电、切后台、被别的手势抢走)时
+    /// 不会走 onEnded,只有 @GestureState 会自动复位——用它兜底,否则抽屉会停在
+    /// 半开位置且再也回不去。
+    @GestureState private var isDraggingSidebar = false
+    /// 页面里那些横向可滑控件(改期候选、筛选胶囊…)的位置。落在这些矩形里
+    /// 起手的拖拽不算唤出抽屉,否则往右看下一个胶囊会顺手把抽屉拖出来。
+    @State private var dragExclusions: [CGRect] = []
 
     /// 关闭手势(遮罩上左滑)是和内容并行挂着的,哪一方接管这次拖拽在**第一帧**
     /// 就定死、之后不再改判:否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地
@@ -143,13 +175,16 @@ struct AppShellView: View {
 
     var body: some View {
         Group {
-            if horizontalSizeClass == .regular {
+            if usesRegularLayout {
                 regularLayout
             } else {
                 compactLayout
             }
         }
         // 挂在最外层:量到的是原始安全区,不会被页面内部的导航栏放大。
+        // 忽略键盘那一档很要紧:不忽略的话键盘一弹起 safeAreaInsets.bottom 就
+        // 变成键盘高度,而这个值是当"home indicator 有多高"用的(侧栏底栏靠它
+        // 让位、页面补安全区也拿它当上限),被键盘带偏会让侧栏底栏突然跳一大截。
         .background(
             GeometryReader { proxy in
                 Color.clear
@@ -164,13 +199,8 @@ struct AppShellView: View {
                         deviceBottomInset = newValue
                     }
             }
+            .ignoresSafeArea(.keyboard)
         )
-        #if os(iOS)
-        .onReceive(NotificationCenter.default.publisher(
-            for: UIResponder.keyboardWillShowNotification)) { _ in keyboardVisible = true }
-        .onReceive(NotificationCenter.default.publisher(
-            for: UIResponder.keyboardWillHideNotification)) { _ in keyboardVisible = false }
-        #endif
         .environment(\.sidebarChrome,
                      SidebarChrome(open: toggleSidebar, go: go,
                                    hidesChrome: hidesToolbarChrome))
@@ -179,7 +209,7 @@ struct AppShellView: View {
         .onAppear {
             if !didSetInitialSidebar {
                 didSetInitialSidebar = true
-                showSidebar = horizontalSizeClass == .regular
+                showSidebar = usesRegularLayout
             }
             #if DEBUG
             applyDemoArguments()
@@ -236,6 +266,7 @@ struct AppShellView: View {
             ForEach(AppSection.allCases, id: \.self) { candidate in
                 if visited.contains(candidate) {
                     content(for: candidate)
+                        .environment(\.sectionIsActive, candidate == section)
                         .opacity(candidate == section ? 1 : 0)
                         .allowsHitTesting(candidate == section)
                         .accessibilityHidden(candidate != section)
@@ -269,12 +300,24 @@ struct AppShellView: View {
                 go(.memory)
             },
             onOpenSettings: { showSettings = true },
-            onSelect: { if horizontalSizeClass != .regular { closeSidebar() } }
+            onSelect: { if !usesRegularLayout { closeSidebar() } }
         )
-        .padding(.top, horizontalSizeClass == .regular ? 0 : deviceTopInset)
-        .padding(.bottom, horizontalSizeClass == .regular ? 0 : deviceBottomInset)
+        .padding(.top, usesRegularLayout ? 0 : deviceTopInset)
+        .padding(.bottom, usesRegularLayout ? 0 : deviceBottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignMetrics.panelBackground(colorScheme))
+    }
+
+    /// 窄屏抽屉的旁白语义。收起时面板只是被 offset 推到屏幕外,**元素还在**
+    /// (offset 是渲染位移,不改变可访问性树),不显式藏起来的话旁白能一路划到
+    /// 看不见的侧栏里去;展开时反过来,要把它标成模态,旁白才不会在侧栏和底下
+    /// 那张页面之间来回窜。escape(旁白的两指画 Z)按惯例是"关掉当前这层"。
+    @ViewBuilder
+    private var compactSidebarPanel: some View {
+        sidebarPanel
+            .accessibilityHidden(!showSidebar)
+            .accessibilityAddTraits(showSidebar ? .isModal : [])
+            .accessibilityAction(.escape) { closeSidebar() }
     }
 
     // MARK: - 抽屉机制
@@ -290,18 +333,32 @@ struct AppShellView: View {
     }
 
     private func toggleSidebar() {
-        withAnimation(.lodoAware(.lodoSidebar)) { showSidebar.toggle() }
+        if showSidebar {
+            closeSidebar()
+        } else {
+            withAnimation(sidebarAnimation) { showSidebar = true }
+        }
     }
 
+    /// 收起要带完成回调:showSidebar 一置 false,sidebarProgress 立刻就是 0,
+    /// 而页面还在往回滑三百点——只看 progress 的话工具栏会在页面滑到位之前
+    /// 提前冒出来。isClosingSidebar 把这段动画时间盖住。
     private func closeSidebar() {
-        withAnimation(.lodoAware(.lodoSidebar)) { showSidebar = false }
+        guard showSidebar else { return }
+        isClosingSidebar = true
+        withAnimation(sidebarAnimation, completionCriteria: .removed) {
+            showSidebar = false
+        } completion: {
+            isClosingSidebar = false
+        }
     }
 
-    /// 抽屉推开(或拖到一半)时撤掉页面导航栏上的 ☰。判据是 sidebarProgress 而不是
-    /// showSidebar:拖到一半时 ☰ 同样会浮在已经露出来的那截侧栏上面,所以拖拽
-    /// 一起手就得撤掉,不能等松手落定。宽屏常驻列不推移内容,☰ 照常显示。
+    /// 抽屉推开(或拖到一半、或正在滑回去)时撤掉页面导航栏上的按钮。判据不能
+    /// 只看 showSidebar:拖到一半时它们同样会浮在已经露出来的那截侧栏上面,所以
+    /// 拖拽一起手就得撤掉;收起动画播完之前也不能放回来(见 closeSidebar)。
+    /// 宽屏常驻列不推移内容,照常显示。
     private var hidesToolbarChrome: Bool {
-        horizontalSizeClass != .regular && sidebarProgress > 0
+        !usesRegularLayout && (sidebarProgress > 0 || isClosingSidebar)
     }
 
     /// 侧栏推开时盖在页面上的那层遮罩:日间压一层半透明**白**——内容被洗淡、
@@ -310,6 +367,15 @@ struct AppShellView: View {
     /// "点一下关闭"和展开后"左滑收回"的手势承载层,不能省掉。
     private var sidebarScrim: some View {
         (colorScheme == .dark ? Color.black.opacity(0.35) : Color.white.opacity(0.5))
+    }
+
+    /// 抽屉容器忽略了容器安全区,页面内容要自己把 home indicator 那截补回来。
+    /// 键盘顶上来时系统已经用键盘安全区把内容抬走了,这时再叠一截会让 AI 输入栏
+    /// 浮在键盘上方空出一条,所以按"还差多少"补:没键盘 keyboardInset 是 0、
+    /// 补满;键盘一上来它就超过 home indicator,补 0。浮动键盘不占底部安全区、
+    /// keyboardInset 仍是 0,照常补——正是想要的。
+    private var pageBottomRefill: CGFloat {
+        max(0, deviceBottomInset - keyboardInset)
     }
 
     /// 0 = 完全收起,1 = 完全展开;拖拽期间取中间值,松手后回到 0/1。
@@ -326,15 +392,29 @@ struct AppShellView: View {
         let sign: CGFloat = opening ? 1 : -1
         let passed = value.translation.width * sign > width * 0.3
             || value.predictedEndTranslation.width * sign > width * 0.5
-        withAnimation(.lodoAware(.lodoSidebar)) {
-            sidebarDragOffset = 0
-            if passed { showSidebar = opening }
+        let target = passed ? opening : showSidebar
+        if target {
+            withAnimation(sidebarAnimation) {
+                sidebarDragOffset = 0
+                showSidebar = true
+            }
+        } else {
+            isClosingSidebar = true
+            withAnimation(sidebarAnimation, completionCriteria: .removed) {
+                sidebarDragOffset = 0
+                showSidebar = false
+            } completion: {
+                isClosingSidebar = false
+            }
         }
     }
 
     /// 唤出 / 收回的手势本体:收起时挂在屏幕左边缘那条窄带上,展开后挂在遮罩上。
     private func sidebarDrag() -> some Gesture {
         DragGesture(minimumDistance: 12)
+            // 只为拿"手势还在不在"这一个信号:系统中断(来电、切后台、被别的
+            // 手势抢走)时不走 onEnded,@GestureState 却一定会复位。
+            .updating($isDraggingSidebar) { _, state, _ in state = true }
             .onChanged { value in
                 let intent: DragIntent
                 if let session = dragSession, session.start == value.startLocation {
@@ -345,7 +425,12 @@ struct AppShellView: View {
                     let horizontal = abs(value.translation.width) > abs(value.translation.height)
                     let rightDirection = showSidebar
                         ? value.translation.width < 0 : value.translation.width > 0
-                    intent = (horizontal && rightDirection) ? .sidebar : .ignored
+                    // 起手点落在横向可滑控件上就整个让开(只在收起态判——展开后
+                    // 遮罩盖住整页,底下的胶囊行本来就摸不到)。
+                    let excluded = !showSidebar && dragExclusions.contains {
+                        $0.contains(value.startLocation)
+                    }
+                    intent = (horizontal && rightDirection && !excluded) ? .sidebar : .ignored
                     dragSession = (value.startLocation, intent)
                 }
                 guard intent == .sidebar else { return }
@@ -377,17 +462,16 @@ struct AppShellView: View {
             // 面板自己因此不带投影。面板常驻渲染,靠 offset 推到屏幕外表示收起
             // ——这样拖拽中间态才有东西可跟手(条件渲染 + transition 做不到跟手,
             // 只能播一段固定动画)。
-            sidebarPanel
+            compactSidebarPanel
                 // 拉到屏幕物理顶部,不吃页面 NavigationStack 给导航栏预留的那截
                 // 安全区(展开时导航栏内容已经撤空,留着那截空白没意义)。
                 .ignoresSafeArea(.container, edges: .top)
                 .frame(width: DesignMetrics.sidebarWidth)
                 .offset(x: -(1 - sidebarProgress) * DesignMetrics.sidebarWidth)
-                .gesture(
-                    DragGesture()
-                        .onChanged { sidebarDragOffset = min(0, $0.translation.width) }
-                        .onEnded { settleSidebar($0, opening: false) }
-                )
+                // 这里**不挂**关闭拖拽。面板里那个 List 自己就有向左滑的行操作
+                // (删除对话、标签常驻),挂一个不判方向归属的 DragGesture 会和
+                // 它们抢同一个方向。收回抽屉靠右边遮罩那一层(左滑或点一下),
+                // 那里没有任何行操作要让。
 
             // 顺序要紧:先叠手势层和遮罩、再 clipShape 圆角,最后才推移。
             // clipShape 必须排在 offset 前面——offset 是布局中立的渲染位移,排在
@@ -406,19 +490,27 @@ struct AppShellView: View {
                 // 18pt 底距叠在安全区之上,变成直接贴着屏幕底边,它自己 26pt 的
                 // 玻璃圆角就和卡片 44pt 的圆角套成了两层角)。所以这里把底部那截
                 // 安全区原样还给内容:背景层在 frame 上、仍然铺满,内容层收进来。
+                // 补多少见 pageBottomRefill——是从布局里算的,不监听键盘通知。
                 // 顶部不用还——导航栏的让位是 UIKit 那侧按窗口安全区算的,不走
                 // SwiftUI 这套 inset,实测没被吃掉。
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    Color.clear.frame(height: keyboardVisible ? 0 : deviceBottomInset)
+                    Color.clear.frame(height: pageBottomRefill)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignMetrics.panelBackground(colorScheme))
+                // 手势的 startLocation 和横向控件申报的矩形都换算到这个具名空间里
+                // ——具名空间挂在手势所在的这一层,两边的原点才对得上。
+                .coordinateSpace(name: SidebarDragExclusion.spaceName)
+                .onPreferenceChange(SidebarDragExclusionKey.self) { dragExclusions = $0 }
                 // 收起时手势挂在页面内容上,和列表的纵向滚动并行(sidebarDrag 第一帧
                 // 就按"横向为主 + 方向对"定死归属,纵向滚动照常让给底下的视图)。
                 .simultaneousGesture(showSidebar || !swipeGestureEnabled ? nil : sidebarDrag())
                 // allowsHitTesting 只罩页面内容本身,不能挂到遮罩外面去——遮罩要
                 // 继续吃"点一下关闭"和"左滑收回"这两个手势。
+                // 它只挡触摸,**不挡旁白**:辅助功能树照样能划进被盖住的页面,
+                // 所以还要单独 accessibilityHidden 一次。
                 .allowsHitTesting(!showSidebar)
+                .accessibilityHidden(showSidebar)
                 .overlay {
                     if sidebarProgress > 0 {
                         sidebarScrim
@@ -426,6 +518,12 @@ struct AppShellView: View {
                             .contentShape(Rectangle())
                             .onTapGesture { closeSidebar() }
                             .gesture(sidebarDrag())
+                            // 对旁白来说这层不是装饰,是"点一下关掉导航"的按钮。
+                            .accessibilityElement()
+                            .accessibilityLabel("关闭导航")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { closeSidebar() }
+                            .accessibilityHidden(!showSidebar)
                     }
                 }
                 // 圆角不按 progress 插值:被推开的那张卡从一开始就是整块手机尺寸
@@ -449,9 +547,27 @@ struct AppShellView: View {
         // ——白底方角衬在圆角外面,看上去就像页面背后还压着一张没裁圆角的卡。
         // 垫成侧栏同色之后,缺口处和侧栏连成一片,只剩卡自己那一道圆角。
         .background(DesignMetrics.panelBackground(colorScheme))
+        // 量键盘顶上来那截:这一层在下面那句 ignoresSafeArea(.container) 的
+        // 覆盖范围内,容器安全区已经被吃掉,量到的底部安全区就只剩键盘。
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { keyboardInset = proxy.safeAreaInsets.bottom }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, newValue in
+                        keyboardInset = newValue
+                    }
+            }
+        )
+        // 手势被系统中断时没有 onEnded,拖到一半的抽屉会卡住;@GestureState
+        // 一定会复位,借它把位移归零。
+        .onChange(of: isDraggingSidebar) { _, active in
+            guard !active, sidebarDragOffset != 0 else { return }
+            dragSession = nil
+            withAnimation(sidebarAnimation) { sidebarDragOffset = 0 }
+        }
         // 只对 showSidebar 挂动画:拖拽中 sidebarDragOffset 的变化要 1:1 跟手,
         // 不能被动画平滑掉(松手归位那下由 settleSidebar 里的 withAnimation 负责)。
-        .animation(.lodoAware(.lodoSidebar), value: showSidebar)
+        .animation(sidebarAnimation, value: showSidebar)
         // 整个抽屉容器铺到物理屏幕边缘。**必须挂在这一层**,不能只挂在 sectionStack
         // 上:挂在里面时 clipShape 仍按"安全区之内"那个 frame 裁切,推开的卡上下
         // 各短一截、圆角悬在屏幕中间(实测卡内是 249,249,251、上下两截是纯白)。
@@ -480,7 +596,7 @@ struct AppShellView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignMetrics.panelBackground(colorScheme))
         }
-        .animation(.lodoAware(.lodoSidebar), value: showSidebar)
+        .animation(sidebarAnimation, value: showSidebar)
     }
 
     // MARK: - 路由交接
