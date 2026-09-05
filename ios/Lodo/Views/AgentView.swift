@@ -485,6 +485,9 @@ struct AgentView: View {
         .padding(.bottom, 18)
     }
 
+    /// 输入栏控件行的固定高度(+ / 麦克风 / 识别中 三个都按它取 frame)。
+    private static let composerControlSize: CGFloat = 36
+
     private var composingBar: some View {
         VStack(alignment: .leading, spacing: 6) {
             TextField("试试加入一个待办/记忆…", text: $text, axis: .vertical)
@@ -540,6 +543,14 @@ struct AgentView: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
+            // 行高定死在按钮那一档:发送键是 iOS 26 的 Liquid Glass 圆钮,系统按
+            // 自己的最小触控尺寸布局、不理会下游的 frame 收窄(见 sendButton 的
+            // 注释),比左边 +/麦克风高出十点左右。不定死的话打字的第一下就会
+            // 因为"麦克风换成发送键"把整张输入卡顶高一截,文本框跟着往上跳——
+            // 打字时**只该换那颗按钮**,输入框不能动。定死之后发送键仍按自己的
+            // 尺寸绘制(超出的几点落在卡片本来就有的内边距里),只是不再参与
+            // 撑高这一行。
+            .frame(height: Self.composerControlSize)
             .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
             .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isProcessing)
         }
