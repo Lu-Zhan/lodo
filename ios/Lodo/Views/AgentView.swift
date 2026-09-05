@@ -287,6 +287,12 @@ struct AgentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-hascontent") {
                     text = "明天3点开会"
                 }
+                // 连通性验证用:启动即真发一次请求,看当前服务商/模型调不调得通
+                // (换模型/换服务商之后拿它探一下,不用手打字)。**会真的产生一次
+                // 网络请求和一条对话记录**,只在 DEBUG 且显式带这个参数时才跑。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-live") {
+                    send(overrideText: "只回复两个字:可用")
+                }
                 // 截图验证用:模拟请求进行中,发送按钮应该变成取消。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-busy") {
                     busy = true
