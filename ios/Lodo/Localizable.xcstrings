@@ -1,70 +1,6 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
-    "取消常驻" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unpin"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取消常驻"
-          }
-        }
-      }
-    },
-    "常驻" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pin"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "常驻"
-          }
-        }
-      }
-    },
-    "导航" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Navigation"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "导航"
-          }
-        }
-      }
-    },
-    "更多标签" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More Tags"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更多标签"
-          }
-        }
-      }
-    },
     "「%@」实际用了多久?" : {
 
     },
@@ -1341,6 +1277,22 @@
         }
       }
     },
+    "取消常驻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消常驻"
+          }
+        }
+      }
+    },
     "取消录音" : {
 
     },
@@ -1821,9 +1773,6 @@
     "对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。" : {
 
     },
-    "对话列表" : {
-
-    },
     "对话记录会一并删除,不可恢复。" : {
       "localizations" : {
         "en" : {
@@ -1934,6 +1883,22 @@
     },
     "导出完成" : {
 
+    },
+    "导航" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Navigation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导航"
+          }
+        }
+      }
     },
     "已使用内置 API Key,无需再填。" : {
 
@@ -2060,6 +2025,22 @@
         }
       }
     },
+    "常驻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常驻"
+          }
+        }
+      }
+    },
     "并行时间线" : {
 
     },
@@ -2095,7 +2076,7 @@
         }
       }
     },
-    "开启后,完成首次引导的下一次冷启动会直接弹出 AI 助手;退到后台再回前台不会重复弹出。" : {
+    "开启后,完成首次引导的下一次冷启动会直接落在 AI 助手页;退到后台再回前台不受影响。" : {
 
     },
     "开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。" : {
@@ -2837,6 +2818,22 @@
     },
     "暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。" : {
 
+    },
+    "更多标签" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More Tags"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多标签"
+          }
+        }
+      }
     },
     "有 %lld 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒" : {
 
