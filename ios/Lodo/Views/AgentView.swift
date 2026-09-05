@@ -454,13 +454,14 @@ struct AgentView: View {
     /// 文本输入框(没有自己的胶囊背景,直接落在卡片底色上),下面是控件行:
     /// 左边 + 号纯图标(无背景),右边麦克风/发送纯图标或强调色圆按钮,没在
     /// 打字时是麦克风(点了开始录音);一旦有内容待发送,同一个槽位换成强调色
-    /// 发送按钮——是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标。只有
-    /// 发送/停止这一个控件保留实心玻璃填充,+/麦克风都是纯图标,靠卡片本身的
-    /// 玻璃背景衬底,不需要各自再套一层——因此不再需要 `GlassEffectContainer`:
-    /// 那是给多个相邻独立玻璃形状互相感知融合用的,现在只剩"一张卡 + 一个独立
-    /// 强调色按钮",`.glassProminentButton()` 已经能正确渲染自己的玻璃层,不需要
-    /// 外层容器配合。录音态(recordingBar)整条换成"取消 / 波形 / 确认"三段式,
-    /// 同一张卡片容器,不再有文本框/+/麦克风。
+    /// 发送按钮——是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标,两态
+    /// **同尺寸同圆心**(都是 composerControlSize 见方),换按钮时输入框纹丝不动。
+    /// 发送/停止那颗是实心强调色圆(不是 Liquid Glass 圆钮,理由见 sendButton),
+    /// +/麦克风都是纯图标,靠卡片本身的玻璃背景衬底,不需要各自再套一层——也
+    /// 因此不需要 `GlassEffectContainer`:那是给多个相邻独立玻璃形状互相感知
+    /// 融合用的,这里只有卡片本身一层玻璃。录音态(recordingBar)整条换成
+    /// "取消 / 波形 / 确认"三段式,同一张卡片容器,不再有文本框/+/麦克风;
+    /// 它和输入条共用 composerRowMinHeight,切换录音时卡片高度不变。
     private var inputBar: some View {
         inputBarRow
     }
@@ -475,6 +476,10 @@ struct AgentView: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
+        // 录音条和输入条共用同一个最小高度:两者自然高度差了二十多点,不拉平的话
+        // 一按麦克风整张输入卡就缩一截、松开又弹回来。输入条多行时会超过这个值
+        // (文本框 1...5 行),那时按内容走,不受这里限制。
+        .frame(minHeight: Self.composerRowMinHeight)
         .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isRecording)
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -485,8 +490,11 @@ struct AgentView: View {
         .padding(.bottom, 18)
     }
 
-    /// 输入栏控件行的固定高度(+ / 麦克风 / 识别中 三个都按它取 frame)。
+    /// 输入栏控件行的固定高度(+ / 麦克风 / 发送 / 识别中 都按它取 frame)。
     private static let composerControlSize: CGFloat = 36
+    /// 输入条(单行文本框 + 控件行)与录音条共用的最小高度。数值来自单行输入条的
+    /// 自然高度:文本框一行 ≈ 22 + VStack 间距 6 + 控件行 36。
+    private static let composerRowMinHeight: CGFloat = 64
 
     private var composingBar: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -543,13 +551,9 @@ struct AgentView: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            // 行高定死在按钮那一档:发送键是 iOS 26 的 Liquid Glass 圆钮,系统按
-            // 自己的最小触控尺寸布局、不理会下游的 frame 收窄(见 sendButton 的
-            // 注释),比左边 +/麦克风高出十点左右。不定死的话打字的第一下就会
-            // 因为"麦克风换成发送键"把整张输入卡顶高一截,文本框跟着往上跳——
-            // 打字时**只该换那颗按钮**,输入框不能动。定死之后发送键仍按自己的
-            // 尺寸绘制(超出的几点落在卡片本来就有的内边距里),只是不再参与
-            // 撑高这一行。
+            // 行高定死:打字时**只该换那颗按钮**,输入框不能动。三个态
+            //(麦克风/发送/识别中)现在都是 composerControlSize 见方,本来就不会
+            //撑高这一行;定死是兜底,以后谁换了按钮样式也不会把输入卡顶高。
             .frame(height: Self.composerControlSize)
             .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
             .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isProcessing)
@@ -566,6 +570,9 @@ struct AgentView: View {
                 .frame(maxWidth: .infinity)
             confirmRecordingButton
         }
+        // 自身仍按 40 布局,拉平到输入条那个高度由外层 inputBarRow 的 minHeight
+        // 负责(在这里写 maxHeight: .infinity 会一路撑满 safeAreaInset 给的空间,
+        // 整张卡会窜到半屏高)。
         .frame(height: 40)
     }
 
@@ -694,6 +701,13 @@ struct AgentView: View {
 
     /// busy 时按钮不再禁用,改成取消——点了就中断这次请求(输入区其余控件
     /// 如麦克风/附件继续保持 disabled(busy),不允许请求过程中改附件)。
+    ///
+    /// 这里**不用** `.glassProminentButton()`:那套(以及它在旧系统上回退到的
+    /// .borderedProminent)自带一圈系统内容内边距 + HIG 最小触控尺寸,实测外面
+    /// 叠 .frame 收不住、`.controlSize(.mini)` 也只压到 44 点上下,比左边的
+    /// 麦克风大一圈——而这颗和麦克风是同一个槽位里互斥切换的两态,大小必须一样,
+    /// 否则一打字按钮就"长大"一圈。换成和「完成录音」同款的实心强调色圆:
+    /// 仍是系统控件(`.background(_:in: Circle())`),尺寸完全由这里的 frame 说了算。
     private var sendButton: some View {
         Button {
             if busy {
@@ -704,17 +718,15 @@ struct AgentView: View {
         } label: {
             Image(systemName: busy ? "stop.fill" : "arrow.up")
                 .font(.system(size: busy ? 15 : 17, weight: .bold))
-                .frame(width: 36, height: 36)
+                .foregroundStyle(.white)
+                .frame(width: Self.composerControlSize, height: Self.composerControlSize)
+                .background(busy ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor),
+                            in: Circle())
         }
-        .glassProminentButton()
-        .buttonBorderShape(.circle)
-        // .glassProminentButton()/.borderedProminent 自带一圈系统内容内边距+HIG 最小
-        // 触控尺寸,单靠 label 内部 36×36 的 frame 圈不住,发出键因此比左边 +/麦克风
-        // (.buttonStyle(.plain),没有这层自动内边距)看起来大一圈——外面叠加 .frame
-        // 对 iOS 26 Liquid Glass 圆形按钮不生效(实测无变化,系统内部按自己的最小触控
-        // 尺寸布局,不理会下游 frame 收窄),只能靠 .controlSize 调系统档位。
-        .controlSize(.mini)
-        .tint(busy ? Color.secondary : Color.accentColor)
+        .buttonStyle(.plain)
+        #if os(iOS)
+        .hoverEffect(.highlight)
+        #endif
         .accessibilityLabel(busy ? "取消" : "发送")
     }
 
