@@ -134,11 +134,12 @@ struct AgentView: View {
     var body: some View {
         NavigationStack {
             chatColumn
-            // 整页按屏幕物理底边布局,不给 home indicator 预留一条死白边——
-            // 输入栏那三个玻璃胶囊因此贴到真正的屏幕底部,聊天内容也一路铺满。
-            // 只忽略 .container(不能用 .all):键盘安全区仍然生效,弹键盘时
-            // 输入栏照常被顶上去。
-            .ignoresSafeArea(.container, edges: .bottom)
+            // 这里曾经 .ignoresSafeArea(.container, edges: .bottom),让输入栏贴到
+            // 屏幕物理底边、不给 home indicator 留白边。现在整页底色由 AppShellView
+            // 统一铺到物理边缘了,那条"死白边"本来就不存在;继续贴底反而有害:抽屉
+            // 推开时页面被裁成 44pt 圆角,输入栏自己 26pt 的玻璃圆角正好落进那个圆角
+            // 里,两道弧线套在一起。让输入栏收回安全区之上即可(消息仍然从它背后滚
+            // 过去,底部那截不是死区)。
             .navigationTitle(threadTitle)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

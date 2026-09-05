@@ -1,6 +1,9 @@
 import SwiftUI
 import SwiftData
 import LodoCore
+#if os(iOS)
+import UIKit
+#endif
 
 /// app 的四个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
@@ -107,10 +110,13 @@ struct AppShellView: View {
     /// 位置已经在忽略安全区的子树里,读到的是 0。
     @State private var deviceTopInset: CGFloat = 0
     /// 同上,底部那截(home indicator)。整个抽屉容器忽略安全区之后,侧栏底部
-    /// 那排浮层按钮会一路贴到屏幕物理底边、被 home indicator 压住,得手动加回来。
-    /// 页面自己不用管:它们各有 NavigationStack,系统照常给内部的滚动视图留出
-    /// 底部安全区(AI 页的输入栏就一直是对的)。
+    /// 那排浮层按钮和页面内容都会一路贴到屏幕物理底边、被 home indicator 压住,
+    /// 得手动加回来(侧栏用 padding,页面用 safeAreaInset)。
     @State private var deviceBottomInset: CGFloat = 0
+    /// 键盘是否弹起。补回底部安全区那截是为了躲 home indicator,但键盘弹起时
+    /// 系统的键盘安全区已经把内容顶上去了,这时再叠一截会让输入栏浮在键盘上方
+    /// 34pt 处、中间空出一条。键盘期间归零即可。
+    @State private var keyboardVisible = false
 
     /// 关闭手势(遮罩上左滑)是和内容并行挂着的,哪一方接管这次拖拽在**第一帧**
     /// 就定死、之后不再改判:否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地
@@ -159,6 +165,12 @@ struct AppShellView: View {
                     }
             }
         )
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIResponder.keyboardWillShowNotification)) { _ in keyboardVisible = true }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIResponder.keyboardWillHideNotification)) { _ in keyboardVisible = false }
+        #endif
         .environment(\.sidebarChrome,
                      SidebarChrome(open: toggleSidebar, go: go,
                                    hidesChrome: hidesToolbarChrome))
@@ -388,6 +400,17 @@ struct AppShellView: View {
                 // 推开时那张卡上下各短一截、44pt 圆角悬在屏幕中间。自己铺一层
                 // 和侧栏同源的底色(DesignMetrics.panelBackground)并忽略安全区,
                 // 卡才是完整的一块"设备屏幕"。
+                //
+                // 但外层那句 ignoresSafeArea 是连页面内容一起吃掉的:底色铺满了,
+                // 页面内容也跟着压到 home indicator 上(AI 页输入栏最明显——原本
+                // 18pt 底距叠在安全区之上,变成直接贴着屏幕底边,它自己 26pt 的
+                // 玻璃圆角就和卡片 44pt 的圆角套成了两层角)。所以这里把底部那截
+                // 安全区原样还给内容:背景层在 frame 上、仍然铺满,内容层收进来。
+                // 顶部不用还——导航栏的让位是 UIKit 那侧按窗口安全区算的,不走
+                // SwiftUI 这套 inset,实测没被吃掉。
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear.frame(height: keyboardVisible ? 0 : deviceBottomInset)
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignMetrics.panelBackground(colorScheme))
                 // 收起时手势挂在页面内容上,和列表的纵向滚动并行(sidebarDrag 第一帧
@@ -430,7 +453,9 @@ struct AppShellView: View {
         // 挂在最外层之后 sectionStack 才拿到整屏的 frame,44pt 圆角落在屏幕真正的
         // 四角上。deviceTopInset 是在 body 的 background 上量的(在这一层之外),
         // 不受影响,侧栏 header 该让开灵动岛还是照让。
-        .ignoresSafeArea()
+        // 只忽略 .container 这一档:默认的 .all 连键盘区一起忽略掉,AI 页输入栏
+        // 会被弹起的键盘盖住。
+        .ignoresSafeArea(.container)
     }
 
     /// 宽屏(iPad 横屏、macOS):侧栏常驻并排,同一颗 ☰ 收起/展开,不做推移动画,
