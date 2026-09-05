@@ -1296,6 +1296,12 @@
     "取消录音" : {
 
     },
+    "取消收藏" : {
+
+    },
+    "取消新建" : {
+
+    },
     "只有日期、没有时间的事项,当天几点提醒。" : {
       "localizations" : {
         "en" : {
@@ -3366,6 +3372,7 @@
 
     },
     "清除筛选" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3380,6 +3387,9 @@
           }
         }
       }
+    },
+    "清除筛选:%@" : {
+
     },
     "温柔陪伴" : {
       "localizations" : {
@@ -3685,6 +3695,7 @@
       }
     },
     "筛选" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4282,6 +4293,7 @@
 
     },
     "资产" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
