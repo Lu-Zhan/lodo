@@ -444,6 +444,11 @@ struct AppShellView: View {
                 // 缩小那版看着像整页被"捏小",不是一张卡被推开的感觉。
                 .offset(x: sidebarProgress * DesignMetrics.sidebarWidth)
         }
+        // 整个 ZStack 垫一层和侧栏同源的底色。侧栏只有 300pt 宽,页面被推开后
+        // 裁出来的那个 44pt 圆角缺口在它右边、什么都没有,露的是窗口自己的纯白
+        // ——白底方角衬在圆角外面,看上去就像页面背后还压着一张没裁圆角的卡。
+        // 垫成侧栏同色之后,缺口处和侧栏连成一片,只剩卡自己那一道圆角。
+        .background(DesignMetrics.panelBackground(colorScheme))
         // 只对 showSidebar 挂动画:拖拽中 sidebarDragOffset 的变化要 1:1 跟手,
         // 不能被动画平滑掉(松手归位那下由 settleSidebar 里的 withAnimation 负责)。
         .animation(.lodoAware(.lodoSidebar), value: showSidebar)
