@@ -108,7 +108,7 @@ struct AppSidebarView: View {
                 Text("最近")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .listRowInsets(EdgeInsets(top: 16, leading: 24, bottom: 6, trailing: 20))
+                    .listRowInsets(EdgeInsets(top: 12, leading: 24, bottom: 4, trailing: 20))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 if filteredThreads.isEmpty {
@@ -134,7 +134,7 @@ struct AppSidebarView: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                         }
-                        .frame(minHeight: 48)
+                        .frame(minHeight: 40)
                     }
                     .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
                     .listRowSeparator(.hidden)
@@ -151,6 +151,9 @@ struct AppSidebarView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            // 系统默认最小行高是 44pt,比这里给各行定的 minHeight 还高,不清零的话
+            // 行高由它说了算、把 frame(minHeight:) 那几个数字架空。
+            .environment(\.defaultMinListRowHeight, 0)
             // 给底部浮层让出高度,最后一条对话仍能滚到浮层上方。
             .contentMargins(.bottom, 66, for: .scrollContent)
         }
@@ -208,7 +211,7 @@ struct AppSidebarView: View {
                     .foregroundStyle(.primary)
                 Spacer()
             }
-            .frame(minHeight: 48)
+            .frame(minHeight: 40)
         }
         .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
         .listRowSeparator(.hidden)
@@ -237,7 +240,7 @@ struct AppSidebarView: View {
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(showMoreTags ? 90 : 0))
                 }
-                .frame(minHeight: 40)
+                .frame(minHeight: 36)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
@@ -266,7 +269,8 @@ struct AppSidebarView: View {
     /// 单个记忆标签行:点进去 = 打开记忆页并按这个标签筛选;左滑切换"常驻"
     /// (常驻的平铺在"记忆"下面,其余收进"更多标签")。缩进和字号都跟导航行一致
     /// ——Label 的图标槽宽度是跟着字号走的,字号一变文字就落不到同一条竖线上了;
-    /// 行高比导航行矮一点,标签多的时候不至于把"最近"整个挤下去。
+    /// 行高比导航行矮一点,标签多的时候不至于把"最近"整个挤下去(再矮就低于
+    /// 能稳稳点中的尺寸了,36 是这里的下限)。
     private func tagRow(_ tag: String, pinned: Bool) -> some View {
         Button {
             onSelectTag(tag)
@@ -279,7 +283,7 @@ struct AppSidebarView: View {
                     .foregroundStyle(.primary)
                 Spacer()
             }
-            .frame(minHeight: 40)
+            .frame(minHeight: 36)
         }
         .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
         .listRowSeparator(.hidden)
