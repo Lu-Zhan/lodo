@@ -152,7 +152,7 @@ struct AppSidebarView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             // 给底部浮层让出高度,最后一条对话仍能滚到浮层上方。
-            .contentMargins(.bottom, 84, for: .scrollContent)
+            .contentMargins(.bottom, 66, for: .scrollContent)
         }
         .overlay(alignment: .bottom) { bottomBar }
         #if DEBUG
@@ -364,7 +364,9 @@ struct AppSidebarView: View {
         }
         .padding(.leading, 20)
         .padding(.trailing, 24)
-        .padding(.bottom, 28)
+        // 面板本身已经用 deviceBottomInset 把 home indicator 那截让开了,这里
+        // 只再留一点点余量——两个数是叠加的,这里写大了整排按钮会离屏幕底边太远。
+        .padding(.bottom, 10)
     }
 
     private var searchField: some View {
