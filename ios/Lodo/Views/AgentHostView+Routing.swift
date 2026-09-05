@@ -104,16 +104,23 @@ extension AgentHostView {
                 if actions.count == 1 {
                     if case .create(var parsed) = actions[0] {
                         // 时长记忆本来只有 Siri 快捷指令在用(LodoIntents.swift),
-                        // 聊天入口这条主路径反而没消费过——补上;走表单确认(不像
-                        // Siri 直接落库),AI 补的时长用户在表单里还能看到/改掉,
-                        // 比 Siri 那条路径更安全。
+                        // 聊天入口这条主路径反而没消费过——补上。
                         if parsed.durationMinutes == 0, let memory = DurationMemory.content,
                            let minutes = try? await DeepSeekClient.suggestDuration(
                                text: text, title: parsed.title, memory: memory),
                            minutes > 0 {
                             parsed.durationMinutes = minutes
                         }
-                        return .routeToForm(existing: nil, parsed: parsed)
+                        // 新建不再先出一张确认卡片等用户点"确认新建"——**默认就建**,
+                        // 结果卡片右边给一颗 ✕ 兜底。用户在对话里说的就是要加这件事,
+                        // 多点一次确认没带来信息量;真解析错了,✕(和批量执行同一套
+                        // lastUndo 快照)一点就没,比先拦一道更顺手。写法和下面
+                        // 单条修改那支完全对称。
+                        let created = TaskActions.create(parsed, context: context)
+                        WidgetBridge.sync(context: context)
+                        lastUndo = [.created(uuid: created.uuid)]
+                        lastUndoThreadUUID = threadUUID
+                        return .created(task: created, parsed: parsed)
                     }
                     if case .update(let uuid, let parsed) = actions[0] {
                         // 修改不弹确认卡片,直接落库——用户已经在对话里指名道姓要改

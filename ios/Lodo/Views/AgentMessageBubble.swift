@@ -25,6 +25,7 @@ struct AgentMessageBubble: View {
     var onCancelConfirm: () -> Void = {}
     var onUndo: () -> Void = {}
     var onMemorizeSuggestion: () -> Void = {}
+    var onCancelMemoryResult: () -> Void = {}
     var onTaskProposalConfirm: () -> Void = {}
     var onTaskProposalCancel: () -> Void = {}
     var onTaskProposalTap: () -> Void = {}
@@ -217,26 +218,30 @@ struct AgentMessageBubble: View {
         }
     }
 
-    /// 修改结果(existingUUID != nil)带撤销按钮,只在最新一条可点——route() 里
-    /// 单条修改已经跳过确认卡片直接落库,这个按钮是唯一的事后反悔手段。新建结果
-    /// 不带这个按钮:新建走的是"确认新建"点了之后才落库,已经确认过一次,维持
-    /// 现状不加撤销。
+    /// 新建和修改都是先落库再报告(见 route()),这张卡右边那颗按钮是唯一的事后
+    /// 反悔手段,只在最新一条可点(再往前的记录不给按钮,免得翻旧账时撤销掉的是
+    /// 后来那批)。两者图标/文案有意不同:新建给 ✕「取消」——语义是"这条别要了";
+    /// 修改给「撤销」箭头——语义是"改回原样"。两颗都走同一套 lastUndo 快照。
+    /// 老对话里点"确认新建"产生的结果卡 createdUUID 是 nil,照旧不带按钮
+    /// (那种流程本来就已经确认过一次)。
     @ViewBuilder
     private var taskResultContent: some View {
         if let taskSnapshot {
             VStack(alignment: .leading, spacing: 10) {
                 Text(message.content).font(.body)
-                if isLatest, taskSnapshot.existingUUID != nil {
+                if isLatest, taskSnapshot.existingUUID != nil || taskSnapshot.createdUUID != nil {
+                    let isCreate = taskSnapshot.createdUUID != nil
                     HStack(spacing: 8) {
                         AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
                         Button {
                             onUndo()
                         } label: {
-                            Label("撤销", systemImage: "arrow.uturn.backward")
+                            Label(isCreate ? "取消" : "撤销",
+                                  systemImage: isCreate ? "xmark" : "arrow.uturn.backward")
                                 .labelStyle(.iconOnly)
                         }
                         .buttonStyle(.bordered)
-                        .accessibilityLabel("撤销")
+                        .accessibilityLabel(isCreate ? "取消新建" : "撤销")
                     }
                 } else {
                     AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
@@ -259,24 +264,38 @@ struct AgentMessageBubble: View {
                 Text(message.content).font(.body)
             }
             if let item = resultMemoryItem {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: item.kind.symbol)
-                        .foregroundStyle(.tint)
-                        .frame(width: 20)
-                        .padding(.top, 2)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
-                        if !item.summary.isEmpty {
-                            Text(item.summary)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
+                HStack(spacing: 8) {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: item.kind.symbol)
+                            .foregroundStyle(.tint)
+                            .frame(width: 20)
+                            .padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
+                            if !item.summary.isEmpty {
+                                Text(item.summary)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
                         }
                     }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .glassBackground(
+                        RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+                    // 收藏/自动记录也是默认就存,这颗 ✕ 是事后反悔的入口,
+                    // 和新建待办那张卡同一个位置、同一个图标。
+                    if isLatest {
+                        Button {
+                            onCancelMemoryResult()
+                        } label: {
+                            Label("取消", systemImage: "xmark").labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("取消收藏")
+                    }
                 }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             }
         }
     }

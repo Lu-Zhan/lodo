@@ -53,6 +53,11 @@ struct AgentView: View {
     @FocusState private var isInputFocused: Bool
     /// 开始录音时已输入的文字,听写结果追加在其后。
     @State private var typedPrefix = ""
+    /// 当前 thread 最后一条是还没答的询问卡。这时整条输入区收起来——问题就摆在
+    /// 那儿等着选,底下再留个输入框是两个并行的入口,容易让人以为要打字回答;
+    /// 想自由回答的话询问卡自己带"其他"输入,不想答就点卡片上的取消(取消会追加
+    /// 一条文本消息,最后一条不再是询问卡,输入区随即回来)。
+    @State private var hasPendingAsk = false
     /// 长按气泡选了"引用"后待发送的那条消息;输入框上方的引用预览行据此渲染,
     /// 发送时会把它的文本折进 outgoing(不写回气泡展示用的 content)。
     @State private var quotedMessage: AgentMessage?
@@ -346,6 +351,7 @@ struct AgentView: View {
             AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
                                 onUndo: handleUndo,
                                 onMemorizeSuggestion: handleMemorizeSuggestion,
+                                onCancelMemoryResult: handleCancelMemoryResult,
                                 onTaskProposalConfirm: handleTaskProposalConfirm,
                                 onTaskProposalCancel: handleTaskProposalCancel,
                                 onTaskProposalTap: handleTaskProposalTap,
@@ -354,19 +360,23 @@ struct AgentView: View {
                                 onExamplePrompt: { send(overrideText: $0) },
                                 onCopy: copyMessageContent,
                                 onQuote: quoteMessage,
-                                onEdit: requestEdit)
+                                onEdit: requestEdit,
+                                onPendingAskChange: { hasPendingAsk = $0 })
                 .id(thread.uuid)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(spacing: 0) {
                         thinkingRow
-                        attachmentChipsRow
-                        quotedPreviewRow
-                        if let error = errorText ?? speech.errorText {
-                            Text(error).font(.footnote).foregroundStyle(.red)
-                                .padding(.horizontal)
+                        if !hasPendingAsk {
+                            attachmentChipsRow
+                            quotedPreviewRow
+                            if let error = errorText ?? speech.errorText {
+                                Text(error).font(.footnote).foregroundStyle(.red)
+                                    .padding(.horizontal)
+                            }
+                            inputBar
                         }
-                        inputBar
                     }
+                    .animation(.lodoAware(.snappy(duration: 0.2)), value: hasPendingAsk)
                 }
         } else {
             ProgressView()
@@ -771,18 +781,14 @@ struct AgentView: View {
         return message
     }
 
-    /// 单条新建/修改:AI 一解析完就追加一条待确认气泡(内联卡片 + Cancel/Confirm),
-    /// 不再自动弹表单——点卡片本身才跳到 TaskEditView(见 handleTaskProposalTap)。
-    private func appendTaskProposal(thread: AgentThread, existingUUID: UUID?, parsed: ParsedTask) {
-        let snapshot = AgentTaskSnapshot(existingUUID: existingUUID, parsed: parsed)
-        appendAssistant(thread: thread, kind: .taskProposal,
-                        content: existingUUID == nil ? "新建" : "修改",
-                        taskSnapshotData: try? JSONEncoder().encode(snapshot))
-    }
-
-    /// 确认(直接点 Confirm,或点卡片进表单改完保存)后的最终态,只读卡片。
-    private func appendTaskResult(thread: AgentThread, existingUUID: UUID?, parsed: ParsedTask) {
-        let snapshot = AgentTaskSnapshot(existingUUID: existingUUID, parsed: parsed)
+    /// 新建/修改落库后的只读结果卡片。新建和修改都已经**先落库再报告**,这张卡
+    /// 是事后反悔的入口(新建给 ✕、修改给撤销,见 AgentMessageBubble)。
+    /// taskProposal(先出提案、点了"确认新建"才落库)那条老路径不再产生新消息,
+    /// 但老对话里已经存下的那些仍然照常渲染、按钮照常可用。
+    private func appendTaskResult(thread: AgentThread, existingUUID: UUID?, parsed: ParsedTask,
+                                  createdUUID: UUID? = nil) {
+        let snapshot = AgentTaskSnapshot(existingUUID: existingUUID, parsed: parsed,
+                                         createdUUID: createdUUID)
         appendAssistant(thread: thread, kind: .taskResult,
                         content: existingUUID == nil ? "已新建" : "已修改",
                         taskSnapshotData: try? JSONEncoder().encode(snapshot))
@@ -863,6 +869,22 @@ struct AgentView: View {
         if case .answer(let text, let related) = onUndo(thread.uuid) {
             appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
         }
+    }
+
+    /// 记忆结果卡片右边那颗 ✕:收藏(以及 AI 自动记录)也是**默认就存**,这颗
+    /// 是事后反悔的入口。直接把这条消息原地改写成一句纯文本——条目删掉之后卡片
+    /// 本来就渲染不出来了(memoryResultContent 查不到 item),留着"已收藏"四个字
+    /// 反而对不上账。走 MemoryPipeline.delete,连同向量分片一起清掉。
+    private func handleCancelMemoryResult(_ message: AgentMessage) {
+        guard let uuid = message.resultMemoryUUID,
+              let item = (try? context.fetch(FetchDescriptor<MemoryItem>(
+                  predicate: #Predicate<MemoryItem> { $0.uuid == uuid })))?.first
+        else { return }
+        MemoryPipeline.delete(item, context: context)
+        message.resultMemoryUUID = nil
+        message.kindRaw = AgentMessageKind.text.rawValue
+        message.content = "已取消收藏。"
+        try? context.save()
     }
 
     /// "收藏这条"按钮:AI 主动建议、用户确认后才真正落库,展示形态和 memorize
@@ -1035,8 +1057,9 @@ struct AgentView: View {
                 // 又把回应加回来。
                 guard !Task.isCancelled else { return }
                 switch reply {
-                case .routeToForm(let existing, let parsed):
-                    appendTaskProposal(thread: thread, existingUUID: existing?.uuid, parsed: parsed)
+                case .created(let task, let parsed):
+                    appendTaskResult(thread: thread, existingUUID: nil, parsed: parsed,
+                                     createdUUID: task.uuid)
                 case .updated(let task, let parsed):
                     appendTaskResult(thread: thread, existingUUID: task.uuid, parsed: parsed)
                 case .confirm(let lines):
@@ -1093,7 +1116,7 @@ struct AgentView: View {
 
     private static func summaryInput(for reply: AgentReply) -> String {
         switch reply {
-        case .routeToForm(_, let parsed): return "新建了事项:\(parsed.title)"
+        case .created(_, let parsed): return "新建了事项:\(parsed.title)"
         case .updated(_, let parsed): return "修改了事项:\(parsed.title)"
         case .confirm(let lines): return lines.joined(separator: ";")
         case .ask(let questions): return questions.first?.question ?? ""
@@ -1159,15 +1182,21 @@ struct AgentView: View {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "我周三下午一般没空"))
             appendAssistant(thread: thread, kind: .memorizeSuggestion, content: "用户周三下午通常没有空闲时间")
         }
+        // 老对话里那种"先出提案、点确认才落库"的卡片。新流程不再产生它(新建
+        // 默认直接落库),但老库里存着的仍要能正常渲染——这个 demo 就是拿来回归
+        // 那条兼容路径的,所以消息在这儿手搓,不再留一个只有它在用的生产方法。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-proposal") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
-            appendTaskProposal(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask)
+            let snapshot = AgentTaskSnapshot(existingUUID: nil, parsed: Self.demoParsedTask)
+            appendAssistant(thread: thread, kind: .taskProposal, content: "新建",
+                            taskSnapshotData: try? JSONEncoder().encode(snapshot))
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
-            appendTaskResult(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask)
+            appendTaskResult(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask,
+                             createdUUID: UUID())
         }
-        // 修改结果卡片(带撤销按钮),和上面创建结果卡片(不带撤销按钮)对照截图用。
+        // 修改结果卡片(带撤销按钮),和上面新建结果卡片(带 ✕)对照截图用。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result-updated") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "开会挪到下午4点"))
             appendTaskResult(thread: thread, existingUUID: UUID(), parsed: Self.demoParsedTask)
@@ -1265,6 +1294,7 @@ private struct AgentMessageListView: View {
     let onConfirmAction: (AgentMessage, Bool) -> Void
     let onUndo: () -> Void
     let onMemorizeSuggestion: (AgentMessage) -> Void
+    let onCancelMemoryResult: (AgentMessage) -> Void
     let onTaskProposalConfirm: (AgentMessage) -> Void
     let onTaskProposalCancel: (AgentMessage) -> Void
     let onTaskProposalTap: (AgentMessage) -> Void
@@ -1274,8 +1304,15 @@ private struct AgentMessageListView: View {
     let onCopy: (AgentMessage) -> Void
     let onQuote: (AgentMessage) -> Void
     let onEdit: (AgentMessage) -> Void
+    /// 最后一条是不是还没答的询问卡。消息列表在这儿(@Query 在这个 struct 上),
+    /// 由它报给外层决定输入区收不收起来。
+    let onPendingAskChange: (Bool) -> Void
 
     @Query private var messages: [AgentMessage]
+    /// 最后一条是待答的询问卡(答完/取消后它会变成 askResult 或后面追加新消息,
+    /// 这个值随即变 false)。
+    private var hasPendingAsk: Bool { messages.last?.kind == .ask }
+
     /// 这个 thread 视图这次打开的时间点;晚于它 createdAt 的 .text 回复才播打字机
     /// 动画("这次会话里刚收到的新回复"),早于它的历史消息一律整段直接显示。
     /// .id(thread.uuid) 强制换 thread 时这个 struct 连带 @State 一起重建,
@@ -1284,6 +1321,7 @@ private struct AgentMessageListView: View {
 
     init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
          onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
+         onCancelMemoryResult: @escaping (AgentMessage) -> Void,
          onTaskProposalConfirm: @escaping (AgentMessage) -> Void,
          onTaskProposalCancel: @escaping (AgentMessage) -> Void,
          onTaskProposalTap: @escaping (AgentMessage) -> Void,
@@ -1292,11 +1330,13 @@ private struct AgentMessageListView: View {
          onExamplePrompt: @escaping (String) -> Void,
          onCopy: @escaping (AgentMessage) -> Void,
          onQuote: @escaping (AgentMessage) -> Void,
-         onEdit: @escaping (AgentMessage) -> Void) {
+         onEdit: @escaping (AgentMessage) -> Void,
+         onPendingAskChange: @escaping (Bool) -> Void) {
         self.thread = thread
         self.onConfirmAction = onConfirmAction
         self.onUndo = onUndo
         self.onMemorizeSuggestion = onMemorizeSuggestion
+        self.onCancelMemoryResult = onCancelMemoryResult
         self.onTaskProposalConfirm = onTaskProposalConfirm
         self.onTaskProposalCancel = onTaskProposalCancel
         self.onTaskProposalTap = onTaskProposalTap
@@ -1306,6 +1346,7 @@ private struct AgentMessageListView: View {
         self.onCopy = onCopy
         self.onQuote = onQuote
         self.onEdit = onEdit
+        self.onPendingAskChange = onPendingAskChange
         let uuid = thread.uuid
         _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == uuid },
                           sort: [SortDescriptor(\.createdAt)])
@@ -1325,6 +1366,7 @@ private struct AgentMessageListView: View {
                             onCancelConfirm: { onConfirmAction(message, false) },
                             onUndo: onUndo,
                             onMemorizeSuggestion: { onMemorizeSuggestion(message) },
+                            onCancelMemoryResult: { onCancelMemoryResult(message) },
                             onTaskProposalConfirm: { onTaskProposalConfirm(message) },
                             onTaskProposalCancel: { onTaskProposalCancel(message) },
                             onTaskProposalTap: { onTaskProposalTap(message) },
@@ -1347,7 +1389,9 @@ private struct AgentMessageListView: View {
             }
             .onAppear {
                 if let last = messages.last { proxy.scrollTo(last.uuid, anchor: .bottom) }
+                onPendingAskChange(hasPendingAsk)
             }
+            .onChange(of: hasPendingAsk) { _, pending in onPendingAskChange(pending) }
         }
     }
 
