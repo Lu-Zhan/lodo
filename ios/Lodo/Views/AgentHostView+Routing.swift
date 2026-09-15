@@ -10,7 +10,7 @@ extension AgentHostView {
     /// 批量或含完成/删除的进确认清单;单条收藏/查记忆直接执行/作答;
     /// 关键信息缺失时透传反问。uuid 用最新 pending 列表重新匹配。
     ///
-    /// ReAct 循环:模型如果先要查记忆/联网搜索/读健康数据才能给最终答案,会先返回
+    /// ReAct 循环:模型如果先要查记忆/联网搜索/读健康数据/读行程才能给最终答案,会先返回
     /// 一个 .toolCall(只读、不落库),执行完把结果喂回去再问一轮,最多 3 轮(1 次初始 +
     /// 2 次工具调用,几种工具可以混用),超过就报错——不能无限转,也不允许写操作
     /// 在这个循环里未经确认就被模型自己执行。onThought 用来给聊天页展示
@@ -32,12 +32,15 @@ extension AgentHostView {
         var currentText = text
         let webSearchEnabled = WebSearchClient.isConfigured
         let healthEnabled = AppSettings.healthEnabled && HealthKitBridge.isAvailable
+        // 旅行没有隐私开关(数据本来就是用户自己在本机记的),但仍然按"能力开关传参"
+        // 走:库里一次旅行都没有时不给这个工具,省下 prompt 里那一段。
+        let travelEnabled = !TravelStore.trips(in: context).isEmpty
 
         for _ in 0..<3 {
             switch try await DeepSeekClient.command(
                 currentText, tasks: taskContext, memoryEnabled: true,
                 webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
-                history: reasoningHistory,
+                travelEnabled: travelEnabled, history: reasoningHistory,
                 existingProjects: TaskProjects.all(in: context)) {
             case .ask(let questions):
                 return .ask(questions)
@@ -86,6 +89,14 @@ extension AgentHostView {
                                          content: "思考:\(thought);读健康数据:最近 \(days) 天"))
                 reasoningHistory.append((role: "user", content: "健康数据:\n\(observation)"))
                 currentText = "(请基于以上健康数据继续处理最初的请求:\(text))"
+            case .toolCall(let thought, .readTrip(let name)):
+                onThought(thought)
+                let observation = TravelStore.promptSummary(name: name, in: context)
+                    ?? "还没有记过任何旅行"
+                reasoningHistory.append((role: "assistant",
+                                         content: "思考:\(thought);读行程:\(name.isEmpty ? "当前旅行" : name)"))
+                reasoningHistory.append((role: "user", content: "行程:\n\(observation)"))
+                currentText = "(请基于以上行程继续处理最初的请求:\(text))"
             case .actions(let rawActions):
                 // 偏好、自动记录的重点事实都是副作用,不是待办的增删改:先摘出来
                 // 静默落盘,剩下的动作才走后面的路径。这样 pendingActions/确认清单/

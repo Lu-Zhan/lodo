@@ -162,6 +162,20 @@ public struct BackupMemoryItem: Codable {
     /// 非可选数组:老格式备份(这个 key 还不存在)靠这里的默认值兜底解码,
     /// 见 BackupDataTests 的老格式解码回归测试。
     public var attachmentRelativePaths: [String] = []
+    // 旅行字段:全是可选,老格式备份缺这些 key 时下面手写的 init(from:) 用 nil 兜底。
+    public var travelTripUUID: UUID?
+    public var travelKindRaw: String?
+    public var travelStart: Date?
+    public var travelEnd: Date?
+    public var travelPrice: Double?
+    public var travelCurrency: String?
+    public var travelPlaceName: String?
+    public var travelLatitude: Double?
+    public var travelLongitude: Double?
+    public var travelOriginName: String?
+    public var travelOriginLatitude: Double?
+    public var travelOriginLongitude: Double?
+    public var travelCode: String?
 
     public init(
         uuid: UUID, kindRaw: String, title: String, summary: String, tags: [String],
@@ -171,7 +185,20 @@ public struct BackupMemoryItem: Codable {
         assetInterestRate: Double? = nil,
         contactNickname: String? = nil, contactPhone: String? = nil, contactEmail: String? = nil,
         contactBirthday: Date? = nil, contactPreferences: String? = nil,
-        contactAvatarRelativePath: String? = nil, attachmentRelativePaths: [String] = []
+        contactAvatarRelativePath: String? = nil, attachmentRelativePaths: [String] = [],
+        travelTripUUID: UUID? = nil,
+        travelKindRaw: String? = nil,
+        travelStart: Date? = nil,
+        travelEnd: Date? = nil,
+        travelPrice: Double? = nil,
+        travelCurrency: String? = nil,
+        travelPlaceName: String? = nil,
+        travelLatitude: Double? = nil,
+        travelLongitude: Double? = nil,
+        travelOriginName: String? = nil,
+        travelOriginLatitude: Double? = nil,
+        travelOriginLongitude: Double? = nil,
+        travelCode: String? = nil
     ) {
         self.uuid = uuid
         self.kindRaw = kindRaw
@@ -195,6 +222,19 @@ public struct BackupMemoryItem: Codable {
         self.contactPreferences = contactPreferences
         self.contactAvatarRelativePath = contactAvatarRelativePath
         self.attachmentRelativePaths = attachmentRelativePaths
+        self.travelTripUUID = travelTripUUID
+        self.travelKindRaw = travelKindRaw
+        self.travelStart = travelStart
+        self.travelEnd = travelEnd
+        self.travelPrice = travelPrice
+        self.travelCurrency = travelCurrency
+        self.travelPlaceName = travelPlaceName
+        self.travelLatitude = travelLatitude
+        self.travelLongitude = travelLongitude
+        self.travelOriginName = travelOriginName
+        self.travelOriginLatitude = travelOriginLatitude
+        self.travelOriginLongitude = travelOriginLongitude
+        self.travelCode = travelCode
     }
 
     /// 手写 init(from:):新增字段用 decodeIfPresent 兜底,老格式备份(这些 key
@@ -226,6 +266,19 @@ public struct BackupMemoryItem: Codable {
             String.self, forKey: .contactAvatarRelativePath)
         attachmentRelativePaths = try c.decodeIfPresent(
             [String].self, forKey: .attachmentRelativePaths) ?? []
+        travelTripUUID = try c.decodeIfPresent(UUID.self, forKey: .travelTripUUID)
+        travelKindRaw = try c.decodeIfPresent(String.self, forKey: .travelKindRaw)
+        travelStart = try c.decodeIfPresent(Date.self, forKey: .travelStart)
+        travelEnd = try c.decodeIfPresent(Date.self, forKey: .travelEnd)
+        travelPrice = try c.decodeIfPresent(Double.self, forKey: .travelPrice)
+        travelCurrency = try c.decodeIfPresent(String.self, forKey: .travelCurrency)
+        travelPlaceName = try c.decodeIfPresent(String.self, forKey: .travelPlaceName)
+        travelLatitude = try c.decodeIfPresent(Double.self, forKey: .travelLatitude)
+        travelLongitude = try c.decodeIfPresent(Double.self, forKey: .travelLongitude)
+        travelOriginName = try c.decodeIfPresent(String.self, forKey: .travelOriginName)
+        travelOriginLatitude = try c.decodeIfPresent(Double.self, forKey: .travelOriginLatitude)
+        travelOriginLongitude = try c.decodeIfPresent(Double.self, forKey: .travelOriginLongitude)
+        travelCode = try c.decodeIfPresent(String.self, forKey: .travelCode)
     }
 }
 
@@ -241,7 +294,20 @@ extension MemoryItem {
             contactEmail: contactEmail, contactBirthday: contactBirthday,
             contactPreferences: contactPreferences,
             contactAvatarRelativePath: contactAvatarRelativePath,
-            attachmentRelativePaths: attachmentRelativePaths)
+            attachmentRelativePaths: attachmentRelativePaths,
+            travelTripUUID: travelTripUUID,
+            travelKindRaw: travelKindRaw,
+            travelStart: travelStart,
+            travelEnd: travelEnd,
+            travelPrice: travelPrice,
+            travelCurrency: travelCurrency,
+            travelPlaceName: travelPlaceName,
+            travelLatitude: travelLatitude,
+            travelLongitude: travelLongitude,
+            travelOriginName: travelOriginName,
+            travelOriginLatitude: travelOriginLatitude,
+            travelOriginLongitude: travelOriginLongitude,
+            travelCode: travelCode)
     }
 }
 
@@ -269,6 +335,19 @@ extension BackupMemoryItem {
         item.contactPreferences = contactPreferences
         item.contactAvatarRelativePath = contactAvatarRelativePath
         item.attachmentRelativePaths = attachmentRelativePaths
+        item.travelTripUUID = travelTripUUID
+        item.travelKindRaw = travelKindRaw
+        item.travelStart = travelStart
+        item.travelEnd = travelEnd
+        item.travelPrice = travelPrice
+        item.travelCurrency = travelCurrency
+        item.travelPlaceName = travelPlaceName
+        item.travelLatitude = travelLatitude
+        item.travelLongitude = travelLongitude
+        item.travelOriginName = travelOriginName
+        item.travelOriginLatitude = travelOriginLatitude
+        item.travelOriginLongitude = travelOriginLongitude
+        item.travelCode = travelCode
     }
 }
 
@@ -303,6 +382,43 @@ extension BackupContactRelationship {
         relationship.memoryUUIDB = memoryUUIDB
         relationship.label = label
         relationship.createdAt = createdAt
+    }
+}
+
+public struct BackupTravelTrip: Codable {
+    public var uuid: UUID
+    public var title: String
+    public var startDate: Date
+    public var endDate: Date
+    public var notes: String
+    public var createdAt: Date
+
+    public init(uuid: UUID, title: String, startDate: Date, endDate: Date,
+                notes: String, createdAt: Date) {
+        self.uuid = uuid
+        self.title = title
+        self.startDate = startDate
+        self.endDate = endDate
+        self.notes = notes
+        self.createdAt = createdAt
+    }
+}
+
+extension TravelTrip {
+    public var backup: BackupTravelTrip {
+        BackupTravelTrip(uuid: uuid, title: title, startDate: startDate, endDate: endDate,
+                         notes: notes, createdAt: createdAt)
+    }
+}
+
+extension BackupTravelTrip {
+    public func apply(to trip: TravelTrip) {
+        trip.uuid = uuid
+        trip.title = title
+        trip.startDate = startDate
+        trip.endDate = endDate
+        trip.notes = notes
+        trip.createdAt = createdAt
     }
 }
 
@@ -555,12 +671,16 @@ public struct BackupPayload: Codable {
     /// 非可选数组:老格式备份没有这个 key,靠默认值兜底解码(同
     /// attachmentRelativePaths,见 BackupDataTests 的老格式解码回归测试)。
     public var contactRelationships: [BackupContactRelationship] = []
+    /// 旅行。行程项本身是 MemoryItem,已经在 memoryItems 里了;这里只补"旅行本身",
+    /// 否则恢复出来的行程项会指向一个不存在的 trip,静默退化成普通记忆条目。
+    public var travelTrips: [BackupTravelTrip] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
         agentThreads: [BackupAgentThread], agentMessages: [BackupAgentMessage],
         skillOverrides: [BackupSkillOverride], settings: BackupSettings,
-        contactRelationships: [BackupContactRelationship] = []
+        contactRelationships: [BackupContactRelationship] = [],
+        travelTrips: [BackupTravelTrip] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -570,10 +690,11 @@ public struct BackupPayload: Codable {
         self.skillOverrides = skillOverrides
         self.settings = settings
         self.contactRelationships = contactRelationships
+        self.travelTrips = travelTrips
     }
 
-    /// 手写 init(from:):contactRelationships 是新增字段,老格式备份没有这个
-    /// key 时用空数组兜底,理由同 BackupMemoryItem 的手写 init(from:)。
+    /// 手写 init(from:):contactRelationships/travelTrips 是新增字段,老格式备份
+    /// 没有这些 key 时用空数组兜底,理由同 BackupMemoryItem 的手写 init(from:)。
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         tasks = try c.decode([BackupTask].self, forKey: .tasks)
@@ -585,5 +706,7 @@ public struct BackupPayload: Codable {
         settings = try c.decode(BackupSettings.self, forKey: .settings)
         contactRelationships = try c.decodeIfPresent(
             [BackupContactRelationship].self, forKey: .contactRelationships) ?? []
+        travelTrips = try c.decodeIfPresent(
+            [BackupTravelTrip].self, forKey: .travelTrips) ?? []
     }
 }

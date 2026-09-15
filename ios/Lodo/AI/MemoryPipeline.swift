@@ -366,6 +366,11 @@ enum MemoryPipeline {
     /// saveAutoMemory(新建、以及"更详细内容原地更新"两个分支)都要走这一步——
     /// 这些都是"字段已经现成、不需要再调 AI 整理"的直接落库场景,只是各自构造/
     /// 修改 item 的方式不同,收尾完全一样;调用方负责在需要时先 context.insert。
+    /// 旅行页要用同一套收尾(结构化落库 + 重建索引),开放给 TravelStore。
+    static func finishStructuredSave(_ item: MemoryItem, context: ModelContext) {
+        saveAndReindex(item, context: context)
+    }
+
     private static func saveAndReindex(_ item: MemoryItem, context: ModelContext) {
         try? context.save()
         Task { @MainActor in

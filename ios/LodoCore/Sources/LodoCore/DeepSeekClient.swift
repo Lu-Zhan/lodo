@@ -106,6 +106,9 @@ public enum AITool {
     /// 读本机健康数据(步数/睡眠/心率等)的日级汇总,回答"我这周睡得怎么样"
     /// 这类问题。只读且只拿汇总统计——原始逐条记录不出本机,更不进 prompt。
     case readHealth(days: Int)
+    /// 读某次旅行的行程,回答"我下周去东京的航班几点"这类问题。
+    /// name 为空表示"当前/最近的那次旅行",由调用方决定挑哪一趟。
+    case readTrip(name: String)
 }
 
 /// 定时任务(`AIRoutine`)跑一次的返回:最终要展示给用户的文字,或
@@ -259,6 +262,7 @@ public enum DeepSeekClient {
         memoryEnabled: Bool = false,
         webSearchEnabled: Bool = false,
         healthEnabled: Bool = false,
+        travelEnabled: Bool = false,
         history: [(role: String, content: String)] = [],
         existingProjects: [String] = []
     ) async throws -> AICommandResult {
@@ -275,7 +279,8 @@ public enum DeepSeekClient {
         \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))\
         \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
         \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")\
-        \(healthEnabled ? "\n\n" + AgentSkillStore.content(for: .health) : "")
+        \(healthEnabled ? "\n\n" + AgentSkillStore.content(for: .health) : "")\
+        \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")
 
         \(timeContext)\(preferencesBlock)
 
@@ -287,24 +292,25 @@ public enum DeepSeekClient {
             validUUIDs: tasks.map(\.uuid),
             memoryEnabled: memoryEnabled,
             webSearchEnabled: webSearchEnabled,
-            healthEnabled: healthEnabled)
+            healthEnabled: healthEnabled,
+            travelEnabled: travelEnabled)
     }
 
     /// 从 payload 里解析总入口结果(单测入口)。
     /// memoryEnabled == false 时 memorize/ask_memory、webSearchEnabled == false 时
-    /// web_search/answer、healthEnabled == false 时 read_health 按未知 action/工具
-    /// 处理(即使模型幻觉出来,Watch 等调用方也保持旧行为)。
+    /// web_search/answer、healthEnabled == false 时 read_health、travelEnabled == false
+    /// 时 read_trip 按未知 action/工具处理(即使模型幻觉出来,Watch 等调用方也保持旧行为)。
     static func parseCommand(
         _ payload: [String: Any], validUUIDs: [String],
         memoryEnabled: Bool, webSearchEnabled: Bool = false,
-        healthEnabled: Bool = false
+        healthEnabled: Bool = false, travelEnabled: Bool = false
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
             return .ask(try parseAsk(rawAsk))
         }
         // ReAct 中间步骤:对应开关关闭时 prompt 里根本没提过这个选项,
         // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
-        if (memoryEnabled || webSearchEnabled || healthEnabled),
+        if (memoryEnabled || webSearchEnabled || healthEnabled || travelEnabled),
            let toolName = payload["tool"] as? String {
             let thought = (payload["thought"] as? String) ?? ""
             switch toolName {
@@ -334,6 +340,11 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:read_health 缺少 days")
                 }
                 return .toolCall(thought: thought, tool: .readHealth(days: min(days, 90)))
+            case "read_trip" where travelEnabled:
+                // name 缺省 = "当前/最近那次旅行",由调用方挑;这里不当成错误。
+                let name = (payload["name"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return .toolCall(thought: thought, tool: .readTrip(name: name))
             default:
                 throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
             }
@@ -604,6 +615,71 @@ public enum DeepSeekClient {
             .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         return HealthAnalysis(analysis: analysis, suggestions: Array(suggestions.prefix(3)))
+    }
+
+    /// 把一段订单/确认单文本(订票邮件、酒店确认信、行程单,或 PDF 提取出的正文)
+    /// 解析成若干行程项。和 `parse`(新建待办)一样是"给一段自然语言、要一份结构化
+    /// 字段",区别是一次可能出来好几条(往返机票 + 酒店)。
+    ///
+    /// 解析结果**不直接落库**:调用方要先展示给用户确认(订单里的日期/金额认错了
+    /// 代价不小,不像单条待办那样撤销一下就完事)。
+    public static func parseTravelItems(
+        text: String, tripTitle: String, tripStart: Date, tripEnd: Date
+    ) async throws -> [ParsedTravelItem] {
+        let system = """
+        你是旅行助手。从用户给的订单/确认单/行程单文本里,抽取出所有行程项。
+        当前这趟旅行叫「\(tripTitle)」,日期范围 \(dateFormatter.string(from: tripStart)) 到 \(dateFormatter.string(from: tripEnd))。
+
+        只返回 JSON:{"items": [行程项, ...]},不要任何其他文字。每个行程项:
+        {"kind": "flight|lodging|place", "title": "简短名称", "code": "航班号/订单号,没有就省略", \
+        "start": "yyyy-MM-dd HH:mm", "end": "yyyy-MM-dd HH:mm", \
+        "place": "主要地点(住宿/地点填它本身,航班填**到达地**)", \
+        "origin": "航班的出发地,其余类型省略", \
+        "price": 数字, "currency": "ISO 4217 币种码如 CNY/JPY/USD", "note": "补充说明"}
+
+        规则:
+        - 往返机票是**两条** flight,别合成一条。
+        - 住宿的 start 是入住、end 是退房。
+        - 年份没写明时按上面给的旅行日期范围推断,不要凭空用今年。
+        - 时间拿不准就省略 start/end,别编一个;金额拿不准就省略 price。
+        - 文本里没有任何行程信息时返回 {"items": []}。
+        \(personaBlock)
+        """
+        return try parseTravelPayload(await payload(system: system, user: text, timeout: 90))
+    }
+
+    /// 从 payload 里解析行程项列表(单测入口,不发请求)。
+    /// 单条解析不出来(缺 kind/标题、日期格式不对)就跳过那条,不让整份订单白费。
+    static func parseTravelPayload(_ payload: [String: Any]) throws -> [ParsedTravelItem] {
+        guard let rawItems = payload["items"] as? [[String: Any]] else {
+            throw DeepSeekError.parse("返回格式异常:缺少 items")
+        }
+        return rawItems.compactMap { raw in
+            guard let kind = (raw["kind"] as? String).flatMap(TravelItemKind.init(rawValue:)),
+                  let title = (raw["title"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
+                return nil
+            }
+            func text(_ key: String) -> String? {
+                guard let value = (raw[key] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+                return value
+            }
+            func number(_ key: String) -> Double? {
+                if let value = raw[key] as? Double { return value }
+                if let value = raw[key] as? Int { return Double(value) }
+                return (raw[key] as? String).flatMap(Double.init)
+            }
+            return ParsedTravelItem(
+                kind: kind, title: title, code: text("code"),
+                start: text("start").flatMap(dateFormatter.date(from:)),
+                end: text("end").flatMap(dateFormatter.date(from:)),
+                placeName: text("place"), originName: text("origin"),
+                price: number("price"),
+                // 币种统一大写:模型偶尔会返回小写 "jpy",存下去会和 "JPY" 分成两组。
+                currency: text("currency")?.uppercased(),
+                note: text("note") ?? "")
+        }
     }
 
     /// 定时任务(`AIRoutine`)到点后跑一次:按用户自己写的指令生成这次要展示的内容。

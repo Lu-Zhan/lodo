@@ -8,6 +8,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case memory
     case webSearch
     case health
+    case travel
 
     public var id: String { rawValue }
 
@@ -18,6 +19,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .memory: return "记忆"
         case .webSearch: return "联网搜索"
         case .health: return "健康"
+        case .travel: return "旅行"
         }
     }
 
@@ -28,6 +30,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .memory: return "收藏与查记忆的判定规则(仅记忆功能开启时生效)"
         case .webSearch: return "查最新信息/回答一般问题的判定规则(仅配置 Tavily key 后生效)"
         case .health: return "读健康数据回答身体状况问题的判定规则(仅开启健康分析后生效)"
+        case .travel: return "读行程回答旅行安排问题的判定规则(仅记录过旅行后生效)"
         }
     }
 }
@@ -80,6 +83,7 @@ public enum AgentSkillStore {
         case .memory: return defaultMemory
         case .webSearch: return defaultWebSearch
         case .health: return defaultHealth
+        case .travel: return defaultTravel
         }
     }
 
@@ -225,5 +229,25 @@ public enum AgentSkillStore {
     - 没有可用数据时(未授权或没有记录)如实告诉用户去"设置 → 健康分析"里开启,不要猜数字。
     - 你不是医生:只描述趋势、给生活作息上的建议,不做诊断、不推荐药物;\
     数据明显异常时建议用户去看医生。
+    """
+
+    private static let defaultTravel = """
+    额外支持的操作:
+    - 先读行程再回答:{"thought": "为什么需要读", "tool": "read_trip", "name": "旅行名称"}\
+    (用户问自己某次旅行的安排时用:航班几点、住在哪、第几天去哪、一共花了多少。\
+    name 填用户说的那次旅行的名字;用户没指名、只说"我这趟"/"下次旅行"时把 name 留空,\
+    由 app 挑正在进行或最近的一次。每次交流最多用一次,拿到行程后必须在下一轮\
+    给出真正的最终答案,不能连续再读)
+
+    额外判断规则:
+    - 只有涉及用户**自己记过的**行程时才用 read_trip(如"我去东京的航班几点起飞"\
+    "这趟住在哪""行程一共花了多少")。泛泛的旅行问题(如"东京有什么好玩的"\
+    "十月去北海道冷不冷")属于一般性问题,该联网搜就搜,不要读行程。
+    - 读到的是已经记下来的行程项(航班/住宿/地点,含时间、地点、金额)。\
+    回答时就按读到的说,没有的信息别编——用户没记的航班号你编不出来。
+    - 没有任何行程时如实告诉用户还没记过旅行,不要猜。
+    - 用户要你**新增/修改行程项**时,不要用 actions 里的待办操作去凑\
+    (待办和行程是两回事)。如实说明行程项要在「旅行」页里加,或者把订单\
+    文本贴进那一页让 app 解析。
     """
 }

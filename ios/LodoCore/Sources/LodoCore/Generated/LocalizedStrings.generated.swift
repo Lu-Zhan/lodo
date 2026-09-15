@@ -169,6 +169,11 @@ public enum LK: String, CaseIterable {
     case ios_core_invalid_response_read_health_is_missing
     case ios_core_invalid_response_missing_analysis
     case ios_core_health_trend_chart_suffix
+    case ios_core_travel_flight
+    case ios_core_travel_lodging
+    case ios_core_travel_place
+    case ios_core_invalid_response_read_trip_is_missing
+    case ios_core_invalid_response_missing_items
 }
 
 public enum LocalizedStrings {
@@ -334,6 +339,11 @@ public enum LocalizedStrings {
         .ios_core_invalid_response_read_health_is_missing: [.zhHans: "返回格式异常:read_health 缺少 days", .en: "Invalid response: read_health is missing days"],
         .ios_core_invalid_response_missing_analysis: [.zhHans: "返回格式异常:缺少 analysis", .en: "Invalid response: missing analysis"],
         .ios_core_health_trend_chart_suffix: [.zhHans: "趋势图", .en: " trend chart"],
+        .ios_core_travel_flight: [.zhHans: "航班", .en: "Flight"],
+        .ios_core_travel_lodging: [.zhHans: "住宿", .en: "Lodging"],
+        .ios_core_travel_place: [.zhHans: "地点", .en: "Place"],
+        .ios_core_invalid_response_read_trip_is_missing: [.zhHans: "返回格式异常:read_trip 缺少 name", .en: "Invalid response: read_trip is missing name"],
+        .ios_core_invalid_response_missing_items: [.zhHans: "返回格式异常:缺少 items", .en: "Invalid response: missing items"],
     ]
 
     public static func text(_ key: LK, language: AppLanguage) -> String {

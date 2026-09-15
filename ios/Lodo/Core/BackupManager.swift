@@ -52,6 +52,7 @@ enum BackupManager {
         let agentThreads = ((try? context.fetch(FetchDescriptor<AgentThread>())) ?? [])
         let agentMessages = ((try? context.fetch(FetchDescriptor<AgentMessage>())) ?? [])
         let contactRelationships = ((try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [])
+        let travelTrips = ((try? context.fetch(FetchDescriptor<TravelTrip>())) ?? [])
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -64,7 +65,8 @@ enum BackupManager {
             agentMessages: agentMessages.map { $0.backup },
             skillOverrides: skillOverrides,
             settings: currentSettings(),
-            contactRelationships: contactRelationships.map { $0.backup })
+            contactRelationships: contactRelationships.map { $0.backup },
+            travelTrips: travelTrips.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -195,6 +197,20 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: relationship)
+        }
+
+        // 行程项本身走 memoryItems 那一轮,这里只补"旅行本身"——顺序无所谓,
+        // 两者靠 uuid 关联,不是 SwiftData 关系。
+        for dto in payload.travelTrips {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<TravelTrip>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let trip = existing ?? {
+                let created = TravelTrip(uuid: dto.uuid, title: dto.title)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: trip)
         }
 
         for override in payload.skillOverrides {

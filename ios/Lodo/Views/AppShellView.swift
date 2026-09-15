@@ -2,15 +2,15 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// app 的五个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
+/// app 的六个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
 enum AppSection: Hashable, CaseIterable {
-    case overview, todo, memory, health, agent
+    case overview, todo, memory, health, travel, agent
 }
 
 // MARK: - 导航栏 ☰ 按钮(经 Environment 下发,四个页面共用)
 
-/// 抽屉开关 + 当前是否该藏起导航栏上的自绘按钮。五个页面各自持有自己的
+/// 抽屉开关 + 当前是否该藏起导航栏上的自绘按钮。六个页面各自持有自己的
 /// NavigationStack/toolbar,靠 Environment 拿到这两样东西,不用逐个加 init 参数。
 struct SidebarChrome {
     let open: () -> Void
@@ -89,7 +89,7 @@ struct AppShellView: View {
     }
 
     @State private var section: AppSection
-    /// 已经打开过的页面。五个页面用 ZStack 叠着、只显示当前那个(切回来时筛选
+    /// 已经打开过的页面。六个页面用 ZStack 叠着、只显示当前那个(切回来时筛选
     /// 胶囊/滚动位置还在,和原来 TabView 的行为一致),但**没打开过的不构建**
     /// ——总览页一挂载就会发起 AI 请求,不能因为它排在第一个就在启动时先跑一遍。
     @State private var visited: Set<AppSection>
@@ -260,7 +260,7 @@ struct AppShellView: View {
 
     // MARK: - 页面
 
-    /// 五个页面叠在一起,只显示当前那个;没打开过的不构建(见 visited 的注释)。
+    /// 六个页面叠在一起,只显示当前那个;没打开过的不构建(见 visited 的注释)。
     private var sectionStack: some View {
         ZStack {
             ForEach(AppSection.allCases, id: \.self) { candidate in
@@ -287,6 +287,8 @@ struct AppShellView: View {
                            path: $memoryPath, tagFilter: $memoryTagFilter)
         case .health:
             HealthView()
+        case .travel:
+            TravelListView()
         case .agent:
             AgentHostView(currentThreadUUID: $currentThreadUUID, agentRequest: $agentRequest)
         }
@@ -641,6 +643,7 @@ struct AppShellView: View {
                        "--demo-contact-graph", "--demo-contact-detail",
                        "--demo-contact-export-picker"]),
             (.health, ["--demo-health"]),
+            (.travel, ["--demo-travel"]),
             (.todo, ["--demo-done-tab", "--demo-seed-data", "--demo-filter-all",
                      "--demo-filter-done", "--demo-project-list", "--demo-project-timeline",
                      "--demo-ask-duration", "--demo-convert-to-todo"]),

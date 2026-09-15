@@ -17,6 +17,22 @@
         }
       }
     },
+    "%@ · %lld 天 · %lld 项": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld days · %lld items"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld 天 · %lld 项"
+          }
+        }
+      }
+    },
     "%@(%@)": {
       "localizations": {
         "en": {
@@ -369,6 +385,22 @@
         }
       }
     },
+    "不填时间也能存,会收进「未排期」。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can save without a time — it goes under “Unscheduled”."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不填时间也能存,会收进「未排期」。"
+          }
+        }
+      }
+    },
     "不重复": {
       "localizations": {
         "en": {
@@ -545,6 +577,22 @@
         }
       }
     },
+    "从订单导入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import from Booking"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从订单导入"
+          }
+        }
+      }
+    },
     "从记忆库选择": {
       "localizations": {
         "en": {
@@ -589,6 +637,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "从通讯录选择导入"
+          }
+        }
+      }
+    },
+    "以下币种暂时换不到汇率,没有计入合计:%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No exchange rate available for these currencies yet, so they're not in the total: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以下币种暂时换不到汇率,没有计入合计:%@"
+          }
+        }
+      }
+    },
+    "价格": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Price"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "价格"
           }
         }
       }
@@ -669,6 +749,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "低"
+          }
+        }
+      }
+    },
+    "住宿名称,如 新宿王子酒店": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lodging name, e.g. Shinjuku Prince Hotel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "住宿名称,如 新宿王子酒店"
           }
         }
       }
@@ -897,6 +993,22 @@
         }
       }
     },
+    "入住": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-in"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入住"
+          }
+        }
+      }
+    },
     "全天": {
       "localizations": {
         "en": {
@@ -1025,6 +1137,22 @@
         }
       }
     },
+    "写入行程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写入行程"
+          }
+        }
+      }
+    },
     "写点想收藏的内容,AI 会整理成记忆条目。": {
       "localizations": {
         "en": {
@@ -1037,6 +1165,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "写点想收藏的内容,AI 会整理成记忆条目。"
+          }
+        }
+      }
+    },
+    "出发": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depart"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出发"
+          }
+        }
+      }
+    },
+    "出发地": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出发地"
           }
         }
       }
@@ -1169,6 +1329,22 @@
         }
       }
     },
+    "删除这次旅行?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this trip?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这次旅行?"
+          }
+        }
+      }
+    },
     "到设定时间自动执行,结果推送给你。系统会挑合适的时机在后台完成,如果没赶上,到点会先提醒你打开 app,打开后立刻补跑。": {
       "localizations": {
         "en": {
@@ -1181,6 +1357,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "到设定时间自动执行,结果推送给你。系统会挑合适的时机在后台完成,如果没赶上,到点会先提醒你打开 app,打开后立刻补跑。"
+          }
+        }
+      }
+    },
+    "到达地": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到达地"
           }
         }
       }
@@ -1213,6 +1405,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "加元"
+          }
+        }
+      }
+    },
+    "即将出发": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upcoming"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即将出发"
           }
         }
       }
@@ -1281,6 +1489,22 @@
         }
       }
     },
+    "去哪儿,如 东京四日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where to? e.g. Four Days in Tokyo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去哪儿,如 东京四日"
+          }
+        }
+      }
+    },
     "取消": {
       "localizations": {
         "en": {
@@ -1293,6 +1517,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "取消"
+          }
+        }
+      }
+    },
+    "取消勾选的不会写进行程。日期或金额不对的,先存下来再到行程里改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unchecked items aren't added. If a date or amount is off, save it and fix it in the trip."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消勾选的不会写进行程。日期或金额不对的,先存下来再到行程里改。"
           }
         }
       }
@@ -1345,6 +1585,22 @@
         }
       }
     },
+    "右上角「+」手动加一条,或者把订票邮件贴进来让 AI 拆。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add one with “+”, or paste a booking email and let the AI split it up."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右上角「+」手动加一条,或者把订票邮件贴进来让 AI 拆。"
+          }
+        }
+      }
+    },
     "合并更新": {
       "localizations": {
         "en": {
@@ -1373,6 +1629,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "合并更新按待办/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有待办、记忆和 AI 对话,不可撤销。"
+          }
+        }
+      }
+    },
+    "合计": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合计"
           }
         }
       }
@@ -1597,6 +1869,102 @@
           "stringUnit": {
             "state": "translated",
             "value": "在设定时间提醒今天开始或到期的事项。"
+          }
+        }
+      }
+    },
+    "在这天添加行程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to this day"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在这天添加行程"
+          }
+        }
+      }
+    },
+    "地图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Map"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地图"
+          }
+        }
+      }
+    },
+    "地图上还没有点": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Pins Yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地图上还没有点"
+          }
+        }
+      }
+    },
+    "地点": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Place"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地点"
+          }
+        }
+      }
+    },
+    "地点名称,如 浅草寺": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Place name, e.g. Sensō-ji"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地点名称,如 浅草寺"
+          }
+        }
+      }
+    },
+    "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With check-in and check-out set, this lodging shows on every night you stay (not the checkout day)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。"
           }
         }
       }
@@ -1969,6 +2337,22 @@
         }
       }
     },
+    "已结束": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Past"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已结束"
+          }
+        }
+      }
+    },
     "已自定义": {
       "localizations": {
         "en": {
@@ -1981,6 +2365,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "已自定义"
+          }
+        }
+      }
+    },
+    "已记录坐标": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coordinates saved"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已记录坐标"
           }
         }
       }
@@ -2065,6 +2465,22 @@
         }
       }
     },
+    "建一次旅行,把航班、住宿、想去的地方都放进去,可以按天看,也可以看花了多少。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create a trip and put your flights, lodging and places into it — view it day by day, or see what it cost."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建一次旅行,把航班、住宿、想去的地方都放进去,可以按天看,也可以看花了多少。"
+          }
+        }
+      }
+    },
     "开启健康分析": {
       "localizations": {
         "en": {
@@ -2141,6 +2557,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "开始使用"
+          }
+        }
+      }
+    },
+    "开始时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始时间"
           }
         }
       }
@@ -2241,6 +2673,22 @@
         }
       }
     },
+    "总花费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total Spend"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "总花费"
+          }
+        }
+      }
+    },
     "总览": {
       "localizations": {
         "en": {
@@ -2269,6 +2717,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "所有条目里的这个标签会一起改名。"
+          }
+        }
+      }
+    },
+    "手动添加": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Manually"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动添加"
           }
         }
       }
@@ -2321,6 +2785,22 @@
         }
       }
     },
+    "把订票邮件、酒店确认信或行程单贴进来,AI 会拆成航班/住宿/地点。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste a booking email, hotel confirmation or itinerary — the AI splits it into flights, lodging and places."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把订票邮件、酒店确认信或行程单贴进来,AI 会拆成航班/住宿/地点。"
+          }
+        }
+      }
+    },
     "指令原样发给 AI,写清楚要什么内容;每次只会返回一段不超过 120 字的文字。": {
       "localizations": {
         "en": {
@@ -2349,6 +2829,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "指标"
+          }
+        }
+      }
+    },
+    "按「设置 → 资产显示币种」折算,汇率与资产总览共用同一份。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Converted using Settings → Asset display currency; same rates as the asset overview."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按「设置 → 资产显示币种」折算,汇率与资产总览共用同一份。"
+          }
+        }
+      }
+    },
+    "按天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By Day"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按天"
+          }
+        }
+      }
+    },
+    "按币种": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By Currency"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按币种"
           }
         }
       }
@@ -2461,6 +2989,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "提醒时间点"
+          }
+        }
+      }
+    },
+    "搜索": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索"
+          }
+        }
+      }
+    },
+    "搜索地点": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search places"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索地点"
+          }
+        }
+      }
+    },
+    "搜索失败,检查一下网络再试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search failed. Check your connection and try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索失败,检查一下网络再试。"
           }
         }
       }
@@ -2625,6 +3201,22 @@
         }
       }
     },
+    "新建旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建旅行"
+          }
+        }
+      }
+    },
     "新标签": {
       "localizations": {
         "en": {
@@ -2637,6 +3229,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "新标签"
+          }
+        }
+      }
+    },
+    "旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Travel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "旅行"
           }
         }
       }
@@ -2977,6 +3585,38 @@
         }
       }
     },
+    "未命名旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untitled Trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未命名旅行"
+          }
+        }
+      }
+    },
+    "未排期": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unscheduled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未排期"
+          }
+        }
+      }
+    },
     "未来待办": {
       "localizations": {
         "en": {
@@ -3185,6 +3825,22 @@
         }
       }
     },
+    "正在搜索…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在搜索…"
+          }
+        }
+      }
+    },
     "正在生成…": {
       "localizations": {
         "en": {
@@ -3313,6 +3969,22 @@
         }
       }
     },
+    "没从这段文字里读出行程项。换一段更完整的订单内容试试,或者直接手动添加。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't find any itinerary items in that text. Try a fuller booking text, or add one manually."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没从这段文字里读出行程项。换一段更完整的订单内容试试,或者直接手动添加。"
+          }
+        }
+      }
+    },
     "没有匹配的对话": {
       "localizations": {
         "en": {
@@ -3341,6 +4013,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "没有待办"
+          }
+        }
+      }
+    },
+    "没有找到这个地方。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No places found."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有找到这个地方。"
           }
         }
       }
@@ -3457,6 +4145,22 @@
         }
       }
     },
+    "添加行程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Itinerary"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加行程"
+          }
+        }
+      }
+    },
     "清除筛选": {
       "localizations": {
         "en": {
@@ -3533,6 +4237,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "澳元"
+          }
+        }
+      }
+    },
+    "点「搜索」选地点才会记下坐标,地图上才画得出这个点;只手打名字也能存,只是不上地图。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a place via “Search” to save coordinates for the map; a typed name saves fine but won't be pinned."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点「搜索」选地点才会记下坐标,地图上才画得出这个点;只手打名字也能存,只是不上地图。"
           }
         }
       }
@@ -3681,6 +4401,22 @@
         }
       }
     },
+    "移出行程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from Trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移出行程"
+          }
+        }
+      }
+    },
     "稍等或忽略提醒后,间隔多久再次提醒,直到完成。": {
       "localizations": {
         "en": {
@@ -3745,6 +4481,22 @@
         }
       }
     },
+    "第 %lld 天 · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day %lld · %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %lld 天 · %@"
+          }
+        }
+      }
+    },
     "筛选": {
       "localizations": {
         "en": {
@@ -3773,6 +4525,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "管理标签"
+          }
+        }
+      }
+    },
+    "类型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "类型"
           }
         }
       }
@@ -3825,6 +4593,38 @@
         }
       }
     },
+    "结束时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ends"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束时间"
+          }
+        }
+      }
+    },
+    "结束时间早于开始时间,改一下才能保存。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The end time is before the start time. Fix it to save."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束时间早于开始时间,改一下才能保存。"
+          }
+        }
+      }
+    },
     "结果发通知": {
       "localizations": {
         "en": {
@@ -3841,6 +4641,38 @@
         }
       }
     },
+    "给行程项填上金额,这里就会按币种和类型汇总。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add amounts to your itinerary items and they'll be totalled here by currency and type."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "给行程项填上金额,这里就会按币种和类型汇总。"
+          }
+        }
+      }
+    },
+    "给行程项填地点时点「搜索」选一下,才会记下坐标画到地图上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap “Search” when filling in a place so its coordinates get saved and pinned."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "给行程项填地点时点「搜索」选一下,才会记下坐标画到地图上。"
+          }
+        }
+      }
+    },
     "绿色": {
       "localizations": {
         "en": {
@@ -3853,6 +4685,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "绿色"
+          }
+        }
+      }
+    },
+    "编辑旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑旅行"
+          }
+        }
+      }
+    },
+    "编辑行程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Itinerary"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑行程"
           }
         }
       }
@@ -3937,6 +4801,54 @@
         }
       }
     },
+    "航班号(可选)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flight number (optional)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "航班号(可选)"
+          }
+        }
+      }
+    },
+    "航空公司/航段,如 国航 北京–东京": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airline / leg, e.g. Air China Beijing–Tokyo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "航空公司/航段,如 国航 北京–东京"
+          }
+        }
+      }
+    },
+    "花费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spend"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "花费"
+          }
+        }
+      }
+    },
     "英镑": {
       "localizations": {
         "en": {
@@ -4001,6 +4913,38 @@
         }
       }
     },
+    "行程日期之外": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outside Trip Dates"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行程日期之外"
+          }
+        }
+      }
+    },
+    "行程项": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Items"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行程项"
+          }
+        }
+      }
+    },
     "要 AI 每次做什么,如:看看今天上海的天气,给一句穿衣建议": {
       "localizations": {
         "en": {
@@ -4013,6 +4957,118 @@
           "stringUnit": {
             "state": "translated",
             "value": "要 AI 每次做什么,如:看看今天上海的天气,给一句穿衣建议"
+          }
+        }
+      }
+    },
+    "视图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视图"
+          }
+        }
+      }
+    },
+    "解析": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parse"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解析"
+          }
+        }
+      }
+    },
+    "解析中…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parsing…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解析中…"
+          }
+        }
+      }
+    },
+    "解析出来的每一条都会先让你过一眼,确认后才写进行程。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You review everything it finds before any of it is written to the trip."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解析出来的每一条都会先让你过一眼,确认后才写进行程。"
+          }
+        }
+      }
+    },
+    "解析结果": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What It Found"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解析结果"
+          }
+        }
+      }
+    },
+    "订单内容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Booking Text"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订单内容"
+          }
+        }
+      }
+    },
+    "订单号/房号(可选)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Booking / room number (optional)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订单号/房号(可选)"
           }
         }
       }
@@ -4353,6 +5409,22 @@
         }
       }
     },
+    "起飞时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起飞时间"
+          }
+        }
+      }
+    },
     "趋势": {
       "localizations": {
         "en": {
@@ -4449,6 +5521,38 @@
         }
       }
     },
+    "返程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Return"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返程"
+          }
+        }
+      }
+    },
+    "返程早于出发,改一下才能保存。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The return date is before the departure date. Fix it to save."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返程早于出发,改一下才能保存。"
+          }
+        }
+      }
+    },
     "还没有人脉。": {
       "localizations": {
         "en": {
@@ -4525,6 +5629,150 @@
           "stringUnit": {
             "state": "translated",
             "value": "还没有收藏"
+          }
+        }
+      }
+    },
+    "还没有旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Trips Yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有旅行"
+          }
+        }
+      }
+    },
+    "还没有行程": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing Planned Yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有行程"
+          }
+        }
+      }
+    },
+    "还没有记过花费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Spending Recorded"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有记过花费"
+          }
+        }
+      }
+    },
+    "这些行程项的时间不在这次旅行的日期范围里。改一下旅行日期,或者改这一项的时间。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These fall outside the trip's date range. Adjust the trip dates, or this item's time."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这些行程项的时间不在这次旅行的日期范围里。改一下旅行日期,或者改这一项的时间。"
+          }
+        }
+      }
+    },
+    "这天还没安排": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing planned for this day"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这天还没安排"
+          }
+        }
+      }
+    },
+    "这次旅行下面的航班、住宿、地点会一起删掉(它们同时是记忆条目)。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its flights, lodging and places go too — they are memory entries as well."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这次旅行下面的航班、住宿、地点会一起删掉(它们同时是记忆条目)。"
+          }
+        }
+      }
+    },
+    "进行中": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ongoing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "进行中"
+          }
+        }
+      }
+    },
+    "退房": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-out"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退房"
+          }
+        }
+      }
+    },
+    "选择地点": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a Place"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择地点"
           }
         }
       }
@@ -4861,6 +6109,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "附件"
+          }
+        }
+      }
+    },
+    "降落时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrival"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "降落时间"
           }
         }
       }

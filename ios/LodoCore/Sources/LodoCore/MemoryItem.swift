@@ -84,6 +84,34 @@ public final class MemoryItem {
     /// 多个文件附件的 App Group 相对路径;非人脉条目恒为空数组。
     public var attachmentRelativePaths: [String] = []
 
+    // MARK: - 旅行字段(tags 含 travelTagName 时才有意义,与 assetValue 同思路)
+    // 行程项不是独立模型:一张机票、一晚住宿、一个想去的地方,本身就是一条记忆
+    // (订单确认单可以直接当附件存、能被记忆搜索和"问 AI"命中),这里只是把
+    // "它属于哪次旅行、排在什么时候、在哪、花了多少"这几件事挂上去。
+    /// 属于哪次旅行(`TravelTrip.uuid`);不建 SwiftData 关系,见 TravelTrip 的注释。
+    public var travelTripUUID: UUID?
+    /// 行程项类型:flight / lodging / place,见 `TravelItemKind`。
+    public var travelKindRaw: String?
+    /// 起讫时间。航班=起飞/降落,住宿=入住/退房,地点=计划到访的时间段(可只有开始)。
+    /// 两个都为 nil 表示还没排期,按天视图会把它收进"未排期"。
+    public var travelStart: Date?
+    public var travelEnd: Date?
+    /// 这一项的花费与币种。币种为 nil 时按 `travelCurrencyOrDefault` 兜底成人民币
+    /// (和资产的 assetCurrencyOrDefault 同一个处理)。
+    public var travelPrice: Double?
+    public var travelCurrency: String?
+    /// 主地点:住宿/地点就是它本身,航班用**到达地**。名字 + 可选坐标(搜地名选点
+    /// 时一起存下来;只手输名字没选点时坐标为 nil,地图上就不画这个点)。
+    public var travelPlaceName: String?
+    public var travelLatitude: Double?
+    public var travelLongitude: Double?
+    /// 航班的出发地(其余类型为 nil),和主地点凑成地图上的一条航线。
+    public var travelOriginName: String?
+    public var travelOriginLatitude: Double?
+    public var travelOriginLongitude: Double?
+    /// 航班号/订单号/房号这类编号,自由文本。
+    public var travelCode: String?
+
     public init(
         kind: MemoryKind,
         title: String = "",
@@ -104,7 +132,20 @@ public final class MemoryItem {
         contactBirthday: Date? = nil,
         contactPreferences: String? = nil,
         contactAvatarRelativePath: String? = nil,
-        attachmentRelativePaths: [String] = []
+        attachmentRelativePaths: [String] = [],
+        travelTripUUID: UUID? = nil,
+        travelKind: TravelItemKind? = nil,
+        travelStart: Date? = nil,
+        travelEnd: Date? = nil,
+        travelPrice: Double? = nil,
+        travelCurrency: String? = nil,
+        travelPlaceName: String? = nil,
+        travelLatitude: Double? = nil,
+        travelLongitude: Double? = nil,
+        travelOriginName: String? = nil,
+        travelOriginLatitude: Double? = nil,
+        travelOriginLongitude: Double? = nil,
+        travelCode: String? = nil
     ) {
         self.uuid = UUID()
         self.kindRaw = kind.rawValue
@@ -128,6 +169,19 @@ public final class MemoryItem {
         self.contactPreferences = contactPreferences
         self.contactAvatarRelativePath = contactAvatarRelativePath
         self.attachmentRelativePaths = attachmentRelativePaths
+        self.travelTripUUID = travelTripUUID
+        self.travelKindRaw = travelKind?.rawValue
+        self.travelStart = travelStart
+        self.travelEnd = travelEnd
+        self.travelPrice = travelPrice
+        self.travelCurrency = travelCurrency
+        self.travelPlaceName = travelPlaceName
+        self.travelLatitude = travelLatitude
+        self.travelLongitude = travelLongitude
+        self.travelOriginName = travelOriginName
+        self.travelOriginLatitude = travelOriginLatitude
+        self.travelOriginLongitude = travelOriginLongitude
+        self.travelCode = travelCode
     }
 
     public var kind: MemoryKind { MemoryKind(rawValue: kindRaw) ?? .text }
@@ -152,6 +206,15 @@ public final class MemoryItem {
     /// 只是保留、不隐藏——健康记录该在记忆列表里正常出现。
     public static let healthTagName = "健康"
     public var isHealth: Bool { tags.contains(Self.healthTagName) }
+    /// 保留标签:一次旅行里的行程项(航班/住宿/地点)。和"健康"/"AI记录"同组——
+    /// 是保留标签(不能改名/删除)但**不**默认隐藏,在记忆列表里正常显示、正常搜。
+    public static let travelTagName = "旅行"
+    public var isTravel: Bool { tags.contains(Self.travelTagName) }
+    public var travelKind: TravelItemKind? {
+        travelKindRaw.flatMap(TravelItemKind.init(rawValue:))
+    }
+    /// 老数据/没填币种时统一按人民币对待(同 assetCurrencyOrDefault)。
+    public var travelCurrencyOrDefault: String { travelCurrency ?? "CNY" }
     /// 全部保留标签的集合,供 UI 层统一过滤(标签管理页的可管理列表、详情页
     /// 标签编辑器的候选与手输校验都应该引用这一份定义,不要各自维护一份
     /// 排除规则——历史上就是因为三处各写各的,漏了"人脉"没被
@@ -159,11 +222,11 @@ public final class MemoryItem {
     /// 删除/手动增删",和下面 `hiddenByDefaultTagNames`(默认隐藏筛选)是
     /// 两个不同维度——"AI记录"是保留标签但不隐藏,不能共用同一份集合。
     public static let reservedTagNames: Set<String> = [
-        assetTagName, contactTagName, autoTagName, healthTagName,
+        assetTagName, contactTagName, autoTagName, healthTagName, travelTagName,
     ]
     /// 默认从记忆列表/附件选择器隐藏、需要显式打开对应开关才显示的标签
     /// (资产、人脉都是隐私/结构化数据,不该跟日常收藏混在一起刷屏)。
-    /// "AI记录"和"健康"不在这份集合里——它们是保留标签,但仍应正常显示、
+    /// "AI记录"/"健康"/"旅行"不在这份集合里——它们是保留标签,但仍应正常显示、
     /// 可被当成普通标签筛选,只是不能被改名/删除。
     public static let hiddenByDefaultTagNames: Set<String> = [assetTagName, contactTagName]
 
