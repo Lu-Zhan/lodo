@@ -152,7 +152,7 @@ public enum AppSettings {
         // DeepSeek 走同一个接口、同一把 key,区别只在 model 字段。
         ("DeepSeek V4 Flash Vision", "https://api.deepseek.com/chat/completions",
          "deepseek-v4-flash-vision-exp"),
-        ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4-flash"),
+        ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4.1-flash"),
         ("GPT-5.6 Luna", "https://runapi.host/v1/chat/completions", "gpt-5.6-luna"),
         ("Qwen3.5 Flash", "https://runapi.host/v1/chat/completions", "qwen3.5-flash"),
         ("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),

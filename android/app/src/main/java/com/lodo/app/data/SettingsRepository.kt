@@ -24,7 +24,7 @@ const val DEFAULT_AI_PROVIDER = "DeepSeek V4 Flash Vision"
 val aiProviderPresets = listOf(
     AIProviderPreset(DEFAULT_AI_PROVIDER, "https://api.deepseek.com/chat/completions",
         "deepseek-v4-flash-vision-exp"),
-    AIProviderPreset("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4-flash"),
+    AIProviderPreset("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4.1-flash"),
     AIProviderPreset("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
     AIProviderPreset("通义千问", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
     AIProviderPreset("Kimi", "https://api.moonshot.cn/v1/chat/completions", "moonshot-v1-8k"),
