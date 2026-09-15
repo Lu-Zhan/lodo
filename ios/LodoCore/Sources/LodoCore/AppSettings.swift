@@ -35,6 +35,21 @@ public enum AppSettings {
     public static let openAgentOnLaunchKey = "openAgentOnLaunch"
     /// 侧栏里被"常驻"到折叠区外面的记忆标签,换行分隔的标签名(顺序即展示顺序)。
     public static let sidebarPinnedTagsKey = "sidebarPinnedTags"
+    public static let healthEnabledKey = "healthEnabled"
+    public static let healthRangeDaysKey = "healthRangeDays"
+
+    /// 健康分析总开关。**默认关**:读健康数据要系统授权,而且开了之后汇总统计
+    /// 会发给所选 AI 服务商——这种事不该替用户默认打开。关着时健康页只画本地
+    /// 图表,一个网络请求都不发。
+    public static var healthEnabled: Bool {
+        UserDefaults.standard.bool(forKey: healthEnabledKey)
+    }
+
+    /// 健康数据回看天数,默认 14 天(够算出"最近 7 天 vs 之前 7 天"的趋势)。
+    public static var healthRangeDays: Int {
+        let v = UserDefaults.standard.integer(forKey: healthRangeDaysKey)
+        return v > 0 ? v : 14
+    }
 
     public static var snoozeMinutes: Int {
         let v = UserDefaults.standard.integer(forKey: snoozeMinutesKey)

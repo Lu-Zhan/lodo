@@ -481,3 +481,57 @@ android_ui.quiet_hours,免打扰时段,Quiet Hours,android_ui,
 android_ui.quiet_hours_start,开始时间,Start Time,android_ui,
 android_ui.quiet_hours_end,结束时间,End Time,android_ui,
 android_ui.quiet_hours_footer,"开启后,免打扰时段内到期的提醒会推迟到时段结束后再通知;事项仍按时显示为到期,只是不弹通知打扰你。","When enabled, reminders due during quiet hours are delayed until the window ends; tasks still show as due on time — only the notification itself is delayed.",android_ui,
+ios_view.value_with_parenthetical,%@(%@),%@ (%@),ios_view,回填:此前只存在于 Xcode 同步的字符串目录里
+ios_view.unpin,取消常驻,Unpin,ios_view,回填:此前只存在于 Xcode 同步的字符串目录里
+ios_view.navigation,导航,Navigation,ios_view,回填:此前只存在于 Xcode 同步的字符串目录里
+ios_view.pin,常驻,Pin,ios_view,回填:此前只存在于 Xcode 同步的字符串目录里
+ios_view.more_tags,更多标签,More Tags,ios_view,回填:此前只存在于 Xcode 同步的字符串目录里
+ios_view.question_n_of_m,第 %lld / %lld 题,Question %lld of %lld,ios_view,回填:此前只存在于 Xcode 同步的字符串目录里
+ios_core.health_steps,步数,Steps,ios_core,
+ios_core.health_active_energy,活动能量,Active Energy,ios_core,
+ios_core.health_exercise_minutes,锻炼时长,Exercise Time,ios_core,
+ios_core.health_sleep,睡眠时长,Sleep,ios_core,
+ios_core.health_resting_heart_rate,静息心率,Resting Heart Rate,ios_core,
+ios_core.health_hrv,心率变异性,Heart Rate Variability,ios_core,
+ios_core.health_body_mass,体重,Body Mass,ios_core,
+ios_core.health_unit_steps,步,steps,ios_core,指标单位
+ios_core.health_unit_kcal,千卡,kcal,ios_core,指标单位
+ios_core.health_unit_minutes,分钟,min,ios_core,指标单位
+ios_core.health_unit_hours,小时,h,ios_core,指标单位
+ios_core.health_unit_bpm,次/分,bpm,ios_core,指标单位
+ios_core.health_unit_ms,毫秒,ms,ios_core,指标单位
+ios_core.health_unit_kg,公斤,kg,ios_core,指标单位
+ios_core.invalid_response_read_health_is_missing,返回格式异常:read_health 缺少 days,Invalid response: read_health is missing days,ios_core,
+ios_core.invalid_response_missing_analysis,返回格式异常:缺少 analysis,Invalid response: missing analysis,ios_core,
+ios_core.health_trend_chart_suffix,趋势图, trend chart,ios_core,拼在指标名后面作为图表的旁白标签
+ios_view.health,健康,Health,ios_view,侧栏导航行 / 页面标题 / 总览页板块
+ios_view.health_analysis,健康分析,Health Analysis,ios_view,
+ios_view.health_analysis_off,健康分析未开启,Health Analysis Is Off,ios_view,
+ios_view.health_analysis_off_desc,"开启后 lodo 会读取步数、睡眠、心率等数据,在本机汇总成趋势;只有汇总统计会发给 AI,原始记录不会离开这台设备。","Once enabled, lodo reads steps, sleep, heart rate and more, and summarizes trends on this device. Only aggregate statistics are sent to the AI provider — raw records never leave this device.",ios_view,
+ios_view.enable_health_analysis,开启健康分析,Enable Health Analysis,ios_view,
+ios_view.no_health_data,暂无健康数据,No Health Data Yet,ios_view,
+ios_view.no_health_data_desc,"可能是还没授权,或者这段时间没有记录。可以到系统「设置 → 隐私与安全性 → 健康」里检查 lodo 的权限。","Either access hasn't been granted, or there are no records for this period. Check lodo's permissions in Settings → Privacy & Security → Health.",ios_view,"HealthKit 不告诉 app 读权限被拒,两种可能共用一句文案"
+ios_view.request_access_again,重新请求权限,Request Access Again,ios_view,
+ios_view.reading_health_data,正在读取健康数据…,Reading health data…,ios_view,
+ios_view.last_n_days,最近 %lld 天,Last %lld days,ios_view,占位符是天数
+ios_view.daily_average_value,日均 %@ %@,%@ %@ daily avg,ios_view,数值 + 单位
+ios_view.value_with_unit,%@ %@,%@ %@,ios_view,数值 + 单位
+ios_view.trend,趋势,Trend,ios_view,
+ios_view.metric,指标,Metric,ios_view,
+ios_view.date,日期,Date,ios_view,图表坐标轴
+ios_view.value,数值,Value,ios_view,图表坐标轴
+ios_view.ai_analysis,AI 分析,AI Analysis,ios_view,
+ios_view.analyzing,正在分析…,Analyzing…,ios_view,
+ios_view.health_analysis_needs_ai,"配置 AI 服务后,这里会给出针对这几天数据的分析和建议。",Set up an AI provider and you'll get analysis and suggestions for these days here.,ios_view,
+ios_view.health_records,健康记录,Health Records,ios_view,
+ios_view.no_health_records,"还没有健康记录。体检报告、用药、饮食这些可以记一笔,AI 分析时会一并参考。","No health records yet. Jot down checkups, medication or meals and the AI analysis will take them into account.",ios_view,
+ios_view.add_a_note,记一笔,Add a Note,ios_view,
+ios_view.untitled,未命名,Untitled,ios_view,
+ios_view.rising,上升,Rising,ios_view,趋势箭头的旁白
+ios_view.falling,下降,Falling,ios_view,趋势箭头的旁白
+ios_view.days_to_look_back,回看天数,Days to Look Back,ios_view,
+ios_view.7_days,7 天,7 days,ios_view,
+ios_view.14_days,14 天,14 days,ios_view,
+ios_view.30_days,30 天,30 days,ios_view,
+ios_view.request_health_access_again,重新请求健康权限,Request Health Access Again,ios_view,
+ios_view.health_settings_footer,"开启后「健康」页会读取步数、睡眠、心率等数据,在本机汇总成趋势。只有汇总统计(日均、最近一天、环比变化)会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备;关闭后这一页不发任何请求。撤销授权请到系统「设置 → 隐私与安全性 → 健康」。","When enabled, the Health page reads steps, sleep, heart rate and more, and summarizes trends on this device. Only aggregate statistics (daily averages, the latest day, period-over-period change) are sent to your chosen AI provider — raw records never leave this device. Turn it off and this page makes no requests at all. To revoke access, go to Settings → Privacy & Security → Health.",ios_view,

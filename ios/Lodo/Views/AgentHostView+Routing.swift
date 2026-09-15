@@ -10,9 +10,9 @@ extension AgentHostView {
     /// 批量或含完成/删除的进确认清单;单条收藏/查记忆直接执行/作答;
     /// 关键信息缺失时透传反问。uuid 用最新 pending 列表重新匹配。
     ///
-    /// ReAct 循环:模型如果先要查记忆/联网搜索才能给最终答案,会先返回一个
-    /// .toolCall(只读、不落库),执行完把结果喂回去再问一轮,最多 3 轮(1 次初始 +
-    /// 2 次工具调用,两种工具可以混用),超过就报错——不能无限转,也不允许写操作
+    /// ReAct 循环:模型如果先要查记忆/联网搜索/读健康数据才能给最终答案,会先返回
+    /// 一个 .toolCall(只读、不落库),执行完把结果喂回去再问一轮,最多 3 轮(1 次初始 +
+    /// 2 次工具调用,几种工具可以混用),超过就报错——不能无限转,也不允许写操作
     /// 在这个循环里未经确认就被模型自己执行。onThought 用来给聊天页展示
     /// "正在查记忆…"/"正在联网搜索…"这类轻量提示,循环结束(不管哪个分支返回)
     /// 提示自然被 AgentView 清掉。
@@ -31,11 +31,13 @@ extension AgentHostView {
         var reasoningHistory = history
         var currentText = text
         let webSearchEnabled = WebSearchClient.isConfigured
+        let healthEnabled = AppSettings.healthEnabled && HealthKitBridge.isAvailable
 
         for _ in 0..<3 {
             switch try await DeepSeekClient.command(
                 currentText, tasks: taskContext, memoryEnabled: true,
-                webSearchEnabled: webSearchEnabled, history: reasoningHistory,
+                webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
+                history: reasoningHistory,
                 existingProjects: TaskProjects.all(in: context)) {
             case .ask(let questions):
                 return .ask(questions)
@@ -74,6 +76,16 @@ extension AgentHostView {
                 reasoningHistory.append((role: "assistant", content: "思考:\(thought);抓取链接:\(urlString)"))
                 reasoningHistory.append((role: "user", content: "链接内容:\n\(observation)"))
                 currentText = "(请基于以上链接内容继续处理最初的请求:\(text))"
+            case .toolCall(let thought, .readHealth(let days)):
+                onThought(thought)
+                let report = await HealthKitBridge.report(days: days)
+                // 只把汇总统计喂回模型——逐条原始样本不出 HealthKitBridge。
+                let observation = report.isEmpty
+                    ? "没有可用的健康数据(未授权或没有记录)" : report.promptSummary()
+                reasoningHistory.append((role: "assistant",
+                                         content: "思考:\(thought);读健康数据:最近 \(days) 天"))
+                reasoningHistory.append((role: "user", content: "健康数据:\n\(observation)"))
+                currentText = "(请基于以上健康数据继续处理最初的请求:\(text))"
             case .actions(let rawActions):
                 // 偏好、自动记录的重点事实都是副作用,不是待办的增删改:先摘出来
                 // 静默落盘,剩下的动作才走后面的路径。这样 pendingActions/确认清单/

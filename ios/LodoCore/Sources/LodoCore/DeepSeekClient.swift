@@ -103,6 +103,9 @@ public enum AITool {
     /// 用户直接给了一个链接、需要看链接内容本身(而不是搜关键词)时用;
     /// 与 webSearch 共用 webSearchEnabled 开关与 skill 文案。
     case webFetch(url: String)
+    /// 读本机健康数据(步数/睡眠/心率等)的日级汇总,回答"我这周睡得怎么样"
+    /// 这类问题。只读且只拿汇总统计——原始逐条记录不出本机,更不进 prompt。
+    case readHealth(days: Int)
 }
 
 /// 定时任务(`AIRoutine`)跑一次的返回:最终要展示给用户的文字,或
@@ -255,6 +258,7 @@ public enum DeepSeekClient {
         _ text: String, tasks allTasks: [(uuid: String, task: ParsedTask)],
         memoryEnabled: Bool = false,
         webSearchEnabled: Bool = false,
+        healthEnabled: Bool = false,
         history: [(role: String, content: String)] = [],
         existingProjects: [String] = []
     ) async throws -> AICommandResult {
@@ -270,7 +274,8 @@ public enum DeepSeekClient {
 
         \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))\
         \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
-        \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")
+        \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")\
+        \(healthEnabled ? "\n\n" + AgentSkillStore.content(for: .health) : "")
 
         \(timeContext)\(preferencesBlock)
 
@@ -281,23 +286,26 @@ public enum DeepSeekClient {
             await payload(system: system, user: text, thinking: true),
             validUUIDs: tasks.map(\.uuid),
             memoryEnabled: memoryEnabled,
-            webSearchEnabled: webSearchEnabled)
+            webSearchEnabled: webSearchEnabled,
+            healthEnabled: healthEnabled)
     }
 
     /// 从 payload 里解析总入口结果(单测入口)。
     /// memoryEnabled == false 时 memorize/ask_memory、webSearchEnabled == false 时
-    /// web_search/answer 按未知 action/工具处理(即使模型幻觉出来,Watch 等
-    /// 调用方也保持旧行为)。
+    /// web_search/answer、healthEnabled == false 时 read_health 按未知 action/工具
+    /// 处理(即使模型幻觉出来,Watch 等调用方也保持旧行为)。
     static func parseCommand(
         _ payload: [String: Any], validUUIDs: [String],
-        memoryEnabled: Bool, webSearchEnabled: Bool = false
+        memoryEnabled: Bool, webSearchEnabled: Bool = false,
+        healthEnabled: Bool = false
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
             return .ask(try parseAsk(rawAsk))
         }
         // ReAct 中间步骤:对应开关关闭时 prompt 里根本没提过这个选项,
         // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
-        if (memoryEnabled || webSearchEnabled), let toolName = payload["tool"] as? String {
+        if (memoryEnabled || webSearchEnabled || healthEnabled),
+           let toolName = payload["tool"] as? String {
             let thought = (payload["thought"] as? String) ?? ""
             switch toolName {
             case "search_memory" where memoryEnabled:
@@ -318,6 +326,14 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:web_fetch 缺少 url")
                 }
                 return .toolCall(thought: thought, tool: .webFetch(url: url))
+            case "read_health" where healthEnabled:
+                // days 缺省按一周算——模型经常只说"看看我的健康数据",没必要
+                // 因为少一个字段就报错重来。
+                let days = (payload["days"] as? Int) ?? Int(payload["days"] as? String ?? "") ?? 7
+                guard days > 0 else {
+                    throw DeepSeekError.parse("返回格式异常:read_health 缺少 days")
+                }
+                return .toolCall(thought: thought, tool: .readHealth(days: min(days, 90)))
             default:
                 throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
             }
@@ -541,6 +557,53 @@ public enum DeepSeekClient {
             throw DeepSeekError.parse("返回格式异常:缺少 summary")
         }
         return text
+    }
+
+    /// "总览" tab 用:给一句今天的健康提示(调用方把 HealthReport.promptSummary()
+    /// 传进来)。和 suggestTodayHandling 同构——一句话、按天缓存、失败就不显示。
+    public static func suggestTodayHealth(summary: String) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的健康助手。根据最近几天的健康数据汇总,\
+        给一句不超过 60 个字的提示:指出一个最值得注意的变化,并给一个具体可做的小建议,\
+        不要"注意身体""保持健康"这类空话。你不是医生,不做诊断、不提药物;\
+        数据明显异常时提示去看医生即可。只返回 JSON:{"suggestion": "一句话"},不要任何其他文字。\(personaBlock)
+        """
+        let payload = try await payload(system: system, user: summary, timeout: 60)
+        guard let suggestion = payload["suggestion"] as? String,
+              !suggestion.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 suggestion")
+        }
+        return suggestion
+    }
+
+    /// "健康" 页用:一段分析正文 + 最多 3 条建议。memoryContext 是记忆库里打了
+    /// 「健康」标签的条目(体检报告、用药、饮食记录这些用户自己收藏的资料),
+    /// 没有就不传——健康数据本身已经够看了,别为了凑上下文硬塞。
+    public static func analyzeHealth(
+        summary: String, memoryContext: String? = nil
+    ) async throws -> HealthAnalysis {
+        let system = """
+        你是提醒事项应用 lodo 的健康助手。根据用户最近几天的健康数据汇总\
+        (可能附带用户自己收藏的健康资料),写一段不超过 150 个字的分析:\
+        说清楚哪些指标在变好、哪些在变差、可能的原因,再给最多 3 条具体可执行的建议。\
+        你不是医生:不做诊断、不推荐药物、不解读化验值的临床意义;\
+        发现明显异常时,请建议用户去看医生。\
+        只返回 JSON:{"analysis": "一段话", "suggestions": ["建议1", "建议2"]},不要任何其他文字。\(personaBlock)
+        """
+        let user = memoryContext.map { "\(summary)\n\n用户收藏的健康资料:\n\($0)" } ?? summary
+        return try parseHealthAnalysis(await payload(system: system, user: user, timeout: 90))
+    }
+
+    /// 从 payload 里解析健康分析结果(单测入口,不发请求)。
+    static func parseHealthAnalysis(_ payload: [String: Any]) throws -> HealthAnalysis {
+        guard let analysis = (payload["analysis"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !analysis.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 analysis")
+        }
+        let suggestions = (payload["suggestions"] as? [Any] ?? [])
+            .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return HealthAnalysis(analysis: analysis, suggestions: Array(suggestions.prefix(3)))
     }
 
     /// 定时任务(`AIRoutine`)到点后跑一次:按用户自己写的指令生成这次要展示的内容。

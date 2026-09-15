@@ -16,6 +16,10 @@
 	<string>用于从通讯录导入联系人到记忆库,或将记忆库里的联系人导出到通讯录。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>用于定时任务里查询当地天气等信息。</string>
+	<!-- 只读健康数据(从不写入,所以不声明 NSHealthUpdateUsageDescription)。
+	     开关默认关,见 AppSettings.healthEnabled。 -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>用于读取步数、睡眠、心率等数据,在本机汇总成健康趋势与建议;只有汇总统计会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备。</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

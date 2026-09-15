@@ -12,6 +12,8 @@ struct SettingsView: View {
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
     @AppStorage(AppSettings.openAgentOnLaunchKey) private var openAgentOnLaunch = true
+    @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
+    @AppStorage(AppSettings.healthRangeDaysKey) private var healthRangeDays = 14
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -73,6 +75,33 @@ struct SettingsView: View {
                 } footer: {
                     Text("让 AI 在你设定的时间自动跑一件事,比如早上总结今天的待办、看天气给穿搭建议。")
                 }
+
+                // ---- 健康分析(仅 iOS:macOS 没有 HealthKit)----
+                #if os(iOS)
+                Section {
+                    Toggle("健康分析", isOn: $healthEnabled)
+                        .onChange(of: healthEnabled) { _, enabled in
+                            // 打开时就把授权弹窗走一遍,免得用户进了健康页
+                            // 只看到一句"暂无数据"却不知道去哪授权。
+                            guard enabled else { return }
+                            Task { await HealthKitBridge.requestAuthorization() }
+                        }
+                    if healthEnabled {
+                        Picker("回看天数", selection: $healthRangeDays) {
+                            Text("7 天").tag(7)
+                            Text("14 天").tag(14)
+                            Text("30 天").tag(30)
+                        }
+                        Button("重新请求健康权限") {
+                            Task { await HealthKitBridge.requestAuthorization() }
+                        }
+                    }
+                } header: {
+                    Text("健康分析")
+                } footer: {
+                    Text("开启后「健康」页会读取步数、睡眠、心率等数据,在本机汇总成趋势。只有汇总统计(日均、最近一天、环比变化)会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备;关闭后这一页不发任何请求。撤销授权请到系统「设置 → 隐私与安全性 → 健康」。")
+                }
+                #endif
 
                 // ---- 通用 ----
                 #if os(iOS)

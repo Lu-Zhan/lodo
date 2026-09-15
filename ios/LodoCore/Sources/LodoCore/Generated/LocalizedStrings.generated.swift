@@ -152,6 +152,23 @@ public enum LK: String, CaseIterable {
     case shared_black
     case shared_daily
     case shared_weekly
+    case ios_core_health_steps
+    case ios_core_health_active_energy
+    case ios_core_health_exercise_minutes
+    case ios_core_health_sleep
+    case ios_core_health_resting_heart_rate
+    case ios_core_health_hrv
+    case ios_core_health_body_mass
+    case ios_core_health_unit_steps
+    case ios_core_health_unit_kcal
+    case ios_core_health_unit_minutes
+    case ios_core_health_unit_hours
+    case ios_core_health_unit_bpm
+    case ios_core_health_unit_ms
+    case ios_core_health_unit_kg
+    case ios_core_invalid_response_read_health_is_missing
+    case ios_core_invalid_response_missing_analysis
+    case ios_core_health_trend_chart_suffix
 }
 
 public enum LocalizedStrings {
@@ -300,6 +317,23 @@ public enum LocalizedStrings {
         .shared_black: [.zhHans: "黑色", .en: "Black"],
         .shared_daily: [.zhHans: "每天", .en: "Daily"],
         .shared_weekly: [.zhHans: "每周", .en: "Weekly"],
+        .ios_core_health_steps: [.zhHans: "步数", .en: "Steps"],
+        .ios_core_health_active_energy: [.zhHans: "活动能量", .en: "Active Energy"],
+        .ios_core_health_exercise_minutes: [.zhHans: "锻炼时长", .en: "Exercise Time"],
+        .ios_core_health_sleep: [.zhHans: "睡眠时长", .en: "Sleep"],
+        .ios_core_health_resting_heart_rate: [.zhHans: "静息心率", .en: "Resting Heart Rate"],
+        .ios_core_health_hrv: [.zhHans: "心率变异性", .en: "Heart Rate Variability"],
+        .ios_core_health_body_mass: [.zhHans: "体重", .en: "Body Mass"],
+        .ios_core_health_unit_steps: [.zhHans: "步", .en: "steps"],
+        .ios_core_health_unit_kcal: [.zhHans: "千卡", .en: "kcal"],
+        .ios_core_health_unit_minutes: [.zhHans: "分钟", .en: "min"],
+        .ios_core_health_unit_hours: [.zhHans: "小时", .en: "h"],
+        .ios_core_health_unit_bpm: [.zhHans: "次/分", .en: "bpm"],
+        .ios_core_health_unit_ms: [.zhHans: "毫秒", .en: "ms"],
+        .ios_core_health_unit_kg: [.zhHans: "公斤", .en: "kg"],
+        .ios_core_invalid_response_read_health_is_missing: [.zhHans: "返回格式异常:read_health 缺少 days", .en: "Invalid response: read_health is missing days"],
+        .ios_core_invalid_response_missing_analysis: [.zhHans: "返回格式异常:缺少 analysis", .en: "Invalid response: missing analysis"],
+        .ios_core_health_trend_chart_suffix: [.zhHans: "趋势图", .en: " trend chart"],
     ]
 
     public static func text(_ key: LK, language: AppLanguage) -> String {

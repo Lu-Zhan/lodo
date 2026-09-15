@@ -13,6 +13,7 @@ struct OverviewView: View {
     // 以下几个跨 extension 文件(OverviewView+Reschedule)被读写,
     // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
     @Environment(\.modelContext) var context
+    @Environment(\.sidebarChrome) private var chrome
     @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "pending" },
            sort: \TaskItem.nextRemindAt)
     var pending: [TaskItem]
@@ -28,6 +29,7 @@ struct OverviewView: View {
     @State private var askDurationQueue: [(title: String, planned: Int)] = []
     @State private var suggestion: String?
     @State private var memorySummary: String?
+    @State private var healthTip: String?
     /// 通知"改期"按钮交接的改期候选(横幅展示,与 TaskRowView 内部滑动触发的
     /// 改期各自独立——见 OverviewView+Reschedule.swift 顶部注释)。
     @State var notificationReschedule: (task: TaskItem, candidates: [(label: String, date: Date)])?
@@ -39,6 +41,8 @@ struct OverviewView: View {
     private static let suggestionTextKey = "overviewSuggestionText"
     private static let memorySummaryDayKey = "overviewMemorySummaryDay"
     private static let memorySummaryTextKey = "overviewMemorySummaryText"
+    private static let healthDayKey = "overviewHealthDay"
+    private static let healthTextKey = "overviewHealthText"
 
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -130,6 +134,26 @@ struct OverviewView: View {
                             .font(.subheadline)
                     }
                 }
+                if let healthTip {
+                    Section("健康") {
+                        // 点一下去健康页看完整趋势;跨页跳转走 sidebarChrome.go,
+                        // 不为这一处再串一路闭包(见 AppShellView 的 SidebarChrome)。
+                        Button {
+                            chrome?.go(.health)
+                        } label: {
+                            HStack {
+                                Label(healthTip, systemImage: "heart.text.square")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
             .navigationTitle("总览")
             #if os(iOS)
@@ -169,16 +193,19 @@ struct OverviewView: View {
                 now = Date()
                 await loadSuggestion()
                 await loadMemorySummary()
+                await loadHealthTip()
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--demo-overview-ai") {
                     suggestion = "先处理到期的「团队周会」,再按时间顺序做剩下几件,写周报可以留到最后。"
                     memorySummary = "今天收藏的都是效率类内容,建议这周找时间整理一下笔记。"
+                    healthTip = "这周步数比上周多了两成,静息心率降了 3 次/分;睡眠偏短,今晚早点睡。"
                 }
                 #endif
             }
             .refreshable {
                 await loadSuggestion(force: true)
                 await loadMemorySummary(force: true)
+                await loadHealthTip(force: true)
             }
         }
         #if os(macOS)
@@ -254,6 +281,32 @@ struct OverviewView: View {
         defaults.set(stamp, forKey: Self.suggestionDayKey)
         defaults.set(text, forKey: Self.suggestionTextKey)
         suggestion = text
+    }
+
+    /// 健康提示:总开关关着时一个请求都不发(健康数据敏感,不该默认往外送);
+    /// 其余逻辑和 loadSuggestion 一致——按天缓存、只在成功时写缓存。
+    private func loadHealthTip(force: Bool = false) async {
+        guard AppSettings.healthEnabled, DeepSeekClient.isConfigured else {
+            healthTip = nil
+            return
+        }
+        let stamp = Self.dayFormatter.string(from: Date())
+        let defaults = UserDefaults.standard
+        if !force, defaults.string(forKey: Self.healthDayKey) == stamp,
+           let cached = defaults.string(forKey: Self.healthTextKey) {
+            healthTip = cached
+            return
+        }
+        let report = await HealthKitBridge.report(days: AppSettings.healthRangeDays)
+        guard !report.isEmpty else {
+            healthTip = nil
+            return
+        }
+        guard let text = try? await DeepSeekClient.suggestTodayHealth(
+            summary: report.promptSummary()) else { return }
+        defaults.set(stamp, forKey: Self.healthDayKey)
+        defaults.set(text, forKey: Self.healthTextKey)
+        healthTip = text
     }
 
     private func loadMemorySummary(force: Bool = false) async {

@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// 新系统 API 的门控封装统一收在这个文件里(目前是 iOS 26 的 Liquid Glass,
+/// iOS 27 起的新 API 也加在这里):部署目标保持 iOS 17 / macOS 14 不变,新 API
+/// 一律 `#available(...)` 运行时门控 + 旧写法回退,**并且把 #available 收进
+/// 一个封装**,调用处只写封装名,不在各个视图里重复版本判断。
+/// 加 iOS 27 的东西时照抄下面 `glassProminentButton()` 的形状,换成
+/// `#available(iOS 27.0, macOS 27.0, *)` 即可;非 UI 的门控(比如健康指标全集)
+/// 同理收在各自的一处入口,见 `HealthMetricKind.availableKinds()`。
+///
 /// iOS 26 / macOS 26 Liquid Glass 按钮样式的门控封装:
 /// 新系统用玻璃样式,旧系统回退到 bordered 系列,调用处无需重复 #available。
 /// 按 Liquid Glass 设计指引,玻璃样式只用于独立的主要操作(如空状态的行动按钮),

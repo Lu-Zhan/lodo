@@ -104,6 +104,7 @@ struct AppSidebarView: View {
                 navRow(.todo, title: "待办", systemImage: "checklist")
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
                 memoryTagRows
+                navRow(.health, title: "健康", systemImage: "heart.text.square")
 
                 Text("最近")
                     .font(.subheadline)
@@ -202,7 +203,7 @@ struct AppSidebarView: View {
         }
     }
 
-    /// 四个页面导航行之一,和下面对话历史行同一套样式(行高/内边距/分隔线),
+    /// 五个页面导航行之一,和下面对话历史行同一套样式(行高/内边距/分隔线),
     /// 图标沿用原来三个 tab 的 SF Symbol 保持视觉延续性。当前页面高亮——
     /// 它们是持久态,不像弹层入口那样点完就走。
     private func navRow(_ target: AppSection, title: String, systemImage: String) -> some View {

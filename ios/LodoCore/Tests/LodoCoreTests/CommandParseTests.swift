@@ -575,6 +575,86 @@ final class CommandParseTests: XCTestCase {
             payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: false))
     }
 
+    // MARK: - ReAct 工具调用(read_health)
+
+    func testToolCallReadHealth() throws {
+        let payload: [String: Any] = [
+            "thought": "需要看最近的睡眠", "tool": "read_health", "days": 30
+        ]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, healthEnabled: true)
+        guard case .toolCall(let thought, .readHealth(let days)) = result else {
+            XCTFail("expected toolCall(.readHealth)")
+            return
+        }
+        XCTAssertEqual(thought, "需要看最近的睡眠")
+        XCTAssertEqual(days, 30)
+    }
+
+    /// days 缺省按一周算,不因为少一个字段就报错重来。
+    func testToolCallReadHealthDefaultsToOneWeek() throws {
+        let payload: [String: Any] = ["thought": "看看", "tool": "read_health"]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, healthEnabled: true)
+        guard case .toolCall(_, .readHealth(let days)) = result else {
+            XCTFail("expected toolCall(.readHealth)")
+            return
+        }
+        XCTAssertEqual(days, 7)
+    }
+
+    /// 模型给了个离谱的天数就夹到 90 天,别让桥接层去查十年的数据。
+    func testToolCallReadHealthClampsRange() throws {
+        let payload: [String: Any] = ["tool": "read_health", "days": 3650]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, healthEnabled: true)
+        guard case .toolCall(_, .readHealth(let days)) = result else {
+            XCTFail("expected toolCall(.readHealth)")
+            return
+        }
+        XCTAssertEqual(days, 90)
+    }
+
+    func testToolCallReadHealthNonPositiveDaysThrows() {
+        let payload: [String: Any] = ["tool": "read_health", "days": 0]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, healthEnabled: true))
+    }
+
+    /// healthEnabled == false 时 prompt 里没提过这个选项,模型幻觉出来也不认。
+    func testToolCallReadHealthIgnoredWhenDisabled() {
+        let payload: [String: Any] = ["tool": "read_health", "days": 7]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, healthEnabled: false))
+    }
+
+    // MARK: - 健康分析结果解析
+
+    func testParseHealthAnalysis() throws {
+        let result = try DeepSeekClient.parseHealthAnalysis([
+            "analysis": "步数比上周多了两成,睡眠略短。",
+            "suggestions": ["晚上 11 点前上床", "午后少喝咖啡"],
+        ])
+        XCTAssertEqual(result.analysis, "步数比上周多了两成,睡眠略短。")
+        XCTAssertEqual(result.suggestions, ["晚上 11 点前上床", "午后少喝咖啡"])
+    }
+
+    /// 建议是锦上添花,缺了也不算解析失败;超过 3 条只留前 3 条。
+    func testParseHealthAnalysisSuggestionsAreOptionalAndCapped() throws {
+        let noSuggestions = try DeepSeekClient.parseHealthAnalysis(["analysis": "一切正常。"])
+        XCTAssertTrue(noSuggestions.suggestions.isEmpty)
+
+        let many = try DeepSeekClient.parseHealthAnalysis([
+            "analysis": "还行。", "suggestions": ["a", "b", "", "c", "d"],
+        ])
+        XCTAssertEqual(many.suggestions, ["a", "b", "c"])
+    }
+
+    func testParseHealthAnalysisMissingAnalysisThrows() {
+        XCTAssertThrowsError(try DeepSeekClient.parseHealthAnalysis(["suggestions": ["a"]]))
+        XCTAssertThrowsError(try DeepSeekClient.parseHealthAnalysis(["analysis": "   "]))
+    }
+
     func testAnswerActionAlone() throws {
         let payload: [String: Any] = ["actions": [["action": "answer", "text": "今天多云转晴"]]]
         let result = try DeepSeekClient.parseCommand(

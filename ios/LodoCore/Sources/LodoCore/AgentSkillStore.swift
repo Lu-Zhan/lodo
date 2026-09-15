@@ -7,6 +7,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case todo
     case memory
     case webSearch
+    case health
 
     public var id: String { rawValue }
 
@@ -16,6 +17,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .todo: return "构建待办"
         case .memory: return "记忆"
         case .webSearch: return "联网搜索"
+        case .health: return "健康"
         }
     }
 
@@ -25,6 +27,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .todo: return "新建/修改事项的字段格式与时间换算规则"
         case .memory: return "收藏与查记忆的判定规则(仅记忆功能开启时生效)"
         case .webSearch: return "查最新信息/回答一般问题的判定规则(仅配置 Tavily key 后生效)"
+        case .health: return "读健康数据回答身体状况问题的判定规则(仅开启健康分析后生效)"
         }
     }
 }
@@ -76,6 +79,7 @@ public enum AgentSkillStore {
         case .todo: return defaultTodo
         case .memory: return defaultMemory
         case .webSearch: return defaultWebSearch
+        case .health: return defaultHealth
         }
     }
 
@@ -203,5 +207,23 @@ public enum AgentSkillStore {
     - 需要最新/实时信息(新闻、天气、价格、赛事结果等)但没有具体链接、或你不确定答案是否\
     过时时,用 web_search 查关键词,不要凭空编内容;已经在对话历史里看到搜索/抓取结果的,\
     直接用结果里的内容给最终答案,不要重复搜/重复抓。
+    """
+
+    private static let defaultHealth = """
+    额外支持的操作:
+    - 先读健康数据再回答:{"thought": "为什么需要读", "tool": "read_health", "days": 天数}\
+    (用户问自己的身体状况、运动量、睡眠、心率、体重变化时用;days 是要看最近多少天,\
+    问"这周"给 7、"这个月"给 30,没说清就给 7;每次交流最多用一次,拿到数据后必须在\
+    下一轮给出真正的最终答案,不能连续再读)
+
+    额外判断规则:
+    - 只有涉及用户**自己的**健康数据时才用 read_health(如"我这周睡得怎么样""我最近走得多吗"\
+    "我的静息心率有变化吗");泛泛的健康知识问题(如"成年人一天该睡几小时")属于一般性问题,\
+    不要读数据。
+    - 读到的是日均值、最近一天值和相对上一周期的变化,没有逐条原始记录,\
+    回答时就按这些汇总说,不要编造具体某一天的数值。
+    - 没有可用数据时(未授权或没有记录)如实告诉用户去"设置 → 健康分析"里开启,不要猜数字。
+    - 你不是医生:只描述趋势、给生活作息上的建议,不做诊断、不推荐药物;\
+    数据明显异常时建议用户去看医生。
     """
 }

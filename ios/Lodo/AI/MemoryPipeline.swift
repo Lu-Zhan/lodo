@@ -10,23 +10,30 @@ enum MemoryPipeline {
 
     /// 收藏纯文字;文字本身就是一条 URL 时按链接收藏。返回新建的条目(agent
     /// 批量操作的撤销要记它的 uuid;其余调用方多数不关心,可丢弃)。
+    /// extraTags:调用方指定的、AI 整理完之后要保底带上的标签(健康页的"记一笔"
+    /// 靠它把条目钉在「健康」标签下)。AI 整理会整体覆盖 tags,所以这份是在整理
+    /// 之后再 union 回去的,整理失败时同样生效。
     @discardableResult
-    static func saveText(_ text: String, context: ModelContext) -> MemoryItem? {
+    static func saveText(
+        _ text: String, context: ModelContext, extraTags: [String] = []
+    ) -> MemoryItem? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         if let url = detectedURL(in: trimmed) {
-            return saveURL(url, context: context)
+            return saveURL(url, context: context, extraTags: extraTags)
         }
         let item = MemoryItem(kind: .text, sourceText: MemorySearch.truncate(trimmed))
-        insertAndOrganize(item, context: context)
+        insertAndOrganize(item, context: context, extraTags: extraTags)
         return item
     }
 
     /// 收藏链接。
     @discardableResult
-    static func saveURL(_ url: URL, context: ModelContext) -> MemoryItem? {
+    static func saveURL(
+        _ url: URL, context: ModelContext, extraTags: [String] = []
+    ) -> MemoryItem? {
         let item = MemoryItem(kind: .link, urlString: url.absoluteString)
-        insertAndOrganize(item, context: context)
+        insertAndOrganize(item, context: context, extraTags: extraTags)
         return item
     }
 
@@ -289,14 +296,18 @@ enum MemoryPipeline {
 
     // MARK: - 内部流程
 
-    private static func insertAndOrganize(_ item: MemoryItem, context: ModelContext) {
+    private static func insertAndOrganize(
+        _ item: MemoryItem, context: ModelContext, extraTags: [String] = []
+    ) {
         context.insert(item)
         try? context.save()
-        organize(item, context: context)
+        organize(item, context: context, extraTags: extraTags)
     }
 
     /// 提取文本 + AI 整理;失败时给兜底标题并标记 failed。
-    private static func organize(_ item: MemoryItem, context: ModelContext) {
+    private static func organize(
+        _ item: MemoryItem, context: ModelContext, extraTags: [String] = []
+    ) {
         Task { @MainActor in
             let extraction = await extract(item)
             if !extraction.text.isEmpty { item.sourceText = extraction.text }
@@ -337,6 +348,12 @@ enum MemoryPipeline {
                     item.title = fallbackTitle(for: item, suggested: extraction.suggestedTitle)
                 }
                 item.statusRaw = MemoryStatus.failed.rawValue
+            }
+            // 调用方指定的标签放在 AI 整理之后补:上面成功分支会整体覆盖 tags,
+            // 先打是白打。失败分支也要补——用户就是从「健康」入口记的这一笔,
+            // 不该因为一次 AI 整理失败就掉出那个标签。
+            for tag in extraTags where !item.tags.contains(tag) {
+                item.tags.append(tag)
             }
             // 分片 + 语义向量:独立于上面 AI 整理是否成功,尽力而为
             // (embedding 失败时退化成关键词检索,不影响记忆本身可用)。
