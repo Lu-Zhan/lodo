@@ -36,7 +36,15 @@ public enum AppSettings {
     /// 侧栏里被"常驻"到折叠区外面的记忆标签,换行分隔的标签名(顺序即展示顺序)。
     public static let sidebarPinnedTagsKey = "sidebarPinnedTags"
     public static let healthEnabledKey = "healthEnabled"
+    /// 航班查询 key 是从 RapidAPI 拿的还是官方直连,见 FlightLookupClient.Host。
+    public static let flightLookupHostKey = "flightLookupHost"
     public static let healthRangeDaysKey = "healthRangeDays"
+
+    /// 航班查询走哪个入口;默认 RapidAPI——免费额度在那边。
+    public static var flightLookupHost: FlightLookupClient.Host {
+        FlightLookupClient.Host(
+            rawValue: UserDefaults.standard.string(forKey: flightLookupHostKey) ?? "") ?? .rapidAPI
+    }
 
     /// 健康分析总开关。**默认关**:读健康数据要系统授权,而且开了之后汇总统计
     /// 会发给所选 AI 服务商——这种事不该替用户默认打开。关着时健康页只画本地

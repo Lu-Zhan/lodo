@@ -115,6 +115,7 @@ struct TravelDetailView: View {
             if args.contains("--demo-travel-day") { mode = .days }
             if args.contains("--demo-travel-map") { mode = .map }
             if args.contains("--demo-travel-cost") { mode = .cost }
+            if args.contains("--demo-travel-add") { addingItem = true }
         }
         #endif
     }

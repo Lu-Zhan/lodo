@@ -620,3 +620,13 @@ ios_view.searching,正在搜索…,Searching…,ios_view,
 ios_view.search_failed,"搜索失败,检查一下网络再试。",Search failed. Check your connection and try again.,ios_view,
 ios_view.place_not_found,没有找到这个地方。,No places found.,ios_view,
 ios_view.missing_rates_note,"以下币种暂时换不到汇率,没有计入合计:%@","No exchange rate available for these currencies yet, so they're not in the total: %@",ios_view,占位符是币种列表
+ios_core.flight_api_key_not_configured,"未配置航班查询 API Key,请到「设置」里填写。",Flight lookup API key not configured. Set it up in Settings.,ios_core,
+ios_core.flight_not_found,"没查到这个航班,确认一下航班号和日期,或者手动填。","Couldn't find that flight. Check the number and date, or fill it in manually.",ios_core,
+ios_core.flight_lookup_failed,航班查询失败:,Flight lookup failed: ,ios_core,"前缀,后接原始错误信息"
+ios_view.flight_lookup,航班查询,Flight Lookup,ios_view,
+ios_view.key_source,Key 来源,Key Source,ios_view,
+ios_view.direct_host,官方直连,Direct,ios_view,"AeroDataBox 官方域名,相对 RapidAPI"
+ios_view.flight_lookup_footer,"填了之后,旅行页添加航班时可以按航班号+日期自动带出起降时间和机场。在 aerodatabox.com 注册,免费档每月 600 次;不填就手动填写,其余功能不受影响。","Once set, adding a flight in Travel can pull times and airports from the flight number and date. Sign up at aerodatabox.com — the free tier allows 600 calls a month. Leave it empty to fill flights in by hand; nothing else is affected.",ios_view,
+ios_view.lookup_flight,查,Look Up,ios_view,航班号旁边那颗按钮
+ios_view.flight_lookup_hint,"填了航班号点「查」,按下面选的日期带出起降时间和机场。查不到不影响手动填。","Enter a flight number and tap “Look Up” to pull times and airports for the date below. If nothing is found, fill it in by hand.",ios_view,
+ios_view.multiple_flights_note,"这天有 %lld 班同号航班,用的是第一班,时间不对请手动改。",%lld flights share that number on this date; the first one was used. Adjust by hand if it's the wrong one.,ios_view,

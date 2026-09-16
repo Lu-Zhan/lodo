@@ -174,6 +174,9 @@ public enum LK: String, CaseIterable {
     case ios_core_travel_place
     case ios_core_invalid_response_read_trip_is_missing
     case ios_core_invalid_response_missing_items
+    case ios_core_flight_api_key_not_configured
+    case ios_core_flight_not_found
+    case ios_core_flight_lookup_failed
 }
 
 public enum LocalizedStrings {
@@ -344,6 +347,9 @@ public enum LocalizedStrings {
         .ios_core_travel_place: [.zhHans: "地点", .en: "Place"],
         .ios_core_invalid_response_read_trip_is_missing: [.zhHans: "返回格式异常:read_trip 缺少 name", .en: "Invalid response: read_trip is missing name"],
         .ios_core_invalid_response_missing_items: [.zhHans: "返回格式异常:缺少 items", .en: "Invalid response: missing items"],
+        .ios_core_flight_api_key_not_configured: [.zhHans: "未配置航班查询 API Key,请到「设置」里填写。", .en: "Flight lookup API key not configured. Set it up in Settings."],
+        .ios_core_flight_not_found: [.zhHans: "没查到这个航班,确认一下航班号和日期,或者手动填。", .en: "Couldn't find that flight. Check the number and date, or fill it in manually."],
+        .ios_core_flight_lookup_failed: [.zhHans: "航班查询失败:", .en: "Flight lookup failed: "],
     ]
 
     public static func text(_ key: LK, language: AppLanguage) -> String {

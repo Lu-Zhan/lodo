@@ -305,6 +305,22 @@
         }
       }
     },
+    "Key 来源": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key Source"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key 来源"
+          }
+        }
+      }
+    },
     "agent.md 是总则,待办/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。": {
       "localizations": {
         "en": {
@@ -1953,6 +1969,22 @@
         }
       }
     },
+    "填了之后,旅行页添加航班时可以按航班号+日期自动带出起降时间和机场。在 aerodatabox.com 注册,免费档每月 600 次;不填就手动填写,其余功能不受影响。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once set, adding a flight in Travel can pull times and airports from the flight number and date. Sign up at aerodatabox.com — the free tier allows 600 calls a month. Leave it empty to fill flights in by hand; nothing else is affected."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填了之后,旅行页添加航班时可以按航班号+日期自动带出起降时间和机场。在 aerodatabox.com 注册,免费档每月 600 次;不填就手动填写,其余功能不受影响。"
+          }
+        }
+      }
+    },
     "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。": {
       "localizations": {
         "en": {
@@ -1965,6 +1997,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。"
+          }
+        }
+      }
+    },
+    "填了航班号点「查」,按下面选的日期带出起降时间和机场。查不到不影响手动填。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a flight number and tap “Look Up” to pull times and airports for the date below. If nothing is found, fill it in by hand."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填了航班号点「查」,按下面选的日期带出起降时间和机场。查不到不影响手动填。"
           }
         }
       }
@@ -2141,6 +2189,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "完成洞察"
+          }
+        }
+      }
+    },
+    "官方直连": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Direct"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方直连"
           }
         }
       }
@@ -3681,6 +3745,22 @@
         }
       }
     },
+    "查": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look Up"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查"
+          }
+        }
+      }
+    },
     "查看引导": {
       "localizations": {
         "en": {
@@ -4817,6 +4897,22 @@
         }
       }
     },
+    "航班查询": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flight Lookup"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "航班查询"
+          }
+        }
+      }
+    },
     "航空公司/航段,如 国航 北京–东京": {
       "localizations": {
         "en": {
@@ -5693,6 +5789,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "这些行程项的时间不在这次旅行的日期范围里。改一下旅行日期,或者改这一项的时间。"
+          }
+        }
+      }
+    },
+    "这天有 %lld 班同号航班,用的是第一班,时间不对请手动改。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld flights share that number on this date; the first one was used. Adjust by hand if it's the wrong one."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这天有 %lld 班同号航班,用的是第一班,时间不对请手动改。"
           }
         }
       }
