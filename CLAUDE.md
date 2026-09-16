@@ -84,7 +84,7 @@ cd android
 
 纯逻辑在 `LodoCore/TravelPlan.swift`(`TravelEntry` 值快照 ↔ `MemoryItem`,和 `TaskData` ↔ `TaskItem` 同一个分层),单测 `TravelPlanTests` 不用模拟器。几条容易写错的语义:**住宿按"住了几晚"铺开**(入住日到退房**前一日**,退房当天早上就走了不算那天),航班/地点只落在开始时间那天,没时间的进「未排期」,有时间但落在行程区间外的走 `outOfRange` 单独列出来(改签/记错日期时不能让它凭空消失)。价格汇总按币种分组,折算复用资产那套 `ExchangeRateStore.convert` 与 `assetDisplayCurrency`;**换不出汇率的币种不参与求和,而是原样报回 `TravelTotal.missingCurrencies` 让 UI 如实说明**——宁可少算也不能拿错汇率糊弄,别"优化"成默默当 0。
 
-UI 是 `TravelListView`(列表,按进行中/即将出发/已结束分组)push 进 `TravelDetailView`(总览/按天/地图/价格四个视图,顶部分段切换)。地图只画有坐标的点:坐标来自 `PlaceSearchView` 的 `MKLocalSearch` 搜地名选点(系统能力、无需 key、**不要定位权限**),用户手打地名则没有坐标、不上地图——这是有意的,不要为此去要定位权限或加地理编码兜底。
+UI 是 `TravelListView`(顶部「最近旅行」总览卡——进行中优先、其次最近出发、都没有才退回最近结束的那次;下面「其他旅行」是其余进行中/即将出发的,按出发日从近到远;已结束的收在最底下的 `DisclosureGroup` 折叠栏里、默认收起;截图参数 `--demo-travel-more` 塞几次样板旅行、`--demo-travel-past-expanded` 展开折叠栏)push 进 `TravelDetailView`(顶部是旅行信息头:名字/城市·国家/日期/备注,点它进编辑;下面按天/地图/价格三个视图分段切换,没有总览)。`TravelTrip.city`/`country` 是纯展示用的手填文字,不参与地图定位。地图只画有坐标的点:坐标来自 `PlaceSearchView` 的 `MKLocalSearch` 搜地名选点(系统能力、无需 key、**不要定位权限**),用户手打地名则没有坐标、不上地图——这是有意的,不要为此去要定位权限或加地理编码兜底。
 
 AI 两处:①「从订单导入」(`DeepSeekClient.parseTravelItems` + 可离线单测的 `parseTravelPayload`)把订票邮件/酒店确认信拆成行程项,**这条路径保留确认页**、不走"默认直接落库"那套——订单里的日期金额认错了代价不小(照着错的时间去机场),不像单条待办撤销一下就完事;② ReAct 只读工具 `read_trip`(`travelEnabled` 能力开关传参,同 `healthEnabled`/`memoryEnabled`;没有隐私开关,判据是"库里有没有旅行",一条都没有就不给这个工具、省下 prompt 那一段),prompt 在可编辑的 `AgentSkillID.travel` 里。定时任务那条路径不给这个工具。
 

@@ -17,6 +17,38 @@
         }
       }
     },
+    "%@ %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %lld"
+          }
+        }
+      }
+    },
+    "%@ · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@"
+          }
+        }
+      }
+    },
     "%@ · %lld 天 · %lld 项": {
       "localizations": {
         "en": {
@@ -45,6 +77,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · %lld 天 · %lld 项安排"
+          }
+        }
+      }
+    },
+    "%@ · 共 %lld 天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld days"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · 共 %lld 天"
           }
         }
       }
@@ -365,6 +413,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "iCloud 同步"
+          }
+        }
+      }
+    },
+    "上一次旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last Trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上一次旅行"
           }
         }
       }
@@ -1281,6 +1345,22 @@
         }
       }
     },
+    "其他旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other Trips"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他旅行"
+          }
+        }
+      }
+    },
     "写入行程": {
       "localizations": {
         "en": {
@@ -1713,22 +1793,6 @@
         }
       }
     },
-    "去哪儿,如 东京四日": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Where to? e.g. Four Days in Tokyo"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "去哪儿,如 东京四日"
-          }
-        }
-      }
-    },
     "去掉": {
       "localizations": {
         "en": {
@@ -1885,6 +1949,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "合计"
+          }
+        }
+      }
+    },
+    "名字,如 东京四日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name, e.g. Tokyo 4 Days"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名字,如 东京四日"
           }
         }
       }
@@ -2081,6 +2161,22 @@
         }
       }
     },
+    "国家,如 日本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Country, e.g. Japan"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "国家,如 日本"
+          }
+        }
+      }
+    },
     "图标颜色": {
       "localizations": {
         "en": {
@@ -2205,6 +2301,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "地点名称,如 浅草寺"
+          }
+        }
+      }
+    },
+    "城市,如 东京": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "City, e.g. Tokyo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "城市,如 东京"
           }
         }
       }
@@ -2733,6 +2845,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "已结束"
+          }
+        }
+      }
+    },
+    "已结束 · %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Past · %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已结束 · %lld"
           }
         }
       }
@@ -3441,6 +3569,22 @@
         }
       }
     },
+    "接下来": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up Next"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接下来"
+          }
+        }
+      }
+    },
     "接口地址(…/chat/completions)": {
       "localizations": {
         "en": {
@@ -3953,6 +4097,22 @@
         }
       }
     },
+    "明天出发": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaving Tomorrow"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明天出发"
+          }
+        }
+      }
+    },
     "昵称": {
       "localizations": {
         "en": {
@@ -4205,6 +4365,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "最近 %lld 天"
+          }
+        }
+      }
+    },
+    "最近旅行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latest Trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近旅行"
           }
         }
       }
@@ -5261,6 +5437,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "白色"
+          }
+        }
+      }
+    },
+    "目的地": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目的地"
           }
         }
       }
@@ -6657,6 +6849,22 @@
         }
       }
     },
+    "还有 %lld 天出发": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaving in %lld days"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还有 %lld 天出发"
+          }
+        }
+      }
+    },
     "还没有人脉。": {
       "localizations": {
         "en": {
@@ -6785,6 +6993,22 @@
         }
       }
     },
+    "还没有行程,点进去添加航班、住宿和想去的地方。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No plans yet. Tap to add flights, stays and places."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有行程,点进去添加航班、住宿和想去的地方。"
+          }
+        }
+      }
+    },
     "还没有记过花费": {
       "localizations": {
         "en": {
@@ -6893,6 +7117,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "进行中"
+          }
+        }
+      }
+    },
+    "进行中 · 第 %lld 天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Progress · Day %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "进行中 · 第 %lld 天"
           }
         }
       }

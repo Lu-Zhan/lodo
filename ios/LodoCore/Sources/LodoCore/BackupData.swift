@@ -416,23 +416,40 @@ public struct BackupTravelTrip: Codable {
     public var startDate: Date
     public var endDate: Date
     public var notes: String
+    public var city: String
+    public var country: String
     public var createdAt: Date
 
     public init(uuid: UUID, title: String, startDate: Date, endDate: Date,
-                notes: String, createdAt: Date) {
+                notes: String, city: String = "", country: String = "", createdAt: Date) {
         self.uuid = uuid
         self.title = title
         self.startDate = startDate
         self.endDate = endDate
         self.notes = notes
+        self.city = city
+        self.country = country
         self.createdAt = createdAt
+    }
+
+    /// 手写 init(from:):city/country 是后加的字段,老备份没有这两个 key 时按空串处理。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        uuid = try c.decode(UUID.self, forKey: .uuid)
+        title = try c.decode(String.self, forKey: .title)
+        startDate = try c.decode(Date.self, forKey: .startDate)
+        endDate = try c.decode(Date.self, forKey: .endDate)
+        notes = try c.decode(String.self, forKey: .notes)
+        city = try c.decodeIfPresent(String.self, forKey: .city) ?? ""
+        country = try c.decodeIfPresent(String.self, forKey: .country) ?? ""
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
 
 extension TravelTrip {
     public var backup: BackupTravelTrip {
         BackupTravelTrip(uuid: uuid, title: title, startDate: startDate, endDate: endDate,
-                         notes: notes, createdAt: createdAt)
+                         notes: notes, city: city, country: country, createdAt: createdAt)
     }
 }
 
@@ -443,6 +460,8 @@ extension BackupTravelTrip {
         trip.startDate = startDate
         trip.endDate = endDate
         trip.notes = notes
+        trip.city = city
+        trip.country = country
         trip.createdAt = createdAt
     }
 }

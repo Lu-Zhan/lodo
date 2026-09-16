@@ -2,7 +2,9 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// "旅行"页:第六个平级页面。列出每一次旅行,点进去是总览/按天/地图/价格四个视图。
+/// "旅行"页:第六个平级页面。顶部是最近那次旅行的总览卡(进行中优先,其次最近要出发的,
+/// 都没有才拿最近结束的那次),下面是其余进行中/即将出发的旅行,已经结束的收在最底下的
+/// 折叠栏里(默认收起)。点进去顶部是旅行信息,下面按天/地图/价格三个视图。
 /// 一次旅行里的航班/住宿/地点本身就是记忆条目(打了「旅行」保留标签),所以订票
 /// 确认单能当附件存、能被记忆搜索和"问 AI"命中。
 struct TravelListView: View {
@@ -14,12 +16,26 @@ struct TravelListView: View {
     @State private var path: [TravelTrip] = []
     @State private var creating = false
     @State private var pendingDelete: TravelTrip?
+    @State private var showsPast = false
+    @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
+    private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
 
-    private var ongoing: [TravelTrip] { trips.filter { $0.isOngoing() } }
-    private var upcoming: [TravelTrip] { trips.filter { $0.isUpcoming() } }
+    /// 进行中与即将出发的,按出发日从近到远(@Query 是倒序,这里翻过来)。
+    private var active: [TravelTrip] {
+        trips.filter { $0.isOngoing() || $0.isUpcoming() }
+            .sorted { $0.startDate < $1.startDate }
+    }
+    /// 已结束的,最近结束的在前。
     private var past: [TravelTrip] {
         trips.filter { !$0.isOngoing() && !$0.isUpcoming() }
+            .sorted { $0.endDate > $1.endDate }
     }
+
+    /// 总览卡上的那一次:进行中/最近要出发的;一次都没有才退回最近结束的那次,
+    /// 免得只剩历史旅行时整页只有一条收起的折叠栏。
+    private var featured: TravelTrip? { active.first ?? past.first }
+    private var others: [TravelTrip] { active.filter { $0.uuid != featured?.uuid } }
+    private var folded: [TravelTrip] { past.filter { $0.uuid != featured?.uuid } }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -36,9 +52,30 @@ struct TravelListView: View {
                         }
                     }
                 }
-                section("进行中", ongoing)
-                section("即将出发", upcoming)
-                section("已结束", past)
+                if let featured {
+                    Section {
+                        NavigationLink(value: featured) {
+                            overviewCard(featured)
+                        }
+                        .swipeActions(edge: .trailing) { deleteButton(featured) }
+                    } header: {
+                        Text(featured.isOngoing() || featured.isUpcoming() ? "最近旅行" : "上一次旅行")
+                    }
+                }
+                if !others.isEmpty {
+                    Section("其他旅行") {
+                        ForEach(others) { tripLink($0) }
+                    }
+                }
+                if !folded.isEmpty {
+                    Section {
+                        DisclosureGroup(isExpanded: $showsPast) {
+                            ForEach(folded) { tripLink($0) }
+                        } label: {
+                            Text("已结束 · \(folded.count)")
+                        }
+                    }
+                }
             }
             .navigationTitle("旅行")
             #if os(iOS)
@@ -86,31 +123,121 @@ struct TravelListView: View {
 
     @Environment(\.sidebarChrome) private var sidebarChrome
 
-    @ViewBuilder
-    private func section(_ title: LocalizedStringKey, _ list: [TravelTrip]) -> some View {
-        if !list.isEmpty {
-            Section(title) {
-                ForEach(list) { trip in
-                    NavigationLink(value: trip) {
-                        row(trip)
-                    }
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            pendingDelete = trip
-                        } label: {
-                            Label("删除", systemImage: "trash")
+    private func tripLink(_ trip: TravelTrip) -> some View {
+        NavigationLink(value: trip) {
+            row(trip)
+        }
+        .swipeActions(edge: .trailing) { deleteButton(trip) }
+    }
+
+    private func deleteButton(_ trip: TravelTrip) -> some View {
+        Button(role: .destructive) {
+            pendingDelete = trip
+        } label: {
+            Label("删除", systemImage: "trash")
+        }
+    }
+
+    // MARK: - 总览卡
+
+    private func overviewCard(_ trip: TravelTrip) -> some View {
+        let entries = TravelStore.entries(for: trip.uuid, from: memoryItems)
+        return VStack(alignment: .leading, spacing: 8) {
+            statusText(trip)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(trip.isOngoing() || trip.isUpcoming() ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            Group {
+                if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
+            }
+            .font(.title2.weight(.semibold))
+            VStack(alignment: .leading, spacing: 4) {
+                if let location = trip.locationText {
+                    Label(location, systemImage: "mappin.and.ellipse")
+                }
+                Label("\(dateRange(trip)) · 共 \(trip.dayCount) 天", systemImage: "calendar")
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+
+            if entries.isEmpty {
+                Text("还没有行程,点进去添加航班、住宿和想去的地方。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 16) {
+                    ForEach(TravelItemKind.allCases, id: \.self) { kind in
+                        let count = entries.filter { $0.kind == kind }.count
+                        if count > 0 {
+                            Label("\(count)", systemImage: kind.systemImage)
+                                .accessibilityLabel(
+                                    "\(LocalizedStrings.text(kind.titleKey, language: language)) \(count)")
                         }
+                    }
+                }
+                .font(.subheadline.monospacedDigit())
+                if let next = nextEntry(entries), let start = next.start {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("接下来")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Label {
+                            Text("\(next.title) · \(Self.nextFormatter.string(from: start))")
+                        } icon: {
+                            Image(systemName: next.kind.systemImage)
+                                .foregroundStyle(.tint)
+                        }
+                        .font(.subheadline)
+                        .lineLimit(1)
                     }
                 }
             }
         }
+        .padding(.vertical, 6)
     }
+
+    /// "进行中 · 第 2 天" / "明天出发" / "还有 5 天出发" / "已结束"。
+    @ViewBuilder
+    private func statusText(_ trip: TravelTrip) -> some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let start = calendar.startOfDay(for: trip.startDate)
+        let days = calendar.dateComponents([.day], from: today, to: start).day ?? 0
+        if trip.isOngoing() {
+            Text("进行中 · 第 \(1 - days) 天")
+        } else if trip.isUpcoming() {
+            if days <= 1 { Text("明天出发") } else { Text("还有 \(days) 天出发") }
+        } else {
+            Text("已结束")
+        }
+    }
+
+    /// 还没开始的第一项(住宿铺在多天上,已入住的不算"接下来")。
+    private func nextEntry(_ entries: [TravelEntry]) -> TravelEntry? {
+        let now = Date()
+        return entries
+            .filter { ($0.start ?? .distantPast) >= now }
+            .min { ($0.start ?? .distantFuture) < ($1.start ?? .distantFuture) }
+    }
+
+    private static let nextFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日 HH:mm"
+        return f
+    }()
+
+    // MARK: - 行
 
     private func row(_ trip: TravelTrip) -> some View {
         let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid }.count
         return VStack(alignment: .leading, spacing: 3) {
             Text(trip.title.isEmpty ? "未命名旅行" : trip.title)
                 .font(.subheadline.weight(.medium))
+            if let location = trip.locationText {
+                Label(location, systemImage: "mappin.and.ellipse")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             Text("\(dateRange(trip)) · \(trip.dayCount) 天 · \(count) 项")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -145,6 +272,27 @@ struct TravelListView: View {
         if args.contains("--demo-travel-detail") {
             path = [trip]
         }
+        if args.contains("--demo-travel-more") {
+            seedMoreDemoTrips()
+        }
+        if args.contains("--demo-travel-past-expanded") {
+            showsPast = true
+        }
+    }
+
+    /// 看"其他旅行"与"已结束"折叠栏的排版:一次更远的出发 + 两次已结束的,只铺一遍。
+    private func seedMoreDemoTrips() {
+        guard !trips.contains(where: { $0.title == "首尔周末" }) else { return }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        func day(_ offset: Int) -> Date { calendar.date(byAdding: .day, value: offset, to: today)! }
+        context.insert(TravelTrip(title: "首尔周末", startDate: day(40), endDate: day(42),
+                                  city: "首尔", country: "韩国"))
+        context.insert(TravelTrip(title: "大理慢游", startDate: day(-60), endDate: day(-55),
+                                  city: "大理", country: "中国"))
+        context.insert(TravelTrip(title: "曼谷", startDate: day(-200), endDate: day(-196),
+                                  city: "曼谷", country: "泰国"))
+        try? context.save()
     }
 
     /// simctl 选不了相册里的截图,直接挂一份"导入过登机牌+航班动态截图"之后的样板信息看排版。
@@ -170,7 +318,7 @@ struct TravelListView: View {
         // 四日游就是 4 天(含首尾),别和标题对不上。
         let end = calendar.date(byAdding: .day, value: 3, to: start)!
         let trip = TravelTrip(title: "东京四日", startDate: start, endDate: end,
-                              notes: "看樱花,顺便逛秋叶原。")
+                              notes: "看樱花,顺便逛秋叶原。", city: "东京", country: "日本")
         context.insert(trip)
         func at(_ dayOffset: Int, _ hour: Int, _ minute: Int = 0) -> Date {
             calendar.date(byAdding: .hour, value: hour,
@@ -211,7 +359,7 @@ struct TravelListView: View {
     #endif
 }
 
-/// 新建/编辑一次旅行本身(名字、日期、备注)。
+/// 新建/编辑一次旅行本身(名字、城市、国家、日期、备注)。
 struct TripEditView: View {
     /// nil = 新建。
     var trip: TravelTrip?
@@ -225,6 +373,8 @@ struct TripEditView: View {
     @State private var start = Date()
     @State private var end = Date()
     @State private var notes = ""
+    @State private var city = ""
+    @State private var country = ""
     @State private var didLoad = false
 
     private var hasInvalidRange: Bool {
@@ -239,7 +389,13 @@ struct TripEditView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("去哪儿,如 东京四日", text: $title)
+                    TextField("名字,如 东京四日", text: $title)
+                }
+                Section("目的地") {
+                    TextField("城市,如 东京", text: $city)
+                    TextField("国家,如 日本", text: $country)
+                }
+                Section("日期") {
                     DatePicker("出发", selection: $start, displayedComponents: .date)
                     DatePicker("返程", selection: $end, displayedComponents: .date)
                     if hasInvalidRange {
@@ -281,18 +437,25 @@ struct TripEditView: View {
         start = trip.startDate
         end = trip.endDate
         notes = trip.notes
+        city = trip.city
+        country = trip.country
     }
 
     private func save() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let city = city.trimmingCharacters(in: .whitespacesAndNewlines)
+        let country = country.trimmingCharacters(in: .whitespacesAndNewlines)
         if let trip {
             trip.title = trimmed
             trip.startDate = start
             trip.endDate = end
             trip.notes = notes
+            trip.city = city
+            trip.country = country
             try? context.save()
         } else {
-            let created = TravelTrip(title: trimmed, startDate: start, endDate: end, notes: notes)
+            let created = TravelTrip(title: trimmed, startDate: start, endDate: end, notes: notes,
+                                     city: city, country: country)
             context.insert(created)
             try? context.save()
             onCreated(created)

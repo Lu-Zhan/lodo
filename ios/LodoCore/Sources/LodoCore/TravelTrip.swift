@@ -16,16 +16,30 @@ public final class TravelTrip {
     public var startDate: Date = Date.now
     public var endDate: Date = Date.now
     public var notes: String = ""
+    /// 目的地城市与国家,都是用户手填的纯文字(可空),只用于展示,不参与定位或地图。
+    public var city: String = ""
+    public var country: String = ""
     public var createdAt: Date = Date.now
 
     public init(uuid: UUID = UUID(), title: String = "", startDate: Date = .now,
-                endDate: Date = .now, notes: String = "", createdAt: Date = .now) {
+                endDate: Date = .now, notes: String = "", city: String = "",
+                country: String = "", createdAt: Date = .now) {
         self.uuid = uuid
         self.title = title
         self.startDate = startDate
         self.endDate = endDate
         self.notes = notes
+        self.city = city
+        self.country = country
         self.createdAt = createdAt
+    }
+
+    /// "东京 · 日本";两个都空时返回 nil。
+    public var locationText: String? {
+        let parts = [city, country]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// 旅行天数(含首尾),按日历天算,至少 1 天。

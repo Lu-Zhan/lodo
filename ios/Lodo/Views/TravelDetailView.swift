@@ -3,7 +3,8 @@ import SwiftData
 import MapKit
 import LodoCore
 
-/// 一次旅行的四个视图:总览 / 按天 / 地图 / 价格,顶部分段切换。
+/// 一次旅行:顶部是旅行本身的信息(名字/城市·国家/日期),下面按天 / 地图 / 价格
+/// 三个视图分段切换。
 /// 行程项是打了「旅行」标签的记忆条目,所以这里用 @Query 盯全部 MemoryItem
 /// 再按 tripUUID 过滤——增删改能自动刷新(@Query 盯的是条目本身)。
 struct TravelDetailView: View {
@@ -16,7 +17,7 @@ struct TravelDetailView: View {
 
     @Query private var memoryItems: [MemoryItem]
 
-    @State private var mode: Mode = .overview
+    @State private var mode: Mode = .days
     @State private var editingItem: MemoryItem?
     @State private var viewingFlight: MemoryItem?
     @State private var addingItem = false
@@ -25,11 +26,10 @@ struct TravelDetailView: View {
     @State private var editingTrip = false
 
     enum Mode: String, CaseIterable, Identifiable {
-        case overview, days, map, cost
+        case days, map, cost
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
-            case .overview: return "总览"
             case .days: return "按天"
             case .map: return "地图"
             case .cost: return "价格"
@@ -51,6 +51,8 @@ struct TravelDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            header
+
             Picker("视图", selection: $mode) {
                 ForEach(Mode.allCases) { mode in
                     Text(mode.title).tag(mode)
@@ -61,15 +63,17 @@ struct TravelDetailView: View {
             .padding(.bottom, 8)
 
             switch mode {
-            case .overview: overviewList
             case .days: dayList
             case .map: mapView
             case .cost: costList
             }
         }
-        .navigationTitle(trip.title.isEmpty ? "未命名旅行" : trip.title)
         #if os(iOS)
+        // 名字已经在页面顶部大字显示,导航栏不再重复一遍(同系统通讯录详情页)。
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        #else
+        .navigationTitle(trip.title.isEmpty ? "未命名旅行" : trip.title)
         #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -128,43 +132,40 @@ struct TravelDetailView: View {
         #endif
     }
 
-    // MARK: - 总览
+    // MARK: - 旅行信息
 
-    private var overviewList: some View {
-        List {
-            Section {
-                LabeledContent("日期") {
-                    Text(dateRangeText)
+    /// 点整块信息直接进编辑,和右上角菜单里的「编辑旅行」同一个入口。
+    private var header: some View {
+        Button {
+            editingTrip = true
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                Group {
+                    if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
                 }
-                LabeledContent("行程项") {
-                    Text("\(entries.count)")
-                }
-                if !trip.notes.isEmpty {
-                    Text(trip.notes)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            ForEach(TravelItemKind.allCases, id: \.self) { kind in
-                let group = entries.filter { $0.kind == kind }
-                if !group.isEmpty {
-                    Section(LocalizedStrings.text(kind.titleKey, language: language)) {
-                        ForEach(group) { entry in
-                            entryRow(entry)
-                        }
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Group {
+                    if let location = trip.locationText {
+                        Label(location, systemImage: "mappin.and.ellipse")
+                    }
+                    Label("\(dateRangeText) · 共 \(trip.dayCount) 天", systemImage: "calendar")
+                    if !trip.notes.isEmpty {
+                        Text(trip.notes)
+                            .lineLimit(3)
                     }
                 }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
-            if entries.isEmpty {
-                Section {
-                    ContentUnavailableView {
-                        Label("还没有行程", systemImage: "suitcase.rolling")
-                    } description: {
-                        Text("右上角「+」手动加一条,或者把订票邮件贴进来让 AI 拆。")
-                    }
-                }
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityHint("编辑旅行")
+        .padding(.horizontal)
+        .padding(.top, 4)
+        .padding(.bottom, 12)
     }
 
     // MARK: - 按天
