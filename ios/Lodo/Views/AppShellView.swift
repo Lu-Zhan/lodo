@@ -2,10 +2,10 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// app 的六个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
+/// app 的七个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
 enum AppSection: Hashable, CaseIterable {
-    case overview, todo, memory, health, travel, agent
+    case overview, todo, memory, health, travel, menu, agent
 }
 
 // MARK: - 导航栏 ☰ 按钮(经 Environment 下发,四个页面共用)
@@ -289,6 +289,8 @@ struct AppShellView: View {
             HealthView()
         case .travel:
             TravelListView()
+        case .menu:
+            MenuListView()
         case .agent:
             AgentHostView(currentThreadUUID: $currentThreadUUID, agentRequest: $agentRequest)
         }
@@ -644,6 +646,7 @@ struct AppShellView: View {
                        "--demo-contact-export-picker"]),
             (.health, ["--demo-health"]),
             (.travel, ["--demo-travel"]),
+            (.menu, ["--demo-menu"]),
             (.todo, ["--demo-done-tab", "--demo-seed-data", "--demo-filter-all",
                      "--demo-filter-done", "--demo-project-list", "--demo-project-timeline",
                      "--demo-ask-duration", "--demo-convert-to-todo"]),

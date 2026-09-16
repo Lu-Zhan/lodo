@@ -9,6 +9,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case webSearch
     case health
     case travel
+    case tripPlanner
 
     public var id: String { rawValue }
 
@@ -20,6 +21,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .webSearch: return "联网搜索"
         case .health: return "健康"
         case .travel: return "旅行"
+        case .tripPlanner: return "规划行程"
         }
     }
 
@@ -30,7 +32,8 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .memory: return "收藏与查记忆的判定规则(仅记忆功能开启时生效)"
         case .webSearch: return "查最新信息/回答一般问题的判定规则(仅配置 Tavily key 后生效)"
         case .health: return "读健康数据回答身体状况问题的判定规则(仅开启健康分析后生效)"
-        case .travel: return "读行程回答旅行安排问题的判定规则(仅记录过旅行后生效)"
+        case .travel: return "读行程回答问题、按天调整已记下的行程(仅记录过旅行后生效)"
+        case .tripPlanner: return "按目的地、天数和偏好自动排行程,确认后写进「旅行」"
         }
     }
 }
@@ -84,6 +87,7 @@ public enum AgentSkillStore {
         case .webSearch: return defaultWebSearch
         case .health: return defaultHealth
         case .travel: return defaultTravel
+        case .tripPlanner: return defaultTripPlanner
         }
     }
 
@@ -238,6 +242,12 @@ public enum AgentSkillStore {
     name 填用户说的那次旅行的名字;用户没指名、只说"我这趟"/"下次旅行"时把 name 留空,\
     由 app 挑正在进行或最近的一次。每次交流最多用一次,拿到行程后必须在下一轮\
     给出真正的最终答案,不能连续再读)
+    - 调整已记下的行程:{"action": "edit_trip", "trip": "旅行名称", \
+    "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], \
+    "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", \
+    "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明"}]}\
+    (安排的写法:{"kind": "place 或 lodging", "title", "start", "end", "place", "note", \
+    "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
 
     额外判断规则:
     - 只有涉及用户**自己记过的**行程时才用 read_trip(如"我去东京的航班几点起飞"\
@@ -246,8 +256,53 @@ public enum AgentSkillStore {
     - 读到的是已经记下来的行程项(航班/住宿/地点,含时间、地点、金额)。\
     回答时就按读到的说,没有的信息别编——用户没记的航班号你编不出来。
     - 没有任何行程时如实告诉用户还没记过旅行,不要猜。
+    - 用户要调整**已经记下**的某次旅行(如"第二天重新安排,改去奈良""把清水寺删了"\
+    "第三天加个锦市场""把天龙寺挪到下午")→ edit_trip。必须先 read_trip 拿到行程:\
+    读到的每一项末尾 [id:…] 就是它的 id,remove/update 里的 id 只能原样抄过来,\
+    不要自己编;trip 填读到的旅行名。此时整个 actions 只放这一条。
+    - "某天重新安排"= 删掉那天要换掉的、加上新的;那天用户没说要换的保持不动。\
+    新加的安排按地理位置就近串起来,避开同一天其他项(尤其航班、住宿入住)的时间,\
+    start 必填,日期落在要调整的那一天。
+    - 调整会直接生效(卡片上可以撤销),所以只改用户说要改的那部分,不要顺手重排别的天,\
+    也不要把没提到的项删了再原样加回来。
+    - 航班不能通过 edit_trip 删改,add 里也不要放航班——航班号和时刻不是你能决定的;\
+    用户要改航班,如实说明去「旅行」页里改。带附件(订单确认单)的行程项 app 也不会删,\
+    会在结果里如实列出来。
     - 用户要你**新增/修改行程项**时,不要用 actions 里的待办操作去凑\
-    (待办和行程是两回事)。如实说明行程项要在「旅行」页里加,或者把订单\
+    (待办和行程是两回事)。还没有这次旅行、要从头规划的,按「规划行程」的规则给 plan_trip;\
+    只是记一张已经订好的机票/酒店,如实说明要在「旅行」页里加,或者把订单\
     文本贴进那一页让 app 解析。
+    """
+
+    private static let defaultTripPlanner = """
+    额外支持的操作:
+    - 规划行程:{"action": "plan_trip", "trip": "旅行名称", "start_date": "YYYY-MM-DD", \
+    "end_date": "YYYY-MM-DD", "summary": "一两句话说清这份安排的思路", "items": [安排, ...]}
+      每条安排:{"kind": "place 或 lodging", "title": "简短名称", \
+    "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", \
+    "place": "地点名,写成地图上搜得到的写法", "note": "怎么玩、怎么过去、要注意什么,一两句", \
+    "price": 数字, "currency": "ISO 4217 币种码如 JPY"}
+
+    额外判断规则:
+    - 用户要你"规划/安排/排一下"一次旅行(如"帮我规划东京四天""下周去成都玩三天怎么安排"\
+    "把大阪那趟的行程排一下")→ plan_trip,此时整个 actions 只放这一条,不与其他操作混用。\
+    规划不会直接写进去,用户在卡片上确认后才写进「旅行」页,所以给一份完整、拿来就能用的安排。
+    - 必需的信息只有两样:去哪、哪几天。缺目的地不要猜,用 ask 反问;只说了天数没说哪天出发时,\
+    用 ask 问出发日期,推荐项给最近一个合理的日子。节奏、预算、同行人、兴趣没说就按第一次去的\
+    经典玩法排,不要为这些反问。
+    - 每天 2-4 个地点,按地理位置就近串起来,不要让一天在城市两头来回跑;留出吃饭和路上的时间,\
+    别排到深夜。每条 start 必填,end 能估就估;第一天和最后一天要考虑到达、离开的时间。
+    - 住宿:没订酒店时给一条 lodging,title 写建议住的区域(如"住新宿一带"),start 为第一天\
+    入住、end 为最后一天退房;不要编造具体酒店名和房价。
+    - 不要生成航班,kind 只能是 place 或 lodging——航班号和起降时刻编不出来。
+    - 规划的是已经记过的某次旅行时(用户提到了那次旅行,或说"这趟"),有 read_trip 工具就先读行程:\
+    trip 原样填那次旅行的名字,start_date/end_date 用它的日期;已经记下的航班、住宿、地点不要\
+    重复生成,新安排避开航班落地之前和起飞之后的时间。新的旅行,trip 起一个"目的地+天数"的\
+    短名,如"东京四日"。
+    - 门票价格、开放时间、季节性活动这类会变的信息,有 web_search 工具且拿不准时可以先搜一次;\
+    没把握的价格省略 price,不要编。note 里别写"建议提前确认营业时间"这种每条都成立的套话。
+    - 用户对上一份规划提修改意见(如"第二天轻松点""把迪士尼加进去")时:规划**还没写入**\
+    「旅行」(对话里那张卡片没显示已写入),重新给一份完整的 plan_trip;**已经写入**了的,\
+    按「旅行」里 edit_trip 的规则只调整要改的那几天。
     """
 }

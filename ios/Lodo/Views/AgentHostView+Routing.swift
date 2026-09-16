@@ -40,7 +40,9 @@ extension AgentHostView {
             switch try await DeepSeekClient.command(
                 currentText, tasks: taskContext, memoryEnabled: true,
                 webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
-                travelEnabled: travelEnabled, history: reasoningHistory,
+                travelEnabled: travelEnabled,
+                // 规划行程不看库里有没有旅行:"帮我规划东京四天"本来就是从零开始的。
+                tripPlanEnabled: true, history: reasoningHistory,
                 existingProjects: TaskProjects.all(in: context)) {
             case .ask(let questions):
                 return .ask(questions)
@@ -91,7 +93,7 @@ extension AgentHostView {
                 currentText = "(请基于以上健康数据继续处理最初的请求:\(text))"
             case .toolCall(let thought, .readTrip(let name)):
                 onThought(thought)
-                let observation = TravelStore.promptSummary(name: name, in: context)
+                let observation = TravelStore.promptSummary(name: name, includeIDs: true, in: context)
                     ?? "还没有记过任何旅行"
                 reasoningHistory.append((role: "assistant",
                                          content: "思考:\(thought);读行程:\(name.isEmpty ? "当前旅行" : name)"))
@@ -174,6 +176,23 @@ extension AgentHostView {
                     }
                     if case .answer(let text) = actions[0] {
                         return .answer(text: text, related: [])
+                    }
+                    if case .planTrip(let plan) = actions[0] {
+                        // 规划不落库,交给聊天卡片;用户点「写入行程」才写。
+                        return .tripPlan(plan)
+                    }
+                    if case .editTrip(let edit) = actions[0] {
+                        // 调整直接执行(用户已经说清哪天怎么改),结果卡片带撤销。
+                        guard let record = TravelStore.applyEdit(edit, context: context) else {
+                            return .answer(text: "没找到要调整的旅行。", related: [])
+                        }
+                        guard record.hasChanges else {
+                            let reasons = record.skipped.isEmpty ? "" :
+                                "(\(record.skipped.joined(separator: "、")))"
+                            return .answer(text: "这次没有改动任何行程\(reasons)。航班和带附件的行程项请到「旅行」页里改。",
+                                           related: [])
+                        }
+                        return .tripEdited(record)
                     }
                 }
                 pendingActions = actions
@@ -357,6 +376,13 @@ extension AgentHostView {
         case .autoMemorize(let title, _):
             // 防御性分支:route() 已经在进确认清单之前把自动记录摘走落盘了。
             return "自动记录:\(title)"
+        case .planTrip(let plan):
+            // 防御性分支:parseCommand 已把 plan_trip 与写操作混合时丢弃,
+            // 单条的 route() 已经短路成规划卡片。
+            return "规划行程:\(plan.tripTitle)"
+        case .editTrip(let edit):
+            // 防御性分支:同上,edit_trip 混合时被丢弃、单条时 route() 直接执行。
+            return "调整行程:\(edit.tripTitle)"
         }
     }
 
@@ -408,7 +434,7 @@ extension AgentHostView {
                 if let created = MemoryPipeline.saveText(text, context: context) {
                     undoOps.append(.memorized(uuid: created.uuid))
                 }
-            case .askMemory, .answer, .suggestMemorize, .rememberPreference, .autoMemorize:
+            case .askMemory, .answer, .suggestMemorize, .rememberPreference, .autoMemorize, .planTrip, .editTrip:
                 // 防御性分支:查询/回答/建议收藏类操作没有可执行的落库动作
                 // (suggest_memorize 要用户点了"收藏这条"才真正落库,不能在这里
                 // 静默自动执行——那样就和 memorize 没区别了);偏好、自动记录都在

@@ -87,19 +87,59 @@ enum ContentExtractor {
 
     /// 图片 OCR;识别不出文字不算失败(照片类图片本来就没字),sourceText 留空。
     private static func extractImage(_ url: URL) async -> Extraction {
-        let text = await withCheckedContinuation { continuation in
+        let text = await recognizeText(VNImageRequestHandler(url: url))
+        return Extraction(text: MemorySearch.truncate(text), kind: .image, suggestedTitle: nil)
+    }
+
+    /// 内存里的图片直接 OCR,不落文件(旅行页导入截图用:截图只是拿来读字的,
+    /// 不需要存成一条记忆)。识别不出文字返回空串。
+    static func recognizeText(imageData: Data) async -> String {
+        await recognizeText(VNImageRequestHandler(data: imageData))
+    }
+
+    private static func recognizeText(_ handler: VNImageRequestHandler) async -> String {
+        await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .accurate
                 request.recognitionLanguages = ["zh-Hans", "en-US"]
-                let handler = VNImageRequestHandler(url: url)
                 try? handler.perform([request])
                 let lines = (request.results ?? [])
                     .compactMap { $0.topCandidates(1).first?.string }
                 continuation.resume(returning: lines.joined(separator: "\n"))
             }
         }
-        return Extraction(text: MemorySearch.truncate(text), kind: .image, suggestedTitle: nil)
+    }
+
+    /// 菜单 OCR 优先尝试的语言(Vision 的识别语言代码)。和收藏用的 `extractImage`
+    /// 分开:那边只认中英足够,菜单的主要场景恰恰是出国看不懂的外文菜单。
+    /// 实际生效的是这份和系统支持列表的交集(老系统不支持日韩等语言时自动剔掉)。
+    static let menuRecognitionLanguages = [
+        "ja-JP", "ko-KR", "zh-Hans", "zh-Hant", "en-US", "fr-FR", "it-IT", "de-DE",
+        "es-ES", "pt-BR", "th-TH", "vi-VT", "ru-RU",
+    ]
+
+    /// 菜单照片/截图 OCR。识别不出文字返回空串,由调用方给"没认出文字"的提示。
+    /// 打开自动语言检测:一张菜单只会是一两种语言,把十几种候选同时当首选反而
+    /// 容易把日文假名认成别的东西。
+    static func recognizeMenuText(in data: Data) async -> String {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.usesLanguageCorrection = true
+                request.automaticallyDetectsLanguage = true
+                if let supported = try? request.supportedRecognitionLanguages() {
+                    request.recognitionLanguages = menuRecognitionLanguages
+                        .filter(supported.contains)
+                }
+                let handler = VNImageRequestHandler(data: data)
+                try? handler.perform([request])
+                let lines = (request.results ?? [])
+                    .compactMap { $0.topCandidates(1).first?.string }
+                continuation.resume(returning: lines.joined(separator: "\n"))
+            }
+        }
     }
 
     /// 文本文件读取:UTF-8 优先,失败退 GB18030(中文老文件常见),再失败给空。

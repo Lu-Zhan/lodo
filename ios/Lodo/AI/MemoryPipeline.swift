@@ -236,8 +236,11 @@ enum MemoryPipeline {
     }
 
     /// 删除条目、清掉原始文件、清掉这条记忆的全部 MemoryChunk(避免孤儿数据);
-    /// 人脉条目额外清掉头像/附件文件与牵涉的全部 ContactRelationship 边
-    /// (非人脉条目这几步都是空操作)。
+    /// 人脉条目额外清掉头像/附件文件与牵涉的全部 ContactRelationship 边,
+    /// 菜单条目额外清掉它下面的全部 MenuDish(其余类型这几步都是空操作)。
+    /// 菜品的清理放在这里而不是只放在 MenuStore:菜单条目在记忆页里就是一条
+    /// 普通条目,从那边划掉走的是这个入口,不在这里清就会留下一堆指向不存在
+    /// 菜单的孤儿菜品(和 ContactRelationship 同样的道理)。
     static func delete(_ item: MemoryItem, context: ModelContext) {
         if let url = fileURL(of: item) {
             try? FileManager.default.removeItem(at: url)
@@ -254,6 +257,9 @@ enum MemoryPipeline {
         for chunk in chunks { context.delete(chunk) }
         let edges = (try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? []
         for edge in edges where edge.involves(owner) { context.delete(edge) }
+        let dishes = (try? context.fetch(FetchDescriptor<MenuDish>(
+            predicate: #Predicate { $0.menuUUID == owner }))) ?? []
+        for dish in dishes { context.delete(dish) }
         context.delete(item)
         try? context.save()
     }

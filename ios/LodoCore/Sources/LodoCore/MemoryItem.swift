@@ -111,6 +111,23 @@ public final class MemoryItem {
     public var travelOriginLongitude: Double?
     /// 航班号/订单号/房号这类编号,自由文本。
     public var travelCode: String?
+    /// 航班的补充信息(`FlightDetails` 的 JSON):航站楼、登机口、值机柜台、座位、
+    /// 机型、状态……从用户导入的订单文本/截图里解析出来。字段多且全是可选的,
+    /// 拆成一堆列只会让模型和备份膨胀,所以整块存。只对航班类行程项有意义。
+    public var travelFlightData: Data?
+
+    // MARK: - 菜单字段(tags 含 menuTagName 时才有意义)
+    // 和资产/人脉/旅行**反过来**:这条记忆条目是**整张菜单**(照片 + OCR 原文 +
+    // 整理出来的清单),一道菜不是记忆条目而是轻量的 `MenuDish`,靠
+    // `MenuDish.menuUUID` 指回这条的 uuid。理由见 MenuDish 的注释。
+    /// 菜单原文是什么语言(AI 给的人话,如"日语");认不出来时为 nil。
+    public var menuSourceLanguage: String?
+    /// 翻译成了哪种语言(整理那一刻的应用内语言,如"中文")。之后用户改了
+    /// 应用内语言,已经存下的译名不会跟着变,这个字段说明的就是"这份译名是哪种语言"。
+    public var menuTargetLanguage: String?
+    /// 整张菜单的币种(ISO 4217);菜单上只有符号、AI 也认不出来时为 nil,
+    /// 价格就只显示数字。一张菜单一个币种,不逐道菜存。
+    public var menuCurrency: String?
 
     public init(
         kind: MemoryKind,
@@ -145,7 +162,11 @@ public final class MemoryItem {
         travelOriginName: String? = nil,
         travelOriginLatitude: Double? = nil,
         travelOriginLongitude: Double? = nil,
-        travelCode: String? = nil
+        travelCode: String? = nil,
+        travelFlightData: Data? = nil,
+        menuSourceLanguage: String? = nil,
+        menuTargetLanguage: String? = nil,
+        menuCurrency: String? = nil
     ) {
         self.uuid = UUID()
         self.kindRaw = kind.rawValue
@@ -182,6 +203,10 @@ public final class MemoryItem {
         self.travelOriginLatitude = travelOriginLatitude
         self.travelOriginLongitude = travelOriginLongitude
         self.travelCode = travelCode
+        self.travelFlightData = travelFlightData
+        self.menuSourceLanguage = menuSourceLanguage
+        self.menuTargetLanguage = menuTargetLanguage
+        self.menuCurrency = menuCurrency
     }
 
     public var kind: MemoryKind { MemoryKind(rawValue: kindRaw) ?? .text }
@@ -215,6 +240,12 @@ public final class MemoryItem {
     }
     /// 老数据/没填币种时统一按人民币对待(同 assetCurrencyOrDefault)。
     public var travelCurrencyOrDefault: String { travelCurrency ?? "CNY" }
+    /// 保留标签:一张整理过的菜单(拍照/截图/文本导入,AI 拆成菜品清单)。
+    /// 和「健康」「旅行」同组——是保留标签(不能改名/删除)但**不**默认隐藏,
+    /// 在记忆列表里正常显示、正常搜(菜单照片本来就是值得留着的资料)。
+    public static let menuTagName = "菜单"
+    public var isMenu: Bool { tags.contains(Self.menuTagName) }
+
     /// 全部保留标签的集合,供 UI 层统一过滤(标签管理页的可管理列表、详情页
     /// 标签编辑器的候选与手输校验都应该引用这一份定义,不要各自维护一份
     /// 排除规则——历史上就是因为三处各写各的,漏了"人脉"没被
@@ -223,10 +254,11 @@ public final class MemoryItem {
     /// 两个不同维度——"AI记录"是保留标签但不隐藏,不能共用同一份集合。
     public static let reservedTagNames: Set<String> = [
         assetTagName, contactTagName, autoTagName, healthTagName, travelTagName,
+        menuTagName,
     ]
     /// 默认从记忆列表/附件选择器隐藏、需要显式打开对应开关才显示的标签
     /// (资产、人脉都是隐私/结构化数据,不该跟日常收藏混在一起刷屏)。
-    /// "AI记录"/"健康"/"旅行"不在这份集合里——它们是保留标签,但仍应正常显示、
+    /// "AI记录"/"健康"/"旅行"/"菜单"不在这份集合里——它们是保留标签,但仍应正常显示、
     /// 可被当成普通标签筛选,只是不能被改名/删除。
     public static let hiddenByDefaultTagNames: Set<String> = [assetTagName, contactTagName]
 

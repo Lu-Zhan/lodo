@@ -781,16 +781,29 @@ struct AgentView: View {
     private func appendAssistant(
         thread: AgentThread, kind: AgentMessageKind, content: String,
         relatedTitles: [String] = [], askSnapshotData: Data? = nil,
-        taskSnapshotData: Data? = nil, resultMemoryUUID: UUID? = nil
+        taskSnapshotData: Data? = nil, resultMemoryUUID: UUID? = nil,
+        tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil
     ) -> AgentMessage {
         let message = AgentMessage(threadUUID: thread.uuid, role: .assistant, kind: kind,
                                    content: content, relatedTitles: relatedTitles,
                                    askSnapshotData: askSnapshotData, taskSnapshotData: taskSnapshotData,
-                                   resultMemoryUUID: resultMemoryUUID)
+                                   resultMemoryUUID: resultMemoryUUID,
+                                   tripPlanSnapshotData: tripPlanSnapshotData,
+                                   tripEditSnapshotData: tripEditSnapshotData)
         context.insert(message)
         thread.updatedAt = Date()
         try? context.save()
         return message
+    }
+
+    /// 规划卡片。content 存一段纯文字版的规划:对话历史(recentHistory)只取
+    /// content 回传给模型,用户接着说"第二天轻松点"时,模型要看得到上一份排了什么。
+    private func appendTripPlan(thread: AgentThread, plan: TripPlanProposal) {
+        appendAssistant(
+            thread: thread, kind: .tripPlan,
+            content: TravelPlan.promptSummary(tripTitle: plan.tripTitle, days: plan.days(),
+                                              entries: plan.entries),
+            tripPlanSnapshotData: try? JSONEncoder().encode(plan))
     }
 
     /// 新建/修改落库后的只读结果卡片。新建和修改都已经**先落库再报告**,这张卡
@@ -1110,6 +1123,11 @@ struct AgentView: View {
                 case .autoMemorized(let uuid):
                     appendAssistant(thread: thread, kind: .memoryResult, content: "已自动记录",
                                     resultMemoryUUID: uuid)
+                case .tripPlan(let plan):
+                    appendTripPlan(thread: thread, plan: plan)
+                case .tripEdited(let record):
+                    appendAssistant(thread: thread, kind: .tripEdit, content: record.transcript,
+                                    tripEditSnapshotData: try? JSONEncoder().encode(record))
                 }
                 if isFirstMessage {
                     refineThreadTitle(thread: thread, userText: trimmed, reply: reply)
@@ -1154,6 +1172,8 @@ struct AgentView: View {
         case .suggestMemorize(let text): return text
         case .memorized: return "已收藏一条记忆"
         case .autoMemorized: return "自动记录了一条信息"
+        case .tripPlan(let plan): return "规划了行程:\(plan.tripTitle)"
+        case .tripEdited(let record): return "调整了行程:\(record.tripTitle)"
         }
     }
 
@@ -1239,6 +1259,47 @@ struct AgentView: View {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "开会挪到下午4点"))
             appendTaskResult(thread: thread, existingUUID: UUID(), parsed: Self.demoParsedTask)
         }
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-plan") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "帮我规划一下京都三天"))
+            appendTripPlan(thread: thread, plan: Self.demoTripPlan)
+        }
+        // 写入之后的样子:真的走一遍 TravelStore.applyPlan,旅行页里能看到这次旅行。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-plan-applied") {
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "帮我规划一下京都三天"))
+            let applied = TravelStore.applyPlan(Self.demoTripPlan, context: context)
+            appendAssistant(
+                thread: thread, kind: .tripPlan, content: "已写入",
+                tripPlanSnapshotData: try? JSONEncoder().encode(applied))
+        }
+        // 调整结果卡片:先把样板规划写进旅行,再真的执行一次"第二天改去奈良"。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-edit") {
+            let applied = TravelStore.applyPlan(Self.demoTripPlan, context: context)
+            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user,
+                                        content: "京都第二天不去岚山了,改去奈良"))
+            let calendar = Calendar.current
+            let day2 = calendar.date(byAdding: .day, value: 1, to: applied.startDate)!
+            func at(_ hour: Int) -> Date { calendar.date(byAdding: .hour, value: hour, to: day2)! }
+            let removeIDs = TravelStore.items(for: applied.appliedTripUUID!, in: context)
+                .filter { $0.title == "岚山竹林小径" || $0.title == "天龙寺" }
+                .map(\.uuid)
+            let edit = TripEdit(
+                tripTitle: "京都三日", summary: "第二天换成奈良:上午东大寺,下午奈良公园喂鹿。",
+                removeIDs: removeIDs,
+                additions: [
+                    TripPlanItem(kind: .place, title: "东大寺", note: "近铁奈良站步行 20 分钟。",
+                                 start: at(10), end: at(12), placeName: "东大寺"),
+                    TripPlanItem(kind: .place, title: "奈良公园", note: "鹿仙贝在公园里的小摊买。",
+                                 start: at(13), end: at(15), placeName: "奈良公园"),
+                ])
+            if var record = TravelStore.applyEdit(edit, context: context) {
+                // 撤销之后的样子,同时验证 revertEdit 真的把行程改回去了(去旅行页按天看)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-edit-reverted") {
+                    record = TravelStore.revertEdit(record, context: context)
+                }
+                appendAssistant(thread: thread, kind: .tripEdit, content: record.transcript,
+                                tripEditSnapshotData: try? JSONEncoder().encode(record))
+            }
+        }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-memory-result") {
             context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "记住wifi密码是8888"))
             let item = MemoryPipeline.saveText("wifi密码是8888", context: context)
@@ -1272,6 +1333,35 @@ struct AgentView: View {
             // 抽屉归外壳管,这里只负责把数据塞出来;要连带推开抽屉截图的话
             // 配合 --demo-sidebar 一起传(见 AppShellView.applyDemoArguments)。
         }
+    }
+
+    /// 规划卡片的样板:京都三日,从三天后开始。
+    private static var demoTripPlan: TripPlanProposal {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: 3, to: calendar.startOfDay(for: Date()))!
+        func at(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+            calendar.date(byAdding: .minute, value: day * 1440 + hour * 60 + minute, to: start)!
+        }
+        return TripPlanProposal(
+            tripTitle: "京都三日",
+            startDate: start,
+            endDate: at(2, 0),
+            summary: "第一天东山步行,第二天岚山,第三天伏见稻荷后离开;住四条河原町,去哪都方便。",
+            items: [
+                TripPlanItem(kind: .lodging, title: "住四条河原町一带", note: "地铁、巴士、京阪都在附近。",
+                             start: at(0, 15), end: at(2, 11), placeName: "四条河原町"),
+                TripPlanItem(kind: .place, title: "清水寺", note: "从五条坂上去,顺着二年坂、三年坂往下走。",
+                             start: at(0, 16), end: at(0, 17, 30), placeName: "清水寺",
+                             price: 500, currency: "JPY"),
+                TripPlanItem(kind: .place, title: "祇园 花见小路", note: "傍晚灯亮起来最好看,晚饭就在附近吃。",
+                             start: at(0, 18), end: at(0, 20), placeName: "花见小路"),
+                TripPlanItem(kind: .place, title: "岚山竹林小径", note: "早上 8 点前人少。",
+                             start: at(1, 8), end: at(1, 9), placeName: "竹林小径"),
+                TripPlanItem(kind: .place, title: "天龙寺", start: at(1, 9, 30), end: at(1, 11),
+                             placeName: "天龙寺", price: 800, currency: "JPY"),
+                TripPlanItem(kind: .place, title: "伏见稻荷大社", note: "千本鸟居走到四辻就够了,来回一个半小时。",
+                             start: at(2, 7, 30), end: at(2, 9, 30), placeName: "伏见稻荷大社"),
+            ])
     }
 
     private static var demoParsedTask: ParsedTask {

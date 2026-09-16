@@ -139,7 +139,8 @@ struct AgentMessageBubble: View {
     }
 
     private var fillsWidth: Bool {
-        message.kind == .ask || message.kind == .askResult
+        message.kind == .ask || message.kind == .askResult || message.kind == .tripPlan
+            || message.kind == .tripEdit
     }
 
     @ViewBuilder
@@ -167,6 +168,10 @@ struct AgentMessageBubble: View {
             taskResultContent
         case .memoryResult:
             memoryResultContent
+        case .tripPlan:
+            AgentTripPlanCard(message: message, isLatest: isLatest)
+        case .tripEdit:
+            AgentTripEditCard(message: message)
         }
     }
 

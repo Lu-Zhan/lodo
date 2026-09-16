@@ -174,9 +174,19 @@ public enum LK: String, CaseIterable {
     case ios_core_travel_place
     case ios_core_invalid_response_read_trip_is_missing
     case ios_core_invalid_response_missing_items
-    case ios_core_flight_api_key_not_configured
-    case ios_core_flight_not_found
-    case ios_core_flight_lookup_failed
+    case ios_core_flight_status_scheduled
+    case ios_core_flight_status_check_in
+    case ios_core_flight_status_boarding
+    case ios_core_flight_status_gate_closed
+    case ios_core_flight_status_departed
+    case ios_core_flight_status_delayed
+    case ios_core_flight_status_arrived
+    case ios_core_flight_status_canceled
+    case ios_core_flight_status_diverted
+    case ios_core_menu_untitled
+    case ios_core_menu_dish_count
+    case ios_core_menu_no_text
+    case ios_core_menu_no_dishes
 }
 
 public enum LocalizedStrings {
@@ -347,9 +357,19 @@ public enum LocalizedStrings {
         .ios_core_travel_place: [.zhHans: "地点", .en: "Place"],
         .ios_core_invalid_response_read_trip_is_missing: [.zhHans: "返回格式异常:read_trip 缺少 name", .en: "Invalid response: read_trip is missing name"],
         .ios_core_invalid_response_missing_items: [.zhHans: "返回格式异常:缺少 items", .en: "Invalid response: missing items"],
-        .ios_core_flight_api_key_not_configured: [.zhHans: "未配置航班查询 API Key,请到「设置」里填写。", .en: "Flight lookup API key not configured. Set it up in Settings."],
-        .ios_core_flight_not_found: [.zhHans: "没查到这个航班,确认一下航班号和日期,或者手动填。", .en: "Couldn't find that flight. Check the number and date, or fill it in manually."],
-        .ios_core_flight_lookup_failed: [.zhHans: "航班查询失败:", .en: "Flight lookup failed: "],
+        .ios_core_flight_status_scheduled: [.zhHans: "计划中", .en: "Scheduled"],
+        .ios_core_flight_status_check_in: [.zhHans: "值机中", .en: "Check-in open"],
+        .ios_core_flight_status_boarding: [.zhHans: "登机中", .en: "Boarding"],
+        .ios_core_flight_status_gate_closed: [.zhHans: "登机口已关闭", .en: "Gate closed"],
+        .ios_core_flight_status_departed: [.zhHans: "已起飞", .en: "Departed"],
+        .ios_core_flight_status_delayed: [.zhHans: "延误", .en: "Delayed"],
+        .ios_core_flight_status_arrived: [.zhHans: "已到达", .en: "Arrived"],
+        .ios_core_flight_status_canceled: [.zhHans: "已取消", .en: "Canceled"],
+        .ios_core_flight_status_diverted: [.zhHans: "备降", .en: "Diverted"],
+        .ios_core_menu_untitled: [.zhHans: "未命名菜单", .en: "Untitled Menu"],
+        .ios_core_menu_dish_count: [.zhHans: "{0} 道菜", .en: "{0} dishes"],
+        .ios_core_menu_no_text: [.zhHans: "没从图片里认出文字。换一张更清楚、正对着菜单拍的照片试试,或者直接贴文字。", .en: "Couldn't read any text from the photos. Try a sharper photo taken straight on, or paste the text instead."],
+        .ios_core_menu_no_dishes: [.zhHans: "没从这份菜单里读出菜品。换一张更完整的照片或文字再试试。", .en: "Couldn't find any dishes on this menu. Try a fuller photo or text."],
     ]
 
     public static func text(_ key: LK, language: AppLanguage) -> String {

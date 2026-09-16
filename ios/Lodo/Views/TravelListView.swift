@@ -139,9 +139,29 @@ struct TravelListView: View {
         // 种子只在空库时铺,但"直接 push 进详情"每次都要生效——第二次启动时库里
         // 已经有旅行了,不能连 push 一起挡掉。
         let trip = trips.first ?? seedDemoTrip()
+        if args.contains("--demo-travel-flight") {
+            attachDemoFlight(to: trip)
+        }
         if args.contains("--demo-travel-detail") {
             path = [trip]
         }
+    }
+
+    /// simctl 选不了相册里的截图,直接挂一份"导入过登机牌+航班动态截图"之后的样板信息看排版。
+    private func attachDemoFlight(to trip: TravelTrip) {
+        guard let item = TravelStore.items(for: trip.uuid, in: context)
+            .filter({ $0.travelKind == .flight })
+            .min(by: { ($0.travelStart ?? .distantFuture) < ($1.travelStart ?? .distantFuture) }),
+              let start = item.travelStart else { return }
+        let details = FlightDetails(
+            airline: "中国国际航空", departureCode: "PEK", arrivalCode: "NRT",
+            departureTerminal: "T3", arrivalTerminal: "T1", checkInCounter: "F01-F12",
+            gate: "E23", boardingTime: start.addingTimeInterval(-40 * 60),
+            estimatedDeparture: start.addingTimeInterval(25 * 60),
+            seat: "32A", cabin: "经济舱", aircraft: "空客 A330-300",
+            status: .delayed, updatedAt: Date().addingTimeInterval(-8 * 60))
+        item.travelFlightData = FlightDetails.encode(details)
+        try? context.save()
     }
 
     private func seedDemoTrip() -> TravelTrip {

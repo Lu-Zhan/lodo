@@ -206,6 +206,66 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertEqual(items[0].price, 1200)
     }
 
+    /// 登机牌/航班动态截图里的补充信息解析进 flight;非航班条目即使带了也丢掉。
+    func testParseTravelPayloadFlightDetails() throws {
+        let items = try DeepSeekClient.parseTravelPayload(["items": [
+            ["kind": "flight", "title": "国航 CA123", "code": "CA123",
+             "start": "2026-07-08 09:00",
+             "flight": ["airline": "中国国际航空", "departure_code": "pek", "departure_terminal": "T3",
+                        "check_in_counter": "F01-F12", "gate": 23, "seat": " 32A ",
+                        "boarding_time": "2026-07-08 08:20",
+                        "estimated_departure": "2026-07-08 09:40",
+                        "status": "DELAYED", "cabin": ""]],
+            ["kind": "flight", "title": "只有基本信息", "flight": ["status": "flying"]],
+            ["kind": "place", "title": "浅草寺", "flight": ["gate": "E1"]],
+        ]])
+        let flight = try XCTUnwrap(items[0].flight)
+        XCTAssertEqual(flight.departureCode, "PEK")
+        XCTAssertEqual(flight.gate, "23", "数字形式的登机口转成字符串")
+        XCTAssertEqual(flight.seat, "32A")
+        XCTAssertNil(flight.cabin, "空串当没有")
+        XCTAssertEqual(flight.status, .delayed)
+        XCTAssertEqual(flight.boardingTime, date(day: 8, hour: 8).addingTimeInterval(20 * 60))
+        XCTAssertEqual(flight.departureDelayMinutes(planned: items[0].start), 40)
+        XCTAssertNil(items[1].flight, "认不出的状态丢掉,剩下一个字段都没有就是 nil")
+        XCTAssertNil(items[2].flight)
+    }
+
+    /// 再导入一张新截图:有的字段覆盖,没有的保留。
+    func testFlightDetailsMerge() {
+        let old = FlightDetails(departureTerminal: "T3", gate: "E23", seat: "32A",
+                                status: .scheduled, updatedAt: date(day: 7, hour: 20))
+        let newer = FlightDetails(gate: "E30", status: .boarding, updatedAt: date(day: 8, hour: 8))
+        let merged = old.merged(with: newer)
+        XCTAssertEqual(merged.gate, "E30")
+        XCTAssertEqual(merged.seat, "32A")
+        XCTAssertEqual(merged.departureTerminal, "T3")
+        XCTAssertEqual(merged.status, .boarding)
+        XCTAssertEqual(merged.updatedAt, date(day: 8, hour: 8))
+    }
+
+    func testFlightDetailsCodingAndHelpers() throws {
+        let details = FlightDetails(gate: "E23", status: .boarding, updatedAt: date(day: 8, hour: 8))
+        let data = try XCTUnwrap(FlightDetails.encode(details))
+        XCTAssertEqual(FlightDetails.decode(data), details)
+        XCTAssertNil(FlightDetails.decode(Data("坏数据".utf8)))
+        XCTAssertNil(FlightDetails.encode(FlightDetails(updatedAt: Date())), "空信息不落库")
+        XCTAssertEqual(FlightDetails.normalizedNumber(" ca-981 "), "CA981")
+        XCTAssertNil(FlightDetails(estimatedDeparture: date(day: 8, hour: 8))
+            .departureDelayMinutes(planned: date(day: 8, hour: 9)), "提前不算晚点")
+    }
+
+    /// read_trip 摘要带上航班补充信息。
+    func testPromptSummaryIncludesFlightDetails() {
+        let entry = TravelEntry(
+            id: UUID(), kind: .flight, title: "国航", start: date(day: 8, hour: 9), code: "CA123",
+            flight: FlightDetails(departureTerminal: "T3", gate: "E23", seat: "32A", status: .delayed))
+        let text = TravelPlan.promptSummary(tripTitle: "东京四日", days: days, entries: [entry])
+        XCTAssertTrue(text.contains("状态 延误"), text)
+        XCTAssertTrue(text.contains("登机口 E23"), text)
+        XCTAssertTrue(text.contains("座位 32A"), text)
+    }
+
     func testParseTravelPayloadEmptyAndMissing() throws {
         XCTAssertTrue(try DeepSeekClient.parseTravelPayload(["items": []]).isEmpty)
         XCTAssertThrowsError(try DeepSeekClient.parseTravelPayload(["foo": 1]))

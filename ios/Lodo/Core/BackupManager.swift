@@ -53,6 +53,7 @@ enum BackupManager {
         let agentMessages = ((try? context.fetch(FetchDescriptor<AgentMessage>())) ?? [])
         let contactRelationships = ((try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [])
         let travelTrips = ((try? context.fetch(FetchDescriptor<TravelTrip>())) ?? [])
+        let menuDishes = ((try? context.fetch(FetchDescriptor<MenuDish>())) ?? [])
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -66,7 +67,8 @@ enum BackupManager {
             skillOverrides: skillOverrides,
             settings: currentSettings(),
             contactRelationships: contactRelationships.map { $0.backup },
-            travelTrips: travelTrips.map { $0.backup })
+            travelTrips: travelTrips.map { $0.backup },
+            menuDishes: menuDishes.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -211,6 +213,21 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: trip)
+        }
+
+        // 菜单那条记忆条目走 memoryItems 那一轮,这里补它下面的菜品(方向和
+        // travelTrips 相反,道理一样:两半都得在,否则恢复出来是一张空菜单)。
+        for dto in payload.menuDishes {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<MenuDish>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let dish = existing ?? {
+                let created = MenuDish(uuid: dto.uuid, menuUUID: dto.menuUUID,
+                                       originalName: dto.originalName)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: dish)
         }
 
         for override in payload.skillOverrides {

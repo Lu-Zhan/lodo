@@ -32,6 +32,11 @@ enum AgentReply {
     /// 和其他操作混在同一轮时不会走到这个 case——auto_memorize 那时仍然
     /// 静默落库,但没有专属的回执(见 route() 里的处理)。
     case autoMemorized(uuid: UUID)
+    /// AI 自动规划了一份行程:AgentView 追加一张规划卡片,用户点「写入行程」
+    /// 才真正写进「旅行」页(卡片自己完成写入/撤销,见 AgentTripPlanCard)。
+    case tripPlan(TripPlanProposal)
+    /// AI 调整了已记下的行程(已经落库):AgentView 追加改动结果卡片,卡片自带撤销。
+    case tripEdited(TripEditRecord)
 }
 
 /// 记忆条目左滑"转为待办"交接的载荷(见 ContentView)。

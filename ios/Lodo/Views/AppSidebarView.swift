@@ -103,9 +103,14 @@ struct AppSidebarView: View {
                 navRow(.overview, title: "总览", systemImage: "square.stack.3d.up")
                 navRow(.todo, title: "待办", systemImage: "checklist")
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
-                memoryTagRows
+                pinnedTagRows
+                // 健康/旅行/菜单都是建在记忆库上的功能(条目就是打了保留标签的记忆),
+                // 放在常驻标签之后、「更多标签」折叠之前:展开折叠时不会被一长串
+                // 标签挤到下面去找不着。
                 navRow(.health, title: "健康", systemImage: "heart.text.square")
                 navRow(.travel, title: "旅行", systemImage: "suitcase.rolling")
+                navRow(.menu, title: "菜单", systemImage: "menucard")
+                collapsedTagRows
 
                 Text("最近")
                     .font(.subheadline)
@@ -230,10 +235,14 @@ struct AppSidebarView: View {
     // MARK: - 记忆标签块(嵌在"记忆"行下面)
 
     @ViewBuilder
-    private var memoryTagRows: some View {
+    private var pinnedTagRows: some View {
         ForEach(visiblePinnedTags, id: \.self) { tag in
             tagRow(tag, pinned: true)
         }
+    }
+
+    @ViewBuilder
+    private var collapsedTagRows: some View {
         if !collapsedTags.isEmpty {
             Button {
                 showMoreTags.toggle()

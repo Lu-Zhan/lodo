@@ -176,6 +176,11 @@ public struct BackupMemoryItem: Codable {
     public var travelOriginLatitude: Double?
     public var travelOriginLongitude: Double?
     public var travelCode: String?
+    public var travelFlightData: Data?
+    // 菜单字段:同样全是可选,老格式备份缺这些 key 时下面的 init(from:) 用 nil 兜底。
+    public var menuSourceLanguage: String?
+    public var menuTargetLanguage: String?
+    public var menuCurrency: String?
 
     public init(
         uuid: UUID, kindRaw: String, title: String, summary: String, tags: [String],
@@ -198,7 +203,11 @@ public struct BackupMemoryItem: Codable {
         travelOriginName: String? = nil,
         travelOriginLatitude: Double? = nil,
         travelOriginLongitude: Double? = nil,
-        travelCode: String? = nil
+        travelCode: String? = nil,
+        travelFlightData: Data? = nil,
+        menuSourceLanguage: String? = nil,
+        menuTargetLanguage: String? = nil,
+        menuCurrency: String? = nil
     ) {
         self.uuid = uuid
         self.kindRaw = kindRaw
@@ -235,6 +244,10 @@ public struct BackupMemoryItem: Codable {
         self.travelOriginLatitude = travelOriginLatitude
         self.travelOriginLongitude = travelOriginLongitude
         self.travelCode = travelCode
+        self.travelFlightData = travelFlightData
+        self.menuSourceLanguage = menuSourceLanguage
+        self.menuTargetLanguage = menuTargetLanguage
+        self.menuCurrency = menuCurrency
     }
 
     /// 手写 init(from:):新增字段用 decodeIfPresent 兜底,老格式备份(这些 key
@@ -279,6 +292,10 @@ public struct BackupMemoryItem: Codable {
         travelOriginLatitude = try c.decodeIfPresent(Double.self, forKey: .travelOriginLatitude)
         travelOriginLongitude = try c.decodeIfPresent(Double.self, forKey: .travelOriginLongitude)
         travelCode = try c.decodeIfPresent(String.self, forKey: .travelCode)
+        travelFlightData = try c.decodeIfPresent(Data.self, forKey: .travelFlightData)
+        menuSourceLanguage = try c.decodeIfPresent(String.self, forKey: .menuSourceLanguage)
+        menuTargetLanguage = try c.decodeIfPresent(String.self, forKey: .menuTargetLanguage)
+        menuCurrency = try c.decodeIfPresent(String.self, forKey: .menuCurrency)
     }
 }
 
@@ -307,7 +324,11 @@ extension MemoryItem {
             travelOriginName: travelOriginName,
             travelOriginLatitude: travelOriginLatitude,
             travelOriginLongitude: travelOriginLongitude,
-            travelCode: travelCode)
+            travelCode: travelCode,
+            travelFlightData: travelFlightData,
+            menuSourceLanguage: menuSourceLanguage,
+            menuTargetLanguage: menuTargetLanguage,
+            menuCurrency: menuCurrency)
     }
 }
 
@@ -348,6 +369,10 @@ extension BackupMemoryItem {
         item.travelOriginLatitude = travelOriginLatitude
         item.travelOriginLongitude = travelOriginLongitude
         item.travelCode = travelCode
+        item.travelFlightData = travelFlightData
+        item.menuSourceLanguage = menuSourceLanguage
+        item.menuTargetLanguage = menuTargetLanguage
+        item.menuCurrency = menuCurrency
     }
 }
 
@@ -419,6 +444,61 @@ extension BackupTravelTrip {
         trip.endDate = endDate
         trip.notes = notes
         trip.createdAt = createdAt
+    }
+}
+
+/// 菜品。菜单本身是 MemoryItem(已经在 memoryItems 里了),菜品是独立的轻量模型,
+/// 所以这里要单独备份一份——只备份菜单不备份菜品,恢复出来就是一条点不开东西的
+/// 空菜单(同 travelTrips 那条注释的道理,只是方向反过来)。
+public struct BackupMenuDish: Codable {
+    public var uuid: UUID
+    public var menuUUID: UUID
+    public var originalName: String
+    public var translatedName: String
+    public var intro: String
+    public var category: String
+    public var price: Double?
+    public var sortIndex: Int
+    public var selected: Bool
+    public var createdAt: Date
+
+    public init(uuid: UUID, menuUUID: UUID, originalName: String, translatedName: String,
+                intro: String, category: String, price: Double?, sortIndex: Int,
+                selected: Bool, createdAt: Date) {
+        self.uuid = uuid
+        self.menuUUID = menuUUID
+        self.originalName = originalName
+        self.translatedName = translatedName
+        self.intro = intro
+        self.category = category
+        self.price = price
+        self.sortIndex = sortIndex
+        self.selected = selected
+        self.createdAt = createdAt
+    }
+}
+
+extension MenuDish {
+    public var backup: BackupMenuDish {
+        BackupMenuDish(uuid: uuid, menuUUID: menuUUID, originalName: originalName,
+                       translatedName: translatedName, intro: intro, category: category,
+                       price: price, sortIndex: sortIndex, selected: selected,
+                       createdAt: createdAt)
+    }
+}
+
+extension BackupMenuDish {
+    public func apply(to dish: MenuDish) {
+        dish.uuid = uuid
+        dish.menuUUID = menuUUID
+        dish.originalName = originalName
+        dish.translatedName = translatedName
+        dish.intro = intro
+        dish.category = category
+        dish.price = price
+        dish.sortIndex = sortIndex
+        dish.selected = selected
+        dish.createdAt = createdAt
     }
 }
 
@@ -674,13 +754,16 @@ public struct BackupPayload: Codable {
     /// 旅行。行程项本身是 MemoryItem,已经在 memoryItems 里了;这里只补"旅行本身",
     /// 否则恢复出来的行程项会指向一个不存在的 trip,静默退化成普通记忆条目。
     public var travelTrips: [BackupTravelTrip] = []
+    /// 菜品。菜单那条记忆条目已经在 memoryItems 里,这里补它下面的菜。
+    public var menuDishes: [BackupMenuDish] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
         agentThreads: [BackupAgentThread], agentMessages: [BackupAgentMessage],
         skillOverrides: [BackupSkillOverride], settings: BackupSettings,
         contactRelationships: [BackupContactRelationship] = [],
-        travelTrips: [BackupTravelTrip] = []
+        travelTrips: [BackupTravelTrip] = [],
+        menuDishes: [BackupMenuDish] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -691,10 +774,11 @@ public struct BackupPayload: Codable {
         self.settings = settings
         self.contactRelationships = contactRelationships
         self.travelTrips = travelTrips
+        self.menuDishes = menuDishes
     }
 
-    /// 手写 init(from:):contactRelationships/travelTrips 是新增字段,老格式备份
-    /// 没有这些 key 时用空数组兜底,理由同 BackupMemoryItem 的手写 init(from:)。
+    /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
+    /// 老格式备份没有这些 key 时用空数组兜底,理由同 BackupMemoryItem 的手写 init(from:)。
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         tasks = try c.decode([BackupTask].self, forKey: .tasks)
@@ -708,5 +792,7 @@ public struct BackupPayload: Codable {
             [BackupContactRelationship].self, forKey: .contactRelationships) ?? []
         travelTrips = try c.decodeIfPresent(
             [BackupTravelTrip].self, forKey: .travelTrips) ?? []
+        menuDishes = try c.decodeIfPresent(
+            [BackupMenuDish].self, forKey: .menuDishes) ?? []
     }
 }

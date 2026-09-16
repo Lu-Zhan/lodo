@@ -61,12 +61,15 @@ public struct TravelEntry: Equatable, Sendable, Identifiable {
     public let originName: String?
     public let originCoordinate: TravelCoordinate?
     public let code: String?
+    /// 航班的补充信息(航站楼/登机口/座位/状态…);没导入过的航班、住宿、地点都是 nil。
+    public let flight: FlightDetails?
 
     public init(id: UUID, kind: TravelItemKind, title: String, summary: String = "",
                 start: Date? = nil, end: Date? = nil, price: Double? = nil,
                 currency: String = "CNY", placeName: String? = nil,
                 coordinate: TravelCoordinate? = nil, originName: String? = nil,
-                originCoordinate: TravelCoordinate? = nil, code: String? = nil) {
+                originCoordinate: TravelCoordinate? = nil, code: String? = nil,
+                flight: FlightDetails? = nil) {
         self.id = id
         self.kind = kind
         self.title = title
@@ -80,6 +83,7 @@ public struct TravelEntry: Equatable, Sendable, Identifiable {
         self.originName = originName
         self.originCoordinate = originCoordinate
         self.code = code
+        self.flight = flight
     }
 
     /// 还没排期:按天视图把它收进单独一组,而不是硬塞到第一天。
@@ -100,7 +104,8 @@ extension TravelEntry {
                   start: item.travelStart, end: item.travelEnd, price: item.travelPrice,
                   currency: item.travelCurrencyOrDefault, placeName: item.travelPlaceName,
                   coordinate: coordinate, originName: item.travelOriginName,
-                  originCoordinate: origin, code: item.travelCode)
+                  originCoordinate: origin, code: item.travelCode,
+                  flight: kind == .flight ? FlightDetails.decode(item.travelFlightData) : nil)
     }
 }
 
@@ -243,10 +248,31 @@ public enum TravelPlan {
 
     // MARK: - 喂给 AI
 
+    /// 航班补充信息那一截:状态、航站楼/值机/登机口/座位、预计时刻、机型,有多少写多少。
+    static func flightPromptLine(_ flight: FlightDetails, time: DateFormatter) -> String {
+        var parts: [String] = []
+        if let status = flight.status {
+            parts.append("状态 " + LocalizedStrings.text(status.titleKey, language: .zhHans))
+        }
+        if let t = flight.departureTerminal { parts.append("出发航站楼 \(t)") }
+        if let c = flight.checkInCounter { parts.append("值机柜台 \(c)") }
+        if let g = flight.gate { parts.append("登机口 \(g)") }
+        if let b = flight.boardingTime { parts.append("登机 \(time.string(from: b))") }
+        if let e = flight.estimatedDeparture { parts.append("预计起飞 \(time.string(from: e))") }
+        if let t = flight.arrivalTerminal { parts.append("到达航站楼 \(t)") }
+        if let e = flight.estimatedArrival { parts.append("预计到达 \(time.string(from: e))") }
+        if let b = flight.baggageBelt { parts.append("行李转盘 \(b)") }
+        if let s = flight.seat { parts.append("座位 \(s)") }
+        if let a = flight.aircraft { parts.append("机型 \(a)") }
+        return parts.joined(separator: ",")
+    }
+
     /// 格式化成给 AI 的一段中文文字(`read_trip` 工具的返回),固定中文、不跟应用内语言走。
+    /// includeIDs:每行末尾带上 `[id:uuid]`。`read_trip` 喂给 AI 时开——模型要调整
+    /// 行程(`edit_trip`)得原样引用行程项的 id;规划卡片存进对话历史的那份不开。
     public static func promptSummary(
         tripTitle: String, days: [Date], entries: [TravelEntry],
-        calendar: Calendar = .current
+        includeIDs: Bool = false, calendar: Calendar = .current
     ) -> String {
         guard !entries.isEmpty else { return "「\(tripTitle)」还没有任何行程项。" }
         let formatter = DateFormatter()
@@ -273,7 +299,12 @@ public enum TravelPlan {
             if let price = entry.price, price != 0 {
                 parts.append("\(entry.currency) \(String(format: "%.2f", price))")
             }
-            return "  - " + parts.joined(separator: " · ")
+            if let flight = entry.flight {
+                let live = flightPromptLine(flight, time: time)
+                if !live.isEmpty { parts.append(live) }
+            }
+            let id = includeIDs ? " [id:\(entry.id.uuidString)]" : ""
+            return "  - " + parts.joined(separator: " · ") + id
         }
 
         var out = ["「\(tripTitle)」行程:"]
@@ -315,11 +346,13 @@ public struct ParsedTravelItem: Equatable, Sendable, Identifiable {
     public let price: Double?
     public let currency: String?
     public let note: String
+    /// 航班的补充信息;只有 kind == .flight 且文本/截图里真有这些内容时才非 nil。
+    public let flight: FlightDetails?
 
     public init(kind: TravelItemKind, title: String, code: String? = nil,
                 start: Date? = nil, end: Date? = nil, placeName: String? = nil,
                 originName: String? = nil, price: Double? = nil,
-                currency: String? = nil, note: String = "") {
+                currency: String? = nil, note: String = "", flight: FlightDetails? = nil) {
         self.kind = kind
         self.title = title
         self.code = code
@@ -330,5 +363,6 @@ public struct ParsedTravelItem: Equatable, Sendable, Identifiable {
         self.price = price
         self.currency = currency
         self.note = note
+        self.flight = flight
     }
 }

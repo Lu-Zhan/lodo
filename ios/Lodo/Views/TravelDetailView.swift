@@ -18,6 +18,7 @@ struct TravelDetailView: View {
 
     @State private var mode: Mode = .overview
     @State private var editingItem: MemoryItem?
+    @State private var viewingFlight: MemoryItem?
     @State private var addingItem = false
     @State private var addingDate: Date = .now
     @State private var importing = false
@@ -102,6 +103,9 @@ struct TravelDetailView: View {
         .sheet(item: $editingItem) { item in
             TravelItemEditView(tripUUID: trip.uuid, existing: item)
         }
+        .sheet(item: $viewingFlight) { item in
+            FlightStatusView(item: item, trip: trip)
+        }
         .sheet(isPresented: $importing) {
             TravelImportView(trip: trip)
         }
@@ -116,6 +120,10 @@ struct TravelDetailView: View {
             if args.contains("--demo-travel-map") { mode = .map }
             if args.contains("--demo-travel-cost") { mode = .cost }
             if args.contains("--demo-travel-add") { addingItem = true }
+            if args.contains("--demo-travel-import") { importing = true }
+            if args.contains("--demo-travel-flight") {
+                viewingFlight = items.first { $0.travelKind == .flight && $0.travelFlightData != nil }
+            }
         }
         #endif
     }
@@ -359,20 +367,28 @@ struct TravelDetailView: View {
 
     private func entryRow(_ entry: TravelEntry, showDate: Bool = true) -> some View {
         Button {
-            editingItem = item(for: entry)
+            open(entry)
         } label: {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: entry.kind.systemImage)
                     .foregroundStyle(.tint)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(entry.title)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        Text(entry.title)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                        if let status = entry.flight?.status, showsStatus(entry) {
+                            FlightStatusBadge(status: status)
+                        }
+                    }
                     if let detail = detailLine(entry, showDate: showDate) {
                         Text(detail)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                    if let flight = entry.flight {
+                        FlightInfoLine(flight: flight, planned: entry.start)
                     }
                     if !entry.summary.isEmpty {
                         Text(entry.summary)
@@ -408,6 +424,23 @@ struct TravelDetailView: View {
                 .tint(.orange)
             }
         }
+    }
+
+    /// 航班行进航班详情(补充信息、导入截图更新都在那里),其余进编辑表单。
+    private func open(_ entry: TravelEntry) {
+        guard let item = item(for: entry) else { return }
+        if entry.kind == .flight {
+            viewingFlight = item
+        } else {
+            editingItem = item
+        }
+    }
+
+    /// 列表里的状态胶囊只在航班前后这段时间显示:截图里的状态不会自己更新,
+    /// 飞完好几天还挂着「延误」只会误导。
+    private func showsStatus(_ entry: TravelEntry) -> Bool {
+        guard let reference = entry.end ?? entry.start else { return true }
+        return Date() < reference.addingTimeInterval(12 * 3600)
     }
 
     private func detailLine(_ entry: TravelEntry, showDate: Bool) -> String? {

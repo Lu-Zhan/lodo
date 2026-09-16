@@ -47,6 +47,7 @@ enum TravelStore {
         price: Double? = nil, currency: String? = nil,
         placeName: String? = nil, latitude: Double? = nil, longitude: Double? = nil,
         originName: String? = nil, originLatitude: Double? = nil, originLongitude: Double? = nil,
+        flight: FlightDetails? = nil,
         context: ModelContext
     ) -> MemoryItem? {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -56,13 +57,14 @@ enum TravelStore {
             tags: [MemoryItem.travelTagName],
             sourceText: MemorySearch.truncate(searchText(
                 title: trimmed, note: note, code: code,
-                placeName: placeName, originName: originName)),
+                placeName: placeName, originName: originName, flight: flight)),
             status: .ready,
             travelTripUUID: tripUUID, travelKind: kind, travelStart: start, travelEnd: end,
             travelPrice: price, travelCurrency: currency,
             travelPlaceName: placeName, travelLatitude: latitude, travelLongitude: longitude,
             travelOriginName: originName, travelOriginLatitude: originLatitude,
-            travelOriginLongitude: originLongitude, travelCode: code)
+            travelOriginLongitude: originLongitude, travelCode: code,
+            travelFlightData: kind == .flight ? FlightDetails.encode(flight) : nil)
         context.insert(item)
         MemoryPipeline.finishStructuredSave(item, context: context)
         return item
@@ -74,6 +76,7 @@ enum TravelStore {
         code: String?, start: Date?, end: Date?, price: Double?, currency: String?,
         placeName: String?, latitude: Double?, longitude: Double?,
         originName: String?, originLatitude: Double?, originLongitude: Double?,
+        flight: FlightDetails?,
         context: ModelContext
     ) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -92,9 +95,10 @@ enum TravelStore {
         item.travelOriginLatitude = originLatitude
         item.travelOriginLongitude = originLongitude
         item.travelCode = code
+        item.travelFlightData = kind == .flight ? FlightDetails.encode(flight) : nil
         item.sourceText = MemorySearch.truncate(searchText(
             title: trimmed, note: note, code: code,
-            placeName: placeName, originName: originName))
+            placeName: placeName, originName: originName, flight: flight))
         MemoryPipeline.finishStructuredSave(item, context: context)
     }
 
@@ -106,7 +110,54 @@ enum TravelStore {
         create(tripUUID: tripUUID, kind: parsed.kind, title: parsed.title, note: parsed.note,
                code: parsed.code, start: parsed.start, end: parsed.end,
                price: parsed.price, currency: parsed.currency,
-               placeName: parsed.placeName, originName: parsed.originName, context: context)
+               placeName: parsed.placeName, originName: parsed.originName,
+               flight: stamped(parsed.flight), context: context)
+    }
+
+    /// 这次导入的航班在行程里已经有了(同一航班号):返回那一条,导入时合并进去而不是
+    /// 再建一条。航班号相同但日期明显不同的(往返同号、第二天同一班)不算同一条。
+    static func existingFlight(
+        for parsed: ParsedTravelItem, in items: [MemoryItem]
+    ) -> MemoryItem? {
+        guard parsed.kind == .flight else { return nil }
+        let number = FlightDetails.normalizedNumber(parsed.code)
+        guard !number.isEmpty else { return nil }
+        return items.first { item in
+            guard item.isTravel, item.travelKind == .flight,
+                  FlightDetails.normalizedNumber(item.travelCode) == number else { return false }
+            guard let a = parsed.start, let b = item.travelStart else { return true }
+            return abs(a.timeIntervalSince(b)) < 20 * 3600
+        }
+    }
+
+    /// 把新导入的一条合并进已有航班——这就是"航班动态更新":再导入一张登机牌或
+    /// 航班动态截图,补充信息里有的字段覆盖、没有的保留;基本信息(时间/地点/价格)
+    /// 只在原来空着时才填,不拿截图 OCR 的结果去覆盖用户已经确认过的内容。
+    static func merge(_ parsed: ParsedTravelItem, into item: MemoryItem, context: ModelContext) {
+        if item.travelStart == nil { item.travelStart = parsed.start }
+        if item.travelEnd == nil { item.travelEnd = parsed.end }
+        if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = parsed.placeName }
+        if (item.travelOriginName ?? "").isEmpty { item.travelOriginName = parsed.originName }
+        if item.travelPrice == nil, let price = parsed.price {
+            item.travelPrice = price
+            item.travelCurrency = parsed.currency
+        }
+        if let newer = stamped(parsed.flight) {
+            let old = FlightDetails.decode(item.travelFlightData) ?? FlightDetails()
+            item.travelFlightData = FlightDetails.encode(old.merged(with: newer))
+        }
+        let flight = FlightDetails.decode(item.travelFlightData)
+        item.sourceText = MemorySearch.truncate(searchText(
+            title: item.title, note: item.summary, code: item.travelCode,
+            placeName: item.travelPlaceName, originName: item.travelOriginName, flight: flight))
+        MemoryPipeline.finishStructuredSave(item, context: context)
+    }
+
+    /// 给这次导入的补充信息打上"什么时候更新的"。
+    private static func stamped(_ flight: FlightDetails?) -> FlightDetails? {
+        guard var flight, !flight.isEmpty else { return nil }
+        flight.updatedAt = Date()
+        return flight
     }
 
     /// 删掉一次旅行,连同它下面的行程项(行程项是记忆条目,走 MemoryPipeline.delete
@@ -132,36 +183,221 @@ enum TravelStore {
         try? context.save()
     }
 
+    // MARK: - AI 规划
+
+    /// 把一份 AI 规划(`plan_trip`)写进旅行,返回写入状态已回填的规划(调用方把它
+    /// 存回聊天消息)。旅行名和已有某次旅行**完全一致**(忽略首尾空白与大小写)时写进
+    /// 那次,否则按规划的名字和日期新建一次——不做模糊匹配:"东京"和"东京四日"
+    /// 可能真的是两趟,写错了比多建一趟麻烦得多。已有旅行的日期不跟着规划改,
+    /// 落在区间外的安排按天视图会单独列出来(`TravelPlan.outOfRange`)。
+    static func applyPlan(_ plan: TripPlanProposal, context: ModelContext) -> TripPlanProposal {
+        let name = plan.tripTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let existing = trips(in: context).first {
+            $0.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare(name) == .orderedSame
+        }
+        let trip: TravelTrip
+        if let existing {
+            trip = existing
+        } else {
+            trip = TravelTrip(title: name, startDate: plan.startDate, endDate: plan.endDate,
+                              notes: plan.summary)
+            context.insert(trip)
+        }
+        var created: [UUID] = []
+        for item in plan.items {
+            if let saved = create(
+                tripUUID: trip.uuid, kind: item.kind, title: item.title, note: item.note,
+                start: item.start, end: item.end, price: item.price, currency: item.currency,
+                placeName: item.placeName, context: context) {
+                created.append(saved.uuid)
+            }
+        }
+        try? context.save()
+        var result = plan
+        result.appliedTripUUID = trip.uuid
+        result.appliedItemUUIDs = created
+        result.createdTrip = existing == nil
+        result.reverted = false
+        return result
+    }
+
+    /// 撤销一次规划写入:删掉那次写入新建的行程项;旅行本身是那次新建的、并且
+    /// 删完之后已经空了,就连旅行一起删。用户在这期间往里手动加过东西的话旅行
+    /// 保留——那些不是规划写进去的,不能连坐。
+    static func revertPlan(_ plan: TripPlanProposal, context: ModelContext) -> TripPlanProposal {
+        guard let tripUUID = plan.appliedTripUUID else { return plan }
+        let uuids = Set(plan.appliedItemUUIDs ?? [])
+        for item in items(for: tripUUID, in: context) where uuids.contains(item.uuid) {
+            MemoryPipeline.delete(item, context: context)
+        }
+        if plan.createdTrip == true, items(for: tripUUID, in: context).isEmpty,
+           let trip = trips(in: context).first(where: { $0.uuid == tripUUID }) {
+            context.delete(trip)
+        }
+        try? context.save()
+        var result = plan
+        result.reverted = true
+        return result
+    }
+
+    // MARK: - AI 调整
+
+    /// 执行一次 `edit_trip`,返回改动记录(结果卡片展示 + 撤销用)。找不到旅行时返回 nil。
+    ///
+    /// 是哪次旅行:删/改引用的 id 能在库里定位到行程项时以它为准(模型抄错旅行名也
+    /// 不会改错地方),否则按旅行名挑(和 read_trip 同一个 `pickTrip`)。**不属于这次
+    /// 旅行的 id 一律不动**。
+    ///
+    /// 两类行程项不删不改,记进 skipped 如实报回去:① 航班——航班号时刻不是 AI 能
+    /// 决定的;② 带附件的(订单确认单等)——删除会连文件一起清掉,撤销恢复不了文件。
+    static func applyEdit(_ edit: TripEdit, context: ModelContext) -> TripEditRecord? {
+        let allTravel = ((try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []).filter(\.isTravel)
+        let referencedTrip = edit.referencedIDs.lazy
+            .compactMap { id in allTravel.first { $0.uuid == id }?.travelTripUUID }
+            .first
+        let trip = referencedTrip.flatMap { uuid in trips(in: context).first { $0.uuid == uuid } }
+            ?? pickTrip(name: edit.tripTitle, in: context)
+        guard let trip else { return nil }
+        let tripItems = allTravel.filter { $0.travelTripUUID == trip.uuid }
+        var record = TripEditRecord(tripUUID: trip.uuid, tripTitle: trip.title, summary: edit.summary)
+
+        func protectedReason(_ item: MemoryItem) -> String? {
+            if item.travelKind == .flight { return "\(item.title)(航班)" }
+            if item.relativeFilePath != nil || !item.attachmentRelativePaths.isEmpty {
+                return "\(item.title)(带附件)"
+            }
+            return nil
+        }
+
+        for id in edit.removeIDs {
+            guard let item = tripItems.first(where: { $0.uuid == id }) else {
+                record.skipped.append("一项找不到的行程")
+                continue
+            }
+            if let reason = protectedReason(item) {
+                record.skipped.append(reason)
+                continue
+            }
+            record.removed.append(item.backup)
+            MemoryPipeline.delete(item, context: context)
+        }
+
+        for change in edit.updates {
+            guard let item = tripItems.first(where: { $0.uuid == change.id }) else {
+                record.skipped.append("一项找不到的行程")
+                continue
+            }
+            // 带附件的可以改时间/名称(不碰文件),只有航班不让改。
+            if item.travelKind == .flight {
+                record.skipped.append("\(item.title)(航班)")
+                continue
+            }
+            record.updatedBefore.append(item.backup)
+            let placeChanged = change.placeName != nil && change.placeName != item.travelPlaceName
+            let newStart = change.start ?? item.travelStart
+            // 只挪了开始时间没给结束时间:保持原来的时长,不然会出现"结束早于开始"。
+            var newEnd = change.end ?? item.travelEnd
+            if change.start != nil, change.end == nil,
+               let oldStart = item.travelStart, let oldEnd = item.travelEnd, let newStart {
+                newEnd = newStart.addingTimeInterval(oldEnd.timeIntervalSince(oldStart))
+            }
+            update(
+                item, kind: item.travelKind ?? .place, title: change.title ?? item.title,
+                note: change.note ?? item.summary, code: item.travelCode,
+                start: newStart, end: newEnd,
+                price: item.travelPrice, currency: item.travelCurrency,
+                placeName: change.placeName ?? item.travelPlaceName,
+                // 地点换了,原来的坐标就不对了——宁可不上地图也不能画错位置。
+                latitude: placeChanged ? nil : item.travelLatitude,
+                longitude: placeChanged ? nil : item.travelLongitude,
+                originName: item.travelOriginName, originLatitude: item.travelOriginLatitude,
+                originLongitude: item.travelOriginLongitude, flight: nil, context: context)
+            record.updatedAfter.append(TripEditLine(
+                id: item.uuid, kind: item.travelKind ?? .place, title: item.title,
+                start: item.travelStart))
+        }
+
+        for addition in edit.additions {
+            if let saved = create(
+                tripUUID: trip.uuid, kind: addition.kind, title: addition.title,
+                note: addition.note, start: addition.start, end: addition.end,
+                price: addition.price, currency: addition.currency,
+                placeName: addition.placeName, context: context) {
+                record.added.append(TripEditLine(
+                    id: saved.uuid, kind: addition.kind, title: saved.title, start: saved.travelStart))
+            }
+        }
+        try? context.save()
+        return record
+    }
+
+    /// 撤销一次调整:新增的删掉,删掉的按原 uuid 写回,改过的改回原样。
+    /// 撤销期间用户自己又删了某条改过的项,那条就不再凭空复活(只改回存在的)。
+    static func revertEdit(_ record: TripEditRecord, context: ModelContext) -> TripEditRecord {
+        let all = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+        let addedIDs = Set(record.added.map(\.id))
+        for item in all where addedIDs.contains(item.uuid) {
+            MemoryPipeline.delete(item, context: context)
+        }
+        for backup in record.removed where !all.contains(where: { $0.uuid == backup.uuid }) {
+            let item = MemoryItem(kind: .text)
+            backup.apply(to: item)
+            context.insert(item)
+            MemoryPipeline.finishStructuredSave(item, context: context)
+        }
+        for backup in record.updatedBefore {
+            guard let item = all.first(where: { $0.uuid == backup.uuid }) else { continue }
+            backup.apply(to: item)
+            MemoryPipeline.finishStructuredSave(item, context: context)
+        }
+        try? context.save()
+        var result = record
+        result.reverted = true
+        return result
+    }
+
     // MARK: - 给 AI
 
     /// `read_trip` 工具的返回。name 为空时挑"正在进行的那次,否则最近一次"。
     /// 一条旅行都没有时返回 nil,由调用方给"还没记过旅行"的说法。
-    static func promptSummary(name: String, in context: ModelContext) -> String? {
+    /// includeIDs:每项带上 id,`edit_trip` 要引用(AI 助手的 read_trip 恒开)。
+    static func promptSummary(
+        name: String, includeIDs: Bool = false, in context: ModelContext
+    ) -> String? {
+        guard let trip = pickTrip(name: name, in: context) else { return nil }
+        return TravelPlan.promptSummary(
+            tripTitle: trip.title, days: trip.days,
+            entries: entries(for: trip.uuid, in: context), includeIDs: includeIDs)
+    }
+
+    /// 按名字挑一次旅行:名字包含匹配;名字为空或没匹配上时挑"正在进行的那次,
+    /// 否则最近要出发的,再否则最近一次"。read_trip 和 edit_trip 共用这一份,
+    /// 保证模型读到的和改的是同一趟。
+    static func pickTrip(name: String, in context: ModelContext) -> TravelTrip? {
         let all = trips(in: context)
         guard !all.isEmpty else { return nil }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trip: TravelTrip
         if !trimmed.isEmpty,
            let matched = all.first(where: { $0.title.localizedStandardContains(trimmed) }) {
-            trip = matched
-        } else if let ongoing = all.first(where: { $0.isOngoing() }) {
-            trip = ongoing
-        } else if let upcoming = all.filter({ $0.isUpcoming() }).last {
-            // trips 是按出发日倒序的,最后一条 upcoming 就是最近要出发的那次。
-            trip = upcoming
-        } else {
-            trip = all[0]
+            return matched
         }
-        return TravelPlan.promptSummary(
-            tripTitle: trip.title, days: trip.days,
-            entries: entries(for: trip.uuid, in: context))
+        if let ongoing = all.first(where: { $0.isOngoing() }) { return ongoing }
+        // trips 是按出发日倒序的,最后一条 upcoming 就是最近要出发的那次。
+        if let upcoming = all.filter({ $0.isUpcoming() }).last { return upcoming }
+        return all[0]
     }
 
     /// 行程项落进记忆库时可被搜索到的正文(地名/航班号都该能搜出来)。
     private static func searchText(
-        title: String, note: String, code: String?, placeName: String?, originName: String?
+        title: String, note: String, code: String?, placeName: String?, originName: String?,
+        flight: FlightDetails? = nil
     ) -> String {
-        [title, note, code ?? "", placeName ?? "", originName ?? ""]
+        // 航司、座位、机型也收进去,"问 AI 我坐几排"才搜得到这条。
+        let seat: String = flight?.seat.map { "座位 \($0)" } ?? ""
+        let parts: [String] = [title, note, code ?? "", placeName ?? "", originName ?? "",
+                               flight?.airline ?? "", seat, flight?.aircraft ?? ""]
+        return parts
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
     }

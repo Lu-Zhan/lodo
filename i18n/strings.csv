@@ -620,13 +620,95 @@ ios_view.searching,正在搜索…,Searching…,ios_view,
 ios_view.search_failed,"搜索失败,检查一下网络再试。",Search failed. Check your connection and try again.,ios_view,
 ios_view.place_not_found,没有找到这个地方。,No places found.,ios_view,
 ios_view.missing_rates_note,"以下币种暂时换不到汇率,没有计入合计:%@","No exchange rate available for these currencies yet, so they're not in the total: %@",ios_view,占位符是币种列表
-ios_core.flight_api_key_not_configured,"未配置航班查询 API Key,请到「设置」里填写。",Flight lookup API key not configured. Set it up in Settings.,ios_core,
-ios_core.flight_not_found,"没查到这个航班,确认一下航班号和日期,或者手动填。","Couldn't find that flight. Check the number and date, or fill it in manually.",ios_core,
-ios_core.flight_lookup_failed,航班查询失败:,Flight lookup failed: ,ios_core,"前缀,后接原始错误信息"
-ios_view.flight_lookup,航班查询,Flight Lookup,ios_view,
-ios_view.key_source,Key 来源,Key Source,ios_view,
-ios_view.direct_host,官方直连,Direct,ios_view,"AeroDataBox 官方域名,相对 RapidAPI"
-ios_view.flight_lookup_footer,"填了之后,旅行页添加航班时可以按航班号+日期自动带出起降时间和机场。在 aerodatabox.com 注册,免费档每月 600 次;不填就手动填写,其余功能不受影响。","Once set, adding a flight in Travel can pull times and airports from the flight number and date. Sign up at aerodatabox.com — the free tier allows 600 calls a month. Leave it empty to fill flights in by hand; nothing else is affected.",ios_view,
-ios_view.lookup_flight,查,Look Up,ios_view,航班号旁边那颗按钮
-ios_view.flight_lookup_hint,"填了航班号点「查」,按下面选的日期带出起降时间和机场。查不到不影响手动填。","Enter a flight number and tap “Look Up” to pull times and airports for the date below. If nothing is found, fill it in by hand.",ios_view,
-ios_view.multiple_flights_note,"这天有 %lld 班同号航班,用的是第一班,时间不对请手动改。",%lld flights share that number on this date; the first one was used. Adjust by hand if it's the wrong one.,ios_view,
+ios_core.flight_status_scheduled,计划中,Scheduled,ios_core,航班动态状态
+ios_core.flight_status_check_in,值机中,Check-in open,ios_core,航班动态状态
+ios_core.flight_status_boarding,登机中,Boarding,ios_core,航班动态状态
+ios_core.flight_status_gate_closed,登机口已关闭,Gate closed,ios_core,航班动态状态
+ios_core.flight_status_departed,已起飞,Departed,ios_core,航班动态状态
+ios_core.flight_status_delayed,延误,Delayed,ios_core,航班动态状态
+ios_core.flight_status_arrived,已到达,Arrived,ios_core,航班动态状态
+ios_core.flight_status_canceled,已取消,Canceled,ios_core,航班动态状态
+ios_core.flight_status_diverted,备降,Diverted,ios_core,航班动态状态
+ios_view.flight_detail_edit,编辑,Edit,ios_view,航班动态
+ios_view.flight_arrive,到达,Arrival,ios_view,航班动态
+ios_view.flight_model,机型,Model,ios_view,航班动态
+ios_view.flight_delay_about,晚点约 %lld 分钟,About %lld min late,ios_view,航班动态
+ios_view.flight_airport,机场,Airport,ios_view,航班动态
+ios_view.flight_scheduled_departure,计划起飞,Scheduled departure,ios_view,航班动态
+ios_view.flight_scheduled_arrival,计划到达,Scheduled arrival,ios_view,航班动态
+ios_view.flight_estimated_departure,预计起飞,Estimated departure,ios_view,航班动态
+ios_view.flight_estimated_arrival,预计到达,Estimated arrival,ios_view,航班动态
+ios_view.flight_terminal,航站楼,Terminal,ios_view,航班动态
+ios_view.flight_check_in_desk,值机柜台,Check-in desk,ios_view,航班动态
+ios_view.flight_gate,登机口,Gate,ios_view,航班动态
+ios_view.flight_baggage_belt,行李转盘,Baggage belt,ios_view,航班动态
+ios_view.flight_row_gate,登机口 %@,Gate %@,ios_view,航班动态
+ios_view.flight_row_delay,晚点 %lld 分钟,%lld min late,ios_view,航班动态
+ios_view.flight_boarding_section,乘机,Flight,ios_view,航班信息
+ios_view.flight_updated_from_imports,"信息来自你导入的订单和截图,更新于 %@。不会自动刷新,请以航司和机场通知为准。","From the bookings and screenshots you imported, updated %@. It doesn't refresh on its own — check with the airline and airport.",ios_view,航班信息
+ios_view.flight_row_check_in,值机 %@,Check-in %@,ios_view,航班信息
+ios_view.flight_departure_terminal,出发航站楼,Departure terminal,ios_view,航班信息
+ios_view.flight_arrival_terminal,到达航站楼,Arrival terminal,ios_view,航班信息
+ios_view.flight_import_screenshot_update,导入截图更新,Update from Screenshot,ios_view,航班信息
+ios_view.flight_no_details_hint,"导入登机牌或航司 App 的航班动态截图,可以补上航站楼、登机口、座位等信息;之后再导入新截图会更新这一班。","Import a boarding pass or a flight status screenshot from the airline app to fill in terminal, gate, seat and more. Importing a newer screenshot later updates this flight.",ios_view,航班信息
+ios_view.flight_seat,座位,Seat,ios_view,航班信息
+ios_view.flight_row_seat,座位 %@,Seat %@,ios_view,航班信息
+ios_view.flight_screenshots,截图,Screenshots,ios_view,航班信息
+ios_view.flight_screenshot_n,截图 %lld,Screenshot %lld,ios_view,航班信息
+ios_view.flight_updating_code,更新航班 %@,Update Flight %@,ios_view,航班信息
+ios_view.flight_will_merge,更新行程里已有的这班航班,Updates this flight already in the trip,ios_view,航班信息
+ios_view.flight_recognizing,正在识别截图里的文字…,Reading text from screenshots…,ios_view,航班信息
+ios_view.flight_add_screenshots,添加截图,Add Screenshots,ios_view,航班信息
+ios_view.flight_boarding_time,登机时间,Boarding time,ios_view,航班信息
+ios_view.flight_screenshot_footer,"登机牌、航司 App 的航班动态、订单详情页都可以。截图只在本机识别文字,不会上传图片;行程里已有的航班会用新信息更新。","Boarding passes, flight status in an airline app, booking pages — all work. Text is read on this device and images are never uploaded; flights already in the trip get updated.",ios_view,航班信息
+ios_view.flight_info_section,航班信息,Flight Details,ios_view,航班信息
+ios_view.flight_cabin,舱位,Cabin,ios_view,航班信息
+ios_view.flight_manual_footer,"都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。",All optional. Open this flight in the trip to fill them in from a boarding pass or flight status screenshot.,ios_view,航班信息
+ios_view.flight_reselect_screenshots,重新选择截图,Choose Screenshots Again,ios_view,航班信息
+ios_core.menu_untitled,未命名菜单,Untitled Menu,ios_core,
+ios_core.menu_dish_count,{0} 道菜,{0} dishes,ios_core,{0} 是菜品数量
+ios_core.menu_no_text,"没从图片里认出文字。换一张更清楚、正对着菜单拍的照片试试,或者直接贴文字。","Couldn't read any text from the photos. Try a sharper photo taken straight on, or paste the text instead.",ios_core,
+ios_core.menu_no_dishes,没从这份菜单里读出菜品。换一张更完整的照片或文字再试试。,Couldn't find any dishes on this menu. Try a fuller photo or text.,ios_core,
+ios_view.menu,菜单,Menu,ios_view,侧栏页面名
+ios_view.no_menus_yet,还没有菜单,No Menus Yet,ios_view,
+ios_view.menu_empty_description,"拍一张菜单或导入截图,AI 会整理出每道菜、翻译外文并补上简介,选好了直接给服务员看。","Snap a menu or import a screenshot. The AI lists every dish, translates it and adds a short description — then pick what you want and show it to the server.",ios_view,
+ios_view.new_menu,新建菜单,New Menu,ios_view,
+ios_view.delete_menu_title,删除这张菜单?,Delete This Menu?,ios_view,
+ios_view.delete_menu_message,菜单照片和整理出来的菜品会一起删掉。,The menu photo and its dishes will be deleted too.,ios_view,
+ios_view.menu_dish_count,%lld 道菜,%lld dishes,ios_view,
+ios_view.menu_selected_count,已选 %lld 道,%lld selected,ios_view,
+ios_view.menu_paste_prompt,也可以把菜单文字直接贴进来。,You can also paste the menu text here.,ios_view,
+ios_view.text_section,文字,Text,ios_view,
+ios_view.menu_organizing,正在识别并整理菜品…,Reading and organizing dishes…,ios_view,
+ios_view.menu_organizing_footer,"菜品多的菜单要整理一会儿,外文会一并翻译好。",Long menus take a moment; foreign text is translated along the way.,ios_view,
+ios_view.organize,整理,Organize,ios_view,新建菜单页的确认按钮
+ios_view.take_photo,拍照,Take Photo,ios_view,
+ios_view.choose_screenshots,从相册选择截图,Choose from Photos,ios_view,
+ios_view.menu_page_n,第 %lld 页,Page %lld,ios_view,
+ios_view.menu_photo_footer,"菜单有好几页的,每页拍一张。照片只在本机识别文字,发给 AI 的只有识别出来的文字。","For multi-page menus, take one photo per page. Text is recognized on this device — only the text is sent to the AI, never the photo.",ios_view,
+ios_view.menu_has_no_dishes,这张菜单没有菜品,This Menu Has No Dishes,ios_view,
+ios_view.search_dishes,搜索菜品,Search dishes,ios_view,
+ios_view.rename,重命名,Rename,ios_view,
+ios_view.clear_selection,清空已选,Clear Selection,ios_view,
+ios_view.more,更多,More,ios_view,
+ios_view.rename_menu,重命名菜单,Rename Menu,ios_view,
+ios_view.restaurant_name,店名,Restaurant name,ios_view,
+ios_view.selected_dishes,已选菜品,Selected Dishes,ios_view,
+ios_view.selected_dishes_hint,"展开已选菜品,给服务员看",Opens your selected dishes to show the server,ios_view,无障碍提示
+ios_view.nothing_selected_yet,还没有选菜,Nothing Selected Yet,ios_view,
+ios_view.tap_dish_to_select,在菜单里点一下菜品就能选上。,Tap a dish on the menu to select it.,ios_view,
+ios_view.swipe_to_remove_dish,左滑可以把这道菜从清单里去掉。,Swipe left to remove a dish from the list.,ios_view,
+ios_view.unpriced_note,"有 %lld 道菜没标价,没算进合计。",%lld dishes have no price and aren't in the total.,ios_view,
+ios_view.share_list,分享清单,Share List,ios_view,
+ios_view.remove,去掉,Remove,ios_view,
+ios_view.trip_plan_caption,%@ · %lld 天 · %lld 项安排,%@ · %lld days · %lld stops,ios_view,占位符:日期区间、天数、安排条数
+ios_view.trip_plan_other,其他安排,Other Plans,ios_view,
+ios_view.collapse,收起,Show Less,ios_view,
+ios_view.trip_plan_expand,展开其余 %lld 项,Show %lld more,ios_view,
+ios_view.trip_plan_applied,已写入「%@」,Added to “%@”,ios_view,
+ios_view.view,查看,View,ios_view,
+ios_view.trip_plan_reverted,已撤销写入,Removed from trip,ios_view,
+ios_view.trip_plan_reapply,重新写入,Add Again,ios_view,
+ios_view.trip_edit_title,已调整「%@」,Updated “%@”,ios_view,AI 调整行程结果卡片标题
+ios_view.trip_edit_skipped,没有改动:%@,Not changed: %@,ios_view,占位符:没动的行程项列表
+ios_view.trip_edit_reverted,已撤销这次调整,Changes undone,ios_view,

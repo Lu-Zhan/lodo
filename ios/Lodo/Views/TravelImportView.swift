@@ -1,8 +1,14 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 import LodoCore
 
-/// 把订单/确认单文本丢给 AI,解析成若干行程项,**过一遍确认页**再落库。
+/// 把订单/确认单文本和截图丢给 AI,解析成若干行程项,**过一遍确认页**再落库。
+///
+/// 截图(登机牌、航司 App 的航班动态、酒店确认页)在端上用 Vision OCR 成文字,
+/// 和粘贴的文本拼在一起交给 AI,不上传图片本身。解析出来的航班如果行程里已经有
+/// 同一班(`TravelStore.existingFlight`),确认后合并进那一条而不是再建一条——
+/// 航班信息的"动态更新"就是再导入一张新截图。
 ///
 /// 为什么单独给确认页:订单里的日期、金额认错了代价不小(照着错的时间去机场),
 /// 不像单条待办那样撤销一下就完事。所以这条路径保留"AI 解析 → 用户逐条勾选 → 落库",
@@ -21,6 +27,24 @@ struct TravelImportView: View {
     @State private var parsing = false
     @State private var errorMessage: String?
     @State private var parseTask: Task<Void, Never>?
+    @State private var photoItems: [PhotosPickerItem] = []
+    /// 每张截图 OCR 出来的文字(按选择顺序);识别不出字的不进这里。
+    @State private var screenshots: [Screenshot] = []
+    @State private var recognizing = false
+    /// 解析结果里哪些条目会合并进已有航班(parsed.id → 已有条目)。
+    @State private var mergeTargets: [UUID: MemoryItem] = [:]
+
+    /// 从某个航班详情页进来时,输入框上方提示"更新这一班"。
+    var updatingFlightCode: String?
+
+    private struct Screenshot: Identifiable {
+        let id = UUID()
+        let text: String
+    }
+
+    private var hasInput: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !screenshots.isEmpty
+    }
 
     private static let formatter: DateFormatter = {
         let f = DateFormatter()
@@ -32,6 +56,7 @@ struct TravelImportView: View {
         NavigationStack {
             Form {
                 if parsed.isEmpty {
+                    screenshotSection
                     Section {
                         TextEditor(text: $text)
                             .frame(minHeight: 160)
@@ -84,8 +109,7 @@ struct TravelImportView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     if parsed.isEmpty {
                         Button(parsing ? "解析中…" : "解析") { parse() }
-                            .disabled(parsing || text.trimmingCharacters(
-                                in: .whitespacesAndNewlines).isEmpty)
+                            .disabled(parsing || recognizing || !hasInput)
                     } else {
                         confirmButton("写入行程") { commit() }
                             .disabled(picked.isEmpty)
@@ -93,7 +117,78 @@ struct TravelImportView: View {
                 }
             }
             .onDisappear { parseTask?.cancel() }
+            .onChange(of: photoItems) { _, items in recognize(items) }
         }
+    }
+
+    // MARK: - 截图
+
+    private var screenshotSection: some View {
+        Section {
+            PhotosPicker(selection: $photoItems, maxSelectionCount: 6, matching: .images) {
+                Label(screenshots.isEmpty ? "添加截图" : "重新选择截图", systemImage: "photo.on.rectangle")
+            }
+            .disabled(recognizing || parsing)
+            if recognizing {
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("正在识别截图里的文字…")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            ForEach(Array(screenshots.enumerated()), id: \.element.id) { index, shot in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("截图 \(index + 1)")
+                        .font(.subheadline)
+                    Text(shot.text)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .onDelete { offsets in screenshots.remove(atOffsets: offsets) }
+        } header: {
+            if let updatingFlightCode {
+                Text("更新航班 \(updatingFlightCode)")
+            } else {
+                Text("截图")
+            }
+        } footer: {
+            Text("登机牌、航司 App 的航班动态、订单详情页都可以。截图只在本机识别文字,不会上传图片;行程里已有的航班会用新信息更新。")
+        }
+    }
+
+    /// 选好截图后逐张 OCR。重新选择时整体替换,不叠加(PhotosPicker 的选择本身就是全量的)。
+    private func recognize(_ items: [PhotosPickerItem]) {
+        guard !items.isEmpty else { return }
+        recognizing = true
+        errorMessage = nil
+        Task {
+            defer { recognizing = false }
+            var shots: [Screenshot] = []
+            for item in items {
+                guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
+                let text = await ContentExtractor.recognizeText(imageData: data)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !text.isEmpty { shots.append(Screenshot(text: text)) }
+            }
+            screenshots = shots
+            if shots.isEmpty {
+                errorMessage = "没从截图里认出文字。换一张更清晰的截图,或者直接把文字贴进来。"
+            }
+        }
+    }
+
+    /// 发给 AI 的正文:粘贴的文本 + 每张截图的 OCR 结果,分段标清来源。
+    private var combinedInput: String {
+        var parts: [String] = []
+        let pasted = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !pasted.isEmpty { parts.append(pasted) }
+        for (index, shot) in screenshots.enumerated() {
+            parts.append("【截图 \(index + 1) 识别出的文字】\n\(shot.text)")
+        }
+        return parts.joined(separator: "\n\n")
     }
 
     private func row(_ item: ParsedTravelItem) -> some View {
@@ -108,6 +203,14 @@ struct TravelImportView: View {
                     Label(item.title, systemImage: item.kind.systemImage)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.primary)
+                    if mergeTargets[item.id] != nil {
+                        Label("更新行程里已有的这班航班", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption)
+                            .foregroundStyle(.tint)
+                    }
+                    if let flight = item.flight {
+                        FlightInfoLine(flight: flight, planned: item.start, showsStatus: true)
+                    }
                     if let detail = detailLine(item) {
                         Text(detail)
                             .font(.footnote)
@@ -150,7 +253,7 @@ struct TravelImportView: View {
             defer { parsing = false }
             do {
                 let items = try await DeepSeekClient.parseTravelItems(
-                    text: text, tripTitle: trip.title,
+                    text: combinedInput, tripTitle: trip.title,
                     tripStart: trip.startDate, tripEnd: trip.endDate)
                 guard !Task.isCancelled else { return }
                 if items.isEmpty {
@@ -158,6 +261,10 @@ struct TravelImportView: View {
                     return
                 }
                 parsed = items
+                let existing = TravelStore.items(for: trip.uuid, in: context)
+                mergeTargets = Dictionary(uniqueKeysWithValues: items.compactMap { item in
+                    TravelStore.existingFlight(for: item, in: existing).map { (item.id, $0) }
+                })
                 // 默认全选:AI 解析出来的通常都要,逐条勾更费事;不要的取消掉就行。
                 picked = Set(items.map(\.id))
             } catch {
@@ -169,7 +276,11 @@ struct TravelImportView: View {
 
     private func commit() {
         for item in parsed where picked.contains(item.id) {
-            TravelStore.create(from: item, tripUUID: trip.uuid, context: context)
+            if let target = mergeTargets[item.id], !target.isDeleted {
+                TravelStore.merge(item, into: target, context: context)
+            } else {
+                TravelStore.create(from: item, tripUUID: trip.uuid, context: context)
+            }
         }
         dismiss()
     }

@@ -14,11 +14,6 @@ struct SettingsView: View {
     @AppStorage(AppSettings.openAgentOnLaunchKey) private var openAgentOnLaunch = true
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var healthRangeDays = 14
-    @AppStorage(AppSettings.flightLookupHostKey) private var flightLookupHost =
-        FlightLookupClient.Host.rapidAPI.rawValue
-    @State private var flightKey = KeychainHelper.apiKey(for: FlightLookupClient.providerName) ?? ""
-    @State private var flightKeySaved =
-        KeychainHelper.apiKey(for: FlightLookupClient.providerName) != nil
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -79,28 +74,6 @@ struct SettingsView: View {
                     }
                 } footer: {
                     Text("让 AI 在你设定的时间自动跑一件事,比如早上总结今天的待办、看天气给穿搭建议。")
-                }
-
-                // ---- 航班查询(旅行页用,可选)----
-                Section {
-                    Picker("Key 来源", selection: $flightLookupHost) {
-                        Text("RapidAPI").tag(FlightLookupClient.Host.rapidAPI.rawValue)
-                        Text("官方直连").tag(FlightLookupClient.Host.direct.rawValue)
-                    }
-                    SecureField("AeroDataBox API Key", text: $flightKey)
-                        .plainKeyboard()
-                        // 改了就允许再存一次,不然换 key 时那颗按钮一直是灰的。
-                        .onChange(of: flightKey) { _, _ in flightKeySaved = false }
-                    Button(flightKeySaved ? "已保存" : "保存") {
-                        KeychainHelper.save(flightKey, for: FlightLookupClient.providerName)
-                        flightKeySaved = true
-                    }
-                    .disabled(flightKeySaved || flightKey.trimmingCharacters(
-                        in: .whitespacesAndNewlines).isEmpty)
-                } header: {
-                    Text("航班查询")
-                } footer: {
-                    Text("填了之后,旅行页添加航班时可以按航班号+日期自动带出起降时间和机场。在 aerodatabox.com 注册,免费档每月 600 次;不填就手动填写,其余功能不受影响。")
                 }
 
                 // ---- 健康分析(仅 iOS:macOS 没有 HealthKit)----

@@ -33,9 +33,17 @@ struct TravelItemEditView: View {
     @State private var originCoordinate: CLLocationCoordinate2D?
     @State private var searching: SearchTarget?
     @State private var didLoad = false
-    @State private var lookingUp = false
-    @State private var lookupMessage: String?
-    @State private var lookupTask: Task<Void, Never>?
+    /// 已存的航班补充信息(多半来自导入的截图)。表单只露出最常手改的几项,
+    /// 其余字段(状态、预计时刻、三字码…)保存时原样带回去。
+    @State private var flight: FlightDetails?
+    /// 打开表单时的航班号;改成别的航班号时,截图里带来的那些字段就不属于这一班了。
+    @State private var loadedCode = ""
+    @State private var departureTerminal = ""
+    @State private var arrivalTerminal = ""
+    @State private var checkInCounter = ""
+    @State private var gate = ""
+    @State private var seat = ""
+    @State private var aircraft = ""
 
     private enum SearchTarget: Identifiable {
         case place, origin
@@ -76,31 +84,7 @@ struct TravelItemEditView: View {
                         }
                     }
                     TextField(titlePrompt, text: $title)
-                    HStack {
-                        TextField(kind == .flight ? "航班号(可选)" : "订单号/房号(可选)", text: $code)
-                        // 没配 key 就根本不出现这颗按钮——这是可选增强,不是必需路径,
-                        // 不该摆一颗点了只会说"你没配 key"的按钮在那儿。
-                        if kind == .flight, FlightLookupClient.isConfigured {
-                            if lookingUp {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Button("查") { lookUpFlight() }
-                                    .buttonStyle(.bordered)
-                                    .font(.footnote)
-                                    .disabled(code.trimmingCharacters(
-                                        in: .whitespacesAndNewlines).isEmpty)
-                            }
-                        }
-                    }
-                    if let lookupMessage {
-                        Text(lookupMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                } footer: {
-                    if kind == .flight, FlightLookupClient.isConfigured {
-                        Text("填了航班号点「查」,按下面选的日期带出起降时间和机场。查不到不影响手动填。")
-                    }
+                    TextField(kind == .flight ? "航班号(可选)" : "订单号/房号(可选)", text: $code)
                 }
 
                 Section {
@@ -142,6 +126,21 @@ struct TravelItemEditView: View {
                     Text(kind == .lodging
                          ? "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。"
                          : "不填时间也能存,会收进「未排期」。")
+                }
+
+                if kind == .flight {
+                    Section {
+                        TextField("出发航站楼", text: $departureTerminal)
+                        TextField("值机柜台", text: $checkInCounter)
+                        TextField("登机口", text: $gate)
+                        TextField("到达航站楼", text: $arrivalTerminal)
+                        TextField("座位", text: $seat)
+                        TextField("机型", text: $aircraft)
+                    } header: {
+                        Text("航班信息")
+                    } footer: {
+                        Text("都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。")
+                    }
                 }
 
                 Section {
@@ -198,64 +197,7 @@ struct TravelItemEditView: View {
                 }
             }
             .onAppear(perform: load)
-            .onDisappear { lookupTask?.cancel() }
         }
-    }
-
-    /// 按航班号 + 日期查时刻,回填起降时间与机场(含坐标)。
-    /// **只覆盖查到的字段**:API 对小机场覆盖不全,拿不到的照旧留着用户自己填的,
-    /// 不会因为查了一次就把已经填好的内容清空。
-    private func lookUpFlight() {
-        lookupMessage = nil
-        lookingUp = true
-        let number = code
-        let day = hasStart ? start : defaultDate
-        lookupTask = Task {
-            defer { lookingUp = false }
-            do {
-                let flights = try await FlightLookupClient.lookup(
-                    number: number, date: day, host: AppSettings.flightLookupHost)
-                guard !Task.isCancelled, let flight = flights.first else { return }
-                apply(flight)
-                if flights.count > 1 {
-                    // 同一航班号一天多班(经停/多段)时用了第一班,说一声,
-                    // 免得用户以为查错了。
-                    lookupMessage = "这天有 \(flights.count) 班同号航班,用的是第一班,时间不对请手动改。"
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                lookupMessage = error.localizedDescription
-            }
-        }
-    }
-
-    private func apply(_ flight: FlightLookupClient.Flight) {
-        code = flight.number
-        if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            title = [flight.airlineName, flight.number]
-                .compactMap { $0 }.joined(separator: " ")
-        }
-        if let time = flight.departure.scheduledTime {
-            start = time
-            hasStart = true
-        }
-        if let time = flight.arrival.scheduledTime {
-            end = time
-            hasEnd = true
-        }
-        if let name = flight.departure.displayName {
-            originName = name
-            originCoordinate = coordinate(of: flight.departure)
-        }
-        if let name = flight.arrival.displayName {
-            placeName = name
-            placeCoordinate = coordinate(of: flight.arrival)
-        }
-    }
-
-    private func coordinate(of endpoint: FlightLookupClient.Endpoint) -> CLLocationCoordinate2D? {
-        guard let lat = endpoint.latitude, let lon = endpoint.longitude else { return nil }
-        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 
     private func placeRow(
@@ -290,6 +232,14 @@ struct TravelItemEditView: View {
         kind = existing.travelKind ?? .place
         title = existing.title
         code = existing.travelCode ?? ""
+        loadedCode = code
+        flight = FlightDetails.decode(existing.travelFlightData)
+        departureTerminal = flight?.departureTerminal ?? ""
+        arrivalTerminal = flight?.arrivalTerminal ?? ""
+        checkInCounter = flight?.checkInCounter ?? ""
+        gate = flight?.gate ?? ""
+        seat = flight?.seat ?? ""
+        aircraft = flight?.aircraft ?? ""
         note = existing.summary
         if let value = existing.travelStart {
             hasStart = true
@@ -315,12 +265,34 @@ struct TravelItemEditView: View {
         }
     }
 
+    /// 表单里那几项写回补充信息。航班号改成了别的,截图带来的状态/预计时刻就不是
+    /// 这一班的了,只留表单里用户看得见、能自己改的那几项。
+    private func editedFlight(code: String) -> FlightDetails? {
+        let sameFlight = FlightDetails.normalizedNumber(code)
+            == FlightDetails.normalizedNumber(loadedCode)
+        var details = sameFlight ? (flight ?? FlightDetails()) : FlightDetails()
+        func value(_ text: String) -> String? {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        let before = details
+        details.departureTerminal = value(departureTerminal)
+        details.arrivalTerminal = value(arrivalTerminal)
+        details.checkInCounter = value(checkInCounter)
+        details.gate = value(gate)
+        details.seat = value(seat)
+        details.aircraft = value(aircraft)
+        if details != before { details.updatedAt = Date() }
+        return details.isEmpty ? nil : details
+    }
+
     private func save() {
         let place = placeName.trimmingCharacters(in: .whitespacesAndNewlines)
         let origin = originName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
         // 出发地只对航班有意义,换成别的类型再存时要把它连坐标一起清掉。
         let keepOrigin = kind == .flight && !origin.isEmpty
+        let keptFlight = kind == .flight ? editedFlight(code: trimmedCode) : nil
         if let existing {
             TravelStore.update(
                 existing, kind: kind, title: title, note: note,
@@ -332,6 +304,7 @@ struct TravelItemEditView: View {
                 originName: keepOrigin ? origin : nil,
                 originLatitude: keepOrigin ? originCoordinate?.latitude : nil,
                 originLongitude: keepOrigin ? originCoordinate?.longitude : nil,
+                flight: keptFlight,
                 context: context)
         } else {
             TravelStore.create(
@@ -344,6 +317,7 @@ struct TravelItemEditView: View {
                 originName: keepOrigin ? origin : nil,
                 originLatitude: keepOrigin ? originCoordinate?.latitude : nil,
                 originLongitude: keepOrigin ? originCoordinate?.longitude : nil,
+                flight: keptFlight,
                 context: context)
         }
         dismiss()

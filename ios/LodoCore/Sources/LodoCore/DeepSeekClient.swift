@@ -83,6 +83,12 @@ public enum AIAction {
     /// `MemoryItem.autoTagName` 区分。title/text 由本轮 command 顺带给出,
     /// 不再像 memorize 那样额外调用一次整理接口,省一次网络请求。
     case autoMemorize(title: String, text: String)
+    /// AI 自动规划的一份行程(tripPlanEnabled 时才会出现)。**不直接落库**:
+    /// 聊天里展示成规划卡片,用户点「写入行程」才写进「旅行」页。
+    case planTrip(TripPlanProposal)
+    /// 调整已经记下的某次旅行(travelEnabled 时才会出现):删/加/改行程项。
+    /// **直接执行**,结果卡片带撤销——和单条修改待办同一个取舍。
+    case editTrip(TripEdit)
 }
 
 /// AI 总入口的返回:操作列表、关键信息缺失时的反问(一次可问多道,每道带
@@ -263,6 +269,7 @@ public enum DeepSeekClient {
         webSearchEnabled: Bool = false,
         healthEnabled: Bool = false,
         travelEnabled: Bool = false,
+        tripPlanEnabled: Bool = false,
         history: [(role: String, content: String)] = [],
         existingProjects: [String] = []
     ) async throws -> AICommandResult {
@@ -280,7 +287,8 @@ public enum DeepSeekClient {
         \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
         \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")\
         \(healthEnabled ? "\n\n" + AgentSkillStore.content(for: .health) : "")\
-        \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")
+        \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")\
+        \(tripPlanEnabled ? "\n\n" + AgentSkillStore.content(for: .tripPlanner) : "")
 
         \(timeContext)\(preferencesBlock)
 
@@ -293,17 +301,20 @@ public enum DeepSeekClient {
             memoryEnabled: memoryEnabled,
             webSearchEnabled: webSearchEnabled,
             healthEnabled: healthEnabled,
-            travelEnabled: travelEnabled)
+            travelEnabled: travelEnabled,
+            tripPlanEnabled: tripPlanEnabled)
     }
 
     /// 从 payload 里解析总入口结果(单测入口)。
     /// memoryEnabled == false 时 memorize/ask_memory、webSearchEnabled == false 时
     /// web_search/answer、healthEnabled == false 时 read_health、travelEnabled == false
-    /// 时 read_trip 按未知 action/工具处理(即使模型幻觉出来,Watch 等调用方也保持旧行为)。
+    /// 时 read_trip、tripPlanEnabled == false 时 plan_trip 按未知 action/工具处理
+    /// (即使模型幻觉出来,Watch 等调用方也保持旧行为)。
     static func parseCommand(
         _ payload: [String: Any], validUUIDs: [String],
         memoryEnabled: Bool, webSearchEnabled: Bool = false,
-        healthEnabled: Bool = false, travelEnabled: Bool = false
+        healthEnabled: Bool = false, travelEnabled: Bool = false,
+        tripPlanEnabled: Bool = false
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
             return .ask(try parseAsk(rawAsk))
@@ -415,6 +426,10 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:回答内容为空")
                 }
                 actions.append(.answer(text: text))
+            case "plan_trip" where tripPlanEnabled:
+                actions.append(.planTrip(try parseTripPlan(raw)))
+            case "edit_trip" where travelEnabled:
+                actions.append(.editTrip(try parseTripEdit(raw)))
             default:
                 throw DeepSeekError.parse("返回格式异常:未知 action")
             }
@@ -422,9 +437,12 @@ public enum DeepSeekClient {
         // 归一化:prompt 已要求问答类操作(ask_memory/answer)单独出现,这里是模型
         // 不守规矩时的确定性兜底——问答与写操作混合时丢弃问答只留写操作(写操作是
         // 用户要落地的事不能丢,查询可以重问);全是问答时只留第一条。
+        // plan_trip 归这一组:它本身不落库、要用户在卡片上确认,和建议收藏同性质。
+        // edit_trip 虽然会落库,也归这一组——它要求单独出现、有自己的结果卡片和撤销,
+        // 混进批量确认清单里既没有卡片也撤销不了;混着待办写操作时丢掉,用户单独再说一遍。
         func isInformational(_ action: AIAction) -> Bool {
             switch action {
-            case .askMemory, .answer, .suggestMemorize: return true
+            case .askMemory, .answer, .suggestMemorize, .planTrip, .editTrip: return true
             default: return false
             }
         }
@@ -437,6 +455,117 @@ public enum DeepSeekClient {
         }
         return .actions(actions)
     }
+
+    /// `plan_trip` 单条载荷 → 规划(单测入口)。和 parseTravelPayload 同一个取舍:
+    /// 单条安排解析不出来(缺标题、类型不认识、给了航班)就跳过那条,不让整份规划
+    /// 白费;但**一条可用安排都没有**、或者**连日期都推不出来**就报错——那样的卡片
+    /// 写不进任何一天。
+    static func parseTripPlan(_ raw: [String: Any]) throws -> TripPlanProposal {
+        func text(_ key: String) -> String? {
+            guard let value = (raw[key] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+            return value
+        }
+        let rawItems = raw["items"] as? [[String: Any]] ?? []
+        let items = rawItems.prefix(60).compactMap(parsePlanItem)
+        guard !items.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:行程规划没有任何安排")
+        }
+        // 起止日优先用模型给的;没给就从安排的时间里推,再推不出来才报错。
+        let starts = items.compactMap(\.start)
+        let ends = items.compactMap { $0.end ?? $0.start }
+        guard var startDate = text("start_date").flatMap(planDate) ?? starts.min(),
+              var endDate = text("end_date").flatMap(planDate) ?? ends.max() ?? starts.max() else {
+            throw DeepSeekError.parse("返回格式异常:行程规划缺少日期")
+        }
+        if endDate < startDate { swap(&startDate, &endDate) }
+        return TripPlanProposal(
+            tripTitle: text("trip") ?? "旅行规划",
+            startDate: startDate, endDate: endDate,
+            summary: text("summary") ?? "", items: items)
+    }
+
+    /// 规划/调整里的一条安排。只认地点和住宿:模型不守规矩给了 flight 也丢掉,
+    /// 航班编不出来;缺标题、类型不认识的同样跳过。
+    private static func parsePlanItem(_ item: [String: Any]) -> TripPlanItem? {
+        func field(_ key: String) -> String? {
+            guard let value = (item[key] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+            return value
+        }
+        guard let kind = field("kind").flatMap(TravelItemKind.init(rawValue:)),
+              kind != .flight,
+              let title = field("title") else { return nil }
+        let price: Double? = {
+            if let value = item["price"] as? Double { return value }
+            if let value = item["price"] as? Int { return Double(value) }
+            return field("price").flatMap(Double.init)
+        }()
+        let start = field("start").flatMap(planDate)
+        var end = field("end").flatMap(planDate)
+        if let s = start, let e = end, e < s { end = nil }
+        return TripPlanItem(
+            kind: kind, title: title, note: field("note") ?? "",
+            start: start, end: end, placeName: field("place"),
+            price: price, currency: field("currency")?.uppercased())
+    }
+
+    /// `edit_trip` 单条载荷 → 调整(单测入口)。id 不是合法 UUID 的删/改直接跳过
+    /// (是不是这次旅行里的项要到 app 层对着库才知道,那边再报"找不到");
+    /// 删、加、改**一样都没有**才报错。
+    static func parseTripEdit(_ raw: [String: Any]) throws -> TripEdit {
+        func text(_ dict: [String: Any], _ key: String) -> String? {
+            guard let value = (dict[key] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+            return value
+        }
+        func uuid(_ string: String) -> UUID? {
+            // 模型偶尔会把读到的 "[id:xxx]" 连前缀一起抄回来。
+            var trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("[id:") { trimmed = String(trimmed.dropFirst(4)) }
+            if trimmed.hasPrefix("id:") { trimmed = String(trimmed.dropFirst(3)) }
+            if trimmed.hasSuffix("]") { trimmed = String(trimmed.dropLast()) }
+            return UUID(uuidString: trimmed)
+        }
+        var removeIDs: [UUID] = []
+        for case let string as String in raw["remove"] as? [Any] ?? [] {
+            if let id = uuid(string), !removeIDs.contains(id) { removeIDs.append(id) }
+        }
+        let additions = (raw["add"] as? [[String: Any]] ?? []).prefix(30).compactMap(parsePlanItem)
+        let updates: [TripEditUpdate] = (raw["update"] as? [[String: Any]] ?? []).compactMap { entry in
+            guard let id = text(entry, "id").flatMap(uuid) else { return nil }
+            let start = text(entry, "start").flatMap(planDate)
+            var end = text(entry, "end").flatMap(planDate)
+            if let s = start, let e = end, e < s { end = nil }
+            let update = TripEditUpdate(
+                id: id, title: text(entry, "title"), note: text(entry, "note"),
+                start: start, end: end, placeName: text(entry, "place"))
+            return update.isEmpty ? nil : update
+        }
+        // 同一项既删又改:以删为准,改那条丢掉。
+        let removed = Set(removeIDs)
+        let edit = TripEdit(
+            tripTitle: text(raw, "trip") ?? "", summary: text(raw, "summary") ?? "",
+            removeIDs: removeIDs,
+            additions: Array(additions),
+            updates: updates.filter { !removed.contains($0.id) })
+        guard !edit.removeIDs.isEmpty || !edit.additions.isEmpty || !edit.updates.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:行程调整没有任何改动")
+        }
+        return edit
+    }
+
+    /// 规划里的日期:"yyyy-MM-dd HH:mm" 或只有日期的 "yyyy-MM-dd"。
+    private static func planDate(_ string: String) -> Date? {
+        if let date = dateFormatter.date(from: string) { return date }
+        return dayFormatter.date(from: string)
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     /// 反问载荷 → 题目列表(单测入口)。模型不守规矩时按确定性规则收敛,而不是
     /// 整个请求报错:题目最多 4 道、每题选项最多 6 个,问题文案为空或一个选项都
@@ -627,7 +756,8 @@ public enum DeepSeekClient {
         text: String, tripTitle: String, tripStart: Date, tripEnd: Date
     ) async throws -> [ParsedTravelItem] {
         let system = """
-        你是旅行助手。从用户给的订单/确认单/行程单文本里,抽取出所有行程项。
+        你是旅行助手。从用户给的订单/确认单/行程单/登机牌/航班动态文本里,抽取出所有行程项。\
+        文本可能是截图 OCR 出来的,会有断行、串行、错字,按常识理解。
         当前这趟旅行叫「\(tripTitle)」,日期范围 \(dateFormatter.string(from: tripStart)) 到 \(dateFormatter.string(from: tripEnd))。
 
         只返回 JSON:{"items": [行程项, ...]},不要任何其他文字。每个行程项:
@@ -635,10 +765,25 @@ public enum DeepSeekClient {
         "start": "yyyy-MM-dd HH:mm", "end": "yyyy-MM-dd HH:mm", \
         "place": "主要地点(住宿/地点填它本身,航班填**到达地**)", \
         "origin": "航班的出发地,其余类型省略", \
-        "price": 数字, "currency": "ISO 4217 币种码如 CNY/JPY/USD", "note": "补充说明"}
+        "price": 数字, "currency": "ISO 4217 币种码如 CNY/JPY/USD", "note": "补充说明", \
+        "flight": 航班补充信息,仅 flight 有,见下}
+
+        航班补充信息(每个字段都是可选的,文本里没有就省略,整个对象都没有就省略 flight):
+        {"airline": "航空公司", "departure_code": "出发机场三字码如 PEK", "arrival_code": "到达机场三字码", \
+        "departure_terminal": "出发航站楼如 T3", "arrival_terminal": "到达航站楼", \
+        "check_in_counter": "值机柜台/值机岛", "gate": "登机口", "boarding_time": "yyyy-MM-dd HH:mm", \
+        "estimated_departure": "yyyy-MM-dd HH:mm", "estimated_arrival": "yyyy-MM-dd HH:mm", \
+        "seat": "座位号", "cabin": "舱位如 经济舱", "aircraft": "机型如 空客A330", \
+        "baggage_belt": "行李转盘", \
+        "status": "scheduled|check_in|boarding|gate_closed|departed|delayed|arrived|canceled|diverted"}
 
         规则:
         - 往返机票是**两条** flight,别合成一条。
+        - 航班的 start/end 填**计划**起降时刻;航班动态里显示的变更后/预计时刻填 \
+        estimated_departure/estimated_arrival,不要覆盖到 start/end 上。只有预计时刻、\
+        看不到计划时刻时省略 start/end。
+        - status 只在文本明确写了状态(如"延误""登机中""已取消")时填,别从时间推断。
+        - 登机口、座位这些照抄原文,读不清就省略,别猜。
         - 住宿的 start 是入住、end 是退房。
         - 年份没写明时按上面给的旅行日期范围推断,不要凭空用今年。
         - 时间拿不准就省略 start/end,别编一个;金额拿不准就省略 price。
@@ -678,8 +823,86 @@ public enum DeepSeekClient {
                 price: number("price"),
                 // 币种统一大写:模型偶尔会返回小写 "jpy",存下去会和 "JPY" 分成两组。
                 currency: text("currency")?.uppercased(),
-                note: text("note") ?? "")
+                note: text("note") ?? "",
+                flight: kind == .flight
+                    ? FlightDetails.parse(raw["flight"], date: dateFormatter.date(from:)) : nil)
         }
+    }
+
+    /// 把一段菜单文字(拍照/截图 OCR 出来的,或用户直接贴进来的)整理成菜品清单,
+    /// 并翻译成 `targetLanguage`。和 `parseTravelItems` 同一个形状——给一段自然语言、
+    /// 要一份结构化字段,一次出来一批。
+    ///
+    /// 和订单解析不同,这条路径**不给确认页**:认错一道菜的代价是点错菜,不是错过
+    /// 航班,而让用户在餐厅里逐条勾选五十道菜比直接整理完再改要难受得多;整理完
+    /// 就落成一条记忆条目,不对就删掉重来。
+    public static func parseMenu(
+        text: String, targetLanguage: String
+    ) async throws -> ParsedMenu {
+        let system = """
+        你是点餐助手。用户给的是一张菜单上的文字,可能来自拍照/截图的 OCR,\
+        会有断行、串行、错字。把它整理成菜品清单,并翻译成\(targetLanguage)。
+
+        只返回 JSON:{"restaurant": "店名,菜单上没印就省略", \
+        "language": "菜单原文是什么语言,用\(targetLanguage)说,如 日语;认不出来就省略", \
+        "currency": "ISO 4217 币种码如 CNY/JPY/EUR,只有符号认不准就省略", \
+        "dishes": [菜品, ...]},不要任何其他文字。每道菜:
+        {"original": "菜单上的原文名称,照抄不要翻译", \
+        "translated": "\(targetLanguage)译名", \
+        "category": "分类如 前菜/主菜/甜点/饮品,用\(targetLanguage)写", \
+        "price": 数字, \
+        "description": "一句不超过 40 字的介绍:主要食材、做法、口味"}
+
+        规则:
+        - 只整理菜品。店名、地址、电话、营业时间、"本店谢绝自带酒水"这类说明文字都不是菜。
+        - original 照抄菜单原文,不要把译名写进去;菜单本来就是\(targetLanguage)时,\
+        translated 填和 original 一样的文字。
+        - category 优先用菜单上印的分类;菜单没分类就按常识归类,归不出来就省略。
+        - description 一定要给:菜单只写了菜名、或者名字看不出是什么(如"月见とろろ")时,\
+        按常识补全说明这是什么菜;拿不准就在句子里说明是推测,不要编造具体做法。
+        - price 只填数字,不带货币符号;菜单没标价就省略 price,不要填 0。
+        - OCR 串行、错字明显的按常识修正成合理的菜名,不要原样保留乱码。
+        - 一道菜也读不出来时返回 {"dishes": []}。
+        \(personaBlock)
+        """
+        return try parseMenuPayload(await payload(system: system, user: text, timeout: 90))
+    }
+
+    /// 从 payload 里解析菜单(单测入口,不发请求)。
+    /// 单道菜解析不出来(缺原名)就跳过那道,不让整张菜单白费——和
+    /// parseTravelPayload 同一个取舍。
+    static func parseMenuPayload(_ payload: [String: Any]) throws -> ParsedMenu {
+        guard let rawDishes = payload["dishes"] as? [[String: Any]] else {
+            throw DeepSeekError.parse("返回格式异常:缺少 dishes")
+        }
+        func text(_ raw: [String: Any], _ key: String) -> String? {
+            guard let value = (raw[key] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+            return value
+        }
+        let dishes = rawDishes.compactMap { raw -> ParsedMenuDish? in
+            guard let original = text(raw, "original") ?? text(raw, "translated") else { return nil }
+            let price: Double? = {
+                if let value = raw["price"] as? Double { return value }
+                if let value = raw["price"] as? Int { return Double(value) }
+                // 模型偶尔把价格写成 "¥1,200" 这样的串,把非数字字符剥掉再转。
+                guard let literal = text(raw, "price") else { return nil }
+                let digits = literal.filter { $0.isNumber || $0 == "." }
+                return Double(digits)
+            }()
+            return ParsedMenuDish(
+                originalName: original,
+                translatedName: text(raw, "translated") ?? "",
+                intro: text(raw, "description") ?? "",
+                category: text(raw, "category") ?? "",
+                price: price)
+        }
+        return ParsedMenu(
+            restaurant: text(payload, "restaurant") ?? "",
+            sourceLanguage: text(payload, "language") ?? "",
+            // 币种统一大写:模型偶尔会返回小写 "jpy"(同 parseTravelPayload)。
+            currency: text(payload, "currency")?.uppercased(),
+            dishes: dishes)
     }
 
     /// 定时任务(`AIRoutine`)到点后跑一次:按用户自己写的指令生成这次要展示的内容。

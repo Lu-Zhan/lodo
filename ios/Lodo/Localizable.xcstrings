@@ -33,6 +33,22 @@
         }
       }
     },
+    "%@ · %lld 天 · %lld 项安排": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld days · %lld stops"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld 天 · %lld 项安排"
+          }
+        }
+      }
+    },
     "%@(%@)": {
       "localizations": {
         "en": {
@@ -45,6 +61,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@(%@)"
+          }
+        }
+      }
+    },
+    "%lld 道菜": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dishes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 道菜"
           }
         }
       }
@@ -305,22 +337,6 @@
         }
       }
     },
-    "Key 来源": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Key Source"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Key 来源"
-          }
-        }
-      }
-    },
     "agent.md 是总则,待办/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。": {
       "localizations": {
         "en": {
@@ -465,6 +481,38 @@
         }
       }
     },
+    "乘机": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flight"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "乘机"
+          }
+        }
+      }
+    },
+    "也可以把菜单文字直接贴进来。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can also paste the menu text here."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "也可以把菜单文字直接贴进来。"
+          }
+        }
+      }
+    },
     "事项内容": {
       "localizations": {
         "en": {
@@ -589,6 +637,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "今日例行"
+          }
+        }
+      }
+    },
+    "从相册选择截图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose from Photos"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从相册选择截图"
           }
         }
       }
@@ -845,6 +909,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "保存"
+          }
+        }
+      }
+    },
+    "信息来自你导入的订单和截图,更新于 %@。不会自动刷新,请以航司和机场通知为准。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the bookings and screenshots you imported, updated %@. It doesn't refresh on its own — check with the airline and airport."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信息来自你导入的订单和截图,更新于 %@。不会自动刷新,请以航司和机场通知为准。"
+          }
+        }
+      }
+    },
+    "值机 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-in %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "值机 %@"
+          }
+        }
+      }
+    },
+    "值机柜台": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-in desk"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "值机柜台"
           }
         }
       }
@@ -1153,6 +1265,22 @@
         }
       }
     },
+    "其他安排": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other Plans"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他安排"
+          }
+        }
+      }
+    },
     "写入行程": {
       "localizations": {
         "en": {
@@ -1217,6 +1345,22 @@
         }
       }
     },
+    "出发航站楼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure terminal"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出发航站楼"
+          }
+        }
+      }
+    },
     "分享导出的文件": {
       "localizations": {
         "en": {
@@ -1229,6 +1373,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "分享导出的文件"
+          }
+        }
+      }
+    },
+    "分享清单": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share List"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享清单"
           }
         }
       }
@@ -1329,6 +1489,22 @@
         }
       }
     },
+    "删除这张菜单?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete This Menu?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这张菜单?"
+          }
+        }
+      }
+    },
     "删除这条定时任务": {
       "localizations": {
         "en": {
@@ -1377,6 +1553,22 @@
         }
       }
     },
+    "到达": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrival"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到达"
+          }
+        }
+      }
+    },
     "到达地": {
       "localizations": {
         "en": {
@@ -1389,6 +1581,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "到达地"
+          }
+        }
+      }
+    },
+    "到达航站楼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrival terminal"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到达航站楼"
           }
         }
       }
@@ -1517,6 +1725,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "去哪儿,如 东京四日"
+          }
+        }
+      }
+    },
+    "去掉": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去掉"
           }
         }
       }
@@ -1873,6 +2097,22 @@
         }
       }
     },
+    "在菜单里点一下菜品就能选上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap a dish on the menu to select it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在菜单里点一下菜品就能选上。"
+          }
+        }
+      }
+    },
     "在设定时间提醒今天开始或到期的事项。": {
       "localizations": {
         "en": {
@@ -1969,22 +2209,6 @@
         }
       }
     },
-    "填了之后,旅行页添加航班时可以按航班号+日期自动带出起降时间和机场。在 aerodatabox.com 注册,免费档每月 600 次;不填就手动填写,其余功能不受影响。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Once set, adding a flight in Travel can pull times and airports from the flight number and date. Sign up at aerodatabox.com — the free tier allows 600 calls a month. Leave it empty to fill flights in by hand; nothing else is affected."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "填了之后,旅行页添加航班时可以按航班号+日期自动带出起降时间和机场。在 aerodatabox.com 注册,免费档每月 600 次;不填就手动填写,其余功能不受影响。"
-          }
-        }
-      }
-    },
     "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。": {
       "localizations": {
         "en": {
@@ -1997,22 +2221,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。"
-          }
-        }
-      }
-    },
-    "填了航班号点「查」,按下面选的日期带出起降时间和机场。查不到不影响手动填。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter a flight number and tap “Look Up” to pull times and airports for the date below. If nothing is found, fill it in by hand."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "填了航班号点「查」,按下面选的日期带出起降时间和机场。查不到不影响手动填。"
           }
         }
       }
@@ -2193,22 +2401,6 @@
         }
       }
     },
-    "官方直连": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Direct"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "官方直连"
-          }
-        }
-      }
-    },
     "定时任务": {
       "localizations": {
         "en": {
@@ -2269,6 +2461,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "导入备份"
+          }
+        }
+      }
+    },
+    "导入截图更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update from Screenshot"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入截图更新"
+          }
+        }
+      }
+    },
+    "导入登机牌或航司 App 的航班动态截图,可以补上航站楼、登机口、座位等信息;之后再导入新截图会更新这一班。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import a boarding pass or a flight status screenshot from the airline app to fill in terminal, gate, seat and more. Importing a newer screenshot later updates this flight."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入登机牌或航司 App 的航班动态截图,可以补上航站楼、登机口、座位等信息;之后再导入新截图会更新这一班。"
           }
         }
       }
@@ -2337,6 +2561,54 @@
         }
       }
     },
+    "展开其余 %lld 项": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show %lld more"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开其余 %lld 项"
+          }
+        }
+      }
+    },
+    "展开已选菜品,给服务员看": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens your selected dishes to show the server"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开已选菜品,给服务员看"
+          }
+        }
+      }
+    },
+    "左滑可以把这道菜从清单里去掉。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe left to remove a dish from the list."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左滑可以把这道菜从清单里去掉。"
+          }
+        }
+      }
+    },
     "已使用内置 DeepSeek API Key,无需再填。": {
       "localizations": {
         "en": {
@@ -2349,6 +2621,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "已使用内置 DeepSeek API Key,无需再填。"
+          }
+        }
+      }
+    },
+    "已写入「%@」": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added to “%@”"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已写入「%@」"
           }
         }
       }
@@ -2401,6 +2689,38 @@
         }
       }
     },
+    "已撤销写入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removed from trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已撤销写入"
+          }
+        }
+      }
+    },
+    "已撤销这次调整": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes undone"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已撤销这次调整"
+          }
+        }
+      }
+    },
     "已结束": {
       "localizations": {
         "en": {
@@ -2445,6 +2765,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "已记录坐标"
+          }
+        }
+      }
+    },
+    "已调整「%@」": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated “%@”"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已调整「%@」"
+          }
+        }
+      }
+    },
+    "已选 %lld 道": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld selected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选 %lld 道"
+          }
+        }
+      }
+    },
+    "已选菜品": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected Dishes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选菜品"
           }
         }
       }
@@ -2525,6 +2893,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "应用修改"
+          }
+        }
+      }
+    },
+    "店名": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurant name"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "店名"
+          }
+        }
+      }
+    },
+    "座位": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seat"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "座位"
+          }
+        }
+      }
+    },
+    "座位 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seat %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "座位 %@"
           }
         }
       }
@@ -2769,6 +3185,38 @@
         }
       }
     },
+    "截图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screenshots"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图"
+          }
+        }
+      }
+    },
+    "截图 %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screenshot %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "截图 %lld"
+          }
+        }
+      }
+    },
     "所有条目里的这个标签会一起改名。": {
       "localizations": {
         "en": {
@@ -2861,6 +3309,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "把订票邮件、酒店确认信或行程单贴进来,AI 会拆成航班/住宿/地点。"
+          }
+        }
+      }
+    },
+    "拍一张菜单或导入截图,AI 会整理出每道菜、翻译外文并补上简介,选好了直接给服务员看。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snap a menu or import a screenshot. The AI lists every dish, translates it and adds a short description — then pick what you want and show it to the server."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拍一张菜单或导入截图,AI 会整理出每道菜、翻译外文并补上简介,选好了直接给服务员看。"
+          }
+        }
+      }
+    },
+    "拍照": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Take Photo"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拍照"
           }
         }
       }
@@ -3121,6 +3601,22 @@
         }
       }
     },
+    "搜索菜品": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search dishes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索菜品"
+          }
+        }
+      }
+    },
     "撤销": {
       "localizations": {
         "en": {
@@ -3169,6 +3665,22 @@
         }
       }
     },
+    "收起": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Less"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收起"
+          }
+        }
+      }
+    },
     "改期": {
       "localizations": {
         "en": {
@@ -3201,6 +3713,22 @@
         }
       }
     },
+    "整理": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "整理"
+          }
+        }
+      }
+    },
     "整理失败,重试": {
       "localizations": {
         "en": {
@@ -3229,6 +3757,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "文件"
+          }
+        }
+      }
+    },
+    "文字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字"
           }
         }
       }
@@ -3277,6 +3821,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "新建旅行"
+          }
+        }
+      }
+    },
+    "新建菜单": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Menu"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建菜单"
           }
         }
       }
@@ -3441,6 +4001,38 @@
         }
       }
     },
+    "晚点 %lld 分钟": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min late"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "晚点 %lld 分钟"
+          }
+        }
+      }
+    },
+    "晚点约 %lld 分钟": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About %lld min late"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "晚点约 %lld 分钟"
+          }
+        }
+      }
+    },
     "智谱": {
       "localizations": {
         "en": {
@@ -3521,6 +4113,22 @@
         }
       }
     },
+    "更多": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更多"
+          }
+        }
+      }
+    },
     "更多标签": {
       "localizations": {
         "en": {
@@ -3533,6 +4141,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "更多标签"
+          }
+        }
+      }
+    },
+    "更新航班 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Flight %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新航班 %@"
+          }
+        }
+      }
+    },
+    "更新行程里已有的这班航班": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updates this flight already in the trip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新行程里已有的这班航班"
           }
         }
       }
@@ -3581,6 +4221,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "最近结果"
+          }
+        }
+      }
+    },
+    "有 %lld 道菜没标价,没算进合计。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dishes have no price and aren't in the total."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有 %lld 道菜没标价,没算进合计。"
           }
         }
       }
@@ -3713,6 +4369,38 @@
         }
       }
     },
+    "机场": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Airport"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "机场"
+          }
+        }
+      }
+    },
+    "机型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "机型"
+          }
+        }
+      }
+    },
     "权限": {
       "localizations": {
         "en": {
@@ -3745,18 +4433,18 @@
         }
       }
     },
-    "查": {
+    "查看": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Look Up"
+            "value": "View"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "查"
+            "value": "查看"
           }
         }
       }
@@ -3953,6 +4641,38 @@
         }
       }
     },
+    "正在识别并整理菜品…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading and organizing dishes…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在识别并整理菜品…"
+          }
+        }
+      }
+    },
+    "正在识别截图里的文字…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading text from screenshots…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在识别截图里的文字…"
+          }
+        }
+      }
+    },
     "正在读取健康数据…": {
       "localizations": {
         "en": {
@@ -4113,6 +4833,22 @@
         }
       }
     },
+    "没有改动:%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not changed: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有改动:%@"
+          }
+        }
+      }
+    },
     "没有未来待办": {
       "localizations": {
         "en": {
@@ -4193,6 +4929,22 @@
         }
       }
     },
+    "添加截图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Screenshots"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加截图"
+          }
+        }
+      }
+    },
     "添加文件": {
       "localizations": {
         "en": {
@@ -4237,6 +4989,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "添加行程"
+          }
+        }
+      }
+    },
+    "清空已选": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Selection"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空已选"
           }
         }
       }
@@ -4417,6 +5185,70 @@
         }
       }
     },
+    "登机口": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登机口"
+          }
+        }
+      }
+    },
+    "登机口 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gate %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登机口 %@"
+          }
+        }
+      }
+    },
+    "登机时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boarding time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登机时间"
+          }
+        }
+      }
+    },
+    "登机牌、航司 App 的航班动态、订单详情页都可以。截图只在本机识别文字,不会上传图片;行程里已有的航班会用新信息更新。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boarding passes, flight status in an airline app, booking pages — all work. Text is read on this device and images are never uploaded; flights already in the trip get updated."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登机牌、航司 App 的航班动态、订单详情页都可以。截图只在本机识别文字,不会上传图片;行程里已有的航班会用新信息更新。"
+          }
+        }
+      }
+    },
     "白色": {
       "localizations": {
         "en": {
@@ -4573,6 +5405,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "第 %lld 天 · %@"
+          }
+        }
+      }
+    },
+    "第 %lld 页": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "第 %lld 页"
           }
         }
       }
@@ -4769,6 +5617,22 @@
         }
       }
     },
+    "编辑": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑"
+          }
+        }
+      }
+    },
     "编辑旅行": {
       "localizations": {
         "en": {
@@ -4881,6 +5745,22 @@
         }
       }
     },
+    "航班信息": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flight Details"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "航班信息"
+          }
+        }
+      }
+    },
     "航班号(可选)": {
       "localizations": {
         "en": {
@@ -4897,22 +5777,6 @@
         }
       }
     },
-    "航班查询": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Flight Lookup"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "航班查询"
-          }
-        }
-      }
-    },
     "航空公司/航段,如 国航 北京–东京": {
       "localizations": {
         "en": {
@@ -4925,6 +5789,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "航空公司/航段,如 国航 北京–东京"
+          }
+        }
+      }
+    },
+    "航站楼": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminal"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "航站楼"
+          }
+        }
+      }
+    },
+    "舱位": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cabin"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "舱位"
           }
         }
       }
@@ -4993,6 +5889,70 @@
         }
       }
     },
+    "菜单": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "菜单"
+          }
+        }
+      }
+    },
+    "菜单有好几页的,每页拍一张。照片只在本机识别文字,发给 AI 的只有识别出来的文字。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For multi-page menus, take one photo per page. Text is recognized on this device — only the text is sent to the AI, never the photo."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "菜单有好几页的,每页拍一张。照片只在本机识别文字,发给 AI 的只有识别出来的文字。"
+          }
+        }
+      }
+    },
+    "菜单照片和整理出来的菜品会一起删掉。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The menu photo and its dishes will be deleted too."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "菜单照片和整理出来的菜品会一起删掉。"
+          }
+        }
+      }
+    },
+    "菜品多的菜单要整理一会儿,外文会一并翻译好。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long menus take a moment; foreign text is translated along the way."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "菜品多的菜单要整理一会儿,外文会一并翻译好。"
+          }
+        }
+      }
+    },
     "蓝色": {
       "localizations": {
         "en": {
@@ -5005,6 +5965,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "蓝色"
+          }
+        }
+      }
+    },
+    "行李转盘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baggage belt"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行李转盘"
           }
         }
       }
@@ -5133,6 +6109,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "解析结果"
+          }
+        }
+      }
+    },
+    "计划到达": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheduled arrival"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "计划到达"
+          }
+        }
+      }
+    },
+    "计划起飞": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheduled departure"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "计划起飞"
           }
         }
       }
@@ -5745,6 +6753,22 @@
         }
       }
     },
+    "还没有菜单": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Menus Yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有菜单"
+          }
+        }
+      }
+    },
     "还没有行程": {
       "localizations": {
         "en": {
@@ -5777,6 +6801,22 @@
         }
       }
     },
+    "还没有选菜": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing Selected Yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有选菜"
+          }
+        }
+      }
+    },
     "这些行程项的时间不在这次旅行的日期范围里。改一下旅行日期,或者改这一项的时间。": {
       "localizations": {
         "en": {
@@ -5793,22 +6833,6 @@
         }
       }
     },
-    "这天有 %lld 班同号航班,用的是第一班,时间不对请手动改。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld flights share that number on this date; the first one was used. Adjust by hand if it's the wrong one."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这天有 %lld 班同号航班,用的是第一班,时间不对请手动改。"
-          }
-        }
-      }
-    },
     "这天还没安排": {
       "localizations": {
         "en": {
@@ -5821,6 +6845,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "这天还没安排"
+          }
+        }
+      }
+    },
+    "这张菜单没有菜品": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Menu Has No Dishes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这张菜单没有菜品"
           }
         }
       }
@@ -6001,6 +7041,22 @@
         }
       }
     },
+    "都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All optional. Open this flight in the trip to fill them in from a boarding pass or flight status screenshot."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。"
+          }
+        }
+      }
+    },
     "配置 AI 服务后,这里会给出针对这几天数据的分析和建议。": {
       "localizations": {
         "en": {
@@ -6033,6 +7089,38 @@
         }
       }
     },
+    "重命名": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重命名"
+          }
+        }
+      }
+    },
+    "重命名菜单": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename Menu"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重命名菜单"
+          }
+        }
+      }
+    },
     "重复": {
       "localizations": {
         "en": {
@@ -6045,6 +7133,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "重复"
+          }
+        }
+      }
+    },
+    "重新写入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Again"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新写入"
           }
         }
       }
@@ -6093,6 +7197,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新请求权限"
+          }
+        }
+      }
+    },
+    "重新选择截图": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Screenshots Again"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新选择截图"
           }
         }
       }
@@ -6253,6 +7373,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "韩元"
+          }
+        }
+      }
+    },
+    "预计到达": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated arrival"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预计到达"
+          }
+        }
+      }
+    },
+    "预计起飞": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated departure"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预计起飞"
           }
         }
       }
