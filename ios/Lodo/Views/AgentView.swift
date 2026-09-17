@@ -71,7 +71,10 @@ struct AgentView: View {
     @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showFileImporter = false
     @State private var showMemoryPicker = false
-    @State private var photoSelection: PhotosPickerItem?
+    @State private var showPhotoPicker = false
+    @State private var photoSelection: [PhotosPickerItem] = []
+    /// 点了输入卡片里的某张缩略图:非 nil 时全屏打开大图查看,值是起始那张的 id。
+    @State private var viewingImage: ImageViewerTarget?
     @State private var formTarget: FormTarget?
     /// 小彩蛋:输入框内容恰好是 "0707"(气球生日祝福)或 "0829"(结婚一周年,
     /// 爱心)时弹一个全屏动画,见下面的 .onChange(of: text) 和 EasterEggView。
@@ -209,15 +212,35 @@ struct AgentView: View {
             ) { result in
                 for url in (try? result.get()) ?? [] { handlePickedFile(url) }
             }
-            .onChange(of: photoSelection) { _, item in
-                guard let item else { return }
+            // PhotosPicker 不能直接放进 Menu:菜单一收起,挂在菜单项上的相册
+            // 弹窗跟着一起没了,点「照片」什么都不发生。菜单里只放按钮,
+            // 相册弹窗挂在页面上。
+            .photosPicker(isPresented: $showPhotoPicker, selection: $photoSelection,
+                          maxSelectionCount: max(1, remainingPhotoSlots),
+                          selectionBehavior: .ordered, matching: .images)
+            .onChange(of: photoSelection) { _, items in
+                guard !items.isEmpty else { return }
+                // PhotosPicker 的选择是全量的,读完就清空,下次再点是"再加几张"。
+                // 按选择顺序逐张读,缩略图顺序和用户点选的顺序一致。
+                photoSelection = []
                 Task {
-                    if let data = try? await item.loadTransferable(type: Data.self) {
+                    for item in items {
+                        guard remainingPhotoSlots > 0,
+                              let data = try? await item.loadTransferable(type: Data.self)
+                        else { continue }
                         handlePickedImage(data)
                     }
-                    photoSelection = nil
                 }
             }
+            #if os(iOS)
+            .fullScreenCover(item: $viewingImage) { target in
+                AgentImageViewer(images: pendingImages, initialID: target.id)
+            }
+            #else
+            .sheet(item: $viewingImage) { target in
+                AgentImageViewer(images: pendingImages, initialID: target.id)
+            }
+            #endif
             .sheet(isPresented: $showMemoryPicker) {
                 MemoryPickerView(excluding: Set(pendingAttachments.compactMap(\.memoryUUID))) { picked in
                     for item in picked {
@@ -330,6 +353,11 @@ struct AgentView: View {
                     try? context.save()
                     quotedMessage = quoted
                 }
+                // 截图验证用:simctl 没法操作相册,直接塞几张合成图当作选好的照片,
+                // 看输入卡片里的缩略图行;加 --demo-agent-photo-viewer 再打开大图查看页。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-photos") {
+                    seedDemoPhotos()
+                }
                 // 截图验证用:模拟长按气泡选了"修改"——直接弹出截断确认弹窗
                 // (simctl 没法长按+点菜单项)。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-edit-confirm"),
@@ -409,12 +437,13 @@ struct AgentView: View {
 
     // MARK: - 输入栏
 
-    /// 多附件横向胶囊行(文件/照片/从记忆库选的条目都可以并存),每个单独可移除。
+    /// 多附件横向胶囊行(文件/从记忆库选的条目可以并存),每个单独可移除。
+    /// 相册选的照片不在这里,是输入卡片里带缩略图的那一行(photoPreviewRow)。
     @ViewBuilder
     private var attachmentChipsRow: some View {
-        if !pendingAttachments.isEmpty {
+        if pendingAttachments.contains(where: { $0.imageData == nil }) {
             HorizontalChipRow {
-                ForEach(pendingAttachments) { attachment in
+                ForEach(pendingAttachments.filter { $0.imageData == nil }) { attachment in
                     attachmentChip(attachment)
                 }
             }
@@ -520,6 +549,7 @@ struct AgentView: View {
 
     private var composingBar: some View {
         VStack(alignment: .leading, spacing: 6) {
+            photoPreviewRow
             TextField("试试加入一个待办/记忆…", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
@@ -536,9 +566,12 @@ struct AgentView: View {
 
             HStack(alignment: .center, spacing: 8) {
                 Menu {
-                    PhotosPicker(selection: $photoSelection, matching: .images) {
+                    Button {
+                        showPhotoPicker = true
+                    } label: {
                         Label("照片", systemImage: "photo")
                     }
+                    .disabled(remainingPhotoSlots == 0)
                     Button {
                         showFileImporter = true
                     } label: {
@@ -580,6 +613,80 @@ struct AgentView: View {
             .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
             .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isProcessing)
         }
+    }
+
+    /// 一次最多带几张照片。
+    private static let maxPhotos = 5
+    private static let photoThumbnailSize: CGFloat = 64
+
+    /// 相册选进来的照片(按添加顺序),缩略图行和大图查看页共用。
+    private var pendingImages: [PendingAttachment] {
+        pendingAttachments.filter { $0.imageData != nil }
+    }
+
+    private var remainingPhotoSlots: Int {
+        max(0, Self.maxPhotos - pendingImages.count)
+    }
+
+    /// 输入卡片顶部的照片缩略图行:选了照片后卡片随之长高,每张右上角 ✕ 移除,
+    /// 点缩略图全屏看大图。放在卡片里而不是卡片外的胶囊行,照片和要发的文字
+    /// 是同一条消息,视觉上也该是一块。
+    @ViewBuilder
+    private var photoPreviewRow: some View {
+        let images = pendingImages
+        if !images.isEmpty {
+            HorizontalChipRow {
+                ForEach(images) { attachment in
+                    photoThumbnail(attachment)
+                }
+            }
+            // ✕ 按钮往右上角探出去一截,给它留出位置,不被 ScrollView 裁掉。
+            .padding(.bottom, 4)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+
+    private func photoThumbnail(_ attachment: PendingAttachment) -> some View {
+        Button {
+            viewingImage = ImageViewerTarget(id: attachment.id)
+        } label: {
+            ZStack {
+                if let image = attachment.previewImage {
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Rectangle().fill(.fill.tertiary)
+                }
+                if attachment.isExtracting {
+                    Rectangle().fill(.black.opacity(0.25))
+                    ProgressView().tint(.white)
+                }
+            }
+            .frame(width: Self.photoThumbnailSize, height: Self.photoThumbnailSize)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("查看图片")
+        .overlay(alignment: .topTrailing) {
+            Button {
+                withAnimation(.lodoAware(.snappy(duration: 0.2))) {
+                    removeAttachment(attachment)
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 20, height: 20)
+                    .background(.black.opacity(0.6), in: Circle())
+                    .padding(4)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("移除图片")
+        }
+        .padding(.top, 2)
     }
 
     /// 录音时整条输入条换成的"取消 / 波形 / 确认"胶囊,参考 iMessage/微信语音
@@ -953,17 +1060,38 @@ struct AgentView: View {
         }
     }
 
+    /// 选好就先把缩略图摆出来(OCR 可能要一两秒,不能让人以为没选上),
+    /// 识别完再把文字补进同一个附件;识别期间缩略图上转圈,发送按钮等它识别完。
     private func handlePickedImage(_ data: Data) {
+        guard remainingPhotoSlots > 0 else { return }
+        let stored = Self.normalizedImageData(data)
+        let item = MemoryPipeline.saveImageData(stored, context: context)
+        let attachment = PendingAttachment(
+            displayName: "图片", extractedText: "", memoryUUID: item?.uuid,
+            symbol: "photo", isNewlyCreated: true, imageData: stored, isExtracting: true)
+        withAnimation(.lodoAware(.snappy(duration: 0.2))) {
+            pendingAttachments.append(attachment)
+        }
         Task {
-            let item = MemoryPipeline.saveImageData(data, context: context)
             var extractedText = ""
             if let item, let url = MemoryPipeline.fileURL(of: item) {
                 extractedText = await ContentExtractor.extract(fileURL: url).text
             }
-            pendingAttachments.append(PendingAttachment(
-                displayName: "图片", extractedText: extractedText, memoryUUID: item?.uuid,
-                symbol: "photo", isNewlyCreated: true))
+            // 识别期间可能已经被 ✕ 掉或随消息发出去了,找不到就算了。
+            guard let index = pendingAttachments.firstIndex(where: { $0.id == attachment.id }) else { return }
+            pendingAttachments[index].extractedText = extractedText
+            pendingAttachments[index].isExtracting = false
         }
+    }
+
+    /// 相册里的照片可能是 HEIC、分辨率很高;转成 JPEG 再存,附件不至于一张十几 MB
+    /// (和 MenuImportView.normalized 同一个理由)。
+    private static func normalizedImageData(_ data: Data) -> Data {
+        #if os(iOS)
+        return UIImage(data: data)?.jpegData(compressionQuality: 0.8) ?? data
+        #else
+        return data
+        #endif
     }
 
     /// 移除一个待发送附件;如果它是刚为这次附件才存的记忆(拍照/选文件,
@@ -988,6 +1116,30 @@ struct AgentView: View {
         }
         pendingAttachments = []
     }
+
+    #if DEBUG
+    private func seedDemoPhotos() {
+        #if os(iOS)
+        let colors: [UIColor] = [.systemOrange, .systemTeal, .systemPink]
+        for (index, color) in colors.enumerated() {
+            let renderer = UIGraphicsImageRenderer(size: CGSize(width: 600, height: 800))
+            let image = renderer.image { ctx in
+                color.setFill()
+                ctx.fill(CGRect(x: 0, y: 0, width: 600, height: 800))
+                ("照片 \(index + 1)" as NSString).draw(
+                    at: CGPoint(x: 180, y: 360),
+                    withAttributes: [.font: UIFont.boldSystemFont(ofSize: 64), .foregroundColor: UIColor.white])
+            }
+            if let data = image.jpegData(compressionQuality: 0.8) { handlePickedImage(data) }
+        }
+        isInputFocused = false
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-photo-viewer"),
+           let second = pendingImages.dropFirst().first {
+            viewingImage = ImageViewerTarget(id: second.id)
+        }
+        #endif
+    }
+    #endif
 
     // MARK: - 长按气泡:复制/引用/修改
 
@@ -1036,7 +1188,8 @@ struct AgentView: View {
     /// 与正常发送完全一致。
     private func send(overrideText: String? = nil, hidesUserBubble: Bool = false) {
         let trimmed = (overrideText ?? text).trimmingCharacters(in: .whitespaces)
-        guard trimmed.count > 0 || !pendingAttachments.isEmpty, !busy else { return }
+        guard trimmed.count > 0 || !pendingAttachments.isEmpty, !busy,
+              !pendingAttachments.contains(where: \.isExtracting) else { return }
         let thread = activeThread ?? {
             let new = AgentThread()
             context.insert(new)
@@ -1406,6 +1559,109 @@ private struct PendingAttachment: Identifiable {
     /// 要把这条孤儿记忆一并删掉,不然用户没发送就把它删了,记忆库里却平白
     /// 多出一条。false = 从记忆库里选的已有条目,移除 chip 不影响原条目。
     var isNewlyCreated: Bool = false
+    /// 相册选的照片原图数据(缩略图/大图查看用);文件、记忆库条目为 nil。
+    var imageData: Data? = nil
+    /// 照片还在端上 OCR,识别完才能发送。
+    var isExtracting: Bool = false
+
+    var previewImage: Image? {
+        guard let imageData else { return nil }
+        #if os(iOS)
+        return UIImage(data: imageData).map { Image(uiImage: $0) }
+        #else
+        return NSImage(data: imageData).map { Image(nsImage: $0) }
+        #endif
+    }
+}
+
+private struct ImageViewerTarget: Identifiable {
+    let id: UUID
+}
+
+/// 点输入卡片里的缩略图打开的大图查看页:黑底,左右滑动切换这次要发的几张照片,
+/// 点图片以外的空白处回到对话。
+private struct AgentImageViewer: View {
+    let images: [PendingAttachment]
+    @State private var selection: UUID
+    @Environment(\.dismiss) private var dismiss
+
+    init(images: [PendingAttachment], initialID: UUID) {
+        self.images = images
+        self._selection = State(initialValue: initialID)
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { dismiss() }
+            pager
+            if images.count > 1, let index = images.firstIndex(where: { $0.id == selection }) {
+                VStack {
+                    Spacer()
+                    Text("\(index + 1) / \(images.count)")
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.white.opacity(0.15), in: Capsule())
+                        .padding(.bottom, 24)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+        #if os(iOS)
+        .statusBarHidden()
+        #endif
+        .onChange(of: images.map(\.id)) { _, ids in
+            if ids.isEmpty { dismiss() }
+        }
+    }
+
+    @ViewBuilder
+    private var pager: some View {
+        #if os(iOS)
+        TabView(selection: $selection) {
+            ForEach(images) { attachment in
+                page(attachment).tag(attachment.id)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .ignoresSafeArea()
+        #else
+        // macOS 没有翻页式 TabView,用左右箭头切换。
+        if let index = images.firstIndex(where: { $0.id == selection }) {
+            HStack {
+                Button { selection = images[max(0, index - 1)].id } label: {
+                    Image(systemName: "chevron.left").font(.title)
+                }
+                .disabled(index == 0)
+                page(images[index])
+                Button { selection = images[min(images.count - 1, index + 1)].id } label: {
+                    Image(systemName: "chevron.right").font(.title)
+                }
+                .disabled(index == images.count - 1)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .padding()
+        }
+        #endif
+    }
+
+    /// 图片本身吞掉点击(不关页面),图片周围的空白区域点了才关。
+    private func page(_ attachment: PendingAttachment) -> some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { dismiss() }
+            attachment.previewImage?
+                .resizable()
+                .scaledToFit()
+                .onTapGesture {}
+        }
+    }
 }
 
 /// 单条新建/修改弹出的表单目标。
