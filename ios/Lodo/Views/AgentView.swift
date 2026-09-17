@@ -1231,7 +1231,14 @@ struct AgentView: View {
             outgoing = "引用消息:「\(quoted.content)」\n\n" + outgoing
         }
         for attachment in attachments {
-            outgoing += "\n\n[附件:\(attachment.displayName)]\n\(attachment.extractedText)"
+            // 照片是在端上 OCR 成文字发出去的,图片本身不上传。一个字都没认出来时
+            // 说明白(而不是留个空附件),模型才好据此回话,不至于以为自己看得见图。
+            let body = attachment.extractedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if body.isEmpty {
+                outgoing += "\n\n[附件:\(attachment.displayName),没有识别出文字]"
+            } else {
+                outgoing += "\n\n[附件:\(attachment.displayName)]\n\(body)"
+            }
         }
 
         // 请求一发出就显示"思考中…";ReAct 工具调用会用更具体的提示

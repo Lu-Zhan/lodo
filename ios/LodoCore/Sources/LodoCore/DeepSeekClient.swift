@@ -295,8 +295,21 @@ public enum DeepSeekClient {
         当前待办列表:
         \(json(list))\(personaBlock)\(historyBlock(history))
         """
+        // 模型按 prompt 约定用 {"error": "原因"} 表示"这句话里没有我能执行的操作"
+        // (带了张照片却没说要拿它干什么就是最常见的一种),decodePayload 会把那句
+        // 原因抛成 parse 错误。它是模型想对用户说的话,不是故障——聊天入口渲染成
+        // 普通回复气泡,不是红字报错。真正的"没给出可解析 JSON"抛的是固定文案,
+        // 仍然按错误处理。
+        let raw: [String: Any]
+        do {
+            raw = try await payload(system: system, user: text, thinking: true)
+        } catch let DeepSeekError.parse(message)
+            where message != malformedPayloadMessage
+                && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return .actions([.answer(text: message)])
+        }
         return try parseCommand(
-            await payload(system: system, user: text, thinking: true),
+            raw,
             validUUIDs: tasks.map(\.uuid),
             memoryEnabled: memoryEnabled,
             webSearchEnabled: webSearchEnabled,
@@ -362,6 +375,16 @@ public enum DeepSeekClient {
         }
         guard let rawActions = payload["actions"] as? [[String: Any]],
               !rawActions.isEmpty else {
+            // 没有任何操作、却捎了一句话回来(实测形如 {"actions": [], "reply": "…"},
+            // 键名随模型心情换):这是它在回话,不是故障。当成 answer 渲染成气泡,
+            // 比红字"缺少 actions"有用。带附件时最常碰上——照片里有内容,可用户
+            // 那句话没让它做什么,它就只好聊两句。
+            if let reply = ["reply", "answer", "text", "message", "response", "content"]
+                .compactMap({ payload[$0] as? String })
+                .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                .first(where: { !$0.isEmpty }) {
+                return .actions([.answer(text: reply)])
+            }
             throw DeepSeekError.parse("返回格式异常:缺少 actions")
         }
         var actions: [AIAction] = []
@@ -1256,6 +1279,10 @@ public enum DeepSeekClient {
         return KeychainHelper.effectiveAPIKey != nil
     }
 
+    /// 模型压根没给出可解析 JSON 时的固定错误文案。模型自己用 {"error": "原因"}
+    /// 说明"这件事我做不了"时抛的是那句原因,两者据此区分(见 command())。
+    static let malformedPayloadMessage = "返回格式异常"
+
     /// 模型输出文本 → JSON payload:剥 markdown 围栏、从首个 { 截到末个 },
     /// 兼容部分服务/端侧模型不严格遵守纯 JSON 的情况。云端与苹果智能共用。
     public static func decodePayload(from text: String) throws -> [String: Any] {
@@ -1272,7 +1299,15 @@ public enum DeepSeekClient {
         }
         guard let payload = try? JSONSerialization.jsonObject(
             with: Data(cleaned.utf8)) as? [String: Any] else {
-            throw DeepSeekError.parse("返回格式异常")
+            // 一个花括号都没有 = 模型没按 JSON 约定答,整段就是它想说的白话
+            // (问它"这张图说的是什么"最容易碰上)。把这段话当成错误原因抛出去,
+            // 聊天入口据此渲染成普通回复气泡(见 command()),其余调用方照旧报错,
+            // 但错误里带上模型的原话,比"返回格式异常"五个字好查。
+            // 有花括号说明它本来想给 JSON 只是给坏了(截断等),那是真的格式错。
+            if !cleaned.isEmpty, !cleaned.contains("{") {
+                throw DeepSeekError.parse(MemorySearch.truncate(cleaned, limit: 500))
+            }
+            throw DeepSeekError.parse(malformedPayloadMessage)
         }
         if let error = payload["error"] as? String {
             throw DeepSeekError.parse(error)
@@ -1356,7 +1391,7 @@ public enum DeepSeekClient {
               let choices = root["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
               let content = message["content"] as? String else {
-            throw DeepSeekError.parse("返回格式异常")
+            throw DeepSeekError.parse(malformedPayloadMessage)
         }
         return try decodePayload(from: content)
     }

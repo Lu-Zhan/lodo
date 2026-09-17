@@ -699,6 +699,47 @@ final class CommandParseTests: XCTestCase {
         }
     }
 
+    /// 带附件问一句"这张图说的是什么"时,模型实测会回 {"actions": [], "reply": "…"}
+    /// ——没有要执行的操作,只是搭句话。当成 answer 渲染成气泡,不报"缺少 actions"。
+    func testEmptyActionsWithReplyBecomesAnswer() throws {
+        for key in ["reply", "answer", "text", "message", "response", "content"] {
+            let payload: [String: Any] = ["actions": [], key: "这张图是一张海报。"]
+            let result = try DeepSeekClient.parseCommand(
+                payload, validUUIDs: [], memoryEnabled: false)
+            guard case .actions(let actions) = result, actions.count == 1,
+                  case .answer(let text) = actions[0] else {
+                XCTFail("expected answer action for key \(key)")
+                return
+            }
+            XCTAssertEqual(text, "这张图是一张海报。")
+        }
+    }
+
+    /// 既没有操作也没有话可说,仍然是格式错误。
+    func testEmptyActionsWithoutReplyStillThrows() {
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            ["actions": []], validUUIDs: [], memoryEnabled: false))
+    }
+
+    /// 模型没按 JSON 约定、整段白话回过来时,抛出的错误里带上它的原话
+    /// (聊天入口据此渲染成回复气泡);花括号残缺那种才是真的格式错。
+    func testProsePayloadCarriesModelText() {
+        XCTAssertThrowsError(try DeepSeekClient.decodePayload(from: "我看不出这张图要做什么。")) { error in
+            guard case DeepSeekError.parse(let message) = error else {
+                XCTFail("expected parse error")
+                return
+            }
+            XCTAssertEqual(message, "我看不出这张图要做什么。")
+        }
+        XCTAssertThrowsError(try DeepSeekClient.decodePayload(from: "{\"actions\": [")) { error in
+            guard case DeepSeekError.parse(let message) = error else {
+                XCTFail("expected parse error")
+                return
+            }
+            XCTAssertEqual(message, DeepSeekClient.malformedPayloadMessage)
+        }
+    }
+
     /// ask_memory 与 answer 混在一起(两者都是"问答类"操作)时只留第一条。
     func testAskMemoryAndAnswerCollapsesToFirst() throws {
         let payload: [String: Any] = ["actions": [
