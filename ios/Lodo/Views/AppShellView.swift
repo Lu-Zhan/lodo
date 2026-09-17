@@ -311,7 +311,10 @@ struct AppShellView: View {
         .padding(.top, usesRegularLayout ? 0 : deviceTopInset)
         .padding(.bottom, usesRegularLayout ? 0 : deviceBottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DesignMetrics.panelBackground(colorScheme))
+        // 窄屏抽屉里面板自己不铺底色,由 compactLayout 整个容器那层 drawerBackdrop
+        // 统一铺(理由见那里)。
+        .background(usesRegularLayout ? DesignMetrics.panelBackground(colorScheme)
+                                      : AnyShapeStyle(Color.clear))
     }
 
     /// 窄屏抽屉的旁白语义。收起时面板只是被 offset 推到屏幕外,**元素还在**
@@ -552,7 +555,12 @@ struct AppShellView: View {
         // 裁出来的那个 44pt 圆角缺口在它右边、什么都没有,露的是窗口自己的纯白
         // ——白底方角衬在圆角外面,看上去就像页面背后还压着一张没裁圆角的卡。
         // 垫成侧栏同色之后,缺口处和侧栏连成一片,只剩卡自己那一道圆角。
-        .background(DesignMetrics.panelBackground(colorScheme))
+        //
+        // 侧栏面板本身不再单独铺底色,只铺这一层:夜间 panelBackground 是半透明
+        // 材质,面板一层 + 这里一层叠出来的亮度(≈42)比缺口处只有这一层盖在纯黑
+        // 窗口上(≈30)亮,侧栏右边缘会出现一道竖直的明暗分界,圆角看上去像压在一块
+        // 方角暗色底板上。日间是不透明色,叠几层都一样,所以只有夜间露馅。
+        .background { drawerBackdrop }
         // 量键盘顶上来那截:这一层在下面那句 ignoresSafeArea(.container) 的
         // 覆盖范围内,容器安全区已经被吃掉,量到的底部安全区就只剩键盘。
         .background(
@@ -583,6 +591,20 @@ struct AppShellView: View {
         // 只忽略 .container 这一档:默认的 .all 连键盘区一起忽略掉,AI 页输入栏
         // 会被弹起的键盘盖住。
         .ignoresSafeArea(.container)
+    }
+
+    /// 抽屉容器的整块底色。夜间叠两层材质,保持原来"面板材质叠在容器材质上"
+    /// 那个亮度——面板和近黑的页面卡之间还得靠这点亮度差分层(见 panelBackground)。
+    @ViewBuilder
+    private var drawerBackdrop: some View {
+        if colorScheme == .dark {
+            ZStack {
+                Rectangle().fill(DesignMetrics.panelBackground(colorScheme))
+                Rectangle().fill(DesignMetrics.panelBackground(colorScheme))
+            }
+        } else {
+            Rectangle().fill(DesignMetrics.panelBackground(colorScheme))
+        }
     }
 
     /// 宽屏(iPad 横屏、macOS):侧栏常驻并排,同一颗 ☰ 收起/展开,不做推移动画,
