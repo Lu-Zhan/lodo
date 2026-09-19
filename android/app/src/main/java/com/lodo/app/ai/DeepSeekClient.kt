@@ -55,8 +55,8 @@ data class AIConfig(
     val reasoningEffort: String? = null,
 )
 
-/** AI 总入口解析出的单个操作。answer 仅在 command(webSearchEnabled = true) 时会出现
- * (配置了 Tavily key 才开启,和 iOS 同一个思路)。 */
+/** AI 总入口解析出的单个操作。answer(直接回话)不受任何开关门控,聊天入口随时
+ * 可能出现;联网搜索只决定它答之前能不能先查一下,和 iOS 同一个思路。 */
 sealed interface AIAction {
     data class Create(val task: ParsedTask) : AIAction
     data class Update(val uuid: String, val task: ParsedTask) : AIAction
@@ -132,15 +132,11 @@ object DeepSeekClient {
      * 可能被错误地当成 answer 处理);仅 webSearchEnabled(配置了 Tavily key)
      * 时拼进 command() 的 system prompt。 */
     private val webSearchSkill = """
-        额外支持的操作:
-        - 直接回答:{"action": "answer", "text": "给用户的完整回答"}(用户的问题是一般性提问/最新信息查询,不是要新建/修改待办时用;可以是你已经确定知道答案、不需要查的情况,也可以是联网搜索后给出的)
-
         额外支持的工具:
         - 联网搜索:{"thought": "为什么需要搜", "tool": "web_search", "query": "要搜索的关键词"}(仅在需要查最新/实时/你不确定的信息时用;每次交流最多用一次,拿到搜索结果后必须在下一轮给出真正的最终答案——action 列表或反问,不能连续再搜、也不能一直用这个占位不给结果)
         - 抓取链接内容:{"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "用户给的链接原样"}(用户直接给了一个具体链接、要你总结/回答链接里的内容时用,直接抓取该链接本身,不要把链接当关键词去 web_search;同样每次交流最多用一次,拿到页面内容后必须在下一轮给出真正的最终答案)
 
         额外判断规则:
-        - 用户提出一般性问题(如"今天天气怎么样""XX最新价格""这个词是什么意思")且和新建/修改待办、收藏/查记忆都无关 → answer,此时整个 actions 只放这一条,不与其他操作混用(如果一句话里同时有新建待办和提问,只处理新建待办,提问可以重新单独问)。
         - 涉及待办本身的问题(如"我明天有什么安排""这个事项还有多久到期")按当前待办列表自己回答,不需要联网搜索。
         - 用户消息里包含具体链接(http/https 开头)且意图是了解/总结该链接内容时,用 web_fetch 直接抓取那个链接,不要用 web_search 搜链接文字本身。
         - 需要最新/实时信息(新闻、天气、价格、赛事结果等)但没有具体链接、或你不确定答案是否过时时,用 web_search 查关键词,不要凭空编内容;已经拿到搜索/抓取结果的,直接用结果内容给最终答案,不要重复搜/重复抓。
@@ -222,7 +218,12 @@ object DeepSeekClient {
             "- 修改:{\"action\": \"update\", \"uuid\": \"原样取自当前待办列表,不要自己生成\", ...事项字段}" +
             "(输出修改后的完整字段值,用户没有提到的字段一律保持原值)\n" +
             "- 完成:{\"action\": \"complete\", \"uuid\": \"原样取自当前待办列表\"}\n" +
-            "- 删除:{\"action\": \"delete\", \"uuid\": \"原样取自当前待办列表\"}\n\n" +
+            "- 删除:{\"action\": \"delete\", \"uuid\": \"原样取自当前待办列表\"}\n" +
+            // answer 不跟着联网搜索开关走:"直接回话"是聊天入口的基本能力,
+            // 绑在 Tavily key 上的话,没配 key 的用户一句闲聊就会让模型交白卷。
+            "- 直接回答:{\"action\": \"answer\", \"text\": \"给用户的完整回答\"}" +
+            "(用户说的话里没有要执行的待办操作——一般性问题、闲聊等——都用这条回话," +
+            "不要返回空的 actions)\n\n" +
             "判断规则:\n" +
             "- 一句话里包含多件事时返回多个操作,如\"明天上午开会,周五交报告\"→ 两条 create。\n" +
             "- 修改/完成/删除按标题语义匹配列表中的事项(\"开会完成了\"→ complete," +
@@ -230,6 +231,9 @@ object DeepSeekClient {
             "- 新建缺少关键时间信息且无法按常理推断时(如只说\"提醒我交材料\"),不要猜," +
             "改为反问:{\"question\": \"要问用户的问题\", \"options\": [\"候选补充1\", \"候选补充2\", \"候选补充3\"]}," +
             "options 给 2-3 个具体可直接采用的补充(如\"明天 09:00\")。\n" +
+            "- 用户提出一般性问题(如\"这个词是什么意思\")或只是闲聊 → answer," +
+            "此时整个 actions 只放这一条,不与其他操作混用(一句话里同时有新建待办和提问时," +
+            "只处理新建待办,提问可以重新单独问)。\n" +
             "- 无法解析时返回 {\"error\": \"原因\"}。\n\n" +
             "${timeContext()}\n\n当前待办列表:\n$list\n\n" +
             "返回格式(二选一):\n" +
@@ -302,12 +306,14 @@ object DeepSeekClient {
                 "update" -> AIAction.Update(validUuid(), parsePayload(raw))
                 "complete" -> AIAction.Complete(validUuid())
                 "delete" -> AIAction.Delete(validUuid())
-                "answer" -> if (webSearchEnabled) {
-                    val text2 = raw.optString("text").trim()
-                    if (text2.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:回答内容为空", CurrentLang.value))
-                    AIAction.Answer(text2)
-                } else {
-                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
+                // answer 不受 webSearchEnabled 门控,理由见 command() 里那段注释。
+                "answer" -> {
+                    val answerText = raw.optString("text").trim()
+                    if (answerText.isEmpty()) {
+                        throw DeepSeekException(
+                            Strings.translate("无法解析:返回格式异常:回答内容为空", CurrentLang.value))
+                    }
+                    AIAction.Answer(answerText)
                 }
                 "memorize" -> if (memoryEnabled) {
                     val text2 = raw.optString("text").trim()

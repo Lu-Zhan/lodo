@@ -21,6 +21,8 @@ struct WatchAgentView: View {
     /// 一次只展示一道,选完带着补充重新解析,模型还缺信息就会再问下一道。
     @State private var clarify: AskQuestion?
     @State private var clarifyBase = ""
+    /// 模型只是回了一句话(answer),没有要执行的操作时显示它。
+    @State private var answerText: String?
 
     var body: some View {
         ScrollView {
@@ -36,6 +38,9 @@ struct WatchAgentView: View {
                 }
                 if let clarify {
                     clarifySection(clarify)
+                }
+                if let answerText {
+                    Text(answerText).font(.footnote)
                 }
                 if let confirmLines {
                     confirmSection(confirmLines)
@@ -111,6 +116,7 @@ struct WatchAgentView: View {
         busy = true
         errorText = nil
         confirmLines = nil
+        answerText = nil
         let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         Task {
             defer { busy = false }
@@ -122,8 +128,16 @@ struct WatchAgentView: View {
                     clarify = questions.first
                 case .actions(let actions):
                     clarify = nil
-                    pendingActions = actions
-                    confirmLines = actions.map(describe)
+                    // answer 不再跟着联网搜索开关走(手机端同),手表上也会收到纯回话。
+                    // 它没有可执行的东西,直接显示这句话,不进"确认执行"那条路。
+                    if actions.count == 1, case .answer(let reply) = actions[0] {
+                        pendingActions = []
+                        answerText = reply
+                    } else {
+                        answerText = nil
+                        pendingActions = actions
+                        confirmLines = actions.map(describe)
+                    }
                 case .toolCall:
                     // 死代码安全阀:Watch 调 command 不传 memoryEnabled(恒 false),
                     // prompt 里根本没提过"先查记忆"这个选项,模型不会返回这个 case。

@@ -163,11 +163,13 @@ public enum AppSettings {
     /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 DeepSeek;
     /// "自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
     public static let aiProviders: [(name: String, endpoint: String, model: String)] = [
-        // 排第一个 = 默认服务商(见 defaultAIProvider)。和下面那条纯文本的
-        // DeepSeek 走同一个接口、同一把 key,区别只在 model 字段。
-        ("DeepSeek V4 Flash Vision", "https://api.deepseek.com/chat/completions",
-         "deepseek-v4-flash-vision-exp"),
-        ("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4.1-flash"),
+        // 排第一个 = 默认服务商(见 defaultAIProvider)。两条走同一个接口、
+        // 同一把 key,区别只在 model 字段。名字直接跟着模型走:DeepSeek 的
+        // /models 目前只给这两个,别再填别的代号——`deepseek-v4.1-flash` 已经
+        // 下线(直接 400),`deepseek-v4-flash-vision-exp` 服务端静默映射成
+        // deepseek-flash(能用,但名字和实际跑的模型对不上)。
+        ("DeepSeek Flash", "https://api.deepseek.com/chat/completions", "deepseek-flash"),
+        ("DeepSeek V4 Pro", "https://api.deepseek.com/chat/completions", "deepseek-v4-pro"),
         ("GPT-5.6 Luna", "https://runapi.host/v1/chat/completions", "gpt-5.6-luna"),
         ("Qwen3.5 Flash", "https://runapi.host/v1/chat/completions", "qwen3.5-flash"),
         ("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
@@ -181,10 +183,29 @@ public enum AppSettings {
 
     /// 没选过服务商时用哪个。改这个值会让"从没进过设置页"的老用户也一起换过去
     /// ——他们本来就没做过选择,跟着默认走是预期行为。
-    public static let defaultAIProvider = "DeepSeek V4 Flash Vision"
+    public static let defaultAIProvider = "DeepSeek Flash"
+
+    /// 老版本存下来的服务商名 → 现在的名字。两个 DeepSeek 预设原来按当时的模型
+    /// 代号命名,那两个模型都已经不在 API 上了(见 aiProviders 的注释),改名成
+    /// 现在真实存在的两个。**老用户一律落到 flash 那档**——原来两条都是 flash
+    /// 档位,不能借改名把人悄悄换到更贵的 pro 上。读取时映射,不改写存储:
+    /// 用户再进一次设置页选定什么就写什么。
+    public static let renamedAIProviders: [String: String] = [
+        "DeepSeek V4 Flash Vision": "DeepSeek Flash",
+        "DeepSeek": "DeepSeek Flash",
+    ]
+
+    /// 新服务商名 → 还可以沿用哪些老名字底下存着的 key。同一个 DeepSeek 账号
+    /// 同一把 key,只是模型不同,改名后不该让人重新填一遍(KeychainHelper
+    /// 读不到新名字时按这个顺序回退;Android `SettingsRepository` 同名同义)。
+    public static let apiKeyAliases: [String: [String]] = [
+        "DeepSeek Flash": ["DeepSeek V4 Flash Vision", "DeepSeek"],
+        "DeepSeek V4 Pro": ["DeepSeek V4 Flash Vision", "DeepSeek"],
+    ]
 
     public static var aiProvider: String {
-        UserDefaults.standard.string(forKey: aiProviderKey) ?? defaultAIProvider
+        let stored = UserDefaults.standard.string(forKey: aiProviderKey) ?? defaultAIProvider
+        return renamedAIProviders[stored] ?? stored
     }
 
     public static var usesAppleIntelligence: Bool {

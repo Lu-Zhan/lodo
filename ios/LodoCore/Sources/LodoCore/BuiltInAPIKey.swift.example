@@ -13,7 +13,8 @@ public enum BuiltInAPIKey {
     /// 按服务商名查内置 key;没有对应内置值返回 nil。
     public static func key(for provider: String) -> String? {
         switch provider {
-        case "DeepSeek", "DeepSeek V4 Flash Vision": return deepSeek
+        case "DeepSeek Flash", "DeepSeek V4 Pro", "DeepSeek", "DeepSeek V4 Flash Vision":
+            return deepSeek
         case "GPT-5.6 Luna", "Qwen3.5 Flash": return runAPI
         case QwenASRClient.providerName: return qwenASR
         default: return nil

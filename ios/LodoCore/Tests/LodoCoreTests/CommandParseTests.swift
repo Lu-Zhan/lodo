@@ -673,13 +673,6 @@ final class CommandParseTests: XCTestCase {
             payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: true))
     }
 
-    /// webSearchEnabled == false 时,即使模型幻觉出 answer,也按未知 action 处理。
-    func testAnswerWhenDisabledThrowsUnknownAction() {
-        let payload: [String: Any] = ["actions": [["action": "answer", "text": "今天多云转晴"]]]
-        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
-            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: false))
-    }
-
     /// answer 与写操作混在一句话里返回时,丢弃 answer 只留写操作。
     func testAnswerMixedWithCreateDropsAnswer() throws {
         let payload: [String: Any] = ["actions": [
@@ -738,6 +731,20 @@ final class CommandParseTests: XCTestCase {
             }
             XCTAssertEqual(message, DeepSeekClient.malformedPayloadMessage)
         }
+    }
+
+    /// 没配联网搜索 key 时 answer 照样认:"直接回话"是聊天入口的基本能力,
+    /// 搜索开关只决定它答之前能不能先查一下(Android CommandParseTest 同名用例)。
+    func testAnswerWorksWithoutWebSearch() throws {
+        let payload: [String: Any] = ["actions": [["action": "answer", "text": "今天多云转晴"]]]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, webSearchEnabled: false)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .answer(let text) = actions[0] else {
+            XCTFail("expected answer action")
+            return
+        }
+        XCTAssertEqual(text, "今天多云转晴")
     }
 
     /// ask_memory 与 answer 混在一起(两者都是"问答类"操作)时只留第一条。

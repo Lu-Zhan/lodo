@@ -33,17 +33,22 @@ public enum KeychainHelper {
         return key
     }
 
-    /// 指定服务商的 key;DeepSeek 读不到新存储时回退旧账户。
+    /// 指定服务商的 key;读不到就按 `AppSettings.apiKeyAliases` 回退到改名前的
+    /// 名字(DeepSeek 两个预设共用一把 key),最后回退最早那版单一账户。
     public static func apiKey(for provider: String) -> String? {
-        read(account: "api-key-\(provider)")
-            ?? (provider == "DeepSeek" ? read(account: legacyAccount) : nil)
+        if let key = read(account: "api-key-\(provider)") { return key }
+        for alias in AppSettings.apiKeyAliases[provider] ?? [] {
+            if let key = read(account: "api-key-\(alias)") { return key }
+        }
+        // 最早那版只有一把 DeepSeek key,没按服务商分账户。
+        return provider.hasPrefix("DeepSeek") ? read(account: legacyAccount) : nil
     }
 
     public static func save(_ key: String, for provider: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         let account = "api-key-\(provider)"
         SecItemDelete(query(account: account) as CFDictionary)
-        if provider == "DeepSeek" {
+        if provider.hasPrefix("DeepSeek") {
             SecItemDelete(query(account: legacyAccount) as CFDictionary)
         }
         guard !trimmed.isEmpty else { return }

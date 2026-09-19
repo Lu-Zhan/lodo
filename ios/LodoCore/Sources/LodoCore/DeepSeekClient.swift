@@ -60,8 +60,9 @@ extension ParsedTask {
 
 /// AI 总入口解析出的单个操作。
 /// memorize/askMemory/autoMemorize 仅在 command(memoryEnabled: true) 时会出现
-/// (iOS/macOS 主 app;Watch 无记忆数据层,不开启)。answer 仅在
-/// command(webSearchEnabled: true) 时会出现(配置了 Tavily key 才开启)。
+/// (iOS/macOS 主 app;Watch 无记忆数据层,不开启)。answer(直接回话)不受任何
+/// 开关门控,聊天入口随时可能出现——包括 Watch;webSearchEnabled 只决定它答之前
+/// 能不能先联网查一下。
 public enum AIAction {
     case create(ParsedTask)
     case update(uuid: String, task: ParsedTask)
@@ -442,7 +443,10 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:查询问题为空")
                 }
                 actions.append(.askMemory(question: question))
-            case "answer" where webSearchEnabled:
+            // answer 不受 webSearchEnabled 门控:"直接回话"是聊天入口的基本能力,
+            // 和有没有配 Tavily 搜索 key 无关。原来绑在一起时,没配 key 的用户
+            // 一句闲聊就会让模型交白卷({"actions": []}),前端只能报错。
+            case "answer":
                 let text = (raw["text"] as? String)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 guard !text.isEmpty else {
@@ -1333,8 +1337,8 @@ public enum DeepSeekClient {
                 // 没开或没内置就用钥匙串里存的)就自动退回云端完成这一次请求
                 // (不改用户在设置里选的服务商),没有才报不可用原因。
                 if let key = (AppSettings.useBuiltInKey ? BuiltInAPIKey.deepSeek : nil)
-                    ?? KeychainHelper.apiKey(for: "DeepSeek"),
-                   let preset = AppSettings.aiProviders.first(where: { $0.name == "DeepSeek" }),
+                    ?? KeychainHelper.apiKey(for: "DeepSeek Flash"),
+                   let preset = AppSettings.aiProviders.first(where: { $0.name == "DeepSeek Flash" }),
                    let endpoint = URL(string: preset.endpoint) {
                     return try await cloudRequest(endpoint: endpoint, apiKey: key,
                                                   model: preset.model, system: system,

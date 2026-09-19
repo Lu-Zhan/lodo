@@ -19,12 +19,35 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 data class AIProviderPreset(val name: String, val endpoint: String, val model: String)
 
 /** 没选过服务商时用哪个（与 iOS AppSettings.defaultAIProvider 一致）。 */
-const val DEFAULT_AI_PROVIDER = "DeepSeek V4 Flash Vision"
+const val DEFAULT_AI_PROVIDER = "DeepSeek Flash"
+
+/**
+ * 老版本存下来的服务商名 → 现在的名字(与 iOS AppSettings.renamedAIProviders 一致)。
+ * 两个 DeepSeek 预设原来按当时的模型代号命名,那两个模型都已经不在 API 上了
+ * (deepseek-v4.1-flash 直接 400,deepseek-v4-flash-vision-exp 被静默映射成
+ * deepseek-flash),改名成现在真实存在的两个。老用户一律落到 flash 那档——
+ * 原来两条都是 flash 档位,不能借改名把人换到更贵的 pro 上。读取时映射,不改写存储。
+ */
+val renamedAiProviders = mapOf(
+    "DeepSeek V4 Flash Vision" to "DeepSeek Flash",
+    "DeepSeek" to "DeepSeek Flash",
+)
+
+/**
+ * 新服务商名 → 还可以沿用哪些老名字底下存着的 key(与 iOS AppSettings.apiKeyAliases 一致)。
+ * 同一个 DeepSeek 账号同一把 key,只是模型不同,改名后不该让人重新填一遍。
+ */
+val apiKeyAliases = mapOf(
+    "DeepSeek Flash" to listOf("DeepSeek V4 Flash Vision", "DeepSeek"),
+    "DeepSeek V4 Pro" to listOf("DeepSeek V4 Flash Vision", "DeepSeek"),
+)
 
 val aiProviderPresets = listOf(
+    // 名字直接跟着模型走:DeepSeek 的 /models 目前只给这两个,别再填别的代号。
     AIProviderPreset(DEFAULT_AI_PROVIDER, "https://api.deepseek.com/chat/completions",
-        "deepseek-v4-flash-vision-exp"),
-    AIProviderPreset("DeepSeek", "https://api.deepseek.com/chat/completions", "deepseek-v4.1-flash"),
+        "deepseek-flash"),
+    AIProviderPreset("DeepSeek V4 Pro", "https://api.deepseek.com/chat/completions",
+        "deepseek-v4-pro"),
     AIProviderPreset("OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
     AIProviderPreset("通义千问", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
     AIProviderPreset("Kimi", "https://api.moonshot.cn/v1/chat/completions", "moonshot-v1-8k"),
@@ -136,7 +159,8 @@ class SettingsRepository(private val context: Context) {
             insightEnabled = p[Keys.INSIGHT_ENABLED] ?: true,
             agentAutoRecordOnOpen = p[Keys.AGENT_AUTO_RECORD_ON_OPEN] ?: true,
             agentSilenceTimeoutSeconds = p[Keys.AGENT_SILENCE_TIMEOUT_SECONDS] ?: 3,
-            aiProvider = p[Keys.AI_PROVIDER] ?: DEFAULT_AI_PROVIDER,
+            aiProvider = (p[Keys.AI_PROVIDER] ?: DEFAULT_AI_PROVIDER)
+                .let { renamedAiProviders[it] ?: it },
             aiModel = p[Keys.AI_MODEL] ?: "",
             aiCustomEndpoint = p[Keys.AI_CUSTOM_ENDPOINT] ?: "",
             personaStyle = p[Keys.PERSONA_STYLE] ?: "默认",
@@ -251,11 +275,15 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[Keys.NOTIFY_MISS_COUNT] = count }
     }
 
-    /** 指定服务商的 key;DeepSeek 读不到新存储时回退旧字段。 */
+    /**
+     * 指定服务商的 key;读不到就按 apiKeyAliases 回退到改名前的名字
+     * (DeepSeek 两个预设共用一把 key),最后回退最早那版单一字段。
+     */
     suspend fun apiKey(provider: String): String? {
         val p = context.dataStore.data.first()
         val stored = p[Keys.apiKeyFor(provider)]
-            ?: (if (provider == "DeepSeek") p[Keys.API_KEY_ENCRYPTED] else null)
+            ?: apiKeyAliases[provider]?.firstNotNullOfOrNull { p[Keys.apiKeyFor(it)] }
+            ?: (if (provider.startsWith("DeepSeek")) p[Keys.API_KEY_ENCRYPTED] else null)
         return stored?.let { KeystoreCipher.decrypt(it) }
     }
 

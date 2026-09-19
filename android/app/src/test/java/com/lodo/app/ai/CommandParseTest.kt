@@ -196,11 +196,17 @@ class CommandParseTest {
         DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = true)
     }
 
-    /** webSearchEnabled == false 时,即使模型幻觉出 answer,也按未知 action 处理。 */
-    @Test(expected = DeepSeekException::class)
-    fun answerWhenDisabledThrowsUnknownAction() {
+    /**
+     * 没配联网搜索 key 时 answer 照样认:"直接回话"是聊天入口的基本能力,
+     * 搜索开关只决定它答之前能不能先查一下。
+     */
+    @Test
+    fun answerWorksWithoutWebSearch() {
         val payload = payloadWithActions(JSONObject().put("action", "answer").put("text", "今天多云转晴"))
-        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false)
+        val result = DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false)
+        val actions = (result as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(1, actions.size)
+        assertEquals(AIAction.Answer("今天多云转晴"), actions[0])
     }
 
     /** answer 与写操作混在一句话里返回时,丢弃 answer 只留写操作。 */
