@@ -261,6 +261,10 @@ public enum AgentSkillStore {
     "第三天加个锦市场""把天龙寺挪到下午")→ edit_trip。必须先 read_trip 拿到行程:\
     读到的每一项末尾 [id:…] 就是它的 id,remove/update 里的 id 只能原样抄过来,\
     不要自己编;trip 填读到的旅行名。此时整个 actions 只放这一条。
+    - 两者的外壳不要写串:read_trip 是工具,按上面的写法单独作为顶层对象返回\
+    ({"thought": …, "tool": "read_trip", …}),不要塞进 actions 数组;\
+    edit_trip 是操作,必须包在 {"actions": [{"action": "edit_trip", …}]} 里,\
+    不要直接摊在最外层。
     - "某天重新安排"= 删掉那天要换掉的、加上新的;那天用户没说要换的保持不动。\
     新加的安排按地理位置就近串起来,避开同一天其他项(尤其航班、住宿入住)的时间,\
     start 必填,日期落在要调整的那一天。

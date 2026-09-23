@@ -15,6 +15,7 @@ struct AgentTripPlanCard: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.sidebarChrome) private var sidebarChrome
+    @Environment(\.agentInspector) private var inspector
     @State private var expanded = false
 
     private var plan: TripPlanProposal? {
@@ -45,7 +46,7 @@ struct AgentTripPlanCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Label(plan.tripTitle, systemImage: "map")
                     .font(.headline)
-                Text("\(Self.dateRange(plan)) · \(plan.days().count) 天 · \(plan.items.count) 项安排")
+                Text("\(TripPlanFormat.dateRange(plan)) · \(plan.days().count) 天 · \(plan.items.count) 项安排")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 if !plan.summary.isEmpty {
@@ -56,7 +57,7 @@ struct AgentTripPlanCard: View {
             }
 
             ForEach(Array(visibleDays.enumerated()), id: \.element.id) { _, day in
-                dayBlock(title: Self.dayTitle(day.date, in: plan), entries: day.entries)
+                dayBlock(title: TripPlanFormat.dayTitle(day.date, in: plan), entries: day.entries)
             }
             if expanded, !extras.isEmpty {
                 dayBlock(title: Text("其他安排"), entries: extras)
@@ -88,31 +89,7 @@ struct AgentTripPlanCard: View {
             title
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
-            ForEach(entries) { entry in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: entry.kind.systemImage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 18)
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            if let start = entry.start, entry.kind != .lodging {
-                                Text(start, format: .dateTime.hour().minute())
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                            Text(entry.title)
-                                .font(.subheadline)
-                        }
-                        if !entry.summary.isEmpty {
-                            Text(entry.summary)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
+            ForEach(entries) { TripPlanEntryRow(entry: $0) }
         }
     }
 
@@ -124,13 +101,9 @@ struct AgentTripPlanCard: View {
                     .font(.footnote)
                     .foregroundStyle(Color.accentColor)
                 Spacer(minLength: 8)
-                if let chrome = sidebarChrome {
-                    Button("查看") { chrome.go(.travel) }
-                        .buttonStyle(.bordered)
-                        .font(.footnote)
-                }
+                viewButton
                 Button {
-                    save(TravelStore.revertPlan(plan, context: context))
+                    TripPlanApplier.revert(plan, on: message, context: context)
                     Haptics.tick()
                 } label: {
                     Label("撤销", systemImage: "arrow.uturn.backward")
@@ -150,31 +123,102 @@ struct AgentTripPlanCard: View {
                     .font(.footnote)
             }
         } else if isLatest {
-            Button { apply(plan) } label: {
-                Label("写入行程", systemImage: "suitcase.rolling")
+            HStack(spacing: 8) {
+                Button { apply(plan) } label: {
+                    Label("写入行程", systemImage: "suitcase.rolling")
+                }
+                .glassProminentButton()
+                Spacer(minLength: 8)
+                // 还没写入时「查看」打开的是右栏里的完整预览(卡片只展开第一天);
+                // 不在 AI 页(没有右栏)时没有可去的地方,不给这颗。
+                if inspector != nil { viewButton }
             }
-            .glassProminentButton()
+        }
+    }
+
+    /// 在 AI 页打开右栏并定位到这张卡;没有右栏时回退成切到旅行页。
+    @ViewBuilder
+    private var viewButton: some View {
+        if let inspector, let target = AgentInspectorTarget.from(message) {
+            Button("查看") { inspector.show(target) }
+                .buttonStyle(.bordered)
+                .font(.footnote)
+        } else if let chrome = sidebarChrome {
+            Button("查看") { chrome.go(.travel) }
+                .buttonStyle(.bordered)
+                .font(.footnote)
         }
     }
 
     private func apply(_ plan: TripPlanProposal) {
-        save(TravelStore.applyPlan(plan, context: context))
+        TripPlanApplier.apply(plan, to: message, context: context)
+    }
+}
+
+/// 规划写入/撤销。卡片和右栏预览共用这一份:写回 `tripPlanSnapshotData` 是让气泡
+/// (和右栏)刷新的唯一触发点,两处各写一遍迟早会写岔。
+@MainActor
+enum TripPlanApplier {
+    @discardableResult
+    static func apply(_ plan: TripPlanProposal, to message: AgentMessage,
+                      context: ModelContext) -> TripPlanProposal {
+        let applied = TravelStore.applyPlan(plan, context: context)
+        save(applied, to: message, context: context)
         Haptics.success()
+        return applied
     }
 
-    private func save(_ plan: TripPlanProposal) {
+    static func revert(_ plan: TripPlanProposal, on message: AgentMessage, context: ModelContext) {
+        save(TravelStore.revertPlan(plan, context: context), to: message, context: context)
+    }
+
+    private static func save(_ plan: TripPlanProposal, to message: AgentMessage,
+                             context: ModelContext) {
         message.tripPlanSnapshotData = try? JSONEncoder().encode(plan)
         try? context.save()
     }
+}
 
-    private static func dateRange(_ plan: TripPlanProposal) -> String {
+enum TripPlanFormat {
+    static func dateRange(_ plan: TripPlanProposal) -> String {
         let start = plan.startDate.formatted(.dateTime.month().day())
         let end = plan.endDate.formatted(.dateTime.month().day())
         return start == end ? start : "\(start) – \(end)"
     }
 
-    private static func dayTitle(_ date: Date, in plan: TripPlanProposal) -> Text {
+    static func dayTitle(_ date: Date, in plan: TripPlanProposal) -> Text {
         let index = (plan.days().firstIndex(of: date) ?? 0) + 1
         return Text("第 \(index) 天 · \(date.formatted(.dateTime.month().day().weekday()))")
+    }
+}
+
+/// 规划里的一行安排(卡片和右栏预览共用)。
+struct TripPlanEntryRow: View {
+    let entry: TravelEntry
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: entry.kind.systemImage)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let start = entry.start, entry.kind != .lodging {
+                        Text(start, format: .dateTime.hour().minute())
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(entry.title)
+                        .font(.subheadline)
+                }
+                if !entry.summary.isEmpty {
+                    Text(entry.summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
     }
 }

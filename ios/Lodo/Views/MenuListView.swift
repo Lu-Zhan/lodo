@@ -51,15 +51,11 @@ struct MenuListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .toolbar {
-                if let chrome = sidebarChrome, !chrome.hidesChrome {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { importing = true } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("新建菜单")
-                    }
+            .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
+                Button { importing = true } label: {
+                    Image(systemName: "plus")
                 }
+                .accessibilityLabel("新建菜单")
             }
             .navigationDestination(for: MemoryItem.self) { menu in
                 MenuDetailView(menu: menu)

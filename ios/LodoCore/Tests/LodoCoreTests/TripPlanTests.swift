@@ -184,6 +184,42 @@ final class TripPlanTests: XCTestCase {
         XCTAssertEqual(edit.referencedIDs, [drop, both, keep])
     }
 
+    /// 模型漏了外面那层 actions 数组,把单条操作直接摊在顶层:当成一条操作处理,
+    /// 不报"缺少 actions"。
+    func testBareTopLevelActionIsWrapped() throws {
+        let drop = UUID()
+        let result = try DeepSeekClient.parseCommand(
+            ["action": "edit_trip", "trip": "北海道", "summary": "按酒店位置重排",
+             "remove": [drop.uuidString]],
+            validUUIDs: [], memoryEnabled: false, travelEnabled: true)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .editTrip(let edit) = actions[0] else {
+            return XCTFail("expected a single editTrip action")
+        }
+        XCTAssertEqual(edit.tripTitle, "北海道")
+        XCTAssertEqual(edit.removeIDs, [drop])
+    }
+
+    /// 反过来:模型把 ReAct 工具塞进了 actions 数组,仍按工具调用处理,
+    /// 不撞上"未知 action"(读行程这一步走不通的话,整条调整行程的请求就废了)。
+    func testToolCallInsideActionsIsAccepted() throws {
+        let result = try DeepSeekClient.parseCommand(
+            ["actions": [["action": "read_trip", "thought": "先看行程", "name": "北海道"]]],
+            validUUIDs: [], memoryEnabled: false, travelEnabled: true)
+        guard case .toolCall(let thought, .readTrip(let name)) = result else {
+            return XCTFail("expected a readTrip tool call")
+        }
+        XCTAssertEqual(thought, "先看行程")
+        XCTAssertEqual(name, "北海道")
+    }
+
+    /// 但对应能力没开时不认:travelEnabled == false 时 read_trip 仍是未知 action。
+    func testToolCallInsideActionsRespectsCapability() {
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            ["actions": [["action": "read_trip", "name": "北海道"]]],
+            validUUIDs: [], memoryEnabled: false, travelEnabled: false))
+    }
+
     /// 没有旅行(travelEnabled == false)时模型幻觉出 edit_trip 也不认。
     func testEditTripIgnoredWhenTravelDisabled() {
         XCTAssertThrowsError(try DeepSeekClient.parseCommand(

@@ -17,6 +17,8 @@ struct SidebarChrome {
     /// 直接切到某个页面。页面内部偶尔需要把用户送到另一个页面(比如待办空态里
     /// 那颗"开始添加"要去 AI 页),不必为此再串一路闭包。
     let go: (AppSection) -> Void
+    /// 收起侧栏(宽屏常驻列也收)。AI 右栏打开时三列挤不下,由它让出位置。
+    let collapse: () -> Void
     let hidesChrome: Bool
 }
 
@@ -149,6 +151,8 @@ struct AppShellView: View {
     /// 页面里那些横向可滑控件(改期候选、筛选胶囊…)的位置。落在这些矩形里
     /// 起手的拖拽不算唤出抽屉,否则往右看下一个胶囊会顺手把抽屉拖出来。
     @State private var dragExclusions: [CGRect] = []
+    /// AI 页的右栏(窄屏)拉出来了。这时往右拖是在收右栏,左抽屉的唤出手势要让开。
+    @State private var agentInspectorOpen = false
 
     /// 关闭手势(遮罩上左滑)是和内容并行挂着的,哪一方接管这次拖拽在**第一帧**
     /// 就定死、之后不再改判:否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地
@@ -202,7 +206,7 @@ struct AppShellView: View {
             .ignoresSafeArea(.keyboard)
         )
         .environment(\.sidebarChrome,
-                     SidebarChrome(open: toggleSidebar, go: go,
+                     SidebarChrome(open: toggleSidebar, go: go, collapse: closeSidebar,
                                    hidesChrome: hidesToolbarChrome))
         .sheet(isPresented: $showSettings) { SettingsView() }
         .onChange(of: section) { _, new in visited.insert(new) }
@@ -306,7 +310,7 @@ struct AppShellView: View {
                 go(.memory)
             },
             onOpenSettings: { showSettings = true },
-            onSelect: { if !usesRegularLayout { closeSidebar() } }
+            onSelect: { if !usesRegularLayout { closeSidebarAfterSelection() } }
         )
         .padding(.top, usesRegularLayout ? 0 : deviceTopInset)
         .padding(.bottom, usesRegularLayout ? 0 : deviceBottomInset)
@@ -359,6 +363,20 @@ struct AppShellView: View {
             showSidebar = false
         } completion: {
             isClosingSidebar = false
+        }
+    }
+
+    /// 选中页面时直接完成收起。新页面的 NavigationStack 会同时建立工具栏；
+    /// 若沿用侧栏收起动画，hidesChrome 会一直为 true，左上角按钮便晚一拍出现。
+    /// 点遮罩、拖拽和 ☰ 的收起仍使用原来的动画。
+    private func closeSidebarAfterSelection() {
+        guard showSidebar else { return }
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            sidebarDragOffset = 0
+            isClosingSidebar = false
+            showSidebar = false
         }
     }
 
@@ -458,7 +476,7 @@ struct AppShellView: View {
     /// 手势从"只认左边缘窄带"改成整页之后这条更要紧了——不让开的话在详情页里
     /// 往右拖会开抽屉,而不是用户预期的返回。
     private var swipeGestureEnabled: Bool {
-        section != .memory || memoryPath.isEmpty
+        (section != .memory || memoryPath.isEmpty) && !(section == .agent && agentInspectorOpen)
     }
 
     /// 窄屏(iPhone、紧凑宽度 iPad):侧栏从左滑入,页面整体推移变暗。
@@ -511,6 +529,7 @@ struct AppShellView: View {
                 // ——具名空间挂在手势所在的这一层,两边的原点才对得上。
                 .coordinateSpace(name: SidebarDragExclusion.spaceName)
                 .onPreferenceChange(SidebarDragExclusionKey.self) { dragExclusions = $0 }
+                .onPreferenceChange(AgentInspectorPresentedKey.self) { agentInspectorOpen = $0 }
                 // 收起时手势挂在页面内容上,和列表的纵向滚动并行(sidebarDrag 第一帧
                 // 就按"横向为主 + 方向对"定死归属,纵向滚动照常让给底下的视图)。
                 .simultaneousGesture(showSidebar || !swipeGestureEnabled ? nil : sidebarDrag())

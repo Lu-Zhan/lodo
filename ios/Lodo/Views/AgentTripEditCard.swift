@@ -13,6 +13,7 @@ struct AgentTripEditCard: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.sidebarChrome) private var sidebarChrome
+    @Environment(\.agentInspector) private var inspector
 
     private var record: TripEditRecord? {
         guard let data = message.tripEditSnapshotData else { return nil }
@@ -75,7 +76,11 @@ struct AgentTripEditCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                if let chrome = sidebarChrome, !reverted {
+                if let inspector, !reverted {
+                    Button("查看") { inspector.show(.trip(record.tripUUID)) }
+                        .buttonStyle(.bordered)
+                        .font(.footnote)
+                } else if let chrome = sidebarChrome, !reverted {
                     Button("查看") { chrome.go(.travel) }
                         .buttonStyle(.bordered)
                         .font(.footnote)

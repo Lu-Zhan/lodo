@@ -82,15 +82,11 @@ struct TravelListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .toolbar {
-                if let chrome = sidebarChrome, !chrome.hidesChrome {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { creating = true } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("新建旅行")
-                    }
+            .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
+                Button { creating = true } label: {
+                    Image(systemName: "plus")
                 }
+                .accessibilityLabel("新建旅行")
             }
             .navigationDestination(for: TravelTrip.self) { trip in
                 TravelDetailView(trip: trip)

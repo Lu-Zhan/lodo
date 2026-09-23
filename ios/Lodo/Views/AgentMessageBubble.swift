@@ -98,7 +98,7 @@ struct AgentMessageBubble: View {
                 if let quoted = message.quotedContent, !quoted.isEmpty {
                     Label(quoted, systemImage: "quote.bubble")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.75))
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -107,8 +107,11 @@ struct AgentMessageBubble: View {
                 }
             }
             .padding(12)
-            .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
-            .foregroundStyle(.primary)
+            // 自己发出的气泡填主题色,AI 那侧保持原来的中性底——两边一眼分得开。
+            // 附件名/引用摘要在实色底上跟着用白字,不再用 .secondary(蓝底上发灰)。
+            .background(Color.accentColor,
+                        in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+            .foregroundStyle(.white)
             .contextMenu {
                 Button { onCopy() } label: { Label("复制", systemImage: "doc.on.doc") }
                 Button { onQuote() } label: { Label("引用", systemImage: "quote.bubble") }

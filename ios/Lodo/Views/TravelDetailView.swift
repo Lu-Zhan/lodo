@@ -75,31 +75,29 @@ struct TravelDetailView: View {
         #else
         .navigationTitle(trip.title.isEmpty ? "未命名旅行" : trip.title)
         #endif
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button {
-                        addingDate = trip.startDate
-                        addingItem = true
-                    } label: {
-                        Label("手动添加", systemImage: "plus")
-                    }
-                    Button {
-                        importing = true
-                    } label: {
-                        Label("从订单导入", systemImage: "sparkles")
-                    }
-                    Divider()
-                    Button {
-                        editingTrip = true
-                    } label: {
-                        Label("编辑旅行", systemImage: "pencil")
-                    }
+        .floatingAddAction {
+            Menu {
+                Button {
+                    addingDate = trip.startDate
+                    addingItem = true
                 } label: {
-                    Image(systemName: "plus")
+                    Label("手动添加", systemImage: "plus")
                 }
-                .accessibilityLabel("添加行程")
+                Button {
+                    importing = true
+                } label: {
+                    Label("从订单导入", systemImage: "sparkles")
+                }
+                Divider()
+                Button {
+                    editingTrip = true
+                } label: {
+                    Label("编辑旅行", systemImage: "pencil")
+                }
+            } label: {
+                Image(systemName: "plus")
             }
+            .accessibilityLabel("添加行程")
         }
         .sheet(isPresented: $addingItem) {
             TravelItemEditView(tripUUID: trip.uuid, defaultDate: addingDate)

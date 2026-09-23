@@ -143,7 +143,7 @@ struct MemoryListView: View {
                         ContentUnavailableView(
                             showAssets ? "还没有资产记录" : "没有匹配的收藏",
                             systemImage: showAssets ? "creditcard" : "magnifyingglass",
-                            description: Text(showAssets ? "点右上角「+」记一笔资产。" : "换个关键词,或取消选中的筛选。"))
+                            description: Text(showAssets ? "点右下角「+」记一笔资产。" : "换个关键词,或取消选中的筛选。"))
                     } else {
                         ForEach(filtered) { item in
                             // 目的地统一挂在下面的 navigationDestination 上:
@@ -259,49 +259,45 @@ struct MemoryListView: View {
                         }
                         #endif
                     }
-                    // 收藏入口放右上角(primaryAction),不再挤在左上角 ☰ 旁边。
-                    // 原先占着这个位置的筛选按钮已经撤掉:标签/资产/人脉现在从
-                    // 侧栏进,列表顶部那行负责取消。
-                    ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            Button("粘贴收藏", systemImage: "doc.on.clipboard") {
-                                pasteFromClipboard()
-                            }
-                            Button("选择文件", systemImage: "folder") {
-                                showFileImporter = true
-                            }
-                            Button("输入文字", systemImage: "square.and.pencil") {
-                                showCompose = true
-                            }
-                            Divider()
-                            Button("记一笔资产", systemImage: "creditcard") {
-                                showAssetCompose = true
-                            }
-                            Button("记一位人脉", systemImage: "person.crop.circle.badge.plus") {
-                                showContactCompose = true
-                            }
-                            #if os(iOS)
-                            Button("从通讯录批量导入", systemImage: "person.crop.circle.badge.plus") {
-                                showContactImportConfirm = true
-                            }
-                            Button("从通讯录选择导入", systemImage: "person.crop.circle.badge.checkmark") {
-                                // CNContactPickerViewController 不需要先申请通讯录权限——
-                                // 系统会把选人这一步隔离到独立进程,选完只把用户选中的那
-                                // 几条给回 app,不算读取整个通讯录,直接弹选择器即可。
-                                showContactPicker = true
-                            }
-                            #endif
-                            Divider()
-                            Button("管理标签", systemImage: "tag") {
-                                showTagManage = true
-                            }
-                        } label: {
-                            Label("收藏", systemImage: "plus")
-                        }
-                    }
                 }
             }
             .sidebarToolbarButton()
+            .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
+                Menu {
+                    Button("粘贴收藏", systemImage: "doc.on.clipboard") {
+                        pasteFromClipboard()
+                    }
+                    Button("选择文件", systemImage: "folder") {
+                        showFileImporter = true
+                    }
+                    Button("输入文字", systemImage: "square.and.pencil") {
+                        showCompose = true
+                    }
+                    Divider()
+                    Button("记一笔资产", systemImage: "creditcard") {
+                        showAssetCompose = true
+                    }
+                    Button("记一位人脉", systemImage: "person.crop.circle.badge.plus") {
+                        showContactCompose = true
+                    }
+                    #if os(iOS)
+                    Button("从通讯录批量导入", systemImage: "person.crop.circle.badge.plus") {
+                        showContactImportConfirm = true
+                    }
+                    Button("从通讯录选择导入", systemImage: "person.crop.circle.badge.checkmark") {
+                        // 系统选择器只把选中的联系人交给 app,无需读取通讯录权限。
+                        showContactPicker = true
+                    }
+                    #endif
+                    Divider()
+                    Button("管理标签", systemImage: "tag") {
+                        showTagManage = true
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("收藏")
+            }
             .sheet(isPresented: $showCompose) {
                 MemoryComposeView()
             }

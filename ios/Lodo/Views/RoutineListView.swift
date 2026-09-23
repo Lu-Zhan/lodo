@@ -21,7 +21,7 @@ struct RoutineListView: View {
                 if routines.isEmpty {
                     ContentUnavailableView(
                         "还没有定时任务", systemImage: "clock.badge",
-                        description: Text("用右上角的 + 添加,比如每天早上让 AI 总结今天的待办。"))
+                        description: Text("用右下角的 + 添加,比如每天早上让 AI 总结今天的待办。"))
                 } else {
                     ForEach(routines) { routine in
                         row(routine)
@@ -62,26 +62,25 @@ struct RoutineListView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    ForEach(AIRoutine.presets) { preset in
-                        Button {
-                            create(from: preset)
-                        } label: {
-                            Label(preset.name, systemImage: preset.symbol)
-                        }
-                    }
-                    Divider()
+        .floatingAddAction {
+            Menu {
+                ForEach(AIRoutine.presets) { preset in
                     Button {
-                        create(from: nil)
+                        create(from: preset)
                     } label: {
-                        Label("自定义", systemImage: "square.and.pencil")
+                        Label(preset.name, systemImage: preset.symbol)
                     }
-                } label: {
-                    Label("添加定时任务", systemImage: "plus")
                 }
+                Divider()
+                Button {
+                    create(from: nil)
+                } label: {
+                    Label("自定义", systemImage: "square.and.pencil")
+                }
+            } label: {
+                Image(systemName: "plus")
             }
+            .accessibilityLabel("添加定时任务")
         }
         .sheet(item: $editing) { target in
             RoutineEditView(routine: target.routine, isNew: target.isNew)

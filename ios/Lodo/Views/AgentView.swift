@@ -35,9 +35,6 @@ struct AgentView: View {
     /// 传 nil = 按快照重新建一条并返回新 uuid。
     let toggleCreatedTask: (UUID?, ParsedTask) -> UUID?
     @Environment(\.modelContext) private var context
-    /// 抽屉推开/拖拽过程中要淡出导航栏上的标题(见 body 的 .toolbar);
-    /// 判据由外壳算好经 Environment 下发,这里不重复一套。
-    @Environment(\.sidebarChrome) private var sidebarChrome
     @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
@@ -119,8 +116,6 @@ struct AgentView: View {
 
     /// 标题栏正标题:当前对话的标题(首轮消息后换成 AI 总结的那版);还没发过
     /// 消息的空 thread 用和侧栏列表一致的"新对话"占位。
-    private var hidesToolbarChrome: Bool { sidebarChrome?.hidesChrome ?? false }
-
     private var threadTitle: String {
         let title = activeThread?.title ?? ""
         return title.isEmpty ? "新对话" : title
@@ -145,6 +140,14 @@ struct AgentView: View {
     }
 
     var body: some View {
+        // 右侧栏:对话里产出的页面(规划/调整后的行程)在旁边展示,见 AgentInspector.swift。
+        AgentInspectorHost(threadUUID: activeThread?.uuid) {
+            chatStack
+        }
+        .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
+    }
+
+    private var chatStack: some View {
         NavigationStack {
             chatColumn
             // 这里曾经 .ignoresSafeArea(.container, edges: .bottom),让输入栏贴到
@@ -168,20 +171,14 @@ struct AgentView: View {
                 // 下方布局,导航栏一变高聊天区就会跟着窜一下——这是纯文字 VStack,
                 // 没有 Liquid Glass 背景,可以放心用 opacity(☰ 那颗不行,它带
                 // 系统画的 Liquid Glass 底,见 sidebarToolbarButton 的注释)。
+                // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
+                // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
                 ToolbarItem(placement: .principal) {
-                    VStack(spacing: 1) {
-                        Text(threadTitle)
-                            .font(.headline)
-                            .lineLimit(1)
-                        Text(aiModeSummary)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .opacity(hidesToolbarChrome ? 0 : 1)
-                    .accessibilityHidden(hidesToolbarChrome)
+                    AgentTitleView(title: threadTitle, subtitle: aiModeSummary)
                 }
             }
             .sidebarToolbarButton()
+            .agentInspectorToolbarButton()
             .sheet(item: $formTarget) { target in
                 TaskEditView(existing: target.existing, parsed: target.parsed,
                              attachment: target.existing?.attachment) { savedParsed in
@@ -273,6 +270,12 @@ struct AgentView: View {
                 default:
                     break
                 }
+            }
+            .onChange(of: currentThreadUUID) { _, _ in
+                // 报错属于产生它的那一次交流:切到别的对话、或新建对话时一并清掉,
+                // 不要让上一个对话的红字跟着显示在新对话的输入栏上面。
+                errorText = nil
+                speech.errorText = nil
             }
             .onChange(of: speech.transcript) { _, transcript in
                 if !transcript.isEmpty { text = typedPrefix + transcript }
@@ -372,7 +375,6 @@ struct AgentView: View {
                 #endif
             }
         }
-        .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
     }
 
     // MARK: - 聊天区
@@ -1198,7 +1200,10 @@ struct AgentView: View {
         }()
         speech.stop()
         busy = true
+        // 上一次的报错不该跨过这次发送继续挂在输入栏上面。语音那条尤其要在这里清:
+        // SpeechInput 自己只在重新开始录音时清 errorText,不再开麦就一直留着。
         errorText = nil
+        speech.errorText = nil
 
         let attachments = pendingAttachments
         pendingAttachments = []
@@ -1587,6 +1592,29 @@ private struct ImageViewerTarget: Identifiable {
 
 /// 点输入卡片里的缩略图打开的大图查看页:黑底,左右滑动切换这次要发的几张照片,
 /// 点图片以外的空白处回到对话。
+/// 导航栏正中两行:对话标题 + AI 模式。恒定渲染、只淡出内容——导航栏高度才不会
+/// 跟着抽屉/右栏开合跳变。
+private struct AgentTitleView: View {
+    let title: String
+    let subtitle: String
+    @Environment(\.sidebarChrome) private var chrome
+
+    private var hides: Bool { chrome?.hidesChrome ?? false }
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(title)
+                .font(.headline)
+                .lineLimit(1)
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .opacity(hides ? 0 : 1)
+        .accessibilityHidden(hides)
+    }
+}
+
 private struct AgentImageViewer: View {
     let images: [PendingAttachment]
     @State private var selection: UUID

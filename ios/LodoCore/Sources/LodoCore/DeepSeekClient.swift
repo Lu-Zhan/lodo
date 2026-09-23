@@ -303,7 +303,7 @@ public enum DeepSeekClient {
         // 仍然按错误处理。
         let raw: [String: Any]
         do {
-            raw = try await payload(system: system, user: text, thinking: true)
+            raw = try await payload(system: system, user: text, timeout: 90, thinking: true)
         } catch let DeepSeekError.parse(message)
             where message != malformedPayloadMessage
                 && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -337,45 +337,22 @@ public enum DeepSeekClient {
         // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
         if (memoryEnabled || webSearchEnabled || healthEnabled || travelEnabled),
            let toolName = payload["tool"] as? String {
-            let thought = (payload["thought"] as? String) ?? ""
-            switch toolName {
-            case "search_memory" where memoryEnabled:
-                guard let query = (payload["query"] as? String)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
-                    throw DeepSeekError.parse("返回格式异常:search_memory 缺少 query")
-                }
-                return .toolCall(thought: thought, tool: .searchMemory(question: query))
-            case "web_search" where webSearchEnabled:
-                guard let query = (payload["query"] as? String)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
-                    throw DeepSeekError.parse("返回格式异常:web_search 缺少 query")
-                }
-                return .toolCall(thought: thought, tool: .webSearch(query: query))
-            case "web_fetch" where webSearchEnabled:
-                guard let url = (payload["url"] as? String)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines), !url.isEmpty else {
-                    throw DeepSeekError.parse("返回格式异常:web_fetch 缺少 url")
-                }
-                return .toolCall(thought: thought, tool: .webFetch(url: url))
-            case "read_health" where healthEnabled:
-                // days 缺省按一周算——模型经常只说"看看我的健康数据",没必要
-                // 因为少一个字段就报错重来。
-                let days = (payload["days"] as? Int) ?? Int(payload["days"] as? String ?? "") ?? 7
-                guard days > 0 else {
-                    throw DeepSeekError.parse("返回格式异常:read_health 缺少 days")
-                }
-                return .toolCall(thought: thought, tool: .readHealth(days: min(days, 90)))
-            case "read_trip" where travelEnabled:
-                // name 缺省 = "当前/最近那次旅行",由调用方挑;这里不当成错误。
-                let name = (payload["name"] as? String)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                return .toolCall(thought: thought, tool: .readTrip(name: name))
-            default:
+            guard let call = try parseToolCall(
+                payload, name: toolName, memoryEnabled: memoryEnabled,
+                webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
+                travelEnabled: travelEnabled) else {
                 throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
             }
+            return call
         }
-        guard let rawActions = payload["actions"] as? [[String: Any]],
-              !rawActions.isEmpty else {
+        var rawActions = payload["actions"] as? [[String: Any]] ?? []
+        // 模型偶尔把单条操作直接摊在顶层({"action": "edit_trip", …}),忘了外面那层
+        // actions 数组——prompt 里每条操作的示例本来就长这样,漏掉外壳很常见。
+        // 当成只有一条操作的列表处理,比报"缺少 actions"有用。
+        if rawActions.isEmpty, payload["action"] is String {
+            rawActions = [payload]
+        }
+        guard !rawActions.isEmpty else {
             // 没有任何操作、却捎了一句话回来(实测形如 {"actions": [], "reply": "…"},
             // 键名随模型心情换):这是它在回话,不是故障。当成 answer 渲染成气泡,
             // 比红字"缺少 actions"有用。带附件时最常碰上——照片里有内容,可用户
@@ -387,6 +364,18 @@ public enum DeepSeekClient {
                 return .actions([.answer(text: reply)])
             }
             throw DeepSeekError.parse("返回格式异常:缺少 actions")
+        }
+        // 反过来:ReAct 工具在 prompt 里是顶层对象,模型也会把它塞进 actions 数组
+        // ({"actions": [{"action": "read_trip", "name": "北海道"}]})。认得出来就按
+        // 工具调用处理——否则它撞上下面的"未知 action",整条请求当场报错,而"先读
+        // 一次行程/健康数据再回答"这类请求本来就必须走这一步,等于整个走不通。
+        if rawActions.count == 1,
+           let toolName = (rawActions[0]["tool"] as? String) ?? (rawActions[0]["action"] as? String),
+           let call = try parseToolCall(
+               rawActions[0], name: toolName, memoryEnabled: memoryEnabled,
+               webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
+               travelEnabled: travelEnabled) {
+            return call
         }
         var actions: [AIAction] = []
         for raw in rawActions {
@@ -458,7 +447,12 @@ public enum DeepSeekClient {
             case "edit_trip" where travelEnabled:
                 actions.append(.editTrip(try parseTripEdit(raw)))
             default:
-                throw DeepSeekError.parse("返回格式异常:未知 action")
+                // 带上 action 名:模型编出来的名字是排查这类报错唯一的线索,
+                // 光说"未知 action"用户和日志都看不出它到底返回了什么。
+                let name = (raw["action"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                throw DeepSeekError.parse(
+                    name.isEmpty ? "返回格式异常:未知 action" : "返回格式异常:未知 action \(name)")
             }
         }
         // 归一化:prompt 已要求问答类操作(ask_memory/answer)单独出现,这里是模型
@@ -481,6 +475,52 @@ public enum DeepSeekClient {
             actions = actions.filter { !isInformational($0) }
         }
         return .actions(actions)
+    }
+
+    /// ReAct 工具载荷 → 工具调用;不认得这个名字(或对应能力没开)时返回 nil,
+    /// 由调用方决定是报"未知工具"还是继续当普通 action 解析。顶层 `{"tool": …}`
+    /// 和被模型误塞进 actions 数组里的那一份共用这一段。
+    private static func parseToolCall(
+        _ raw: [String: Any], name: String,
+        memoryEnabled: Bool, webSearchEnabled: Bool,
+        healthEnabled: Bool, travelEnabled: Bool
+    ) throws -> AICommandResult? {
+        let thought = (raw["thought"] as? String) ?? ""
+        switch name {
+        case "search_memory" where memoryEnabled:
+            guard let query = (raw["query"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
+                throw DeepSeekError.parse("返回格式异常:search_memory 缺少 query")
+            }
+            return .toolCall(thought: thought, tool: .searchMemory(question: query))
+        case "web_search" where webSearchEnabled:
+            guard let query = (raw["query"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {
+                throw DeepSeekError.parse("返回格式异常:web_search 缺少 query")
+            }
+            return .toolCall(thought: thought, tool: .webSearch(query: query))
+        case "web_fetch" where webSearchEnabled:
+            guard let url = (raw["url"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !url.isEmpty else {
+                throw DeepSeekError.parse("返回格式异常:web_fetch 缺少 url")
+            }
+            return .toolCall(thought: thought, tool: .webFetch(url: url))
+        case "read_health" where healthEnabled:
+            // days 缺省按一周算——模型经常只说"看看我的健康数据",没必要
+            // 因为少一个字段就报错重来。
+            let days = (raw["days"] as? Int) ?? Int(raw["days"] as? String ?? "") ?? 7
+            guard days > 0 else {
+                throw DeepSeekError.parse("返回格式异常:read_health 缺少 days")
+            }
+            return .toolCall(thought: thought, tool: .readHealth(days: min(days, 90)))
+        case "read_trip" where travelEnabled:
+            // name 缺省 = "当前/最近那次旅行",由调用方挑;这里不当成错误。
+            let name = (raw["name"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return .toolCall(thought: thought, tool: .readTrip(name: name))
+        default:
+            return nil
+        }
     }
 
     /// `plan_trip` 单条载荷 → 规划(单测入口)。和 parseTravelPayload 同一个取舍:

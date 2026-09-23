@@ -8,6 +8,7 @@ import LodoCore
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dynamicTypeSize) private var systemTypeSize
     @AppStorage(AppSettings.hasSeenOnboardingKey) private var hasSeenOnboarding = false
     @State private var showOnboarding = false
 
@@ -20,6 +21,24 @@ struct ContentView: View {
 
     /// 上次前台全量重排的时间,30 秒内重复 active 不再触发(避免频繁切换的重排风暴)。
     @State private var lastActiveRefresh = Date.distantPast
+
+    /// 在系统当前文字大小上增加一档，同时保留用户的辅助功能字号选择。
+    private var appTypeSize: DynamicTypeSize {
+        switch systemTypeSize {
+        case .xSmall: .small
+        case .small: .medium
+        case .medium: .large
+        case .large: .xLarge
+        case .xLarge: .xxLarge
+        case .xxLarge: .xxxLarge
+        case .xxxLarge: .accessibility1
+        case .accessibility1: .accessibility2
+        case .accessibility2: .accessibility3
+        case .accessibility3: .accessibility4
+        case .accessibility4, .accessibility5: .accessibility5
+        @unknown default: systemTypeSize
+        }
+    }
 
     var body: some View {
         AppShellView()
@@ -89,5 +108,6 @@ struct ContentView: View {
                     MemoryPipeline.consumeInbox(context: modelContext)
                 }
             }
+            .dynamicTypeSize(appTypeSize)
     }
 }

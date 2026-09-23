@@ -16,6 +16,7 @@ struct LodoApp: App {
         NotificationManager.shared.configure(container: container)
         #if DEBUG
         DemoSeed.populateIfRequested(container)
+        DemoSeed.importBackupIfRequested(container)
         #endif
     }
 

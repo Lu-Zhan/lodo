@@ -5,13 +5,12 @@ import LodoCore
 /// 应用侧栏(导航栏)的面板内容;窄屏抽屉和宽屏常驻列共用同一份视图。
 /// 自上而下:「Lodo 衬线体 wordmark + 搜索图标」固定头部 → 总览/待办/记忆三个
 /// 页面导航行(记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→
-/// 「最近」对话历史滚动区 → 底部浮层(左「设置」、右「新建对话」)。
-/// AI 页没有自己的导航行——点一条历史对话或「新建对话」就是进 AI 页,
+/// 「最近」对话历史滚动区 → 底部浮层(左「设置」、右「新建」)。
+/// AI 页没有自己的导航行——点一条历史对话或「新建」就是进 AI 页,
 /// 再单列一行只会和它们重复。列表内容直接从底部浮层下面滚过去(不是布局内的
 /// 一行,所以不会把列表挤短,也不加渐隐遮罩)。
 struct AppSidebarView: View {
     @Environment(\.modelContext) private var context
-    @Environment(\.colorScheme) private var colorScheme
     @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
     private var threads: [AgentThread]
     /// 只为按正文过滤 thread;个人对话历史量级不大,内存里按 threadUUID
@@ -335,8 +334,10 @@ struct AppSidebarView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
+                    .frame(width: 24, height: 24)
             }
-            .buttonStyle(SidebarIconButtonStyle())
+            .glassButton()
+            .buttonBorderShape(.circle)
             .accessibilityLabel("搜索对话")
         }
         .padding(.leading, 20)
@@ -344,7 +345,7 @@ struct AppSidebarView: View {
         .padding(.vertical, 12)
     }
 
-    /// 底部浮层:左下角「设置」(全 app 唯一入口)、右下角主操作「新建对话」胶囊,
+    /// 底部浮层:左下角「设置」(全 app 唯一入口)、右下角主操作「新建」胶囊,
     /// 叠在列表上方,列表内容从它们下面滚过。
     private var bottomBar: some View {
         HStack {
@@ -354,13 +355,10 @@ struct AppSidebarView: View {
                 Image(systemName: "gearshape")
                     .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
+                    .frame(width: 24, height: 24)
             }
-            .buttonStyle(SidebarIconButtonStyle())
-            // 这颗浮在列表上方,底下要垫一层不透明底色——SidebarIconButtonStyle
-            // 那圈浅灰是半透明的,不垫的话最后一条对话的文字会从圆钮里透出来。
-            // 垫的必须是面板自己的底色,不能是 .background(纯白):面板是分组灰,
-            // 白圆底会在上面显成一个白点。右边"新建对话"胶囊本身不透明,不需要这层。
-            .background(Circle().fill(DesignMetrics.panelBackground(colorScheme)))
+            .glassButton()
+            .buttonBorderShape(.circle)
             .accessibilityLabel("设置")
 
             Spacer()
@@ -373,18 +371,18 @@ struct AppSidebarView: View {
                 section = .agent
                 onSelect()
             } label: {
-                Label("新建对话", systemImage: "square.and.pencil")
+                Label("新建", systemImage: "square.and.pencil")
                     .font(.subheadline.weight(.medium))
                     .padding(.horizontal, 6)
-                    // 最小高度而不是固定高度:辅助功能字号下这行字会换行/变高,
-                    // 写死 36 会把它硬裁掉。
-                    .frame(minHeight: 36)
+                    // 和左侧齿轮一样以 24pt 内容高度交给系统玻璃样式排版。
+                    // 辅助功能字号更大时仍可随内容增高。
+                    .frame(minHeight: 24)
             }
-            // 侧栏里唯一的主操作,符合 Liquid Glass "只给独立主操作"的使用边界
-            // (旧系统自动回退 .borderedProminent)。设置那颗是次要入口,保持低调
-            // 的圆形图标钮,不跟它抢。
+            // 侧栏的主操作使用高亮玻璃(旧系统回退 .borderedProminent),
+            // 设置是普通玻璃的次要入口。
             .glassProminentButton()
             .buttonBorderShape(.capsule)
+            .accessibilityLabel("新建对话")
         }
         .padding(.leading, 20)
         .padding(.trailing, 24)
@@ -427,20 +425,5 @@ struct AppSidebarView: View {
         if currentThreadUUID == uuid { currentThreadUUID = nil }
         context.delete(thread)
         try? context.save()
-    }
-}
-
-/// 侧栏那几颗圆形图标按钮(顶部搜索、底部设置)的样式(不是自绘 UI,只是标准
-/// ButtonStyle 协议):44×44 圆底(对齐参考图里圆钮的直径)+ 按下加深。
-/// 底色用 `Color.primary.opacity` 而不是
-/// 语义的 `.fill.tertiary`——后者本身太淡,在面板这种纯背景色上几乎显不出来
-/// (thread 行的选中态高亮当初就是踩了这个坑才换的写法)。
-private struct SidebarIconButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .frame(width: 44, height: 44)
-            .background(
-                Circle().fill(Color.primary.opacity(configuration.isPressed ? 0.14 : 0.06))
-            )
     }
 }

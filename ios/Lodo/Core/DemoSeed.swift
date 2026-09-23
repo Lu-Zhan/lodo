@@ -64,5 +64,23 @@ enum DemoSeed {
             routineUUID: summary.uuid, routineName: summary.name,
             text: "今天四件事,先把「开周会」补上,「给妈妈回电话」路上就能打完;交报告明天才到期,晚上再动笔。"))
     }
+
+    /// `--import-backup <zip 路径>`:把一份导出的备份 zip 直接灌进模拟器(replace 策略),
+    /// 省掉在模拟器里走一遍文件选择器,便于拿真机导出的真实数据复现问题。
+    @MainActor
+    static func importBackupIfRequested(_ container: ModelContainer) {
+        let args = ProcessInfo.processInfo.arguments
+        guard let index = args.firstIndex(of: "--import-backup"), index + 1 < args.count else { return }
+        let url = URL(fileURLWithPath: args[index + 1])
+        Task { @MainActor in
+            do {
+                try await BackupManager.commit(zipURL: url, strategy: .replace,
+                                               context: container.mainContext)
+                print("[DemoSeed] 已导入备份:\(url.lastPathComponent)")
+            } catch {
+                print("[DemoSeed] 导入备份失败:\(error)")
+            }
+        }
+    }
 }
 #endif
