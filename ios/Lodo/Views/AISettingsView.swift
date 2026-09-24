@@ -1,9 +1,11 @@
 import SwiftUI
+import SwiftData
 import LodoCore
 
 /// 设置 → AI 设置:AI 相关设置统一收在这一个入口下——服务商/API Key、思考强度、
-/// 联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑。
+/// 联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、对话记录、Skill 编辑。
 struct AISettingsView: View {
+    @Environment(\.modelContext) private var context
     @AppStorage(AppSettings.aiProviderKey) private var aiProvider = AppSettings.defaultAIProvider
     @AppStorage(AppSettings.aiModelKey) private var aiModel = ""
     @AppStorage(AppSettings.aiCustomEndpointKey) private var aiCustomEndpoint = ""
@@ -22,6 +24,7 @@ struct AISettingsView: View {
     @State private var keySaved = KeychainHelper.apiKey != nil
     @State private var confirmMemoryReset = false
     @State private var confirmPreferencesReset = false
+    @State private var confirmConversationReset = false
 
     // ---- 联网搜索(Tavily) ----
     @State private var tavilyKey = KeychainHelper.apiKey(for: "Tavily") ?? ""
@@ -184,6 +187,20 @@ struct AISettingsView: View {
             }
 
             Section {
+                Button("清空对话记录", role: .destructive) {
+                    confirmConversationReset = true
+                }
+                .confirmationDialog("确定清空对话记录吗?", isPresented: $confirmConversationReset,
+                                    titleVisibility: .visible) {
+                    Button("清空对话记录", role: .destructive) { clearConversation() }
+                }
+            } header: {
+                Text("对话记录")
+            } footer: {
+                Text("AI 助手是一条持续的对话,不会分段。清空后从头开始,已经执行过的事项和收藏不受影响。")
+            }
+
+            Section {
                 ForEach(AgentSkillID.allCases) { id in
                     NavigationLink {
                         AgentSkillEditView(id: id)
@@ -241,6 +258,15 @@ struct AISettingsView: View {
         } footer: {
             Text("思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置,不影响正常使用。")
         }
+    }
+
+    /// 清空整条时间线。摘要是从这些消息压出来的派生数据,一起清掉——不然留下
+    /// 一段指着已经不存在的对话的上下文,下一轮还会被拼进 prompt。
+    private func clearConversation() {
+        let messages = (try? context.fetch(FetchDescriptor<AgentMessage>())) ?? []
+        for message in messages { context.delete(message) }
+        try? context.save()
+        AgentConversationSummary.reset()
     }
 
     @ViewBuilder

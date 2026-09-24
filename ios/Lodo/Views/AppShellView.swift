@@ -100,7 +100,6 @@ struct AppShellView: View {
     /// 胶囊/滚动位置还在,和原来 TabView 的行为一致),但**没打开过的不构建**
     /// ——总览页一挂载就会发起 AI 请求,不能因为它排在第一个就在启动时先跑一遍。
     @State private var visited: Set<AppSection>
-    @State private var currentThreadUUID: UUID?
     @State private var showSettings = false
 
     /// 非 nil 时切到 AI 页并把文本预填进输入框(深链/Siri 交接/小组件"+")。
@@ -312,14 +311,13 @@ struct AppShellView: View {
         case .menu:
             MenuListView()
         case .agent:
-            AgentHostView(currentThreadUUID: $currentThreadUUID, agentRequest: $agentRequest)
+            AgentHostView(agentRequest: $agentRequest)
         }
     }
 
     private var sidebarPanel: some View {
         AppSidebarView(
             section: $section,
-            currentThreadUUID: $currentThreadUUID,
             onSelectTag: { tag in
                 memoryTagFilter = tag
                 memoryPath = []

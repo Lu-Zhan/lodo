@@ -13,6 +13,10 @@ struct LodoApp: App {
 
     init() {
         container = AppDatabase.container
+        // 老库里按 thread 分段的对话在这里一次性清掉(见 AgentHistoryMigration)。
+        // 放在 DemoSeed 之前:截图用的样板消息是新代码插的,formatVersion 已经是 1,
+        // 不会被误删,但顺序上先做迁移更清楚。
+        AgentHistoryMigration.run(container: container)
         NotificationManager.shared.configure(container: container)
         #if DEBUG
         DemoSeed.populateIfRequested(container)

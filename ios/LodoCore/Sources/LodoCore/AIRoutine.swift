@@ -9,7 +9,7 @@ import SwiftData
 /// 可以带上待办上下文,数量不限。
 ///
 /// 每个存储属性声明处给默认值、无 unique 约束(CloudKit 同步的硬性要求,
-/// 与 TaskItem/MemoryItem/AgentThread 一致)。时间点/周几沿用待办那套持久化格式:
+/// 与 TaskItem/MemoryItem/AgentMessage 一致)。时间点/周几沿用待办那套持久化格式:
 /// 时间点是 "HH:MM" 列表(这里存成逗号分隔的字符串,和 `AppSettings.digestTimes`
 /// 的存法一致),周几 0=周一 … 6=周日,repeat_type 复用 `RepeatType` 的
 /// daily/weekly 字符串。

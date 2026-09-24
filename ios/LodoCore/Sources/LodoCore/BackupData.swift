@@ -542,38 +542,12 @@ extension BackupMemoryTag {
     }
 }
 
-public struct BackupAgentThread: Codable {
-    public var uuid: UUID
-    public var title: String
-    public var createdAt: Date
-    public var updatedAt: Date
-
-    public init(uuid: UUID, title: String, createdAt: Date, updatedAt: Date) {
-        self.uuid = uuid
-        self.title = title
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-    }
-}
-
-extension AgentThread {
-    public var backup: BackupAgentThread {
-        BackupAgentThread(uuid: uuid, title: title, createdAt: createdAt, updatedAt: updatedAt)
-    }
-}
-
-extension BackupAgentThread {
-    public func apply(to thread: AgentThread) {
-        thread.uuid = uuid
-        thread.title = title
-        thread.createdAt = createdAt
-        thread.updatedAt = updatedAt
-    }
-}
-
 public struct BackupAgentMessage: Codable {
     public var uuid: UUID
-    public var threadUUID: UUID
+    /// 已退役的 key(多对话改成单一持续对话时 `AgentMessage.threadUUID` 一起删了)。
+    /// 属性留着只为**向下**兼容:老版本 app 里这个 key 是必需的,新备份不写它会让
+    /// 那边整条 decode 失败——比少恢复一段对话糟得多。恒为全零 uuid,自己不读。
+    public var threadUUID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
     public var roleRaw: String
     public var kindRaw: String
     public var content: String
@@ -582,12 +556,11 @@ public struct BackupAgentMessage: Codable {
     public var createdAt: Date
 
     public init(
-        uuid: UUID, threadUUID: UUID, roleRaw: String, kindRaw: String, content: String,
+        uuid: UUID, roleRaw: String, kindRaw: String, content: String,
         relatedTitles: [String], attachmentMemoryUUIDs: [UUID],
         createdAt: Date
     ) {
         self.uuid = uuid
-        self.threadUUID = threadUUID
         self.roleRaw = roleRaw
         self.kindRaw = kindRaw
         self.content = content
@@ -600,7 +573,7 @@ public struct BackupAgentMessage: Codable {
 extension AgentMessage {
     public var backup: BackupAgentMessage {
         BackupAgentMessage(
-            uuid: uuid, threadUUID: threadUUID, roleRaw: roleRaw, kindRaw: kindRaw,
+            uuid: uuid, roleRaw: roleRaw, kindRaw: kindRaw,
             content: content, relatedTitles: relatedTitles,
             attachmentMemoryUUIDs: attachmentMemoryUUIDs, createdAt: createdAt)
     }
@@ -609,13 +582,15 @@ extension AgentMessage {
 extension BackupAgentMessage {
     public func apply(to message: AgentMessage) {
         message.uuid = uuid
-        message.threadUUID = threadUUID
         message.roleRaw = roleRaw
         message.kindRaw = kindRaw
         message.content = content
         message.relatedTitles = relatedTitles
         message.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         message.createdAt = createdAt
+        // 显式写 1:恢复出来的消息若留在默认的 0,下次启动会被
+        // `AgentHistoryMigration` 当成待清理的老分段对话删光。
+        message.formatVersion = 1
     }
 }
 
@@ -732,6 +707,8 @@ public struct BackupManifest: Codable {
     public var taskCount: Int
     public var memoryCount: Int
     public var memoryTagCount: Int
+    /// 已退役,恒为 0(对话不再分段)。留着字段同样是为了向下兼容:老版本 app
+    /// 里这个 key 是必需的。老备份里的真实值仍解得进来,只是没人再读。
     public var agentThreadCount: Int
     public var agentMessageCount: Int
     public var skillOverrideCount: Int
@@ -763,7 +740,10 @@ public struct BackupPayload: Codable {
     public var tasks: [BackupTask]
     public var memoryItems: [BackupMemoryItem]
     public var memoryTags: [BackupMemoryTag]
-    public var agentThreads: [BackupAgentThread]
+    /// 已退役的 key,理由同 `BackupAgentMessage.threadUUID`;恒为空数组。
+    /// 元素类型换成 Int 只是为了不用再留着 `BackupAgentThread` 那个结构体——
+    /// 空数组的编码形态与元素类型无关,老版本 app 照样解得出 `[]`。
+    public var agentThreads: [Int] = []
     public var agentMessages: [BackupAgentMessage]
     public var skillOverrides: [BackupSkillOverride]
     public var settings: BackupSettings
@@ -778,7 +758,7 @@ public struct BackupPayload: Codable {
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
-        agentThreads: [BackupAgentThread], agentMessages: [BackupAgentMessage],
+        agentMessages: [BackupAgentMessage],
         skillOverrides: [BackupSkillOverride], settings: BackupSettings,
         contactRelationships: [BackupContactRelationship] = [],
         travelTrips: [BackupTravelTrip] = [],
@@ -787,7 +767,6 @@ public struct BackupPayload: Codable {
         self.tasks = tasks
         self.memoryItems = memoryItems
         self.memoryTags = memoryTags
-        self.agentThreads = agentThreads
         self.agentMessages = agentMessages
         self.skillOverrides = skillOverrides
         self.settings = settings
@@ -803,7 +782,7 @@ public struct BackupPayload: Codable {
         tasks = try c.decode([BackupTask].self, forKey: .tasks)
         memoryItems = try c.decode([BackupMemoryItem].self, forKey: .memoryItems)
         memoryTags = try c.decode([BackupMemoryTag].self, forKey: .memoryTags)
-        agentThreads = try c.decode([BackupAgentThread].self, forKey: .agentThreads)
+        // agentThreads 已退役,不再读(老备份里那段数据没有对应的模型可落)。
         agentMessages = try c.decode([BackupAgentMessage].self, forKey: .agentMessages)
         skillOverrides = try c.decode([BackupSkillOverride].self, forKey: .skillOverrides)
         settings = try c.decode(BackupSettings.self, forKey: .settings)

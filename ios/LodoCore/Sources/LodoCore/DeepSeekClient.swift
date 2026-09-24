@@ -1048,26 +1048,6 @@ public enum DeepSeekClient {
         return .text(text)
     }
 
-    /// 把 agent 对话的首轮内容总结成一个简短标题(thread 列表/导航栏用)。
-    /// 不拼 personaBlock:标题要客观简洁,不需要说话风格。
-    public static func summarizeThreadTitle(_ text: String) async throws -> String {
-        let system = """
-        你是提醒事项应用 lodo 的对话标题生成助手。根据用户和 AI 的第一轮对话内容,\
-        生成一个不超过 12 个字的简短标题,概括这轮对话的主题,不用标点结尾。\
-        只返回 JSON:{"title": "标题"},不要任何其他文字。
-        """
-        return try parseThreadTitle(await payload(system: system, user: text))
-    }
-
-    /// 从 payload 里解析对话标题(单测入口)。
-    static func parseThreadTitle(_ payload: [String: Any]) throws -> String {
-        guard let title = payload["title"] as? String,
-              !title.trimmingCharacters(in: .whitespaces).isEmpty else {
-            throw DeepSeekError.parse("返回格式异常:缺少 title")
-        }
-        return title.trimmingCharacters(in: .whitespaces)
-    }
-
     /// 把今天的事项列表改写成一句话汇总,突出重点事件(用于每日汇总通知正文)。
     public static func summarizeToday(_ items: [String]) async throws -> String {
         let system = """

@@ -77,10 +77,9 @@ extension View {
 ///   左推压暗,只留一条边;点那条边或在上面往右拖收回。面板里装的仍是系统 List/Map,
 ///   不是新的自绘 UI。窄屏的 `.inspector` 会退化成 sheet,所以这里不用它。
 ///
-/// 默认内容是当前对话里最新的那份(`AgentInspectorTarget.latest`),新的一到就跟过去;
+/// 默认内容是对话里最新的那份(`AgentInspectorTarget.latest`),新的一到就跟过去;
 /// 点卡片上的「查看」可以临时指到更早那张,下一份新内容到来时再回到跟随最新。
 struct AgentInspectorHost<Content: View>: View {
-    let threadUUID: UUID?
     @ViewBuilder var content: Content
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -142,16 +141,9 @@ struct AgentInspectorHost<Content: View>: View {
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background {
-            if let threadUUID {
-                AgentInspectorObserver(threadUUID: threadUUID) { newLatest, last in
-                    latestChanged(newLatest, last: last)
-                }
-                .id(threadUUID)
+            AgentInspectorObserver { newLatest, last in
+                latestChanged(newLatest, last: last)
             }
-        }
-        .onChange(of: threadUUID) { _, _ in
-            explicit = nil
-            if !usesRegularLayout { dismissInstantly() }
         }
         .onChange(of: usesRegularLayout) { _, regular in
             // 旋转/分屏切换布局:窄屏的临时面板不带进宽屏,宽屏按"固定"恢复。
@@ -376,9 +368,13 @@ struct AgentInspectorHost<Content: View>: View {
     }
 }
 
-/// 盯着当前对话的消息,把"最新那份可展示内容"报给容器。单独拆一个视图是为了
+/// 盯着对话的消息,把"最新那份可展示内容"报给容器。单独拆一个视图是为了
 /// 用 @Query:规划写入/撤销改写的是消息上的快照,@Query 盯的正是消息,
 /// 卡片上一点,这里就能重算。
+///
+/// 对话是单一持续时间线、永不结束,所以这里**倒序取最近 50 条**而不是全表——
+/// 它只要算出"最新那份",再往前翻也不会改变结果,没必要把整条历史实例化出来
+/// (AI 页现在还是冷启动的落地页,这段就在启动路径上)。
 private struct AgentInspectorObserver: View {
     @Query private var messages: [AgentMessage]
     let onChange: (AgentInspectorTarget?, UUID?) -> Void
@@ -388,14 +384,19 @@ private struct AgentInspectorObserver: View {
         let last: UUID?
     }
 
-    init(threadUUID: UUID, onChange: @escaping (AgentInspectorTarget?, UUID?) -> Void) {
-        _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == threadUUID },
-                          sort: [SortDescriptor(\.createdAt)])
+    init(onChange: @escaping (AgentInspectorTarget?, UUID?) -> Void) {
+        var descriptor = FetchDescriptor<AgentMessage>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        descriptor.fetchLimit = 50
+        _messages = Query(descriptor)
         self.onChange = onChange
     }
 
+    /// @Query 取的是倒序,算之前翻回正序(`latest(in:)` 约定入参按时间升序)。
+    private var ordered: [AgentMessage] { messages.reversed() }
+
     private var snapshot: Snapshot {
-        Snapshot(latest: AgentInspectorTarget.latest(in: messages), last: messages.last?.uuid)
+        Snapshot(latest: AgentInspectorTarget.latest(in: ordered), last: ordered.last?.uuid)
     }
 
     var body: some View {

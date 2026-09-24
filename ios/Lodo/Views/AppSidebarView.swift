@@ -3,58 +3,29 @@ import SwiftData
 import LodoCore
 
 /// 应用侧栏(导航栏)的面板内容;窄屏抽屉和宽屏常驻列共用同一份视图。
-/// 自上而下:「Lodo 衬线体 wordmark + 搜索图标」固定头部 → 总览/待办/记忆三个
-/// 页面导航行(记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→
-/// 「最近」对话历史滚动区 → 底部浮层(左「设置」、右「新建」)。
-/// AI 页没有自己的导航行——点一条历史对话或「新建」就是进 AI 页,
-/// 再单列一行只会和它们重复。列表内容直接从底部浮层下面滚过去(不是布局内的
-/// 一行,所以不会把列表挤短,也不加渐隐遮罩)。
+/// 自上而下:「Lodo 衬线体 wordmark」固定头部 → 总览/待办/记忆三个页面导航行
+/// (记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→ 健康/旅行/菜单
+/// → 底部浮层(左「设置」、右「AI 助手」)。
+/// AI 页没有自己的导航行——它就是右下角那颗主操作胶囊,再单列一行只会重复。
+/// AI 助手是**单一持续对话**,所以这里既没有对话列表也没有"新建对话":
+/// 清空对话的入口在 设置 → AI 设置。
 struct AppSidebarView: View {
-    @Environment(\.modelContext) private var context
-    @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
-    private var threads: [AgentThread]
-    /// 只为按正文过滤 thread;个人对话历史量级不大,内存里按 threadUUID
-    /// 比对字符串就够,不需要引入 FTS5 之类的全文索引。
-    @Query private var allMessages: [AgentMessage]
     /// 记忆标签行的数据源。两个 @Query 的结果直接喂给 MemoryTags.entries 的
     /// 纯内存重载——侧栏在抽屉拖拽期间会被逐帧重建,不能每帧再打两次 fetch。
     @Query private var memoryItems: [MemoryItem]
     @Query private var createdTags: [MemoryTag]
 
     @Binding var section: AppSection
-    @Binding var currentThreadUUID: UUID?
     /// 点了某个记忆标签行:外层切到记忆页并把这个标签作为筛选条件带过去。
     let onSelectTag: (String) -> Void
     let onOpenSettings: () -> Void
     /// 选中任何一项后调用,外层用来收起侧栏(窄屏抽屉才需要;宽屏常驻列传空实现)。
     let onSelect: () -> Void
 
-    /// AgentView 里 currentThreadUUID 为 nil 时会回退到 threads.first,
-    /// 这里的"当前"判断要跟那边一致,不然明明在看第一条却没打勾。
-    private var effectiveCurrentUUID: UUID? {
-        currentThreadUUID ?? threads.first?.uuid
-    }
-
-    @State private var pendingDelete: AgentThread?
-    @State private var query = ""
-    /// 搜索框默认收起,点右上角放大镜才展开——不常驻一整条搜索栏,给列表让出空间。
-    @State private var showSearchField = false
-    @FocusState private var searchFieldFocused: Bool
     /// 非常驻标签默认折叠,点"更多标签"才展开。
     @State private var showMoreTags = false
     /// 被"常驻"到折叠区外面的标签,换行分隔持久化(顺序即展示顺序)。
     @AppStorage(AppSettings.sidebarPinnedTagsKey) private var pinnedTagsRaw = ""
-
-    /// 标题匹配,或该 thread 下任意一条消息正文匹配。
-    private var filteredThreads: [AgentThread] {
-        let trimmed = query.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return threads }
-        let matchingThreadUUIDs = Set(
-            allMessages.filter { $0.content.localizedStandardContains(trimmed) }.map(\.threadUUID))
-        return threads.filter {
-            $0.title.localizedStandardContains(trimmed) || matchingThreadUUIDs.contains($0.uuid)
-        }
-    }
 
     // MARK: - 记忆标签
 
@@ -94,10 +65,6 @@ struct AppSidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            if showSearchField {
-                searchField
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
             List {
                 navRow(.overview, title: "总览", systemImage: "square.stack.3d.up")
                 navRow(.todo, title: "待办", systemImage: "checklist")
@@ -111,52 +78,6 @@ struct AppSidebarView: View {
                 navRow(.menu, title: "菜单", systemImage: "menucard")
                 collapsedTagRows
 
-                Text("最近")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .listRowInsets(EdgeInsets(top: 12, leading: 24, bottom: 4, trailing: 20))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                if filteredThreads.isEmpty {
-                    Text("没有匹配的对话")
-                        .foregroundStyle(.secondary)
-                        .font(.subheadline)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 20))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                }
-                ForEach(filteredThreads) { thread in
-                    Button {
-                        currentThreadUUID = thread.uuid
-                        section = .agent
-                        onSelect()
-                    } label: {
-                        HStack {
-                            // 字重不随选中态变化:参考图里当前项只靠底色那块圆角浅灰
-                            // 区分,字重和其它行一样。
-                            Text(thread.title.isEmpty ? "新对话" : thread.title)
-                                .font(.body)
-                                .lineLimit(1)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                        }
-                        .frame(minHeight: 40)
-                    }
-                    .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
-                    .listRowSeparator(.hidden)
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            pendingDelete = thread
-                        } label: {
-                            Label("删除", systemImage: "trash")
-                        }
-                    }
-                    .listRowBackground(
-                        rowHighlight(section == .agent && thread.uuid == effectiveCurrentUUID))
-                    .accessibilityAddTraits(
-                        section == .agent && thread.uuid == effectiveCurrentUUID
-                            ? .isSelected : [])
-                }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -164,8 +85,8 @@ struct AppSidebarView: View {
             // 行高由它说了算、把 frame(minHeight:) 那几个数字架空。
             .environment(\.defaultMinListRowHeight, 0)
             // 底栏交给安全区,不再 overlay + 写死一个 contentMargins:那样一来
-            // 动态字体调大、或者 macOS 换了控件尺寸,底栏比预留的高,最后一条
-            // 对话就被压在下面看不见了。safeAreaInset 的视觉效果和 overlay 一样
+            // 动态字体调大、或者 macOS 换了控件尺寸,底栏比预留的高,最后一行
+            // 就被压在下面看不见了。safeAreaInset 的视觉效果和 overlay 一样
             // (列表照样从它背后滚过去),但让出的高度是量出来的。
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         }
@@ -178,21 +99,8 @@ struct AppSidebarView: View {
             }
         }
         #endif
-        .animation(.lodoAware(.lodoQuickFade), value: showSearchField)
         .animation(.lodoAware(.lodoQuickFade), value: showMoreTags)
         .frame(maxHeight: .infinity)
-        .confirmationDialog(
-            "删除这段对话?", isPresented: Binding(
-                get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }
-            ), titleVisibility: .visible
-        ) {
-            Button("删除", role: .destructive) {
-                if let thread = pendingDelete { delete(thread) }
-                pendingDelete = nil
-            }
-        } message: {
-            Text("对话记录会一并删除,不可恢复。")
-        }
     }
 
     /// 行选中态的那块圆角浅灰底。铺满整行宽、横向内缩 16 对上参考图里高亮块
@@ -316,36 +224,22 @@ struct AppSidebarView: View {
         }
     }
 
-    /// 顶部常驻行:左边应用名(参考图那种衬线体 wordmark,仍是系统字体),
-    /// 右边放大镜图标按钮(点了才展开下面那条搜索框)。
+    /// 顶部常驻行:只有应用名(参考图那种衬线体 wordmark,仍是系统字体)。
+    /// 右边原来那颗放大镜是用来在多个对话之间找对话的,单一持续对话下没有
+    /// 对象可找,连同搜索框一起去掉了;右内边距跟着从 16 调回 20——那 16 是
+    /// 给玻璃圆按钮留的视觉补偿,按钮没了会显得右边比左边窄。
     private var header: some View {
         HStack {
             Text("Lodo")
                 .font(.system(.largeTitle, design: .serif, weight: .bold))
             Spacer()
-            Button {
-                showSearchField.toggle()
-                if showSearchField {
-                    searchFieldFocused = true
-                } else {
-                    query = ""
-                }
-            } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .frame(width: 24, height: 24)
-            }
-            .glassButton()
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("搜索对话")
         }
         .padding(.leading, 20)
-        .padding(.trailing, 16)
+        .padding(.trailing, 20)
         .padding(.vertical, 12)
     }
 
-    /// 底部浮层:左下角「设置」(全 app 唯一入口)、右下角主操作「新建」胶囊,
+    /// 底部浮层:左下角「设置」(全 app 唯一入口)、右下角主操作「AI 助手」胶囊,
     /// 叠在列表上方,列表内容从它们下面滚过。
     private var bottomBar: some View {
         HStack {
@@ -364,14 +258,10 @@ struct AppSidebarView: View {
             Spacer()
 
             Button {
-                let thread = AgentThread()
-                context.insert(thread)
-                try? context.save()
-                currentThreadUUID = thread.uuid
                 section = .agent
                 onSelect()
             } label: {
-                Label("新建", systemImage: "square.and.pencil")
+                Label("AI 助手", systemImage: "sparkles")
                     .font(.body.weight(.medium))
                     .padding(.horizontal, 6)
                     // 和左侧齿轮一样以 24pt 内容高度交给系统玻璃样式排版。
@@ -382,9 +272,12 @@ struct AppSidebarView: View {
             // 设置是普通玻璃的次要入口。
             .glassProminentButton()
             .buttonBorderShape(.capsule)
-            .accessibilityLabel("新建对话")
+            // 它是这份侧栏里 AI 页唯一的入口,所以也要报选中态;胶囊不套
+            // rowHighlight(那是给 List 行用的)。
+            .accessibilityAddTraits(section == .agent ? .isSelected : [])
+            .accessibilityLabel("AI 助手")
         }
-        // 这排是全 app 仅有的"两块玻璃挨在同一行"的地方(齿轮 + 新建胶囊),
+        // 这排是全 app 仅有的"两块玻璃挨在同一行"的地方(齿轮 + AI 助手胶囊),
         // 合进一个容器共享采样,免得同一排的两块玻璃亮度对不上。间距取默认的
         // 小值:两颗之间隔着 Spacer,不该融合成一坨。
         .glassGroup()
@@ -393,41 +286,5 @@ struct AppSidebarView: View {
         // 面板本身已经用 deviceBottomInset 把 home indicator 那截让开了,这里
         // 只再留一点点余量——两个数是叠加的,这里写大了整排按钮会离屏幕底边太远。
         .padding(.bottom, 10)
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .font(.subheadline)
-            TextField("搜索对话", text: $query)
-                .textFieldStyle(.plain)
-                .font(.subheadline)
-                .focused($searchFieldFocused)
-            if !query.isEmpty {
-                Button {
-                    query = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .pressable()
-            }
-        }
-        .padding(8)
-        .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
-        .padding(.horizontal, 20)
-        .padding(.bottom, 4)
-    }
-
-    /// 连带删掉这个 thread 下的全部消息,避免孤儿数据。
-    private func delete(_ thread: AgentThread) {
-        let uuid = thread.uuid
-        let messages = (try? context.fetch(FetchDescriptor<AgentMessage>(
-            predicate: #Predicate { $0.threadUUID == uuid }))) ?? []
-        for message in messages { context.delete(message) }
-        if currentThreadUUID == uuid { currentThreadUUID = nil }
-        context.delete(thread)
-        try? context.save()
     }
 }

@@ -17,14 +17,14 @@ extension AgentHostView {
     /// "正在查记忆…"/"正在联网搜索…"这类轻量提示,循环结束(不管哪个分支返回)
     /// 提示自然被 AgentView 清掉。
     func route(
-        _ text: String, threadUUID: UUID, history: [(role: String, content: String)] = [],
+        _ text: String, history: [(role: String, content: String)] = [],
         onThought: (String) -> Void = { _ in }
     ) async throws -> AgentReply {
         // 撤销走本地固定短语匹配,不进 AI 循环——这是确定性操作,交给模型理解
         // 反而多一次网络请求、多一种出错可能,不值得。要求整句话就是这几个词
         // 之一(不是"包含"),避免误伤"撤销一份合同"这类正常事项标题。
         if isUndoCommand(text) {
-            return performUndo(threadUUID: threadUUID)
+            return performUndo()
         }
 
         let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
@@ -144,7 +144,6 @@ extension AgentHostView {
                         let created = TaskActions.create(parsed, context: context)
                         WidgetBridge.sync(context: context)
                         lastUndo = [.created(uuid: created.uuid)]
-                        lastUndoThreadUUID = threadUUID
                         return .created(task: created, parsed: parsed)
                     }
                     if case .update(let uuid, let parsed) = actions[0] {
@@ -159,7 +158,6 @@ extension AgentHostView {
                         TaskActions.apply(parsed, to: task, context: context)
                         WidgetBridge.sync(context: context)
                         lastUndo = [.updated(before: before)]
-                        lastUndoThreadUUID = threadUUID
                         return .updated(task: task, parsed: parsed)
                     }
                     if case .memorize(let text) = actions[0] {
@@ -391,13 +389,11 @@ extension AgentHostView {
     }
 
     /// 执行确认后的批量操作;不关闭 agent 聊天页,由 AgentView 自己往当前
-    /// thread 追加一条结果消息。等待确认期间,目标事项可能已被通知按钮/
+    /// 对话里追加一条结果消息。等待确认期间,目标事项可能已被通知按钮/
     /// 小组件/Siri 改动或完成/删除;找不到时计入 missingCount,而不是静默
     /// 跳过——否则用户会以为全部操作都成功了。执行前把每条操作的"改回原样"
-    /// 快照存进 lastUndo,供后面撤销用;新的一批会整体覆盖上一批,连同
-    /// threadUUID 一起记——同时开着好几个 thread 时,撤销要认得这批操作是
-    /// 从哪个 thread confirm 的,不能被别的 thread 后来居上的一批覆盖后误撤销。
-    func performPendingActions(threadUUID: UUID) {
+    /// 快照存进 lastUndo,供后面撤销用;新的一批会整体覆盖上一批。
+    func performPendingActions() {
         var missingCount = 0
         var undoOps: [UndoOp] = []
         for action in pendingActions {
@@ -444,7 +440,6 @@ extension AgentHostView {
         }
         pendingActions = []
         lastUndo = undoOps.isEmpty ? nil : undoOps
-        lastUndoThreadUUID = undoOps.isEmpty ? nil : threadUUID
         try? context.save()
         WidgetBridge.sync(context: context)
         if missingCount > 0 {
@@ -464,11 +459,9 @@ extension AgentHostView {
     /// 用之前的快照覆盖回去,删除 → 用快照重新插入(uuid 不变)。用完清空,
     /// 只能撤销最近一批,不支持多级撤销栈。internal(不是 private):聊天页
     /// "已完成执行"气泡上的撤销按钮(AgentView 的 onUndo)直接调这个,
-    /// 不需要再走一遍文字指令匹配。threadUUID 必须和 lastUndoThreadUUID 对上——
-    /// 不对就说明这批操作是别的 thread 留下的,拒绝撤销(不然会在 thread A
-    /// 里意外撤销了 thread B 后来执行的操作)。
-    func performUndo(threadUUID: UUID) -> AgentReply {
-        guard let ops = lastUndo, lastUndoThreadUUID == threadUUID else {
+    /// 不需要再走一遍文字指令匹配。
+    func performUndo() -> AgentReply {
+        guard let ops = lastUndo else {
             return .answer(text: "没有可撤销的操作。", related: [])
         }
         var missingCount = 0
@@ -507,7 +500,6 @@ extension AgentHostView {
             }
         }
         lastUndo = nil
-        lastUndoThreadUUID = nil
         try? context.save()
         WidgetBridge.sync(context: context)
         let suffix = missingCount > 0 ? "(\(missingCount) 项因事项已不存在无法撤销)" : ""

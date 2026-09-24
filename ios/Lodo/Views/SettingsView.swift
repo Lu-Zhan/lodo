@@ -386,7 +386,7 @@ struct SettingsView: View {
 
     private func importSummary(_ manifest: BackupManifest) -> String {
         let date = manifest.exportedAt.formatted(date: .abbreviated, time: .shortened)
-        return "导出于 \(date) · \(manifest.taskCount) 条待办 · \(manifest.memoryCount) 条记忆 · \(manifest.agentThreadCount) 个 AI 对话"
+        return "导出于 \(date) · \(manifest.taskCount) 条待办 · \(manifest.memoryCount) 条记忆 · \(manifest.agentMessageCount) 条对话消息"
     }
 
 }

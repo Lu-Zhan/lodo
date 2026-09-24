@@ -49,7 +49,6 @@ enum BackupManager {
         let tasks = ((try? context.fetch(FetchDescriptor<TaskItem>())) ?? [])
         let memoryItems = ((try? context.fetch(FetchDescriptor<MemoryItem>())) ?? [])
         let memoryTags = ((try? context.fetch(FetchDescriptor<MemoryTag>())) ?? [])
-        let agentThreads = ((try? context.fetch(FetchDescriptor<AgentThread>())) ?? [])
         let agentMessages = ((try? context.fetch(FetchDescriptor<AgentMessage>())) ?? [])
         let contactRelationships = ((try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [])
         let travelTrips = ((try? context.fetch(FetchDescriptor<TravelTrip>())) ?? [])
@@ -62,7 +61,6 @@ enum BackupManager {
             tasks: tasks.map { $0.backup },
             memoryItems: memoryItems.map { $0.backup },
             memoryTags: memoryTags.map { $0.backup },
-            agentThreads: agentThreads.map { $0.backup },
             agentMessages: agentMessages.map { $0.backup },
             skillOverrides: skillOverrides,
             settings: currentSettings(),
@@ -75,7 +73,8 @@ enum BackupManager {
             exportedAt: Date(),
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
             taskCount: tasks.count, memoryCount: memoryItems.count,
-            memoryTagCount: memoryTags.count, agentThreadCount: agentThreads.count,
+            // agentThreadCount 已退役(对话不再分段),恒为 0。
+            memoryTagCount: memoryTags.count, agentThreadCount: 0,
             agentMessageCount: agentMessages.count, skillOverrideCount: skillOverrides.count,
             contactRelationshipCount: contactRelationships.count)
 
@@ -164,24 +163,12 @@ enum BackupManager {
             dto.apply(to: tag)
         }
 
-        for dto in payload.agentThreads {
-            let uuid = dto.uuid
-            let existing = ((try? context.fetch(FetchDescriptor<AgentThread>(
-                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
-            let thread = existing ?? {
-                let created = AgentThread()
-                context.insert(created)
-                return created
-            }()
-            dto.apply(to: thread)
-        }
-
         for dto in payload.agentMessages {
             let uuid = dto.uuid
             let existing = ((try? context.fetch(FetchDescriptor<AgentMessage>(
                 predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
             let message = existing ?? {
-                let created = AgentMessage(threadUUID: dto.threadUUID, role: .user, content: "")
+                let created = AgentMessage(role: .user, content: "")
                 context.insert(created)
                 return created
             }()
@@ -274,9 +261,6 @@ enum BackupManager {
         }
         for tag in (try? context.fetch(FetchDescriptor<MemoryTag>())) ?? [] {
             context.delete(tag)
-        }
-        for thread in (try? context.fetch(FetchDescriptor<AgentThread>())) ?? [] {
-            context.delete(thread)
         }
         for message in (try? context.fetch(FetchDescriptor<AgentMessage>())) ?? [] {
             context.delete(message)

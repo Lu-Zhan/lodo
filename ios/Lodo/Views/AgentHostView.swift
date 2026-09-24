@@ -22,30 +22,25 @@ struct AgentHostView: View {
     /// agent 解析出、等待用户确认的批量操作。
     @State var pendingActions: [AIAction] = []
     /// 上一批 AI 执行完的操作,供"撤销"用;见 AgentHostView+Routing.swift。
+    /// 单槽、用完即清,不做多级撤销栈。原来还配了一个 lastUndoThreadUUID 核对
+    /// 归属(防止在 thread A 里撤销了 thread B 后来执行的那批),单一持续对话
+    /// 之后那个状态构造不出来了:撤销按钮只在最新一条可点,而执行新一批必然
+    /// 追加一条"已完成执行",把旧那颗按钮挤成非最新。
     @State var lastUndo: [UndoOp]?
-    /// lastUndo 是哪个 thread 的批量操作留下的;AI 助手可以同时开好几个 thread,
-    /// 在 thread A 执行完切到 thread B 又执行一批,thread A 那条"已完成执行"
-    /// 气泡的撤销按钮还在(它在自己 thread 里仍是最新消息),但不能真的撤销
-    /// thread B 的操作——撤销前先核对这个 uuid 对不对。
-    @State var lastUndoThreadUUID: UUID?
     /// 批量 agent 操作里有目标事项在确认期间被别处改动/删除时的提示。
     @State var actionsWarning: String?
 
-    /// 当前对话。由外壳持有——侧栏的对话历史列表和这里看的是同一个值。
-    @Binding var currentThreadUUID: UUID?
     /// 非 nil 时把文本预填进输入框(深链/Siri 交接/小组件"+"),消费后置 nil。
     @Binding var agentRequest: String?
 
     var body: some View {
         AgentView(
             pendingPrefill: $agentRequest,
-            currentThreadUUID: $currentThreadUUID,
-            submit: { text, threadUUID, history, onThought in
-                try await route(text, threadUUID: threadUUID,
-                                history: history, onThought: onThought)
+            submit: { text, history, onThought in
+                try await route(text, history: history, onThought: onThought)
             },
-            onConfirm: { performPendingActions(threadUUID: $0) },
-            onUndo: { performUndo(threadUUID: $0) },
+            onConfirm: { performPendingActions() },
+            onUndo: { performUndo() },
             saveTask: { existing, parsed in
                 if let existing {
                     TaskActions.apply(parsed, to: existing, context: context)
@@ -67,7 +62,6 @@ struct AgentHostView: View {
                     if case .created(let recorded)? = lastUndo?.first, recorded == uuid,
                        lastUndo?.count == 1 {
                         lastUndo = nil
-                        lastUndoThreadUUID = nil
                     }
                     return nil
                 }

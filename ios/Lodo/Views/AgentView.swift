@@ -6,30 +6,26 @@ import LodoCore
 import UIKit
 #endif
 
-/// AI 对话页(抽屉里的四个平级页面之一):持久保存多个 thread(在侧栏切换/新建),
-/// 每轮请求真的带上前几轮对话历史;右下角语音、左侧 + 号传照片/文件。
+/// AI 对话页(抽屉里的平级页面之一):**单一持续对话**——一条永不结束的时间线,
+/// 没有"新建对话"这回事,每轮请求带上最近几轮历史(更早的压成摘要,见
+/// `AgentConversationSummary`);右下角语音、左侧 + 号传照片/文件。
 /// 单条新建/修改叠一个 TaskEditView 在本页上面("表单即确认"这个体验保留),
-/// 保存后往当前 thread 追加一条结果消息,不关掉聊天页。
-/// 对话列表和抽屉本身归外壳(AppShellView/AppSidebarView),这里只管聊天区。
+/// 保存后往对话末尾追加一条结果消息,不关掉聊天页。
+/// 抽屉本身归外壳(AppShellView/AppSidebarView),这里只管聊天区。
 struct AgentView: View {
     @Environment(\.lodoAccent) private var lodoAccent
     /// 非 nil 时把文本预填进输入框(深链/Siri 交接/小组件"+"),消费后置 nil。
     @Binding var pendingPrefill: String?
-    /// 当前对话。外壳持有——侧栏的对话历史列表和这里看的是同一个值。
-    @Binding var currentThreadUUID: UUID?
     /// 解析并路由输入文本 + 最近对话历史;onThought 在 ReAct 循环中间步骤时被调用
     /// (如"正在查记忆…"),驱动 thinkingText 那条轻量提示。返回本页要展示的回应形态。
-    /// 带上当前 thread 的 uuid——同时开着好几个 thread 时,批量操作确认/撤销
-    /// 都要认清是哪个 thread 发起的,不能被另一个 thread 后来居上的一批覆盖。
     let submit: (
-        String, UUID, [(role: String, content: String)], @escaping (String) -> Void
+        String, [(role: String, content: String)], @escaping (String) -> Void
     ) async throws -> AgentReply
-    /// 用户确认执行批量操作(操作暂存在 TodoListView),带上当前 thread uuid。
-    let onConfirm: (UUID) -> Void
-    /// 撤销上一批已执行的操作(TodoListView.performUndo),带上当前 thread uuid
-    /// (核对撤销的是不是这个 thread 留下的那批),返回要展示给用户的回应文案;
-    /// "已完成执行"气泡上的撤销按钮直接调这个,不用再走一遍文字指令。
-    let onUndo: (UUID) -> AgentReply
+    /// 用户确认执行批量操作(操作暂存在 AgentHostView)。
+    let onConfirm: () -> Void
+    /// 撤销上一批已执行的操作(AgentHostView.performUndo),返回要展示给用户的
+    /// 回应文案;"已完成执行"气泡上的撤销按钮直接调这个,不用再走一遍文字指令。
+    let onUndo: () -> AgentReply
     /// 单条新建/修改保存,existing 为 nil 表示新建。
     let saveTask: (TaskItem?, ParsedTask) -> Void
     /// 新建结果卡片上那一下点击。传当前有效事项的 uuid = 删掉它并返回 nil;
@@ -37,9 +33,6 @@ struct AgentView: View {
     let toggleCreatedTask: (UUID?, ParsedTask) -> UUID?
     @Environment(\.modelContext) private var context
     @Environment(\.colorScheme) private var colorScheme
-
-    @Query(sort: [SortDescriptor(\AgentThread.updatedAt, order: .reverse)])
-    private var threads: [AgentThread]
 
     /// ReAct 循环中间步骤的轻量提示(如"正在查记忆…");不落库,循环一结束就清空。
     @State private var thinkingText: String?
@@ -54,7 +47,7 @@ struct AgentView: View {
     @FocusState private var isInputFocused: Bool
     /// 开始录音时已输入的文字,听写结果追加在其后。
     @State private var typedPrefix = ""
-    /// 当前 thread 最后一条是还没答的询问卡。这时整条输入区收起来——问题就摆在
+    /// 对话最后一条是还没答的询问卡。这时整条输入区收起来——问题就摆在
     /// 那儿等着选,底下再留个输入框是两个并行的入口,容易让人以为要打字回答;
     /// 想自由回答的话询问卡自己带"其他"输入,不想答就点卡片上的取消(取消会追加
     /// 一条文本消息,最后一条不再是询问卡,输入区随即回来)。
@@ -65,6 +58,12 @@ struct AgentView: View {
     /// 长按气泡选了"修改"后待确认的目标;只是打开确认弹窗,真正的截断删除
     /// 发生在用户在 confirmationDialog 里点确认之后。
     @State private var pendingEdit: AgentMessage?
+
+    /// 消息列表一次取多少条。对话是单一持续时间线、永不结束,全表灌进 @Query
+    /// 会把整条历史实例化在启动路径上(AI 页还是冷启动的落地页)。倒序取这么多
+    /// 条,顶上留一颗「载入更早的对话」把它加一页。
+    @State private var historyWindow = AgentView.historyPageSize
+    static let historyPageSize = 200
 
     @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showFileImporter = false
@@ -82,16 +81,14 @@ struct AgentView: View {
     /// @State 属性都是 private,合成的 memberwise init 会跟着降级成 private、
     /// 别的文件用不了,所以显式写一个。
     init(pendingPrefill: Binding<String?>,
-         currentThreadUUID: Binding<UUID?>,
          submit: @escaping (
-            String, UUID, [(role: String, content: String)], @escaping (String) -> Void
+            String, [(role: String, content: String)], @escaping (String) -> Void
          ) async throws -> AgentReply,
-         onConfirm: @escaping (UUID) -> Void,
-         onUndo: @escaping (UUID) -> AgentReply,
+         onConfirm: @escaping () -> Void,
+         onUndo: @escaping () -> AgentReply,
          saveTask: @escaping (TaskItem?, ParsedTask) -> Void,
          toggleCreatedTask: @escaping (UUID?, ParsedTask) -> UUID?) {
         self._pendingPrefill = pendingPrefill
-        self._currentThreadUUID = currentThreadUUID
         self.submit = submit
         self.onConfirm = onConfirm
         self.onUndo = onUndo
@@ -106,20 +103,6 @@ struct AgentView: View {
         pendingPrefill = nil
         if !request.isEmpty { text = request }
         isInputFocused = true
-    }
-
-    private var activeThread: AgentThread? {
-        if let uuid = currentThreadUUID, let match = threads.first(where: { $0.uuid == uuid }) {
-            return match
-        }
-        return threads.first
-    }
-
-    /// 标题栏正标题:当前对话的标题(首轮消息后换成 AI 总结的那版);还没发过
-    /// 消息的空 thread 用和侧栏列表一致的"新对话"占位。
-    private var threadTitle: String {
-        let title = activeThread?.title ?? ""
-        return title.isEmpty ? "新对话" : title
     }
 
     /// 标题下面那行小字:服务商 + 思考强度(关闭时不提)+ 联网搜索是否已配置。
@@ -142,7 +125,7 @@ struct AgentView: View {
 
     var body: some View {
         // 右侧栏:对话里产出的页面(规划/调整后的行程)在旁边展示,见 AgentInspector.swift。
-        AgentInspectorHost(threadUUID: activeThread?.uuid) {
+        AgentInspectorHost {
             chatStack
         }
         .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
@@ -157,13 +140,13 @@ struct AgentView: View {
             // 推开时页面被裁成 44pt 圆角,输入栏自己 26pt 的玻璃圆角正好落进那个圆角
             // 里,两道弧线套在一起。让输入栏收回安全区之上即可(消息仍然从它背后滚
             // 过去,底部那截不是死区)。
-            .navigationTitle(threadTitle)
+            .navigationTitle("AI 助手")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                // 自定义 principal:标题栏显示当前对话的总结标题(首轮消息后由
-                // summarizeThreadTitle 生成,在此之前是原话截断);标题下加一行
+                // 自定义 principal:标题恒为「AI 助手」(单一持续对话,没有
+                // 每段对话各自的标题了);标题下加一行
                 // 当前 AI 模式(服务商/思考强度/联网搜索),不然用户在对话里完全
                 // 看不出现在到底是哪个服务商、思考开没开、能不能联网搜索——
                 // 这些都要跳回设置页才看得到。
@@ -175,7 +158,7 @@ struct AgentView: View {
                 // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
                 // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
                 ToolbarItem(placement: .principal) {
-                    AgentTitleView(title: threadTitle, subtitle: aiModeSummary)
+                    AgentTitleView(title: "AI 助手", subtitle: aiModeSummary)
                 }
             }
             .sidebarToolbarButton()
@@ -184,11 +167,7 @@ struct AgentView: View {
                 TaskEditView(existing: target.existing, parsed: target.parsed,
                              attachment: target.existing?.attachment) { savedParsed in
                     saveTask(target.existing, savedParsed)
-                    if let thread = activeThread {
-                        appendTaskResult(
-                            thread: thread, existingUUID: target.existing?.uuid,
-                            parsed: savedParsed)
-                    }
+                    appendTaskResult(existingUUID: target.existing?.uuid, parsed: savedParsed)
                 }
             }
             .confirmationDialog(
@@ -272,12 +251,6 @@ struct AgentView: View {
                     break
                 }
             }
-            .onChange(of: currentThreadUUID) { _, _ in
-                // 报错属于产生它的那一次交流:切到别的对话、或新建对话时一并清掉,
-                // 不要让上一个对话的红字跟着显示在新对话的输入栏上面。
-                errorText = nil
-                speech.errorText = nil
-            }
             .onChange(of: speech.transcript) { _, transcript in
                 if !transcript.isEmpty { text = typedPrefix + transcript }
             }
@@ -306,7 +279,6 @@ struct AgentView: View {
                 discardUnsentAttachments()
             }
             .task {
-                ensureThreadExists()
                 isInputFocused = true
                 consumePrefill()
                 #if DEBUG
@@ -339,19 +311,18 @@ struct AgentView: View {
                     easterEggOccasion = .anniversary
                     showEasterEgg = true
                 }
-                // 截图验证用:塞几条历史对话把侧栏列表填出来(推开抽屉那步由
-                // AppShellView 的 --demo-agent-sidebar/--demo-sidebar 负责)。
+                // 截图验证用:推开抽屉看侧栏那步由 AppShellView 的
+                // --demo-agent-sidebar/--demo-sidebar 负责,这里只把键盘收掉,
+                // 免得抽屉被键盘挤掉一截。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-sidebar") {
-                    seedDemoThreads()
                     isInputFocused = false
                 }
                 // 截图验证用:模拟长按气泡选了"引用"——simctl 没法长按弹
                 // contextMenu,直接把状态摆出来看输入框上方的预览行(超长文本
                 // 单行省略号截断)。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-quote-preview"),
-                   let thread = activeThread {
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-quote-preview") {
                     let quoted = AgentMessage(
-                        threadUUID: thread.uuid, role: .assistant,
+                        role: .assistant,
                         content: "你收藏的 wifi 密码是 8888,这是一段特意写得很长很长用来测试单行省略号截断效果的引用预览文本。")
                     context.insert(quoted)
                     try? context.save()
@@ -364,11 +335,10 @@ struct AgentView: View {
                 }
                 // 截图验证用:模拟长按气泡选了"修改"——直接弹出截断确认弹窗
                 // (simctl 没法长按+点菜单项)。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-edit-confirm"),
-                   let thread = activeThread {
-                    let target = AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会")
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-edit-confirm") {
+                    let target = AgentMessage(role: .user, content: "明天下午3点开会")
                     context.insert(target)
-                    context.insert(AgentMessage(threadUUID: thread.uuid, role: .assistant, kind: .text,
+                    context.insert(AgentMessage(role: .assistant, kind: .text,
                                                 content: "好的,已经帮你记下明天下午3点开会。"))
                     try? context.save()
                     pendingEdit = target
@@ -381,49 +351,49 @@ struct AgentView: View {
     // MARK: - 聊天区
 
     /// 消息列表 + 输入栏这一整块。
-    @ViewBuilder
     private var chatColumn: some View {
-        if let thread = activeThread {
-            // 输入栏这坨挂在 ScrollView 的 safeAreaInset(而不是跟消息列表
-            // 平铺在同一个 VStack 里),消息才会真的滚到它背后。参考系统
-            // Messages/语音备忘录的输入栏:这块区域本身不铺任何背景色——
-            // +/文本框/麦克风三个控件各自是独立的 Liquid Glass 胶囊(见
-            // inputBar),控件之间、控件下方一路到屏幕真实底边都是真透明,
-            // 露出的是聊天内容本身,不是另一块单独的磨砂色块。
-            AgentMessageListView(thread: thread, onConfirmAction: handleConfirmAction,
-                                onUndo: handleUndo,
-                                onMemorizeSuggestion: handleMemorizeSuggestion,
-                                onCancelMemoryResult: handleCancelMemoryResult,
-                                onToggleCreatedTask: handleToggleCreatedTask,
-                                onTaskProposalConfirm: handleTaskProposalConfirm,
-                                onTaskProposalCancel: handleTaskProposalCancel,
-                                onTaskProposalTap: handleTaskProposalTap,
-                                onAskSubmit: handleAskSubmit,
-                                onAskCancel: handleAskCancel,
-                                onExamplePrompt: { send(overrideText: $0) },
-                                onCopy: copyMessageContent,
-                                onQuote: quoteMessage,
-                                onEdit: requestEdit,
-                                onPendingAskChange: { hasPendingAsk = $0 })
-                .id(thread.uuid)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    VStack(spacing: 0) {
-                        thinkingRow
-                        if !hasPendingAsk {
-                            attachmentChipsRow
-                            quotedPreviewRow
-                            if let error = errorText ?? speech.errorText {
-                                Text(error).font(.subheadline).foregroundStyle(LodoColor.critical)
-                                    .padding(.horizontal)
-                            }
-                            inputBar
+        // 输入栏这坨挂在 ScrollView 的 safeAreaInset(而不是跟消息列表
+        // 平铺在同一个 VStack 里),消息才会真的滚到它背后。参考系统
+        // Messages/语音备忘录的输入栏:这块区域本身不铺任何背景色——
+        // +/文本框/麦克风三个控件各自是独立的 Liquid Glass 胶囊(见
+        // inputBar),控件之间、控件下方一路到屏幕真实底边都是真透明,
+        // 露出的是聊天内容本身,不是另一块单独的磨砂色块。
+        AgentMessageListView(
+            historyWindow: historyWindow,
+            onLoadEarlier: { historyWindow += Self.historyPageSize },
+            onConfirmAction: handleConfirmAction,
+            onUndo: handleUndo,
+            onMemorizeSuggestion: handleMemorizeSuggestion,
+            onCancelMemoryResult: handleCancelMemoryResult,
+            onToggleCreatedTask: handleToggleCreatedTask,
+            onTaskProposalConfirm: handleTaskProposalConfirm,
+            onTaskProposalCancel: handleTaskProposalCancel,
+            onTaskProposalTap: handleTaskProposalTap,
+            onAskSubmit: handleAskSubmit,
+            onAskCancel: handleAskCancel,
+            onExamplePrompt: { send(overrideText: $0) },
+            onCopy: copyMessageContent,
+            onQuote: quoteMessage,
+            onEdit: requestEdit,
+            onPendingAskChange: { hasPendingAsk = $0 })
+            // 换一次窗口大小就要重建 @Query(SwiftData 动态 descriptor 的标准
+            // 写法),正是原来切 thread 时 .id(thread.uuid) 那一套。
+            .id(historyWindow)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    thinkingRow
+                    if !hasPendingAsk {
+                        attachmentChipsRow
+                        quotedPreviewRow
+                        if let error = errorText ?? speech.errorText {
+                            Text(error).font(.subheadline).foregroundStyle(LodoColor.critical)
+                                .padding(.horizontal)
                         }
+                        inputBar
                     }
-                    .animation(.lodoAware(.snappy(duration: 0.2)), value: hasPendingAsk)
                 }
-        } else {
-            ProgressView()
-        }
+                .animation(.lodoAware(.snappy(duration: 0.2)), value: hasPendingAsk)
+            }
     }
 
     // MARK: - ReAct 中间步骤的轻量提示
@@ -931,51 +901,43 @@ struct AgentView: View {
         !text.trimmingCharacters(in: .whitespaces).isEmpty || !pendingAttachments.isEmpty
     }
 
-    // MARK: - Thread/消息
-
-    private func ensureThreadExists() {
-        guard threads.isEmpty else { return }
-        let thread = AgentThread()
-        context.insert(thread)
-        try? context.save()
-        currentThreadUUID = thread.uuid
-    }
+    // MARK: - 消息
 
     /// excluding 为 nil 时不排除任何消息(询问卡回传选择那条路径没有用户气泡可排除)。
-    private func recentHistory(in thread: AgentThread, excluding: AgentMessage?) -> [(role: String, content: String)] {
-        let threadUUID = thread.uuid
+    /// 只取最近 `recentWindow` 条逐条回传;更早的由 `AgentConversationSummary`
+    /// 压成一段摘要另外拼进 prompt,不在这里带。
+    private func recentHistory(excluding: AgentMessage?) -> [(role: String, content: String)] {
         let excludeUUID = excluding?.uuid
         let all = (try? context.fetch(FetchDescriptor<AgentMessage>(
-            predicate: #Predicate<AgentMessage> { $0.threadUUID == threadUUID },
             sortBy: [SortDescriptor(\.createdAt)]))) ?? []
-        return all.filter { $0.uuid != excludeUUID }.suffix(16)
+        return all.filter { $0.uuid != excludeUUID }
+            .suffix(AgentConversationSummary.recentWindow)
             .map { (role: $0.roleRaw, content: $0.content) }
     }
 
     @discardableResult
     private func appendAssistant(
-        thread: AgentThread, kind: AgentMessageKind, content: String,
+        kind: AgentMessageKind, content: String,
         relatedTitles: [String] = [], askSnapshotData: Data? = nil,
         taskSnapshotData: Data? = nil, resultMemoryUUID: UUID? = nil,
         tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil
     ) -> AgentMessage {
-        let message = AgentMessage(threadUUID: thread.uuid, role: .assistant, kind: kind,
+        let message = AgentMessage(role: .assistant, kind: kind,
                                    content: content, relatedTitles: relatedTitles,
                                    askSnapshotData: askSnapshotData, taskSnapshotData: taskSnapshotData,
                                    resultMemoryUUID: resultMemoryUUID,
                                    tripPlanSnapshotData: tripPlanSnapshotData,
                                    tripEditSnapshotData: tripEditSnapshotData)
         context.insert(message)
-        thread.updatedAt = Date()
         try? context.save()
         return message
     }
 
     /// 规划卡片。content 存一段纯文字版的规划:对话历史(recentHistory)只取
     /// content 回传给模型,用户接着说"第二天轻松点"时,模型要看得到上一份排了什么。
-    private func appendTripPlan(thread: AgentThread, plan: TripPlanProposal) {
+    private func appendTripPlan(plan: TripPlanProposal) {
         appendAssistant(
-            thread: thread, kind: .tripPlan,
+            kind: .tripPlan,
             content: TravelPlan.promptSummary(tripTitle: plan.tripTitle, days: plan.days(),
                                               entries: plan.entries),
             tripPlanSnapshotData: try? JSONEncoder().encode(plan))
@@ -985,11 +947,11 @@ struct AgentView: View {
     /// 是事后反悔的入口(新建给 ✕、修改给撤销,见 AgentMessageBubble)。
     /// taskProposal(先出提案、点了"确认新建"才落库)那条老路径不再产生新消息,
     /// 但老对话里已经存下的那些仍然照常渲染、按钮照常可用。
-    private func appendTaskResult(thread: AgentThread, existingUUID: UUID?, parsed: ParsedTask,
+    private func appendTaskResult(existingUUID: UUID?, parsed: ParsedTask,
                                   createdUUID: UUID? = nil) {
         let snapshot = AgentTaskSnapshot(existingUUID: existingUUID, parsed: parsed,
                                          createdUUID: createdUUID)
-        appendAssistant(thread: thread, kind: .taskResult,
+        appendAssistant(kind: .taskResult,
                         content: existingUUID == nil ? "已新建" : "已修改",
                         taskSnapshotData: try? JSONEncoder().encode(snapshot))
     }
@@ -1005,17 +967,15 @@ struct AgentView: View {
     /// taskProposal 气泡的"确认新建/确认修改"按钮:原样按 AI 解析出的字段保存,
     /// 不弹表单。
     private func handleTaskProposalConfirm(_ message: AgentMessage) {
-        guard let thread = activeThread,
-              let data = message.taskSnapshotData,
+        guard let data = message.taskSnapshotData,
               let snapshot = try? JSONDecoder().decode(AgentTaskSnapshot.self, from: data)
         else { return }
         saveTask(existingTask(for: snapshot.existingUUID), snapshot.parsed)
-        appendTaskResult(thread: thread, existingUUID: snapshot.existingUUID, parsed: snapshot.parsed)
+        appendTaskResult(existingUUID: snapshot.existingUUID, parsed: snapshot.parsed)
     }
 
     private func handleTaskProposalCancel(_ message: AgentMessage) {
-        guard let thread = activeThread else { return }
-        appendAssistant(thread: thread, kind: .text, content: "已取消这次操作。")
+        appendAssistant(kind: .text, content: "已取消这次操作。")
     }
 
     /// 点卡片本身:AI 解析偶尔会错,跳到现有的 TaskEditView 表单微调后再保存
@@ -1032,42 +992,35 @@ struct AgentView: View {
     /// 回传给 AI 出最终 actions——不冒一条用户气泡,记录卡本身就是"用户答了什么"
     /// 的凭据(content 同步写成可读文本,recentHistory 因此天然带上答案)。
     private func handleAskSubmit(_ message: AgentMessage, answers: [[String]]) {
-        guard let thread = activeThread,
-              let data = message.askSnapshotData,
+        guard let data = message.askSnapshotData,
               var snapshot = try? JSONDecoder().decode(AgentAskSnapshot.self, from: data)
         else { return }
         snapshot.answers = answers
         message.kindRaw = AgentMessageKind.askResult.rawValue
         message.askSnapshotData = try? JSONEncoder().encode(snapshot)
         message.content = snapshot.transcript
-        thread.updatedAt = Date()
         try? context.save()
         send(overrideText: "(用户已回答上面的问题)\n\(snapshot.transcript)", hidesUserBubble: true)
     }
 
     private func handleAskCancel(_ message: AgentMessage) {
-        guard let thread = activeThread else { return }
-        appendAssistant(thread: thread, kind: .text, content: "已取消这次提问。")
+        appendAssistant(kind: .text, content: "已取消这次提问。")
     }
 
     private func handleConfirmAction(_ message: AgentMessage, execute: Bool) {
-        guard let thread = activeThread else { return }
         if execute {
-            onConfirm(thread.uuid)
-            appendAssistant(thread: thread, kind: .executed, content: "已完成执行")
+            onConfirm()
+            appendAssistant(kind: .executed, content: "已完成执行")
         } else {
-            appendAssistant(thread: thread, kind: .text, content: "已取消这次操作。")
+            appendAssistant(kind: .text, content: "已取消这次操作。")
         }
     }
 
     /// "已完成执行"气泡上的撤销按钮;结果(成功/没有可撤销的操作)追加成一条
-    /// 新的回答消息,和用户直接打字"撤销"走同一条展示路径。传当前 thread 的
-    /// uuid 给 onUndo 核对——这条按钮所在的气泡固然是"当前 thread 最新一条",
-    /// 但 lastUndo 记的可能是别的 thread 后来执行的一批,对不上就不会真撤销。
+    /// 新的回答消息,和用户直接打字"撤销"走同一条展示路径。
     private func handleUndo() {
-        guard let thread = activeThread else { return }
-        if case .answer(let text, let related) = onUndo(thread.uuid) {
-            appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
+        if case .answer(let text, let related) = onUndo() {
+            appendAssistant(kind: .answer, content: text, relatedTitles: related)
         }
     }
 
@@ -1108,9 +1061,8 @@ struct AgentView: View {
     /// "收藏这条"按钮:AI 主动建议、用户确认后才真正落库,展示形态和 memorize
     /// 分支(route() 里)一致的记忆结果卡片。
     private func handleMemorizeSuggestion(_ message: AgentMessage) {
-        guard let thread = activeThread else { return }
         let item = MemoryPipeline.saveText(message.content, context: context)
-        appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
+        appendAssistant(kind: .memoryResult, content: "已收藏",
                         resultMemoryUUID: item?.uuid)
     }
 
@@ -1233,14 +1185,16 @@ struct AgentView: View {
 
     /// 删除这条消息及其后(按 createdAt)所有历史(含 AI 回复),把原文回填输入框。
     private func performEdit(_ message: AgentMessage) {
-        let threadUUID = message.threadUUID
         let cutoff = message.createdAt
         let toDelete = (try? context.fetch(FetchDescriptor<AgentMessage>(
-            predicate: #Predicate<AgentMessage> {
-                $0.threadUUID == threadUUID && $0.createdAt >= cutoff
-            }))) ?? []
+            predicate: #Predicate<AgentMessage> { $0.createdAt >= cutoff }))) ?? []
         for item in toDelete { context.delete(item) }
         try? context.save()
+        // 截断到摘要水位线以内时把摘要作废:被删掉的那几条已经压进摘要了,
+        // 留着它就等于让模型继续记着一段用户刚亲手删掉的对话。下一轮会重压。
+        if cutoff <= AgentConversationSummary.coveredUntil {
+            AgentConversationSummary.reset()
+        }
         if let quoted = quotedMessage, toDelete.contains(where: { $0.uuid == quoted.uuid }) {
             quotedMessage = nil
         }
@@ -1250,20 +1204,14 @@ struct AgentView: View {
 
     // MARK: - 提交
 
-    /// hidesUserBubble:这次提交不代表用户"说了一句话",不插用户气泡也不动
-    /// thread 标题(询问卡答完后回传选择就走这条路——对话里留下的是那张记录卡,
+    /// hidesUserBubble:这次提交不代表用户"说了一句话",不插用户气泡
+    /// (询问卡答完后回传选择就走这条路——对话里留下的是那张记录卡,
     /// 再冒一条内容重复的蓝气泡反而啰嗦)。其余流程(busy/取消/思考提示/错误)
     /// 与正常发送完全一致。
     private func send(overrideText: String? = nil, hidesUserBubble: Bool = false) {
         let trimmed = (overrideText ?? text).trimmingCharacters(in: .whitespaces)
         guard trimmed.count > 0 || !pendingAttachments.isEmpty, !busy,
               !pendingAttachments.contains(where: \.isExtracting) else { return }
-        let thread = activeThread ?? {
-            let new = AgentThread()
-            context.insert(new)
-            currentThreadUUID = new.uuid
-            return new
-        }()
         speech.stop()
         busy = true
         // 上一次的报错不该跨过这次发送继续挂在输入栏上面。语音那条尤其要在这里清:
@@ -1280,23 +1228,15 @@ struct AgentView: View {
         var userMessage: AgentMessage?
         if !hidesUserBubble {
             let message = AgentMessage(
-                threadUUID: thread.uuid, role: .user, content: trimmed,
+                role: .user, content: trimmed,
                 attachmentMemoryUUIDs: attachments.compactMap(\.memoryUUID),
                 quotedContent: quoted?.content)
             context.insert(message)
             userMessage = message
-            }
-        // 首轮对话:先用截断兜底,立刻有个标题;拿到 AI 回复后再尝试换成真正的总结标题
-        // (刚打开时导航栏显示"AI 助手",这里是它第一次变成 thread 标题的地方)。
-        let isFirstMessage = !hidesUserBubble && thread.title.isEmpty
-        if isFirstMessage {
-            let seed = trimmed.isEmpty ? (attachments.first?.displayName ?? "") : trimmed
-            thread.title = MemorySearch.truncate(seed, limit: 20)
         }
-        thread.updatedAt = Date()
         try? context.save()
 
-        let history = recentHistory(in: thread, excluding: userMessage)
+        let history = recentHistory(excluding: userMessage)
         var outgoing = trimmed
         if let quoted {
             outgoing = "引用消息:「\(quoted.content)」\n\n" + outgoing
@@ -1324,7 +1264,7 @@ struct AgentView: View {
                 sendTask = nil
             }
             do {
-                let reply = try await submit(outgoing, thread.uuid, history) { thought in
+                let reply = try await submit(outgoing, history) { thought in
                     thinkingText = thought
                 }
                 // 拿到结果时可能已经被用户取消——不再落库/弹表单,避免取消瞬间
@@ -1332,36 +1272,33 @@ struct AgentView: View {
                 guard !Task.isCancelled else { return }
                 switch reply {
                 case .created(let task, let parsed):
-                    appendTaskResult(thread: thread, existingUUID: nil, parsed: parsed,
+                    appendTaskResult(existingUUID: nil, parsed: parsed,
                                      createdUUID: task.uuid)
                 case .updated(let task, let parsed):
-                    appendTaskResult(thread: thread, existingUUID: task.uuid, parsed: parsed)
+                    appendTaskResult(existingUUID: task.uuid, parsed: parsed)
                 case .confirm(let lines):
-                    appendAssistant(thread: thread, kind: .confirm, content: lines.joined(separator: "\n"))
+                    appendAssistant(kind: .confirm, content: lines.joined(separator: "\n"))
                 case .ask(let questions):
                     let snapshot = AgentAskSnapshot(questions: questions)
                     appendAssistant(
-                        thread: thread, kind: .ask,
+                        kind: .ask,
                         content: questions.map(\.question).joined(separator: "\n"),
                         askSnapshotData: try? JSONEncoder().encode(snapshot))
                 case .answer(let text, let related):
-                    appendAssistant(thread: thread, kind: .answer, content: text, relatedTitles: related)
+                    appendAssistant(kind: .answer, content: text, relatedTitles: related)
                 case .suggestMemorize(let text):
-                    appendAssistant(thread: thread, kind: .memorizeSuggestion, content: text)
+                    appendAssistant(kind: .memorizeSuggestion, content: text)
                 case .memorized(let uuid):
-                    appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
+                    appendAssistant(kind: .memoryResult, content: "已收藏",
                                     resultMemoryUUID: uuid)
                 case .autoMemorized(let uuid):
-                    appendAssistant(thread: thread, kind: .memoryResult, content: "已自动记录",
+                    appendAssistant(kind: .memoryResult, content: "已自动记录",
                                     resultMemoryUUID: uuid)
                 case .tripPlan(let plan):
-                    appendTripPlan(thread: thread, plan: plan)
+                    appendTripPlan(plan: plan)
                 case .tripEdited(let record):
-                    appendAssistant(thread: thread, kind: .tripEdit, content: record.transcript,
+                    appendAssistant(kind: .tripEdit, content: record.transcript,
                                     tripEditSnapshotData: try? JSONEncoder().encode(record))
-                }
-                if isFirstMessage {
-                    refineThreadTitle(thread: thread, userText: trimmed, reply: reply)
                 }
             } catch {
                 // 用户主动取消不算错误,不弹提示;DeepSeekClient 的 URLSession
@@ -1380,132 +1317,85 @@ struct AgentView: View {
         thinkingText = nil
     }
 
-    /// 首轮对话拿到回复后,尝试用 AI 把标题从"原话截断"换成真正的总结标题;
-    /// 尽力而为——没配置 AI/请求失败时保留截断版标题,不影响使用。
-    private func refineThreadTitle(thread: AgentThread, userText: String, reply: AgentReply) {
-        guard DeepSeekClient.isConfigured else { return }
-        let assistantText = Self.summaryInput(for: reply)
-        let combined = "用户:\(userText)" + (assistantText.isEmpty ? "" : "\n助手:\(assistantText)")
-        Task { @MainActor in
-            guard let title = try? await DeepSeekClient.summarizeThreadTitle(combined) else { return }
-            thread.title = title
-            try? context.save()
-        }
-    }
-
-    private static func summaryInput(for reply: AgentReply) -> String {
-        switch reply {
-        case .created(_, let parsed): return "新建了事项:\(parsed.title)"
-        case .updated(_, let parsed): return "修改了事项:\(parsed.title)"
-        case .confirm(let lines): return lines.joined(separator: ";")
-        case .ask(let questions): return questions.first?.question ?? ""
-        case .answer(let text, _): return text
-        case .suggestMemorize(let text): return text
-        case .memorized: return "已收藏一条记忆"
-        case .autoMemorized: return "自动记录了一条信息"
-        case .tripPlan(let plan): return "规划了行程:\(plan.tripTitle)"
-        case .tripEdited(let record): return "调整了行程:\(record.tripTitle)"
-        }
-    }
-
     #if DEBUG
-    /// 截图验证用:把对话列表填到能看出滚动和高亮的量(只在几乎为空时插)。
-    private func seedDemoThreads() {
-        guard threads.count < 3 else { return }
-        let titles = [
-            "明天下午的会议安排", "整理这周的待办", "帮我记一下 wifi 密码",
-            "把周报相关的都完成", "台风对航班的影响", "下周体检提醒",
-            "把过期的清理掉", "买菜清单",
-        ]
-        for (index, title) in titles.enumerated() {
-            let thread = AgentThread()
-            thread.title = title
-            // 倒序排列稳定一点:越靠前的越"新"。
-            thread.updatedAt = Date().addingTimeInterval(-Double(index) * 3600)
-            context.insert(thread)
-        }
-        try? context.save()
-    }
-
     /// 截图验证用:模拟确认清单 / 反问 / 回答三种回应态。
     private func seedDemoMessagesIfNeeded() {
-        guard let thread = activeThread else { return }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-confirm") {
-            appendAssistant(thread: thread, kind: .confirm,
+            appendAssistant(kind: .confirm,
                             content: "新建:开周会(明天 15:00 · 60 分钟)\n完成:给妈妈回电话\n删除:取快递")
         }
         // 询问卡:三道题(单选 + 多选各有),覆盖翻页器、推荐角标、其他输入框。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-ask") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "提醒我交材料"))
+            context.insert(AgentMessage(role: .user, content: "提醒我交材料"))
             appendAssistant(
-                thread: thread, kind: .ask,
+                kind: .ask,
                 content: Self.demoAskSnapshot.questions.map(\.question).joined(separator: "\n"),
                 askSnapshotData: try? JSONEncoder().encode(Self.demoAskSnapshot))
         }
         // 答完之后的记录卡。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-ask-result") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "提醒我交材料"))
+            context.insert(AgentMessage(role: .user, content: "提醒我交材料"))
             var answered = Self.demoAskSnapshot
             answered.answers = [["明天 09:00"], ["30 分钟"], ["身份证", "复印件"]]
-            appendAssistant(thread: thread, kind: .askResult, content: answered.transcript,
+            appendAssistant(kind: .askResult, content: answered.transcript,
                             askSnapshotData: try? JSONEncoder().encode(answered))
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-answer") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "我之前存的 wifi 密码"))
-            appendAssistant(thread: thread, kind: .answer, content: "你收藏的 wifi 密码是 8888。",
+            context.insert(AgentMessage(role: .user, content: "我之前存的 wifi 密码"))
+            appendAssistant(kind: .answer, content: "你收藏的 wifi 密码是 8888。",
                             relatedTitles: ["家里 wifi 密码"])
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-executed") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "把开会删了"))
-            appendAssistant(thread: thread, kind: .executed, content: "已完成执行")
+            context.insert(AgentMessage(role: .user, content: "把开会删了"))
+            appendAssistant(kind: .executed, content: "已完成执行")
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-memorize-suggestion") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "我周三下午一般没空"))
-            appendAssistant(thread: thread, kind: .memorizeSuggestion, content: "用户周三下午通常没有空闲时间")
+            context.insert(AgentMessage(role: .user, content: "我周三下午一般没空"))
+            appendAssistant(kind: .memorizeSuggestion, content: "用户周三下午通常没有空闲时间")
         }
         // 老对话里那种"先出提案、点确认才落库"的卡片。新流程不再产生它(新建
         // 默认直接落库),但老库里存着的仍要能正常渲染——这个 demo 就是拿来回归
         // 那条兼容路径的,所以消息在这儿手搓,不再留一个只有它在用的生产方法。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-proposal") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
+            context.insert(AgentMessage(role: .user, content: "明天下午3点开会,60分钟"))
             let snapshot = AgentTaskSnapshot(existingUUID: nil, parsed: Self.demoParsedTask)
-            appendAssistant(thread: thread, kind: .taskProposal, content: "新建",
+            appendAssistant(kind: .taskProposal, content: "新建",
                             taskSnapshotData: try? JSONEncoder().encode(snapshot))
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
-            appendTaskResult(thread: thread, existingUUID: nil, parsed: Self.demoParsedTask,
+            context.insert(AgentMessage(role: .user, content: "明天下午3点开会,60分钟"))
+            appendTaskResult(existingUUID: nil, parsed: Self.demoParsedTask,
                              createdUUID: UUID())
         }
         // 新建结果卡片被点掉之后的样子(灰色 ✕ + "已取消新建")。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result-removed") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "明天下午3点开会,60分钟"))
+            context.insert(AgentMessage(role: .user, content: "明天下午3点开会,60分钟"))
             let snapshot = AgentTaskSnapshot(existingUUID: nil, parsed: Self.demoParsedTask,
                                              createdUUID: UUID(), createdRemoved: true)
-            appendAssistant(thread: thread, kind: .taskResult, content: "已新建",
+            appendAssistant(kind: .taskResult, content: "已新建",
                             taskSnapshotData: try? JSONEncoder().encode(snapshot))
         }
         // 修改结果卡片(带撤销按钮),和上面新建结果卡片(带对号开关)对照截图用。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-task-result-updated") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "开会挪到下午4点"))
-            appendTaskResult(thread: thread, existingUUID: UUID(), parsed: Self.demoParsedTask)
+            context.insert(AgentMessage(role: .user, content: "开会挪到下午4点"))
+            appendTaskResult(existingUUID: UUID(), parsed: Self.demoParsedTask)
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-plan") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "帮我规划一下京都三天"))
-            appendTripPlan(thread: thread, plan: Self.demoTripPlan)
+            context.insert(AgentMessage(role: .user, content: "帮我规划一下京都三天"))
+            appendTripPlan(plan: Self.demoTripPlan)
         }
         // 写入之后的样子:真的走一遍 TravelStore.applyPlan,旅行页里能看到这次旅行。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-plan-applied") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "帮我规划一下京都三天"))
+            context.insert(AgentMessage(role: .user, content: "帮我规划一下京都三天"))
             let applied = TravelStore.applyPlan(Self.demoTripPlan, context: context)
             appendAssistant(
-                thread: thread, kind: .tripPlan, content: "已写入",
+                kind: .tripPlan, content: "已写入",
                 tripPlanSnapshotData: try? JSONEncoder().encode(applied))
         }
         // 调整结果卡片:先把样板规划写进旅行,再真的执行一次"第二天改去奈良"。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-edit") {
             let applied = TravelStore.applyPlan(Self.demoTripPlan, context: context)
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user,
+            context.insert(AgentMessage(role: .user,
                                         content: "京都第二天不去岚山了,改去奈良"))
             let calendar = Calendar.current
             let day2 = calendar.date(byAdding: .day, value: 1, to: applied.startDate)!
@@ -1527,42 +1417,42 @@ struct AgentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-trip-edit-reverted") {
                     record = TravelStore.revertEdit(record, context: context)
                 }
-                appendAssistant(thread: thread, kind: .tripEdit, content: record.transcript,
+                appendAssistant(kind: .tripEdit, content: record.transcript,
                                 tripEditSnapshotData: try? JSONEncoder().encode(record))
             }
         }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-memory-result") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "记住wifi密码是8888"))
+            context.insert(AgentMessage(role: .user, content: "记住wifi密码是8888"))
             let item = MemoryPipeline.saveText("wifi密码是8888", context: context)
-            appendAssistant(thread: thread, kind: .memoryResult, content: "已收藏",
+            appendAssistant(kind: .memoryResult, content: "已收藏",
                             resultMemoryUUID: item?.uuid)
         }
         // 打字机动画:插入一条 createdAt 晚于 typingBaseline 的 .text 回复,
         // 触发逐字显示 + 逐字振动(和加载已有历史消息时的"整段直接显示"对照)。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-text-reply") {
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "帮我看看今天忙不忙"))
-            appendAssistant(thread: thread, kind: .text,
+            context.insert(AgentMessage(role: .user, content: "帮我看看今天忙不忙"))
+            appendAssistant(kind: .text,
                             content: "今天你只有一件事——下午3点开会,其余时间都空着,可以安排点别的。")
         }
         // 用户气泡带引用摘要(quote.bubble 图标 + 单行截断),对照气泡渲染用。
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-quoted") {
-            let quoted = AgentMessage(threadUUID: thread.uuid, role: .assistant,
+            let quoted = AgentMessage(role: .assistant,
                                       content: "你收藏的 wifi 密码是 8888。")
             context.insert(quoted)
-            context.insert(AgentMessage(threadUUID: thread.uuid, role: .user, content: "谢谢",
+            context.insert(AgentMessage(role: .user, content: "谢谢",
                                         quotedContent: quoted.content))
         }
-        if ProcessInfo.processInfo.arguments.contains("--demo-agent-threads") {
-            for title in ["记住wifi密码是8888", "我想去香山爬山"] {
-                let extra = AgentThread()
-                extra.title = title
-                extra.updatedAt = Date().addingTimeInterval(-Double.random(in: 3600...300000))
-                context.insert(extra)
-                context.insert(AgentMessage(threadUUID: extra.uuid, role: .user, content: title))
+        // 截图验证用:塞满一页多的历史,看列表窗口化和顶上那颗「载入更早的对话」。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-history") {
+            let base = Date().addingTimeInterval(-Double(Self.historyPageSize) * 120)
+            for index in 0..<(Self.historyPageSize + 20) {
+                let message = AgentMessage(
+                    role: index.isMultiple(of: 2) ? .user : .assistant,
+                    content: index.isMultiple(of: 2) ? "第 \(index / 2 + 1) 句" : "好的。")
+                message.createdAt = base.addingTimeInterval(Double(index) * 60)
+                context.insert(message)
             }
             try? context.save()
-            // 抽屉归外壳管,这里只负责把数据塞出来;要连带推开抽屉截图的话
-            // 配合 --demo-sidebar 一起传(见 AppShellView.applyDemoArguments)。
         }
     }
 
@@ -1772,10 +1662,15 @@ private struct FormTarget: Identifiable {
     let parsed: ParsedTask
 }
 
-/// 消息列表:按 thread 建 @Query(SwiftData 动态 predicate 的标准写法——
-/// 父视图用 .id(thread.uuid) 强制这个子视图在切换 thread 时重建)。
+/// 消息列表。对话是单一持续时间线、永不结束,所以**倒序取最近 historyWindow 条**
+/// 再翻回正序展示,而不是把整条历史灌进 @Query(AI 页还是冷启动的落地页,那样
+/// 每次启动都要把全部消息实例化一遍)。窗口大小是动态 descriptor,父视图用
+/// `.id(historyWindow)` 强制这个子视图在换页时重建——正是原来按 thread 建
+/// @Query 时 `.id(thread.uuid)` 那一套写法。
 private struct AgentMessageListView: View {
-    let thread: AgentThread
+    let historyWindow: Int
+    /// 顶上那颗「载入更早的对话」:父视图把窗口加一页。
+    let onLoadEarlier: () -> Void
     let onConfirmAction: (AgentMessage, Bool) -> Void
     let onUndo: () -> Void
     let onMemorizeSuggestion: (AgentMessage) -> Void
@@ -1795,17 +1690,24 @@ private struct AgentMessageListView: View {
     let onPendingAskChange: (Bool) -> Void
 
     @Query private var messages: [AgentMessage]
+
+    /// @Query 取的是倒序(为了 fetchLimit 能截到**最近** historyWindow 条),
+    /// 展示前翻回正序。
+    private var ordered: [AgentMessage] { messages.reversed() }
+    /// 还有更早的没载进来:这一页取满了就假定上面还有。
+    private var hasEarlier: Bool { messages.count >= historyWindow }
     /// 最后一条是待答的询问卡(答完/取消后它会变成 askResult 或后面追加新消息,
     /// 这个值随即变 false)。
-    private var hasPendingAsk: Bool { messages.last?.kind == .ask }
+    private var hasPendingAsk: Bool { messages.first?.kind == .ask }
 
-    /// 这个 thread 视图这次打开的时间点;晚于它 createdAt 的 .text 回复才播打字机
+    /// 这个视图这次构建的时间点;晚于它 createdAt 的 .text 回复才播打字机
     /// 动画("这次会话里刚收到的新回复"),早于它的历史消息一律整段直接显示。
-    /// .id(thread.uuid) 强制换 thread 时这个 struct 连带 @State 一起重建,
-    /// 天然按 thread 各自归零,不需要额外重置逻辑。
+    /// 换页(.id(historyWindow))时会连带 @State 一起重建、把它推到"点载入更早
+    /// 那一刻",但载进来的都是更老的消息,照样不播,所以不用额外重置逻辑。
     @State private var typingBaseline = Date()
 
-    init(thread: AgentThread, onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
+    init(historyWindow: Int, onLoadEarlier: @escaping () -> Void,
+         onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
          onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
          onCancelMemoryResult: @escaping (AgentMessage) -> Void,
          onToggleCreatedTask: @escaping (AgentMessage) -> Void,
@@ -1819,7 +1721,8 @@ private struct AgentMessageListView: View {
          onQuote: @escaping (AgentMessage) -> Void,
          onEdit: @escaping (AgentMessage) -> Void,
          onPendingAskChange: @escaping (Bool) -> Void) {
-        self.thread = thread
+        self.historyWindow = historyWindow
+        self.onLoadEarlier = onLoadEarlier
         self.onConfirmAction = onConfirmAction
         self.onUndo = onUndo
         self.onMemorizeSuggestion = onMemorizeSuggestion
@@ -1835,9 +1738,10 @@ private struct AgentMessageListView: View {
         self.onQuote = onQuote
         self.onEdit = onEdit
         self.onPendingAskChange = onPendingAskChange
-        let uuid = thread.uuid
-        _messages = Query(filter: #Predicate<AgentMessage> { $0.threadUUID == uuid },
-                          sort: [SortDescriptor(\.createdAt)])
+        var descriptor = FetchDescriptor<AgentMessage>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        descriptor.fetchLimit = historyWindow
+        _messages = Query(descriptor)
     }
 
     var body: some View {
@@ -1847,9 +1751,16 @@ private struct AgentMessageListView: View {
                     if messages.isEmpty {
                         emptyState
                     }
-                    ForEach(messages) { message in
+                    if hasEarlier {
+                        Button("载入更早的对话", action: onLoadEarlier)
+                            .buttonStyle(.bordered)
+                            .buttonBorderShape(.capsule)
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    ForEach(ordered) { message in
                         AgentMessageBubble(
-                            message: message, isLatest: message.uuid == messages.last?.uuid,
+                            message: message, isLatest: message.uuid == messages.first?.uuid,
                             onConfirm: { onConfirmAction(message, true) },
                             onCancelConfirm: { onConfirmAction(message, false) },
                             onUndo: onUndo,
@@ -1885,12 +1796,12 @@ private struct AgentMessageListView: View {
             // scrollTo 会落空。
             .defaultScrollAnchor(.bottom)
             .onChange(of: messages.count) { _, _ in
-                if let last = messages.last {
+                if let last = messages.first {
                     withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }
                 }
             }
             .onAppear {
-                if let last = messages.last { proxy.scrollTo(last.uuid, anchor: .bottom) }
+                if let last = messages.first { proxy.scrollTo(last.uuid, anchor: .bottom) }
                 onPendingAskChange(hasPendingAsk)
             }
             .onChange(of: hasPendingAsk) { _, pending in onPendingAskChange(pending) }

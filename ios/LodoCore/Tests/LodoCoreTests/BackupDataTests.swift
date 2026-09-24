@@ -17,10 +17,8 @@ final class BackupDataTests: XCTestCase {
                 sourceText: "原文", urlString: nil, originalFileName: nil,
                 relativeFilePath: nil, statusRaw: "ready", createdAt: Date())],
             memoryTags: [BackupMemoryTag(name: "工作", createdAt: Date())],
-            agentThreads: [BackupAgentThread(
-                uuid: UUID(), title: "新对话", createdAt: Date(), updatedAt: Date())],
             agentMessages: [BackupAgentMessage(
-                uuid: UUID(), threadUUID: UUID(), roleRaw: "user", kindRaw: "text",
+                uuid: UUID(), roleRaw: "user", kindRaw: "text",
                 content: "你好", relatedTitles: [],
                 attachmentMemoryUUIDs: [], createdAt: Date())],
             skillOverrides: [BackupSkillOverride(id: "agent", content: "自定义总则")],
@@ -39,7 +37,6 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(decoded.tasks[0].title, "开会")
         XCTAssertEqual(decoded.memoryItems[0].tags, ["标签"])
         XCTAssertEqual(decoded.memoryTags[0].name, "工作")
-        XCTAssertEqual(decoded.agentThreads[0].title, "新对话")
         XCTAssertEqual(decoded.agentMessages[0].content, "你好")
         XCTAssertEqual(decoded.skillOverrides[0].content, "自定义总则")
         XCTAssertEqual(decoded.settings.snoozeMinutes, 15)
@@ -185,8 +182,20 @@ final class BackupDataTests: XCTestCase {
             }
           ],
           "memoryTags": [],
-          "agentThreads": [],
-          "agentMessages": [],
+          "agentThreads": [
+            {
+              "uuid": "\(UUID().uuidString)",
+              "title": "老对话", "createdAt": 0, "updatedAt": 0
+            }
+          ],
+          "agentMessages": [
+            {
+              "uuid": "\(UUID().uuidString)",
+              "threadUUID": "\(UUID().uuidString)",
+              "roleRaw": "user", "kindRaw": "text", "content": "老消息",
+              "relatedTitles": [], "attachmentMemoryUUIDs": [], "createdAt": 0
+            }
+          ],
           "skillOverrides": [],
           "settings": {
             "snoozeMinutes": 15, "allDayTime": "09:00", "digestEnabled": true,
@@ -206,6 +215,10 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(decoded.memoryItems[0].attachmentRelativePaths, [])
         XCTAssertNil(decoded.memoryItems[0].contactNickname)
         XCTAssertTrue(decoded.contactRelationships.isEmpty)
+        // 老备份里的 agentThreads 整段被忽略(没有对应的模型可落),
+        // 同一份里的消息照常恢复 —— threadUUID 那个 key 多出来也不影响解码。
+        XCTAssertTrue(decoded.agentThreads.isEmpty)
+        XCTAssertEqual(decoded.agentMessages[0].content, "老消息")
         XCTAssertEqual(decoded.settings.sttEngine, "qwenASR")
         XCTAssertTrue(decoded.settings.useBuiltInSTTKey)
         XCTAssertTrue(decoded.settings.quietHoursEnabled)
@@ -213,23 +226,42 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(decoded.settings.quietHoursEnd, "08:00")
     }
 
-    func testAgentThreadAndMessageBackupAndApplyRoundTrip() {
-        let thread = AgentThread()
-        thread.title = "旅行计划"
-        let message = AgentMessage(threadUUID: thread.uuid, role: .assistant, content: "好的")
-
-        let threadDTO = thread.backup
-        let restoredThread = AgentThread()
-        threadDTO.apply(to: restoredThread)
-        XCTAssertEqual(restoredThread.uuid, thread.uuid)
-        XCTAssertEqual(restoredThread.title, "旅行计划")
+    func testAgentMessageBackupAndApplyRoundTrip() {
+        let message = AgentMessage(role: .assistant, content: "好的")
 
         let messageDTO = message.backup
-        let restoredMessage = AgentMessage(threadUUID: UUID(), role: .user, content: "")
+        let restoredMessage = AgentMessage(role: .user, content: "")
+        // formatVersion 先按老库的存量行摆成 0,验证 apply 会把它抬回 1——
+        // 留在 0 的话下次启动会被 AgentHistoryMigration 当成老分段对话删掉。
+        restoredMessage.formatVersion = 0
         messageDTO.apply(to: restoredMessage)
         XCTAssertEqual(restoredMessage.uuid, message.uuid)
-        XCTAssertEqual(restoredMessage.threadUUID, thread.uuid)
         XCTAssertEqual(restoredMessage.content, "好的")
-        XCTAssertEqual(restoredMessage.role, .assistant)
+        XCTAssertEqual(restoredMessage.roleRaw, "assistant")
+        XCTAssertEqual(restoredMessage.formatVersion, 1)
+    }
+
+    /// 退役的 agentThreads / threadUUID 仍要写进新备份:老版本 app 里这两个 key
+    /// 是必需的,不写会让那边整条 decode 失败。别"顺手清理"掉。
+    func testEncodedPayloadStillCarriesRetiredThreadKeys() throws {
+        let payload = BackupPayload(
+            tasks: [], memoryItems: [], memoryTags: [],
+            agentMessages: [BackupAgentMessage(
+                uuid: UUID(), roleRaw: "user", kindRaw: "text", content: "你好",
+                relatedTitles: [], attachmentMemoryUUIDs: [], createdAt: Date())],
+            skillOverrides: [],
+            settings: BackupSettings(
+                snoozeMinutes: 15, allDayTime: "09:00", digestEnabled: true,
+                digestTime: "21:00", digestTimes: "09:00", digestRepeatType: "daily",
+                digestDays: "0", hapticsEnabled: true, insightEnabled: true,
+                agentSilenceTimeoutSeconds: 3,
+                agentPersonaStyle: "默认", agentPersonaCustom: "", aiProvider: "DeepSeek",
+                aiModel: "", aiCustomEndpoint: "", icloudSyncEnabled: true))
+        let json = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(payload)) as! [String: Any]
+        XCTAssertNotNil(json["agentThreads"] as? [Any])
+        XCTAssertEqual((json["agentThreads"] as? [Any])?.count, 0)
+        let messages = json["agentMessages"] as! [[String: Any]]
+        XCTAssertNotNil(messages[0]["threadUUID"])
     }
 }
