@@ -191,6 +191,21 @@ public enum DeepSeekClient {
         return "当前时间:\(dateFormatter.string(from: now))(星期\(weekdays[index]))"
     }
 
+    /// 更早对话的摘要块:窗口之外的历史压成一段常驻文字(见
+    /// `AgentConversationSummary`),拼在 historyBlock **之前**——时间上更早,
+    /// 而且它是背景、逐条历史是近景。没压过摘要时整段不出现,prompt 与加这个
+    /// 功能之前逐字一致。单测入口,纯字符串拼接不依赖网络。
+    static func summaryBlock(_ summary: String?) -> String {
+        guard let summary,
+              !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+        return """
+
+
+        更早对话的摘要(更久以前聊过的,已经压缩过;对话历史里找不到的上下文从这里找):
+        \(summary)
+        """
+    }
+
     /// 对话历史块:多轮聊天用,拼进 command() 的 system prompt。
     /// 空历史返回空字符串(单测入口,纯字符串拼接不依赖网络)。
     static func historyBlock(_ history: [(role: String, content: String)]) -> String {
@@ -272,6 +287,8 @@ public enum DeepSeekClient {
         travelEnabled: Bool = false,
         tripPlanEnabled: Bool = false,
         history: [(role: String, content: String)] = [],
+        /// 更早对话的摘要;默认 nil ⇒ 整段不出现,Watch 等调用方 prompt 逐字不变。
+        summary: String? = nil,
         existingProjects: [String] = []
     ) async throws -> AICommandResult {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
@@ -294,7 +311,7 @@ public enum DeepSeekClient {
         \(timeContext)\(preferencesBlock)
 
         当前待办列表:
-        \(json(list))\(personaBlock)\(historyBlock(history))
+        \(json(list))\(personaBlock)\(summaryBlock(summary))\(historyBlock(history))
         """
         // 模型按 prompt 约定用 {"error": "原因"} 表示"这句话里没有我能执行的操作"
         // (带了张照片却没说要拿它干什么就是最常见的一种),decodePayload 会把那句
@@ -1046,6 +1063,35 @@ public enum DeepSeekClient {
             throw DeepSeekError.parse("返回格式异常:缺少 text")
         }
         return .text(text)
+    }
+
+    /// 把一段更早的对话压成常驻摘要。AI 助手是单一持续对话、永不结束,窗口之外
+    /// 的消息不压就等于彻底失忆。**滚动摘要**:上一版摘要和这批新消息一起给模型,
+    /// 让它产出合并后的一份,而不是每段各摘一份堆在一起。
+    /// 不拼 personaBlock:摘要是给模型自己看的上下文,要客观,不需要说话风格。
+    public static func summarizeConversation(previous: String?, transcript: String) async throws
+        -> String {
+        let system = """
+        你是提醒事项应用 lodo 的对话记忆整理助手。下面是用户与 AI 助手更早的一段对话,\
+        请把它压缩成一段摘要,供之后的对话理解上下文。\
+        保留:用户说过的事实与偏好、已经执行过的操作及其结果(新建/修改/完成了什么、\
+        收藏了什么、规划或调整了哪次行程)、还没了结的话题。\
+        丢弃:寒暄、重复的确认、纯粹的客套。用第三人称陈述,不要复述原话。\
+        \(previous == nil ? "" : "已有摘要要一并合并进来,不要丢掉它里面的事实。")\
+        只返回 JSON:{"summary": "摘要正文"},不要任何其他文字。
+        """
+        let user = previous.map { "已有摘要:\n\($0)\n\n新增对话:\n\(transcript)" } ?? transcript
+        return try parseConversationSummary(
+            await payload(system: system, user: user, timeout: 60))
+    }
+
+    /// 从 payload 里解析对话摘要(单测入口)。
+    static func parseConversationSummary(_ payload: [String: Any]) throws -> String {
+        guard let summary = payload["summary"] as? String,
+              !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 summary")
+        }
+        return summary.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// 把今天的事项列表改写成一句话汇总,突出重点事件(用于每日汇总通知正文)。

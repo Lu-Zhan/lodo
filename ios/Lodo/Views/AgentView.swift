@@ -63,6 +63,8 @@ struct AgentView: View {
     /// 会把整条历史实例化在启动路径上(AI 页还是冷启动的落地页)。倒序取这么多
     /// 条,顶上留一颗「载入更早的对话」把它加一页。
     @State private var historyWindow = AgentView.historyPageSize
+    /// 后台压缩正在跑;防重入(连发两条消息时不重复压同一批)。
+    @State private var isCompacting = false
     static let historyPageSize = 200
 
     @State private var pendingAttachments: [PendingAttachment] = []
@@ -915,6 +917,41 @@ struct AgentView: View {
             .map { (role: $0.roleRaw, content: $0.content) }
     }
 
+    /// 窗口之外积够一批就把它们压成常驻摘要(`AgentConversationSummary`)。
+    ///
+    /// **在这一轮回复落库之后触发,不是发送之前**:压缩自己也是一次网络请求,
+    /// 放在发送前会给这一轮平白加一次串行等待,而这一轮用上一次压出来的摘要
+    /// 本来就够——差一个批次不影响理解。整段照 `AgentPreferences.consolidateIfNeeded`
+    /// 的姿态:fire-and-forget,没配 key/断网/解析失败一律静默跳过、保持原样
+    /// (水位线不动,下一轮再试),绝不冒泡到 errorText 打断主流程。
+    private func compactHistoryIfNeeded() {
+        guard DeepSeekClient.isConfigured, !isCompacting else { return }
+        let covered = AgentConversationSummary.coveredUntil
+        let all = (try? context.fetch(FetchDescriptor<AgentMessage>(
+            sortBy: [SortDescriptor(\.createdAt)]))) ?? []
+        // 窗口里那批要原样逐条回传,不能压;只看它前面、且还没压过的。
+        let pending = all.dropLast(AgentConversationSummary.recentWindow)
+            .filter { $0.createdAt > covered }
+        guard pending.count >= AgentConversationSummary.compressBatch else { return }
+
+        // ModelContext 不跨线程:先在主线程把要压的内容取成纯值,再进后台任务。
+        let transcript = pending
+            .map { "\($0.roleRaw == "user" ? "用户" : "助手"):\($0.content)" }
+            .joined(separator: "\n")
+        guard let until = pending.last?.createdAt else { return }
+        let previous = AgentConversationSummary.content
+        let total = AgentConversationSummary.coveredCount + pending.count
+
+        isCompacting = true
+        Task { @MainActor in
+            defer { isCompacting = false }
+            guard let summary = try? await DeepSeekClient.summarizeConversation(
+                previous: previous, transcript: MemorySearch.truncate(transcript, limit: 8000))
+            else { return }
+            AgentConversationSummary.save(summary, coveredUntil: until, coveredCount: total)
+        }
+    }
+
     @discardableResult
     private func appendAssistant(
         kind: AgentMessageKind, content: String,
@@ -1300,6 +1337,7 @@ struct AgentView: View {
                     appendAssistant(kind: .tripEdit, content: record.transcript,
                                     tripEditSnapshotData: try? JSONEncoder().encode(record))
                 }
+                compactHistoryIfNeeded()
             } catch {
                 // 用户主动取消不算错误,不弹提示;DeepSeekClient 的 URLSession
                 // async 请求本身就会随 Task 取消抛 CancellationError,不用额外
