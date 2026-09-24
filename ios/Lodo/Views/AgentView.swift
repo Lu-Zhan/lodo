@@ -18,8 +18,11 @@ struct AgentView: View {
     @Binding var pendingPrefill: String?
     /// 解析并路由输入文本 + 最近对话历史;onThought 在 ReAct 循环中间步骤时被调用
     /// (如"正在查记忆…"),驱动 thinkingText 那条轻量提示。返回本页要展示的回应形态。
+    /// onStream 收到的是"到目前为止的全文"(不是增量),直接赋给预览气泡即可;
+    /// 收到空串表示流式失败要回退,得把已经显示的半句清掉。
     let submit: (
-        String, [(role: String, content: String)], @escaping (String) -> Void
+        String, [(role: String, content: String)], @escaping (String) -> Void,
+        @escaping (String) -> Void, @escaping (String) -> Void
     ) async throws -> AgentReply
     /// 用户确认执行批量操作(操作暂存在 AgentHostView)。
     let onConfirm: () -> Void
@@ -36,11 +39,17 @@ struct AgentView: View {
 
     /// ReAct 循环中间步骤的轻量提示(如"正在查记忆…");不落库,循环一结束就清空。
     @State private var thinkingText: String?
+    /// 流式回复的临时预览,渲染在消息列表末尾;不落库,请求一结束就清空
+    /// (真正那条 .answer 消息随即落库,长相一样,不会跳布局)。
+    @State private var streamingAnswer: String?
 
     @State private var text = ""
     @State private var busy = false
     /// 发送中的请求;busy 时发送按钮变成取消,点了就 cancel 这个 Task。
     @State private var sendTask: Task<Void, Never>?
+    /// 推理模型吐出的思考过程的尾巴,喂给"思考中…"那行;每轮请求结束清空。
+    @State private var reasoningTail = ""
+
     @State private var errorText: String?
     @State private var speech = SpeechInput()
     /// 打开页面默认唤起键盘,方便直接打字;语音改成手动点麦克风图标触发。
@@ -84,7 +93,8 @@ struct AgentView: View {
     /// 别的文件用不了,所以显式写一个。
     init(pendingPrefill: Binding<String?>,
          submit: @escaping (
-            String, [(role: String, content: String)], @escaping (String) -> Void
+            String, [(role: String, content: String)], @escaping (String) -> Void,
+            @escaping (String) -> Void, @escaping (String) -> Void
          ) async throws -> AgentReply,
          onConfirm: @escaping () -> Void,
          onUndo: @escaping () -> AgentReply,
@@ -335,6 +345,19 @@ struct AgentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-photos") {
                     seedDemoPhotos()
                 }
+                // 截图验证用:不发网络,自己逐片喂 streamingAnswer,截流式中态。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-stream") {
+                    busy = true
+                    Task { @MainActor in
+                        let full = "杭州明天多云转小雨,白天 24 度、夜里 19 度,傍晚那阵雨下得急。"
+                        var shown = ""
+                        for character in full {
+                            try? await Task.sleep(nanoseconds: 60_000_000)
+                            shown.append(character)
+                            streamingAnswer = shown
+                        }
+                    }
+                }
                 // 截图验证用:模拟长按气泡选了"修改"——直接弹出截断确认弹窗
                 // (simctl 没法长按+点菜单项)。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-edit-confirm") {
@@ -362,6 +385,7 @@ struct AgentView: View {
         // 露出的是聊天内容本身,不是另一块单独的磨砂色块。
         AgentMessageListView(
             historyWindow: historyWindow,
+            streamingAnswer: streamingAnswer,
             onLoadEarlier: { historyWindow += Self.historyPageSize },
             onConfirmAction: handleConfirmAction,
             onUndo: handleUndo,
@@ -1298,12 +1322,27 @@ struct AgentView: View {
             defer {
                 busy = false
                 thinkingText = nil
+                streamingAnswer = nil
+                reasoningTail = ""
                 sendTask = nil
             }
             do {
-                let reply = try await submit(outgoing, history) { thought in
-                    thinkingText = thought
-                }
+                // submit 是个闭包属性,形参没有标签,所以三个回调只能按位置传
+                // (多重尾随闭包要求被调用方在类型里声明标签)。
+                let reply = try await submit(
+                    outgoing, history,
+                    { thought in thinkingText = thought },
+                    { text in
+                        // 空串 = 流式失败要回退,把已经显示的半句收掉。
+                        streamingAnswer = text.isEmpty ? nil : text
+                        if streamingAnswer != nil { thinkingText = nil }
+                    },
+                    { chunk in
+                        // 推理模型先吐思考再吐正文,这段空窗期比正文本身还长。
+                        // 只显示尾巴一小截(够看出"它在想什么"),不落库。
+                        reasoningTail = String((reasoningTail + chunk).suffix(40))
+                        if streamingAnswer == nil { thinkingText = reasoningTail }
+                    })
                 // 拿到结果时可能已经被用户取消——不再落库/弹表单,避免取消瞬间
                 // 又把回应加回来。
                 guard !Task.isCancelled else { return }
@@ -1353,6 +1392,8 @@ struct AgentView: View {
         sendTask = nil
         busy = false
         thinkingText = nil
+        streamingAnswer = nil
+        reasoningTail = ""
     }
 
     #if DEBUG
@@ -1707,6 +1748,8 @@ private struct FormTarget: Identifiable {
 /// @Query 时 `.id(thread.uuid)` 那一套写法。
 private struct AgentMessageListView: View {
     let historyWindow: Int
+    /// 流式回复的临时预览;非 nil 时渲染在列表末尾(不落库)。
+    let streamingAnswer: String?
     /// 顶上那颗「载入更早的对话」:父视图把窗口加一页。
     let onLoadEarlier: () -> Void
     let onConfirmAction: (AgentMessage, Bool) -> Void
@@ -1744,7 +1787,7 @@ private struct AgentMessageListView: View {
     /// 那一刻",但载进来的都是更老的消息,照样不播,所以不用额外重置逻辑。
     @State private var typingBaseline = Date()
 
-    init(historyWindow: Int, onLoadEarlier: @escaping () -> Void,
+    init(historyWindow: Int, streamingAnswer: String?, onLoadEarlier: @escaping () -> Void,
          onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
          onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
          onCancelMemoryResult: @escaping (AgentMessage) -> Void,
@@ -1760,6 +1803,7 @@ private struct AgentMessageListView: View {
          onEdit: @escaping (AgentMessage) -> Void,
          onPendingAskChange: @escaping (Bool) -> Void) {
         self.historyWindow = historyWindow
+        self.streamingAnswer = streamingAnswer
         self.onLoadEarlier = onLoadEarlier
         self.onConfirmAction = onConfirmAction
         self.onUndo = onUndo
@@ -1816,6 +1860,12 @@ private struct AgentMessageListView: View {
                             typingBaseline: typingBaseline)
                         .id(message.uuid)
                     }
+                    // 流式预览排在最后一条之后。放在滚动流里而不是像
+                    // thinkingRow 那样贴在输入栏上方:长回复要能正常往上滚。
+                    if let streamingAnswer {
+                        AgentAnswerCard(text: streamingAnswer)
+                            .id(Self.streamingID)
+                    }
                 }
                 .padding()
                 // 对话里挨着的玻璃不止一处:结果卡片自己是玻璃底,卡片下面那排
@@ -1838,6 +1888,12 @@ private struct AgentMessageListView: View {
                     withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }
                 }
             }
+            // 流式期间一直贴着底,新吐出来的字不会被输入栏挡住。不带动画:
+            // 每隔 80ms 就来一次,叠动画会一路抖。
+            .onChange(of: streamingAnswer) { _, text in
+                guard text != nil else { return }
+                proxy.scrollTo(Self.streamingID, anchor: .bottom)
+            }
             .onAppear {
                 if let last = messages.first { proxy.scrollTo(last.uuid, anchor: .bottom) }
                 onPendingAskChange(hasPendingAsk)
@@ -1845,6 +1901,9 @@ private struct AgentMessageListView: View {
             .onChange(of: hasPendingAsk) { _, pending in onPendingAskChange(pending) }
         }
     }
+
+    /// 流式预览气泡的滚动锚点(它不落库,没有 uuid 可用)。
+    private static let streamingID = "streaming-preview"
 
     private static let examplePrompts = [
         "明天下午3点开会", "我之前存的 wifi 密码是多少", "帮我整理一下今天的安排",

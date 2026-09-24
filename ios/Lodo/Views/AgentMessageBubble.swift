@@ -382,15 +382,7 @@ struct AgentMessageBubble: View {
     }
 
     private var answerContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(message.content, systemImage: "sparkles").font(.body)
-            ForEach(message.relatedTitles, id: \.self) { title in
-                Label(title, systemImage: "bookmark.circle")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .agentCard()
+        AgentAnswerCard(text: message.content, relatedTitles: message.relatedTitles)
     }
 
     private func icon(for line: String) -> String {
@@ -504,5 +496,28 @@ private struct AgentTaskCard: View {
         .accessibilityLabel(isActive == nil ? snapshot.parsed.title
                             : (isActive == true ? "已新建:\(snapshot.parsed.title),点两下取消"
                                                 : "已取消:\(snapshot.parsed.title),点两下重新新建"))
+    }
+}
+
+/// AI 正文回复的卡片。落库后的 `.answer` 气泡和流式中的临时预览共用同一份——
+/// 两边长得一样,流式结束换成真正那条消息时才不会跳一下布局。
+///
+/// 这里**不叠打字机**:`TypewriterText` 只用于 `.text`(「已取消这次操作。」这类
+/// 本地兜底文案,没有网络可流),而流式本身就是逐字揭示,再叠一层会把已经出来的
+/// 字重放一遍。
+struct AgentAnswerCard: View {
+    let text: String
+    var relatedTitles: [String] = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(text, systemImage: "sparkles").font(.body)
+            ForEach(relatedTitles, id: \.self) { title in
+                Label(title, systemImage: "bookmark.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .agentCard()
     }
 }

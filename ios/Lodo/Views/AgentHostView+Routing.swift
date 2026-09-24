@@ -18,7 +18,9 @@ extension AgentHostView {
     /// 提示自然被 AgentView 清掉。
     func route(
         _ text: String, history: [(role: String, content: String)] = [],
-        onThought: (String) -> Void = { _ in }
+        onThought: (String) -> Void = { _ in },
+        onStream: @escaping (String) -> Void = { _ in },
+        onReasoning: @escaping (String) -> Void = { _ in }
     ) async throws -> AgentReply {
         // 撤销走本地固定短语匹配,不进 AI 循环——这是确定性操作,交给模型理解
         // 反而多一次网络请求、多一种出错可能,不值得。要求整句话就是这几个词
@@ -46,7 +48,10 @@ extension AgentHostView {
                 // 窗口之外的历史压成的常驻摘要。ReAct 每轮都带同一份——它不像
                 // history 那样随轮次增长。
                 summary: AgentConversationSummary.content,
-                existingProjects: TaskProjects.all(in: context)) {
+                existingProjects: TaskProjects.all(in: context),
+                // ReAct 每轮都开流式:工具调用轮次的 JSON 里没有 answer,
+                // 扫描器天然一个字都不吐,不需要预判哪轮是最后一轮。
+                onStream: onStream, onReasoning: onReasoning) {
             case .ask(let questions):
                 return .ask(questions)
             case .toolCall(let thought, .searchMemory(let query)):

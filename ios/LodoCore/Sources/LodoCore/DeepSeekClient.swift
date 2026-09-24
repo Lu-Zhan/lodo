@@ -289,7 +289,12 @@ public enum DeepSeekClient {
         history: [(role: String, content: String)] = [],
         /// 更早对话的摘要;默认 nil ⇒ 整段不出现,Watch 等调用方 prompt 逐字不变。
         summary: String? = nil,
-        existingProjects: [String] = []
+        existingProjects: [String] = [],
+        /// 非 nil 时走 SSE 流式,把 `answer` 正文边收边吐给调用方(全文,不是增量)。
+        /// 默认 nil ⇒ 走原来的一次性请求,Watch 等调用方行为不变。
+        onStream: ((String) -> Void)? = nil,
+        /// 推理模型先吐的思考过程,喂给"思考中…"那条轻量提示。
+        onReasoning: ((String) -> Void)? = nil
     ) async throws -> AICommandResult {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
         let tasks = Array(allTasks.prefix(50))
@@ -320,7 +325,8 @@ public enum DeepSeekClient {
         // 仍然按错误处理。
         let raw: [String: Any]
         do {
-            raw = try await payload(system: system, user: text, timeout: 90, thinking: true)
+            raw = try await payload(system: system, user: text, timeout: 90, thinking: true,
+                                    onStream: onStream, onReasoning: onReasoning)
         } catch let DeepSeekError.parse(message)
             where message != malformedPayloadMessage
                 && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1388,9 +1394,13 @@ public enum DeepSeekClient {
     /// timeout:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。
     /// thinking:true 时按设置里的思考强度带上 reasoning_effort(仅 command() 传
     /// true——AI 助手对话入口才需要深度推理,解析/汇总等后台小请求不需要多等)。
+    /// onStream / onReasoning 非 nil 时走 SSE 流式(只有 command 这条路径传),
+    /// 端侧的苹果智能不支持,那条分支照旧一次性返回。
     private static func payload(system: String, user: String,
                                 timeout: TimeInterval = 20,
-                                thinking: Bool = false) async throws -> [String: Any] {
+                                thinking: Bool = false,
+                                onStream: ((String) -> Void)? = nil,
+                                onReasoning: ((String) -> Void)? = nil) async throws -> [String: Any] {
         // 苹果智能:端侧推理,免 key,payload 形态与云端一致;端侧模型没有
         // reasoning_effort 这个概念,thinking 参数在这条路径上不生效。
         if AppSettings.usesAppleIntelligence {
@@ -1420,9 +1430,112 @@ public enum DeepSeekClient {
         guard let endpoint = AppSettings.aiEndpoint else {
             throw DeepSeekError.api("无效的服务地址,请到「设置」里检查 AI 服务商配置。")
         }
+        if onStream != nil || onReasoning != nil {
+            return try await cloudStream(
+                endpoint: endpoint, apiKey: apiKey, model: AppSettings.aiModel,
+                system: system, user: user, timeout: timeout, thinking: thinking,
+                onStream: onStream, onReasoning: onReasoning)
+        }
         return try await cloudRequest(endpoint: endpoint, apiKey: apiKey,
                                       model: AppSettings.aiModel, system: system,
                                       user: user, timeout: timeout, thinking: thinking)
+    }
+
+    /// 已知不支持 SSE 的 endpoint(试过一次就失败的),本次运行内不再试。
+    /// 只活在内存里:不落盘、不进设置页——服务商那边改好了,重开 app 就会再试。
+    private static var unsupportedStreamEndpoints: Set<String> = []
+
+    /// 流式版本的 cloudRequest:边收边把 `answer` 的正文喂给 onStream,
+    /// 收完之后仍然交给同一个 `decodePayload`——**最终结果的解析路径与非流式
+    /// 逐字相同**,流式只是让字早点出现。
+    ///
+    /// 任何一步不对(网关不支持 stream、中途断流、攒出来的串解析不了)都回退到
+    /// 一次性请求。回退前必须先让调用方清掉已经显示的半句(onStream("")),
+    /// 否则屏幕上会留下"半句 + 完整句"两段。
+    private static func cloudStream(
+        endpoint: URL, apiKey: String, model: String, system: String, user: String,
+        timeout: TimeInterval, thinking: Bool,
+        onStream: ((String) -> Void)?, onReasoning: ((String) -> Void)?
+    ) async throws -> [String: Any] {
+        func fallback() async throws -> [String: Any] {
+            onStream?("")
+            return try await cloudRequest(endpoint: endpoint, apiKey: apiKey, model: model,
+                                          system: system, user: user, timeout: timeout,
+                                          thinking: thinking)
+        }
+        guard !unsupportedStreamEndpoints.contains(endpoint.absoluteString) else {
+            return try await fallback()
+        }
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = timeout
+        var body: [String: Any] = [
+            "model": model,
+            "messages": [
+                ["role": "system", "content": system],
+                ["role": "user", "content": user],
+            ],
+            "response_format": ["type": "json_object"],
+            "temperature": 0,
+            "stream": true,
+        ]
+        if thinking, AppSettings.thinkingLevel != "off" {
+            body["reasoning_effort"] = AppSettings.thinkingLevel
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        var scanner = AnswerStreamScanner()
+        var throttle = StreamThrottle()
+        var raw = ""
+        do {
+            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                unsupportedStreamEndpoints.insert(endpoint.absoluteString)
+                return try await fallback()
+            }
+            for try await line in bytes.lines {
+                guard let event = AgentStream.parseLine(line) else { continue }
+                switch event {
+                case .done:
+                    break
+                case .delta(let content, let reasoning):
+                    if let reasoning, !reasoning.isEmpty { onReasoning?(reasoning) }
+                    guard let content, !content.isEmpty else { continue }
+                    raw += content
+                    if let text = scanner.consume(content), throttle.shouldFlush(content) {
+                        onStream?(text)
+                    }
+                }
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
+        } catch {
+            // 中途断流:这次请求本身已经产生过 token,**不能**照搬非流式那套
+            // "传输层错误重试一次"——重试会把已经吐过的字再吐一遍。一个字都没
+            // 收到时才当成普通失败退回一次性请求。
+            guard raw.isEmpty else { throw DeepSeekError.api(error.localizedDescription) }
+            return try await fallback()
+        }
+
+        // 收完之后把最后一截补上(节流可能压住了最后几片)。
+        if !scanner.currentText.isEmpty { onStream?(scanner.currentText) }
+        guard !raw.isEmpty else {
+            unsupportedStreamEndpoints.insert(endpoint.absoluteString)
+            return try await fallback()
+        }
+        do {
+            return try decodePayload(from: raw)
+        } catch let DeepSeekError.parse(message) where message == malformedPayloadMessage {
+            // 有花括号但给坏了(多半是截断):退回一次性请求重来一遍,比直接
+            // 报错好——非流式那条路上同样的输入常常是好的。
+            return try await fallback()
+        }
     }
 
     /// 云端 OpenAI 兼容接口的请求构造 + 响应解析,供当前选中服务商和苹果智能

@@ -36,8 +36,9 @@ struct AgentHostView: View {
     var body: some View {
         AgentView(
             pendingPrefill: $agentRequest,
-            submit: { text, history, onThought in
-                try await route(text, history: history, onThought: onThought)
+            submit: { text, history, onThought, onStream, onReasoning in
+                try await route(text, history: history, onThought: onThought,
+                                onStream: onStream, onReasoning: onReasoning)
             },
             onConfirm: { performPendingActions() },
             onUndo: { performUndo() },

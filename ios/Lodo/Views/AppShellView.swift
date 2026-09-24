@@ -720,7 +720,8 @@ struct AppShellView: View {
                       "--demo-agent-recording", "--demo-easter-egg",
                       "--demo-easter-egg-anniversary", "--demo-agent-quote-preview",
                       "--demo-agent-edit-confirm", "--demo-agent-sidebar",
-                      "--demo-agent-photos"]),
+                      "--demo-agent-photos", "--demo-agent-stream", "--demo-agent-live",
+                      "--demo-agent-history"]),
         ]
         for (target, flags) in sectionFlags where flags.contains(where: args.contains) {
             go(target)
