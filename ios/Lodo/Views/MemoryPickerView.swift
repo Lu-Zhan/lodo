@@ -38,7 +38,7 @@ struct MemoryPickerView: View {
                 } label: {
                     row(for: item)
                 }
-                .buttonStyle(.plain)
+                .pressableCard()
             }
             .overlay {
                 if items.isEmpty {

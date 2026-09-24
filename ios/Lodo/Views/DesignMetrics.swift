@@ -18,6 +18,26 @@ enum DesignMetrics {
     static let composerRadius: CGFloat = 26
     /// 应用导航侧栏(窄屏抽屉 / 宽屏常驻列)的固定宽度。
     static let sidebarWidth: CGFloat = 300
+    /// HIG 规定的最小可点尺寸。app 里有几处图标按钮的**视觉**尺寸刻意小于它
+    /// (AI 输入栏那五颗定在 36pt,彼此必须同尺寸同圆心,见
+    /// `AgentView.composerControlSize`),这些地方放大的是热区不是外观——见
+    /// `View.hitTarget(visualSize:)`。
+    static let minimumHitTarget: CGFloat = 44
+
+    #if DEBUG
+    /// 截图验证用:模拟器上 `simctl spawn … defaults write com.apple.Accessibility
+    /// ReduceTransparencyEnabled -bool true` 写进去的值**传不到 app**(实测
+    /// `@Environment(\.accessibilityReduceTransparency)` 和 `UIAccessibility` 都读不到,
+    /// 重启模拟器也一样),而那两个辅助功能 Environment 值是只读的(`KeyPath` 不是
+    /// `WritableKeyPath`),没法在 app 根上直接顶成 true。于是在两个材质入口
+    /// (`panelBackground`、`GlassBackground`)各认一个 DEBUG flag,把"减弱透明度"
+    /// 这条降级路径在模拟器上做成可验证的。
+    ///
+    /// 这里静态读没有反应式问题——启动参数在一次运行里不会变。真实开关仍然只走
+    /// Environment,这个 flag 只做"额外强制开启",不会削弱它。
+    static let demoReduceTransparency =
+        ProcessInfo.processInfo.arguments.contains("--demo-reduce-transparency")
+    #endif
     /// 侧栏展开时被推移缩小的主内容圆角——刻意贴近真机屏幕圆角(而不是
     /// cardRadius 那种小圆角),让被推开的内容看起来像一整块"缩小的设备屏幕"。
     static let deviceCornerRadius: CGFloat = 44
@@ -29,8 +49,26 @@ enum DesignMetrics {
     /// **夜间仍用材质**:近黑背景上投影几乎看不见,面板再跟着变成同一个近黑色就
     /// 和被推开的那张卡糊成一片、分不出边界了——那种情况下"同色 + 投影"这套分层
     /// 本身失效,只能靠材质那点亮度差顶上。
-    static func panelBackground(_ scheme: ColorScheme) -> AnyShapeStyle {
-        if scheme == .dark { return AnyShapeStyle(.regularMaterial) }
+    ///
+    /// `reduceTransparency` 是系统的「减弱透明度」辅助功能开关(调用方从
+    /// `\.accessibilityReduceTransparency` 读,别在这里静态读——静态读不会让视图
+    /// 在用户运行中改设置时重建)。开启时夜间那层材质换成**不透明**的
+    /// secondarySystemGroupedBackground:它比夜间的 systemGroupedBackground(近黑)
+    /// 亮一档,正好顶替材质原本提供的那点亮度差,分层不塌,但不再有半透明。
+    static func panelBackground(_ scheme: ColorScheme,
+                                reduceTransparency: Bool = false) -> AnyShapeStyle {
+        if scheme == .dark {
+            guard reducesTransparency(reduceTransparency) else {
+                return AnyShapeStyle(.regularMaterial)
+            }
+            #if os(iOS)
+            return AnyShapeStyle(Color(uiColor: .secondarySystemGroupedBackground))
+            #elseif os(macOS)
+            return AnyShapeStyle(Color(nsColor: .controlBackgroundColor))
+            #else
+            return AnyShapeStyle(.background)
+            #endif
+        }
         #if os(iOS)
         return AnyShapeStyle(Color(uiColor: .systemGroupedBackground))
         #elseif os(macOS)
@@ -40,9 +78,40 @@ enum DesignMetrics {
         #endif
     }
 
+    /// 把调用方从 Environment 读到的「减弱透明度」和 DEBUG 截图 flag 合成一个判断。
+    /// Release 构建里就是原值,没有额外分支。
+    static func reducesTransparency(_ fromEnvironment: Bool) -> Bool {
+        #if DEBUG
+        fromEnvironment || demoReduceTransparency
+        #else
+        fromEnvironment
+        #endif
+    }
+
+    /// 「减弱透明度」开启时用来顶替玻璃/材质的不透明面色(见 `glassBackground`)。
+    /// 取 secondary 那一档而不是纯 systemBackground:这些面(AI 输入栏、悬浮条、
+    /// 气泡)原本就是浮在内容之上的一层,和页面底色取同色会失去层次。
+    static var opaqueSurface: AnyShapeStyle {
+        #if os(iOS)
+        AnyShapeStyle(Color(uiColor: .secondarySystemBackground))
+        #elseif os(macOS)
+        AnyShapeStyle(Color(nsColor: .controlBackgroundColor))
+        #else
+        AnyShapeStyle(.background)
+        #endif
+    }
+
     /// 系统"减弱动态效果"辅助功能开关。之前全仓库没有任何地方读过这个值,
     /// 所有弹簧/过渡动画不分青红皂白照放——`Animation.lodoAware(_:)` 统一
     /// 收敛在这一处判断,调用方不用各自 `#if os(iOS)` 分支。
+    ///
+    /// **只给 `lodoAware` 这种"动作发生那一刻求值"的地方用,别在 body 里读。**
+    /// 这是个静态属性,不是 Environment:SwiftUI 不知道它变了,body 里读它的视图
+    /// 在用户运行中改这项设置时不会重建,效果会一直放到下一次别的原因刷新为止。
+    /// body 里要判断的一律用 `@Environment(\.accessibilityReduceMotion)`
+    /// (见 `ShimmerText`、`TypewriterText`、`RecordingWaveform`、`EasterEggView`)。
+    /// `withAnimation(.lodoAware(...))` 不受这条影响——它在按钮点下去那一刻才求值,
+    /// 静态读到的本来就是当时的最新值。
     static var reduceMotionEnabled: Bool {
         #if os(iOS)
         UIAccessibility.isReduceMotionEnabled

@@ -73,6 +73,7 @@ struct AppShellView: View {
     /// 全局状态,不建立 SwiftUI 依赖,用户在设置里现场改了"减弱动态效果"这边
     /// 不会刷新。抽屉是全 app 位移幅度最大的动画,这里单独走环境值。
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// 常驻并排(而不是抽屉)布局。macOS 上 horizontalSizeClass 可能是 nil
     /// (窗口、预览、自定义宿主都出现过),按 `== .regular` 判会掉进窄屏抽屉分支,
@@ -317,8 +318,9 @@ struct AppShellView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 窄屏抽屉里面板自己不铺底色,由 compactLayout 整个容器那层 drawerBackdrop
         // 统一铺(理由见那里)。
-        .background(usesRegularLayout ? DesignMetrics.panelBackground(colorScheme)
-                                      : AnyShapeStyle(Color.clear))
+        .background(usesRegularLayout
+            ? DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency)
+            : AnyShapeStyle(Color.clear))
     }
 
     /// 窄屏抽屉的旁白语义。收起时面板只是被 offset 推到屏幕外,**元素还在**
@@ -524,7 +526,7 @@ struct AppShellView: View {
                     Color.clear.frame(height: pageBottomRefill)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(DesignMetrics.panelBackground(colorScheme))
+                .background(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
                 // 手势的 startLocation 和横向控件申报的矩形都换算到这个具名空间里
                 // ——具名空间挂在手势所在的这一层,两边的原点才对得上。
                 .coordinateSpace(name: SidebarDragExclusion.spaceName)
@@ -618,11 +620,11 @@ struct AppShellView: View {
     private var drawerBackdrop: some View {
         if colorScheme == .dark {
             ZStack {
-                Rectangle().fill(DesignMetrics.panelBackground(colorScheme))
-                Rectangle().fill(DesignMetrics.panelBackground(colorScheme))
+                Rectangle().fill(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
+                Rectangle().fill(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
             }
         } else {
-            Rectangle().fill(DesignMetrics.panelBackground(colorScheme))
+            Rectangle().fill(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
         }
     }
 
@@ -641,7 +643,7 @@ struct AppShellView: View {
             // 也就不需要忽略安全区。
             sectionStack
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(DesignMetrics.panelBackground(colorScheme))
+                .background(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
         }
         .animation(sidebarAnimation, value: showSidebar)
     }

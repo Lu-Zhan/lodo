@@ -474,7 +474,7 @@ struct AgentView: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
+                .pressable()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -495,7 +495,7 @@ struct AgentView: View {
                 Image(systemName: "xmark.circle.fill")
                     .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            .pressable()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -588,9 +588,9 @@ struct AgentView: View {
                     Image(systemName: "plus")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 36, height: 36)
-                        // 没有背景形状后,点击区默认会缩成图标本身的紧凑边界——
-                        // 用 contentShape 把 36×36 的点击热区找回来。
-                        .contentShape(Rectangle())
+                        // 没有背景形状后,点击区默认会缩成图标本身的紧凑边界;
+                        // hitTarget 一并把它补到 HIG 的 44pt(外观仍是 36)。
+                        .hitTarget(visualSize: 36)
                 }
                 .disabled(busy)
                 .accessibilityLabel("添加附件")
@@ -669,7 +669,7 @@ struct AgentView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .pressable()
         .accessibilityLabel("查看图片")
         .overlay(alignment: .topTrailing) {
             Button {
@@ -685,7 +685,7 @@ struct AgentView: View {
                     .padding(4)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .pressable()
             .accessibilityLabel("移除图片")
         }
         .padding(.top, 2)
@@ -717,8 +717,9 @@ struct AgentView: View {
                 .foregroundStyle(Color.primary)
                 .frame(width: 36, height: 36)
                 .background(.quaternary, in: Circle())
+                .hitTarget(visualSize: 36)
         }
-        .buttonStyle(.plain)
+        .pressable()
         .accessibilityLabel("取消录音")
     }
 
@@ -731,8 +732,9 @@ struct AgentView: View {
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(Color.accentColor, in: Circle())
+                .hitTarget(visualSize: 36)
         }
-        .buttonStyle(.plain)
+        .pressable()
         .accessibilityLabel("完成录音")
     }
 
@@ -744,6 +746,8 @@ struct AgentView: View {
     /// 一点点小幅起伏(呼吸感),不会瘫平成死气沉沉的静止条。遵守"减弱动态
     /// 效果":开启时退化成等高静止的条,不逐帧重绘。
     private struct RecordingWaveform: View {
+        /// 同 ShimmerText:静态读不会随设置变化重建视图,这里要的是反应式。
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
         let level: Float
 
         private static let barCount = 24
@@ -759,7 +763,7 @@ struct AgentView: View {
         private static let idleAmplitude: Double = 0.18
 
         var body: some View {
-            if DesignMetrics.reduceMotionEnabled {
+            if reduceMotion {
                 staticBars
             } else {
                 TimelineView(.animation) { context in
@@ -820,9 +824,9 @@ struct AgentView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 36, height: 36)
-                .contentShape(Rectangle())
+                .hitTarget(visualSize: 36)
         }
-        .buttonStyle(.plain)
+        .pressable()
         #if os(iOS)
         .hoverEffect(.highlight)
         #endif
@@ -853,8 +857,9 @@ struct AgentView: View {
                 .frame(width: Self.composerControlSize, height: Self.composerControlSize)
                 .background(busy ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor),
                             in: Circle())
+                .hitTarget(visualSize: Self.composerControlSize)
         }
-        .buttonStyle(.plain)
+        .pressable()
         #if os(iOS)
         .hoverEffect(.highlight)
         #endif
@@ -1678,7 +1683,7 @@ private struct AgentImageViewer: View {
                 }
                 .disabled(index == images.count - 1)
             }
-            .buttonStyle(.plain)
+            .pressable()
             .foregroundStyle(.white)
             .padding()
         }

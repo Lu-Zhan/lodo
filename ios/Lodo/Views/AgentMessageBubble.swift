@@ -418,24 +418,37 @@ private func markdownText(_ raw: String) -> Text {
 /// AI 纯文字回复的打字机效果:animates 为 true 时逐字显示 + 每字一次轻触振动,
 /// 为 false 时直接整段显示(历史消息滚回视野走这条路,不重播动画)。
 /// 用 Character(不是 UTF8 字节)计数逐字前进,emoji/组合字符也不会切断。
+///
+/// 开了系统「减弱动态效果」时整段直接出:逐字推进是持续几秒的动态过程(长回复
+/// 上更久),正是这个开关要免除的那类效果,而且它还会把文字的行数/布局一路撑开。
+/// 退化成整段显示而不是加个淡入——回复内容本身就是要读的东西,立刻读到是更好的
+/// 结果,不需要"温和的等价动效"来传达"这是新消息"(气泡位置已经说明了)。
+/// 顺带也就没有那串逐字振动了,符合"触感只留给有意义的时刻"。
 private struct TypewriterText: View {
     let fullText: String
     let animates: Bool
+
+    /// 用 Environment 而不是 `DesignMetrics.reduceMotionEnabled`:静态读在 body
+    /// 里不会让视图随设置变化重建(同 `ShimmerText`)。
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var revealedCount = 0
 
     private var characters: [Character] { Array(fullText) }
 
+    /// 真正要逐字播的条件。
+    private var typesOut: Bool { animates && !reduceMotion }
+
     var body: some View {
         Group {
-            if animates {
+            if typesOut {
                 markdownText(String(characters.prefix(revealedCount)))
             } else {
                 markdownText(fullText)
             }
         }
         .task(id: fullText) {
-            guard animates else { return }
+            guard typesOut else { return }
             revealedCount = 0
             for _ in characters {
                 guard !Task.isCancelled else { return }
@@ -483,7 +496,7 @@ private struct AgentTaskCard: View {
             .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .pressableCard()
         .disabled(onTap == nil)
         .accessibilityLabel(isActive == nil ? snapshot.parsed.title
                             : (isActive == true ? "已新建:\(snapshot.parsed.title),点两下取消"

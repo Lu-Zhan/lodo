@@ -86,6 +86,7 @@ struct AgentInspectorHost<Content: View>: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.sidebarChrome) private var sidebarChrome
     @Environment(\.sectionIsActive) private var sectionIsActive
     @AppStorage(AppSettings.agentInspectorPinnedKey) private var pinned = false
@@ -213,7 +214,7 @@ struct AgentInspectorHost<Content: View>: View {
             if target != nil {
                 inspectorContent
                     .frame(width: panelWidth)
-                    .background(DesignMetrics.panelBackground(colorScheme))
+                    .background(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
                     .compositingGroup()
                     .shadow(color: .black.opacity(0.18 * progress), radius: 14, x: 3)
                     .offset(x: (1 - progress) * (panelWidth + 20))

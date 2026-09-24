@@ -59,7 +59,7 @@ struct AgentAskCard: View {
             } label: {
                 Image(systemName: "chevron.left")
             }
-            .buttonStyle(.plain)
+            .pressable()
             .disabled(currentIndex == 0)
 
             Text("第 \(currentIndex + 1) / \(snapshot.questions.count) 题")
@@ -71,7 +71,7 @@ struct AgentAskCard: View {
             } label: {
                 Image(systemName: "chevron.right")
             }
-            .buttonStyle(.plain)
+            .pressable()
             // 往后翻同样要求当前题已经答了,免得跳过去以后回不到"能提交"的状态。
             .disabled(isLastQuestion || answers(at: currentIndex).isEmpty)
         }
@@ -99,7 +99,7 @@ struct AgentAskCard: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            .pressable()
             .accessibilityLabel("跳过提问")
         }
     }
@@ -152,7 +152,7 @@ struct AgentAskCard: View {
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .pressableCard()
     }
 
     /// 单选题选中即替换,多选题累加;两种都允许再点一下取消选择。

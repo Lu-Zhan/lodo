@@ -34,12 +34,32 @@ extension View {
     }
 
     /// 系统 chrome 用的玻璃材质背景(如 agent 聊天页输入栏),旧系统回退纯色 material。
-    @ViewBuilder
+    /// 同时遵守系统的「减弱透明度」——见 `GlassBackground`。
     func glassBackground(_ shape: some Shape) -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            glassEffect(.regular, in: shape)
+        modifier(GlassBackground(shape: shape))
+    }
+}
+
+/// `glassBackground` 的实体。之所以是 ViewModifier 而不是直接在 View extension 里
+/// 写 `@ViewBuilder if`:要读 `\.accessibilityReduceTransparency` 这个 Environment
+/// 值,而 Environment 只能挂在具名的 View/ViewModifier 上;静态读
+/// `UIAccessibility.isReduceTransparencyEnabled` 虽然也拿得到,但那样用户在
+/// 运行中改设置时视图不会重建,界面要等下一次别的原因刷新才跟上。
+///
+/// 「减弱透明度」开启时**不做半透明也不做模糊**,直接铺一层不透明面色:
+/// 这个开关的用户诉求就是"别让背后的东西透过来影响我读前面的字",把玻璃
+/// 换成更厚的材质只是减轻、没有满足它。
+struct GlassBackground<S: Shape>: ViewModifier {
+    let shape: S
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        if DesignMetrics.reducesTransparency(reduceTransparency) {
+            content.background(DesignMetrics.opaqueSurface, in: shape)
+        } else if #available(iOS 26.0, macOS 26.0, *) {
+            content.glassEffect(.regular, in: shape)
         } else {
-            background(.thinMaterial, in: shape)
+            content.background(.thinMaterial, in: shape)
         }
     }
 }

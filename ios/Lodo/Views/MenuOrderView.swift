@@ -98,7 +98,7 @@ struct MenuOrderView: View {
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
-                withAnimation { MenuStore.toggle(dish, context: context) }
+                withAnimation(.lodoAware(.default)) { MenuStore.toggle(dish, context: context) }
             } label: {
                 Label("去掉", systemImage: "minus.circle")
             }

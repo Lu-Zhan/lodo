@@ -145,7 +145,7 @@ struct SettingsView: View {
                                         .foregroundStyle(selected ? .primary : .secondary)
                                 }
                             }
-                            .buttonStyle(.plain)
+                            .pressable()
                         }
                     }
                     .padding(.vertical, 4)

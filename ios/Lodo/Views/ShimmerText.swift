@@ -5,12 +5,17 @@ import SwiftUI
 /// 持续重绘,不用手动管理 @State/withAnimation(repeatForever)。
 struct ShimmerText: View {
     let text: String
+    /// 读 Environment 而不是 `DesignMetrics.reduceMotionEnabled`:后者是静态读,
+    /// body 里读它不会在用户运行中开关这项设置时让视图重建,光效会一直扫到
+    /// 下一次别的原因刷新为止。`withAnimation(.lodoAware(...))` 那些调用点不受
+    /// 这条影响——它们在动作发生的那一刻才求值,静态读本来就是当时的最新值。
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // 持续来回扫的光效属于"减弱动态效果"该关掉的那类效果(HIG 对重复性
         // 动效的建议),开启时退化成静态文字——"思考中…"这句话本身已经把
         // 状态说清楚了,不靠动效也不影响理解。
-        if DesignMetrics.reduceMotionEnabled {
+        if reduceMotion {
             Text(text)
                 .font(.footnote)
                 .foregroundStyle(.secondary)

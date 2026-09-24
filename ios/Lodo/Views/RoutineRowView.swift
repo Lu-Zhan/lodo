@@ -53,7 +53,7 @@ struct RoutineRowView: View {
                     }
                 }
             }
-            .buttonStyle(.plain)
+            .pressableCard()
         }
         // 全部收在 trailing:向右拖归抽屉(见 TaskRowView 同款注释)。
         .swipeActions(edge: .trailing) {

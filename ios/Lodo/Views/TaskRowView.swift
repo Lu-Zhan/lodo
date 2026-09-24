@@ -46,7 +46,7 @@ struct TaskRowView: View {
                         .foregroundStyle(overdue ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
                 }
             }
-            .buttonStyle(.plain)
+            .pressableCard()
             if overdue, let rescheduleCandidates {
                 HorizontalChipRow {
                     ForEach(rescheduleCandidates, id: \.label) { candidate in
@@ -58,12 +58,12 @@ struct TaskRowView: View {
                         .tint(.accentColor)
                     }
                     Button {
-                        withAnimation(.snappy) { self.rescheduleCandidates = nil }
+                        withAnimation(.lodoAware(.snappy)) { self.rescheduleCandidates = nil }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
+                    .pressable()
                     #if os(iOS)
                     .hoverEffect(.highlight)
                     #endif
@@ -122,7 +122,7 @@ struct TaskRowView: View {
             } else {
                 Button(role: .destructive) {
                     Haptics.impact()
-                    withAnimation(.snappy) {
+                    withAnimation(.lodoAware(.snappy)) {
                         TaskActions.delete(task, context: context)
                     }
                 } label: {
@@ -133,7 +133,7 @@ struct TaskRowView: View {
     }
 
     private func complete() {
-        withAnimation(.snappy) {
+        withAnimation(.lodoAware(.snappy)) {
             if let (title, planned) = TaskActions.complete(task, context: context) {
                 onAskDuration(title, planned)
             }
@@ -149,7 +149,7 @@ struct TaskRowView: View {
             do {
                 let candidates = try await TaskActions.requestReschedule(for: task)
                 guard !Task.isCancelled else { return }
-                withAnimation(.snappy) { rescheduleCandidates = candidates }
+                withAnimation(.lodoAware(.snappy)) { rescheduleCandidates = candidates }
             } catch {
                 guard !Task.isCancelled, !(error is CancellationError) else { return }
                 rescheduleError = error.localizedDescription
@@ -161,7 +161,7 @@ struct TaskRowView: View {
     private func applyReschedule(_ date: Date) {
         Haptics.success()
         TaskActions.applyReschedule(task, to: date, context: context)
-        withAnimation(.snappy) { rescheduleCandidates = nil }
+        withAnimation(.lodoAware(.snappy)) { rescheduleCandidates = nil }
     }
 }
 
@@ -187,7 +187,7 @@ struct AskDurationBanner: View {
                     .font(.footnote)
                 }
                 Button("跳过") { onSkip() }
-                    .buttonStyle(.plain)
+                    .pressable()
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -6,6 +6,10 @@ import SwiftUI
 /// BreathingMicIcon/RecordingWaveform 同一套写法——TimelineView(.animation)
 /// 按时间连续重绘。
 struct EasterEggView: View {
+    /// 同 ShimmerText:静态读 `DesignMetrics.reduceMotionEnabled` 不会随设置变化
+    /// 重建视图,持续飘动的粒子得靠 Environment 才能在开关一改时立刻停。
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// "0707" 是气球+生日祝福;"0829" 是结婚一周年纪念日,爱心+专属文案。
     enum Occasion {
         case birthday
@@ -96,8 +100,9 @@ struct EasterEggView: View {
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
                             .background(.black.opacity(0.18), in: Circle())
+                            .hitTarget(visualSize: 36)
                     }
-                    .buttonStyle(.plain)
+                    .pressable()
                     .accessibilityLabel("关闭")
                 }
                 Spacer()
@@ -125,7 +130,7 @@ struct EasterEggView: View {
         _ specs: [BalloonSpec], in size: CGSize, @ViewBuilder content: @escaping (BalloonSpec) -> Content
     ) -> some View {
         Group {
-            if DesignMetrics.reduceMotionEnabled {
+            if reduceMotion {
                 // 减弱动态效果:静止排开,不做持续飘动。
                 ForEach(specs) { spec in
                     content(spec)

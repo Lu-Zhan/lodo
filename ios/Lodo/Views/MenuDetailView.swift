@@ -71,7 +71,7 @@ struct MenuDetailView: View {
                         Label("重命名", systemImage: "pencil")
                     }
                     Button(role: .destructive) {
-                        withAnimation { MenuStore.clearSelection(menuUUID: menu.uuid, context: context) }
+                        withAnimation(.lodoAware(.default)) { MenuStore.clearSelection(menuUUID: menu.uuid, context: context) }
                     } label: {
                         Label("清空已选", systemImage: "xmark.circle")
                     }
@@ -88,7 +88,7 @@ struct MenuDetailView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.snappy, value: selected.isEmpty)
+        .animation(.lodoAware(.snappy), value: selected.isEmpty)
         .sheet(isPresented: $showOrder) {
             MenuOrderView(menu: menu)
                 .presentationDetents([.medium, .fraction(0.9)])
@@ -119,7 +119,7 @@ struct MenuDetailView: View {
     private func row(_ entry: MenuDishEntry) -> some View {
         Button {
             guard let dish = dish(for: entry) else { return }
-            withAnimation(.snappy) { MenuStore.toggle(dish, context: context) }
+            withAnimation(.lodoAware(.snappy)) { MenuStore.toggle(dish, context: context) }
             Haptics.tick()
         } label: {
             HStack(alignment: .top, spacing: 12) {
@@ -155,7 +155,7 @@ struct MenuDetailView: View {
             .padding(.vertical, 2)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .pressableCard()
         .accessibilityAddTraits(entry.selected ? .isSelected : [])
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
@@ -204,7 +204,7 @@ struct MenuDetailView: View {
             .padding(.vertical, 10)
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .pressableCard()
         .glassBackground(Capsule())
         .padding(.horizontal)
         .padding(.bottom, 8)

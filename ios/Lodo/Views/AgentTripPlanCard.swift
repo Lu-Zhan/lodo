@@ -64,7 +64,7 @@ struct AgentTripPlanCard: View {
             }
             if hiddenCount > 0 || expanded {
                 Button {
-                    withAnimation(.snappy) { expanded.toggle() }
+                    withAnimation(.lodoAware(.snappy)) { expanded.toggle() }
                 } label: {
                     if expanded {
                         Label("收起", systemImage: "chevron.up")

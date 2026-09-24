@@ -113,7 +113,7 @@ struct RoutineListView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .pressableCard()
 
             if runningUUID == routine.uuid {
                 ProgressView().controlSize(.small)

@@ -74,7 +74,7 @@ struct OnboardingView: View {
                     .glassProminentButton()
             } else {
                 Button("下一步") {
-                    withAnimation { page += 1 }
+                    withAnimation(.lodoAware(.default)) { page += 1 }
                 }
                 .buttonStyle(.bordered)
             }

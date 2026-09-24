@@ -25,7 +25,7 @@ extension OverviewView {
             do {
                 let candidates = try await TaskActions.requestReschedule(for: task)
                 guard !Task.isCancelled, notificationRescheduleLoading == uuid else { return }
-                withAnimation(.snappy) {
+                withAnimation(.lodoAware(.snappy)) {
                     notificationReschedule = (task, candidates)
                 }
             } catch {
@@ -42,7 +42,7 @@ extension OverviewView {
         guard let task = notificationReschedule?.task else { return }
         Haptics.success()
         TaskActions.applyReschedule(task, to: date, context: context)
-        withAnimation(.snappy) {
+        withAnimation(.lodoAware(.snappy)) {
             notificationReschedule = nil
         }
     }

@@ -4,7 +4,7 @@ import LodoCore
 /// 新建/编辑/完成的落库逻辑,以及耗时采样轻量条的辅助函数。
 extension TodoListView {
     func popAskDuration() {
-        withAnimation(.snappy) {
+        withAnimation(.lodoAware(.snappy)) {
             if !askDurationQueue.isEmpty { askDurationQueue.removeFirst() }
         }
     }

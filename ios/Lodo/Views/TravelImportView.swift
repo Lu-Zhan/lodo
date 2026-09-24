@@ -225,7 +225,7 @@ struct TravelImportView: View {
             }
             .padding(.vertical, 2)
         }
-        .buttonStyle(.plain)
+        .pressableCard()
     }
 
     private func detailLine(_ item: ParsedTravelItem) -> String? {

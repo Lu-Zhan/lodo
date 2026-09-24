@@ -407,7 +407,7 @@ struct AppSidebarView: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
+                .pressable()
             }
         }
         .padding(8)

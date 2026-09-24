@@ -159,7 +159,7 @@ struct TravelDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .pressableCard()
         .accessibilityHint("编辑旅行")
         .padding(.horizontal)
         .padding(.top, 4)
@@ -406,7 +406,7 @@ struct TravelDetailView: View {
             .padding(.vertical, 2)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .pressableCard()
         // 行操作一律收在向左滑那一侧(全 app 没有 leading swipeActions,见 CLAUDE.md)。
         .swipeActions(edge: .trailing) {
             if let item = item(for: entry) {

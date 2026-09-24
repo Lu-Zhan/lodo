@@ -462,7 +462,7 @@ struct TodoListView: View {
     private func filterButton(_ option: TodoFilter) -> some View {
         if filter == option {
             Button(option.title) {
-                withAnimation(.snappy) { filter = option }
+                withAnimation(.lodoAware(.snappy)) { filter = option }
             }
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
@@ -470,7 +470,7 @@ struct TodoListView: View {
             .accessibilityAddTraits(.isSelected)
         } else {
             Button(option.title) {
-                withAnimation(.snappy) { filter = option }
+                withAnimation(.lodoAware(.snappy)) { filter = option }
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)

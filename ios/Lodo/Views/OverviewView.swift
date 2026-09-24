@@ -151,7 +151,7 @@ struct OverviewView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .pressableCard()
                     }
                 }
             }
@@ -238,12 +238,12 @@ struct OverviewView: View {
                         .tint(.accentColor)
                     }
                     Button {
-                        withAnimation(.snappy) { notificationReschedule = nil }
+                        withAnimation(.lodoAware(.snappy)) { notificationReschedule = nil }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
+                    .pressable()
                     #if os(iOS)
                     .hoverEffect(.highlight)
                     #endif
@@ -255,7 +255,7 @@ struct OverviewView: View {
     }
 
     private func popAskDuration() {
-        withAnimation(.snappy) {
+        withAnimation(.lodoAware(.snappy)) {
             if !askDurationQueue.isEmpty { askDurationQueue.removeFirst() }
         }
     }
