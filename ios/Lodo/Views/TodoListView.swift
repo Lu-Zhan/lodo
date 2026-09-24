@@ -400,7 +400,7 @@ struct TodoListView: View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
                 Label("通知权限已关闭,提醒不会推送", systemImage: "bell.slash.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(LodoColor.critical)
                 #if os(iOS)
                 Button("前往系统设置开启") { openNotificationSettings() }
                     .buttonStyle(.bordered)
@@ -416,7 +416,7 @@ struct TodoListView: View {
         Section {
             Label("有 \(NotificationBudgetState.shared.overflowCount) 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒",
                   systemImage: "bell.badge.fill")
-                .foregroundStyle(.orange)
+                .foregroundStyle(LodoColor.critical)
                 .padding(.vertical, 2)
         }
     }
@@ -466,7 +466,7 @@ struct TodoListView: View {
             }
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
-            .font(.subheadline.weight(.semibold))
+            .font(.body.weight(.semibold))
             .accessibilityAddTraits(.isSelected)
         } else {
             Button(option.title) {
@@ -474,7 +474,7 @@ struct TodoListView: View {
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
-            .font(.subheadline.weight(.semibold))
+            .font(.body.weight(.semibold))
         }
     }
 
@@ -583,10 +583,10 @@ struct TodoListView: View {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("本周洞察")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                     Label(insight, systemImage: "sparkles")
-                        .font(.subheadline)
+                        .font(.body)
                 }
                 .padding(.vertical, 2)
             }
@@ -613,7 +613,7 @@ struct TodoListView: View {
             Text(task.title).strikethrough()
             if let doneAt = task.doneAt {
                 Text("完成于 \(TaskItem.format(doneAt))")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }

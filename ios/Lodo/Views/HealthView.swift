@@ -167,7 +167,7 @@ struct HealthView: View {
                 }
                 if let average = report.average(kind) {
                     Text("日均 \(kind.format(average)) \(unit)")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -183,8 +183,8 @@ struct HealthView: View {
         if let trend = report.trend(kind), abs(trend) >= 0.01 {
             let rising = trend > 0
             Text(Image(systemName: rising ? "arrow.up.right" : "arrow.down.right"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(kind.higherIsBetter == rising ? Color.green : Color.secondary)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(kind.higherIsBetter == rising ? LodoColor.positive : Color.secondary)
                 // 用 Text 而不是 String 传旁白标签:String 那个重载是 verbatim 的,
                 // 走不到字符串目录。
                 .accessibilityLabel(rising ? Text("上升") : Text("下降"))
@@ -237,14 +237,14 @@ struct HealthView: View {
                 }
             } else if let analysis {
                 Label(analysis.analysis, systemImage: "sparkles")
-                    .font(.subheadline)
+                    .font(.body)
                 ForEach(analysis.suggestions, id: \.self) { suggestion in
                     Label(suggestion, systemImage: "checkmark.circle")
-                        .font(.subheadline)
+                        .font(.body)
                 }
             } else {
                 Text("配置 AI 服务后,这里会给出针对这几天数据的分析和建议。")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
@@ -256,7 +256,7 @@ struct HealthView: View {
         Section {
             if healthMemories.isEmpty {
                 Text("还没有健康记录。体检报告、用药、饮食这些可以记一笔,AI 分析时会一并参考。")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(healthMemories) { item in
@@ -273,10 +273,10 @@ struct HealthView: View {
                                     Text(item.title)
                                 }
                             }
-                            .font(.subheadline.weight(.medium))
+                            .font(.body.weight(.medium))
                             if !item.summary.isEmpty {
                                 Text(item.summary)
-                                    .font(.footnote)
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }

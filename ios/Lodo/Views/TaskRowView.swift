@@ -34,7 +34,9 @@ struct TaskRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(task.title)
-                            .font(.subheadline)
+                            // 主标题靠**字重**而不是继续加字号来取得存在感:
+                            // 加粗不占额外空间,列表行的密度不受影响(§字体层级)。
+                            .font(.body.weight(.medium))
                         if overdue, rescheduleLoading {
                             Spacer()
                             ProgressView().controlSize(.small)
@@ -42,8 +44,8 @@ struct TaskRowView: View {
                         }
                     }
                     Text(overdue ? dueCaption : task.caption)
-                        .font(.caption)
-                        .foregroundStyle(overdue ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                        .font(.footnote)
+                        .foregroundStyle(overdue ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
                 }
             }
             .pressableCard()
@@ -54,7 +56,7 @@ struct TaskRowView: View {
                             applyReschedule(candidate.date)
                         }
                         .buttonStyle(.bordered)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .tint(.accentColor)
                     }
                     Button {
@@ -72,7 +74,7 @@ struct TaskRowView: View {
                 .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
             if let rescheduleError {
-                Text(rescheduleError).font(.caption2).foregroundStyle(.red)
+                Text(rescheduleError).font(.caption).foregroundStyle(LodoColor.critical)
             }
         }
         // 比系统默认的行内边距紧一档(默认竖向 11):一屏能多放几条,配合上面
@@ -93,14 +95,16 @@ struct TaskRowView: View {
                       systemImage: task.phase == .start && task.durationMinutes > 0
                       ? "play.fill" : "checkmark")
             }
-            .tint(.green)
+            .tint(LodoColor.positive)
             if overdue {
                 Button {
                     requestReschedule()
                 } label: {
                     Label("改期", systemImage: "calendar.badge.clock")
                 }
-                .tint(.blue)
+                // 逾期那一排里"改期"是最该被点的处理方式,给强调色;
+                // 稍等/忽略是往后拖,退到两档中性灰。
+                .tint(Color.accentColor)
                 .disabled(rescheduleLoading)
                 Button {
                     Haptics.impact(.light)
@@ -110,7 +114,7 @@ struct TaskRowView: View {
                     // 分钟放旁白标签里,滑动按钮本身在窄屏上多半只显示图标。
                     Label("稍等", systemImage: "clock")
                 }
-                .tint(.orange)
+                .tint(LodoColor.neutralAction)
                 .accessibilityLabel("稍等 \(AppSettings.snoozeMinutes) 分钟")
                 Button {
                     Haptics.impact(.light)
@@ -118,7 +122,7 @@ struct TaskRowView: View {
                 } label: {
                     Label("忽略", systemImage: "bell.slash")
                 }
-                .tint(.gray)
+                .tint(LodoColor.muted)
             } else {
                 Button(role: .destructive) {
                     Haptics.impact()
@@ -175,7 +179,7 @@ struct AskDurationBanner: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("「\(title)」实际用了多久?").font(.subheadline)
+            Text("「\(title)」实际用了多久?").font(.body)
             HorizontalChipRow {
                 ForEach(TaskActions.durationChips(planned: planned), id: \.self) { minutes in
                     Button("\(minutes) 分钟") {
@@ -184,11 +188,11 @@ struct AskDurationBanner: View {
                         onPick(minutes)
                     }
                     .buttonStyle(.bordered)
-                    .font(.footnote)
+                    .font(.subheadline)
                 }
                 Button("跳过") { onSkip() }
                     .pressable()
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }

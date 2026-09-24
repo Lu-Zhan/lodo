@@ -172,7 +172,7 @@ struct ProjectTimelineView: View {
         HorizontalChipRow {
             ForEach(allDayTasks) { task in
                 Button(task.title) { editTask = task }
-                    .font(.footnote)
+                    .font(.subheadline)
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.capsule)
                     .tint(ProjectColor.color(for: task.project))
@@ -214,7 +214,7 @@ struct ProjectTimelineView: View {
             Circle()
                 .fill(ProjectColor.color(for: project == Self.unclassifiedKey ? nil : project))
                 .frame(width: 6, height: 6)
-            Text(project).font(.caption.bold()).lineLimit(1)
+            Text(project).font(.footnote.bold()).lineLimit(1)
         }
         .padding(.vertical, 6)
     }
@@ -224,7 +224,7 @@ struct ProjectTimelineView: View {
             ForEach(hours, id: \.self) { hour in
                 PositionedContent(y: CGFloat(minutes(range.start, hour)) * Self.pointsPerMinute - 6) {
                     Text(hour.formatted(date: .omitted, time: .shortened))
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -253,10 +253,10 @@ struct ProjectTimelineView: View {
             let h = max(CGFloat(task.durationMinutes) * Self.pointsPerMinute, 22)
             PositionedContent(y: y) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(task.title).font(.caption.bold()).lineLimit(h > 34 ? 2 : 1)
+                    Text(task.title).font(.footnote.bold()).lineLimit(h > 34 ? 2 : 1)
                     if h > 34 {
                         Text(TaskItem.format(task.remindAt))
-                            .font(.caption2).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .padding(6)
@@ -278,7 +278,7 @@ struct ProjectTimelineView: View {
             PositionedContent(y: y - 6) {
                 HStack(spacing: 4) {
                     Circle().fill(color).frame(width: 8, height: 8)
-                    Text(task.title).font(.caption2).lineLimit(1)
+                    Text(task.title).font(.caption).lineLimit(1)
                         .strikethrough(task.status == .done)
                         .opacity(task.status == .done ? 0.55 : 1)
                 }

@@ -53,7 +53,7 @@ struct DoneListView: View {
                 if insightEnabled, let insight {
                     Section("本周洞察") {
                         Label(insight, systemImage: "sparkles")
-                            .font(.subheadline)
+                            .font(.body)
                     }
                 }
                 if allTasks.isEmpty {
@@ -88,7 +88,7 @@ struct DoneListView: View {
             Text(task.title).strikethrough()
             if let doneAt = task.doneAt {
                 Text("完成于 \(TaskItem.format(doneAt))")
-                    .font(.footnote).foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(.secondary)
             }
         }
         .nagSwipeActions(

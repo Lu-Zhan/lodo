@@ -128,7 +128,7 @@ struct MemoryListView: View {
                             clearFilters()
                         } label: {
                             Label("清除筛选:\(filterSummary)", systemImage: "xmark.circle")
-                                .font(.subheadline)
+                                .font(.body)
                         }
                     }
                 }
@@ -533,25 +533,30 @@ private struct MemoryRow: View {
             // 图标取代内容类型图标(反正这类条目恒为 .text,类型图标本来也没有
             // 信息量),和聊天里 memoryResultContent 的图标语言保持一致,让用户
             // 一眼能从列表里认出"这条是 AI 自己记的",不用点进详情看标签。
+            // 强调色只给**有信息量**的那个:sparkles 表示"这条是 AI 自己记的",
+            // 值得一眼认出;而内容类型图标每行都一样、又不可点,染成强调色只是
+            // 让整列重复十几个彩色色块,把视线从标题上抢走(换成橙色主色后尤其
+            // 明显)。类型图标退成中性,一行就只剩标签一处强调色。
             Image(systemName: item.isAutoRecorded ? "sparkles" : item.kind.symbol)
-                .foregroundStyle(.tint)
+                .foregroundStyle(item.isAutoRecorded ? AnyShapeStyle(.tint)
+                                                     : AnyShapeStyle(.secondary))
                 .frame(width: 22)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
-                        .font(.subheadline)
+                        .font(.body.weight(.medium))
                         .lineLimit(1)
                     if let assetValue = item.assetValue {
                         Spacer(minLength: 8)
                         Text(AssetFormat.currency(assetValue, code: item.assetCurrencyOrDefault))
-                            .font(.footnote.monospacedDigit())
+                            .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                 }
                 if !item.summary.isEmpty {
                     Text(item.summary)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -564,26 +569,26 @@ private struct MemoryRow: View {
                             Text("利率 " + AssetFormat.percent(rate))
                         }
                     }
-                    .font(.caption2)
-                    .foregroundStyle(.red)
+                    .font(.caption)
+                    .foregroundStyle(LodoColor.critical)
                 }
                 HStack(spacing: 6) {
                     if item.status == .failed {
                         Button("整理失败,重试") {
                             MemoryPipeline.retry(item, context: context)
                         }
-                        .font(.footnote)
+                        .font(.subheadline)
                         .buttonStyle(.borderless)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(LodoColor.critical)
                     } else if !item.tags.isEmpty {
                         Text(item.tags.prefix(3).map { "#\($0)" }.joined(separator: " "))
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.tint)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                     Text(TaskItem.format(item.createdAt))
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -674,45 +679,45 @@ private struct AssetOverviewCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("资产总览").font(.subheadline).foregroundStyle(.secondary)
+                Text("资产总览").font(.body).foregroundStyle(.secondary)
                 Spacer()
                 Text("\(overview.totalCount) 项")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.tertiary)
             }
             Text(AssetFormat.currency(overview.totalValue, code: overview.displayCurrency))
                 .font(.title2.bold().monospacedDigit())
             if overview.valuedCount < overview.totalCount {
                 Text("其中 \(overview.totalCount - overview.valuedCount) 项未填金额,不计入总额")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.tertiary)
             }
             if rates.isUnavailable {
                 Text("汇率不可用(需联网获取一次),不同币种暂按原样未换算求和")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.tertiary)
             } else if overview.unratedCount > 0 {
                 Text("其中 \(overview.unratedCount) 项币种暂无汇率,不计入总额")
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundStyle(.tertiary)
             }
             if overview.liabilityCount > 0 {
                 HStack {
-                    Text("总负债").font(.caption).foregroundStyle(.secondary)
+                    Text("总负债").font(.footnote).foregroundStyle(.secondary)
                     Spacer()
                     Text("-" + AssetFormat.currency(overview.totalLiability, code: overview.displayCurrency))
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.red)
+                        .font(.body.monospacedDigit())
+                        .foregroundStyle(LodoColor.critical)
                 }
                 HStack {
-                    Text("净资产").font(.caption).foregroundStyle(.secondary)
+                    Text("净资产").font(.footnote).foregroundStyle(.secondary)
                     Spacer()
                     Text(AssetFormat.currency(overview.netWorth, code: overview.displayCurrency))
-                        .font(.subheadline.bold().monospacedDigit())
+                        .font(.body.bold().monospacedDigit())
                 }
                 if !rates.isUnavailable && overview.unratedLiabilityCount > 0 {
                     Text("其中 \(overview.unratedLiabilityCount) 项负债币种暂无汇率,不计入净资产")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -720,9 +725,9 @@ private struct AssetOverviewCard: View {
                 HorizontalChipRow {
                     ForEach(overview.byCategory, id: \.name) { entry in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(entry.name).font(.caption2).foregroundStyle(.secondary)
+                            Text(entry.name).font(.caption).foregroundStyle(.secondary)
                             Text(AssetFormat.currency(entry.value, code: overview.displayCurrency))
-                                .font(.footnote.monospacedDigit())
+                                .font(.subheadline.monospacedDigit())
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)

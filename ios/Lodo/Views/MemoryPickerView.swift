@@ -96,7 +96,7 @@ struct MemoryPickerView: View {
                     .lineLimit(1)
                 if !item.summary.isEmpty {
                     Text(item.summary)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

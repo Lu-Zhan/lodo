@@ -525,15 +525,15 @@ private struct TripPlanPreviewView: View {
                     Text(plan.tripTitle)
                         .font(.title2.bold())
                     Text("\(TripPlanFormat.dateRange(plan)) · \(days.count) 天 · \(plan.items.count) 项安排")
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
                     if !plan.summary.isEmpty {
                         Text(plan.summary)
-                            .font(.subheadline)
+                            .font(.body)
                             .padding(.top, 2)
                     }
                     Label("AI 规划 · 尚未写入行程", systemImage: "sparkles")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.top, 2)
                 }

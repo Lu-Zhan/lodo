@@ -28,28 +28,28 @@ struct RoutineRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Color.accentColor)
                         Text(routine.name.isEmpty ? "未命名任务" : routine.name)
                         Text("AI 定时任务")
-                            .font(.caption2)
+                            .font(.caption)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
-                            .background(Capsule().fill(Color.purple.opacity(0.15)))
-                            .foregroundStyle(.purple)
+                            .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                            .foregroundStyle(Color.accentColor)
                         if running {
                             ProgressView().controlSize(.small)
                         }
                     }
                     Text(subtitle)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                     if let latestRunToday {
                         Text(latestRunToday.text)
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(latestRunToday.failed ? .red : .primary)
                     }
                     if let runError {
-                        Text(runError).font(.caption2).foregroundStyle(.red)
+                        Text(runError).font(.caption).foregroundStyle(LodoColor.critical)
                     }
                 }
             }

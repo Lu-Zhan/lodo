@@ -91,7 +91,7 @@ struct MenuListView: View {
         let picked = all.filter(\.selected).count
         return VStack(alignment: .leading, spacing: 3) {
             Text(menu.title)
-                .font(.subheadline.weight(.medium))
+                .font(.body.weight(.medium))
             HStack(spacing: 4) {
                 if let source = menu.menuSourceLanguage {
                     Text(source)
@@ -104,10 +104,10 @@ struct MenuListView: View {
                         .foregroundStyle(Color.accentColor)
                 }
             }
-            .font(.footnote)
+            .font(.subheadline)
             .foregroundStyle(.secondary)
             Text(menu.createdAt, format: .dateTime.month().day().hour().minute())
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)

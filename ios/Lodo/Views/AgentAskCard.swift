@@ -63,7 +63,7 @@ struct AgentAskCard: View {
             .disabled(currentIndex == 0)
 
             Text("第 \(currentIndex + 1) / \(snapshot.questions.count) 题")
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Button {
@@ -75,7 +75,7 @@ struct AgentAskCard: View {
             // 往后翻同样要求当前题已经答了,免得跳过去以后回不到"能提交"的状态。
             .disabled(isLastQuestion || answers(at: currentIndex).isEmpty)
         }
-        .font(.footnote)
+        .font(.subheadline)
         .foregroundStyle(.secondary)
     }
 
@@ -84,7 +84,7 @@ struct AgentAskCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 if !question.header.isEmpty {
                     Text(question.header)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Text(question.question)
@@ -96,7 +96,7 @@ struct AgentAskCard: View {
                 onCancel()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.footnote.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
             .pressable()
@@ -126,7 +126,7 @@ struct AgentAskCard: View {
                             .foregroundStyle(.primary)
                         if option.recommended {
                             Text("推荐")
-                                .font(.caption2)
+                                .font(.caption)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(.tint.opacity(0.15),
@@ -136,7 +136,7 @@ struct AgentAskCard: View {
                     }
                     if !option.description.isEmpty {
                         Text(option.description)
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -144,7 +144,7 @@ struct AgentAskCard: View {
                 Spacer(minLength: 8)
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.footnote.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.tint)
                 }
             }
@@ -173,7 +173,7 @@ struct AgentAskCard: View {
     private var otherField: some View {
         TextField("其他", text: $otherText[currentIndex], axis: .vertical)
             .textFieldStyle(.plain)
-            .font(.subheadline)
+            .font(.body)
             .lineLimit(1...3)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -202,7 +202,7 @@ struct AgentAskCard: View {
             } label: {
                 Label(isLastQuestion ? "完成" : "下一项",
                       systemImage: isLastQuestion ? "checkmark" : "arrow.right")
-                    .font(.subheadline.weight(.medium))
+                    .font(.body.weight(.medium))
                     .padding(.horizontal, 4)
                     .frame(height: 32)
             }
@@ -226,13 +226,13 @@ struct AgentAskRecordCard: View {
             ForEach(Array(snapshot.questions.enumerated()), id: \.offset) { index, question in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(question.question)
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     let answer = index < snapshot.answers.count
                         ? snapshot.answers[index].joined(separator: "、") : ""
                     Text(answer.isEmpty ? "未回答" : answer)
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(answer.isEmpty ? .secondary : .primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

@@ -38,7 +38,7 @@ struct MemoryDetailView: View {
                 TextField("标题", text: $item.title)
                 if !item.summary.isEmpty {
                     Text(item.summary)
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
                 }
                 TextField("标签(用、分隔)", text: $tagsText)
@@ -48,7 +48,7 @@ struct MemoryDetailView: View {
                         ForEach(existingTags, id: \.self) { tag in
                             let selected = currentTags.contains(tag)
                             Button("#\(tag)") { toggle(tag) }
-                                .font(.footnote)
+                                .font(.subheadline)
                                 .buttonStyle(.bordered)
                                 .buttonBorderShape(.capsule)
                                 .tint(selected ? Color.accentColor : Color.secondary)
@@ -94,7 +94,7 @@ struct MemoryDetailView: View {
                     Button("整理失败,重试") {
                         MemoryPipeline.retry(item, context: context)
                     }
-                    .foregroundStyle(.red)
+                    .foregroundStyle(LodoColor.critical)
                 } footer: {
                     Text("原文已保留,重试只重新进行 AI 整理;未配置 AI 时请先到「设置」里填写。")
                 }
@@ -120,7 +120,7 @@ struct MemoryDetailView: View {
                         }
                     } else {
                         Text("原文件仅保存在收藏它的设备上。")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -129,7 +129,7 @@ struct MemoryDetailView: View {
             if !item.sourceText.isEmpty {
                 Section("原文") {
                     Text(item.sourceText)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .textSelection(.enabled)
                 }
             }

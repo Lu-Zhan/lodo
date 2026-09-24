@@ -153,7 +153,7 @@ struct TravelDetailView: View {
                             .lineLimit(3)
                     }
                 }
-                .font(.subheadline)
+                .font(.body)
                 .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -174,7 +174,7 @@ struct TravelDetailView: View {
                 Section {
                     if day.entries.isEmpty {
                         Text("这天还没安排")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(day.entries) { entry in
@@ -304,7 +304,7 @@ struct TravelDetailView: View {
                 if !total.missingCurrencies.isEmpty {
                     // 换不出汇率的不能默默当 0 吞掉,如实说清楚少算了哪几种。
                     Text("以下币种暂时换不到汇率,没有计入合计:\(total.missingCurrencies.joined(separator: "、"))")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             } header: {
@@ -338,7 +338,7 @@ struct TravelDetailView: View {
                         ForEach(entries.filter { $0.kind == kind && ($0.price ?? 0) != 0 }) { entry in
                             LabeledContent(entry.title) {
                                 Text("\(entry.currency) \(String(format: "%.2f", entry.price ?? 0))")
-                                    .font(.footnote.monospacedDigit())
+                                    .font(.subheadline.monospacedDigit())
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -375,7 +375,7 @@ struct TravelDetailView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(entry.title)
-                            .font(.subheadline.weight(.medium))
+                            .font(.body.weight(.medium))
                             .foregroundStyle(.primary)
                         if let status = entry.flight?.status, showsStatus(entry) {
                             FlightStatusBadge(status: status)
@@ -383,7 +383,7 @@ struct TravelDetailView: View {
                     }
                     if let detail = detailLine(entry, showDate: showDate) {
                         Text(detail)
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     if let flight = entry.flight {
@@ -391,7 +391,7 @@ struct TravelDetailView: View {
                     }
                     if !entry.summary.isEmpty {
                         Text(entry.summary)
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
@@ -399,7 +399,7 @@ struct TravelDetailView: View {
                 Spacer(minLength: 4)
                 if let price = entry.price, price != 0 {
                     Text("\(entry.currency) \(String(format: "%.0f", price))")
-                        .font(.footnote.monospacedDigit())
+                        .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
             }
@@ -420,7 +420,7 @@ struct TravelDetailView: View {
                 } label: {
                     Label("移出行程", systemImage: "tray.and.arrow.up")
                 }
-                .tint(.orange)
+                .tint(LodoColor.neutralAction)
             }
         }
     }

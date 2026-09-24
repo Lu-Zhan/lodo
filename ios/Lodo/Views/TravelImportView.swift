@@ -63,7 +63,7 @@ struct TravelImportView: View {
                             .overlay(alignment: .topLeading) {
                                 if text.isEmpty {
                                     Text("把订票邮件、酒店确认信或行程单贴进来,AI 会拆成航班/住宿/地点。")
-                                        .font(.footnote)
+                                        .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                         .padding(.top, 8)
                                         .padding(.leading, 5)
@@ -90,8 +90,8 @@ struct TravelImportView: View {
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                 }
             }
@@ -133,16 +133,16 @@ struct TravelImportView: View {
                 HStack {
                     ProgressView().controlSize(.small)
                     Text("正在识别截图里的文字…")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             }
             ForEach(Array(screenshots.enumerated()), id: \.element.id) { index, shot in
                 VStack(alignment: .leading, spacing: 2) {
                     Text("截图 \(index + 1)")
-                        .font(.subheadline)
+                        .font(.body)
                     Text(shot.text)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -201,11 +201,11 @@ struct TravelImportView: View {
                     .foregroundStyle(picked.contains(item.id) ? Color.accentColor : .secondary)
                 VStack(alignment: .leading, spacing: 3) {
                     Label(item.title, systemImage: item.kind.systemImage)
-                        .font(.subheadline.weight(.medium))
+                        .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
                     if mergeTargets[item.id] != nil {
                         Label("更新行程里已有的这班航班", systemImage: "arrow.triangle.2.circlepath")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.tint)
                     }
                     if let flight = item.flight {
@@ -213,12 +213,12 @@ struct TravelImportView: View {
                     }
                     if let detail = detailLine(item) {
                         Text(detail)
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     if let price = item.price {
                         Text("\(item.currency ?? "CNY") \(String(format: "%.2f", price))")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 }

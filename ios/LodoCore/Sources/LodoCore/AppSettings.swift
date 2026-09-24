@@ -29,6 +29,7 @@ public enum AppSettings {
     public static let thinkingLevelKey = "thinkingLevel"
     public static let useBuiltInKeyKey = "useBuiltInKey"
     public static let hasSeenOnboardingKey = "hasSeenOnboarding"
+    public static let accentPaletteKey = "accentPalette"
     public static let assetDisplayCurrencyKey = "assetDisplayCurrency"
     public static let languageKey = "appLanguage"
     public static let appIconStyleKey = "appIconStyle"
@@ -254,6 +255,16 @@ public enum AppSettings {
 
     public static var agentPersonaStyle: String {
         UserDefaults.standard.string(forKey: agentPersonaStyleKey) ?? "默认"
+    }
+
+    /// 强调色预设的标识(UI 侧 `AccentPalette` 的 rawValue)。默认 `terracotta`
+    /// ——赤陶橙,浅色下 #C2410C 对白底 5.18、暗色下 #FF9E4D 对 #1C1C1E 约 7,
+    /// 两种模式的文字与图形都过 WCAG AA;系统橙 #FF9500 白底只有 2.20,
+    /// 当强调色时彩色小字/细图标会发虚,所以默认值**不是**系统橙。
+    /// 值放在 LodoCore 只是为了和其余设置同源,真正的颜色定义在 app 层
+    /// (LodoCore 不依赖 SwiftUI)。
+    public static var accentPalette: String {
+        UserDefaults.standard.string(forKey: accentPaletteKey) ?? "terracotta"
     }
 
     /// personaPresets/aiProviders 里的 `name` 同时用作存储匹配键(如

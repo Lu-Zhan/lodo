@@ -41,16 +41,16 @@ struct RoutineListView: View {
                     ForEach(recentRuns) { run in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(run.routineName).font(.subheadline.weight(.medium))
+                                Text(run.routineName).font(.body.weight(.medium))
                                 if run.manual {
-                                    Text("试运行").font(.caption2).foregroundStyle(.secondary)
+                                    Text("试运行").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Text(TaskItem.format(run.createdAt))
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.footnote).foregroundStyle(.secondary)
                             }
                             Text(run.text)
-                                .font(.footnote)
+                                .font(.subheadline)
                                 .foregroundStyle(run.failed ? .red : .primary)
                         }
                         .padding(.vertical, 2)
@@ -107,7 +107,7 @@ struct RoutineListView: View {
                     Text(routine.name.isEmpty ? "未命名任务" : routine.name)
                         .foregroundStyle(.primary)
                     Text(subtitle(routine))
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

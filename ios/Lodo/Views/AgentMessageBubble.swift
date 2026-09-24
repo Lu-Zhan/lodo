@@ -19,6 +19,7 @@ private extension View {
 /// 一条消息的气泡渲染;confirm 的按钮只在 isLatest(这条是当前 thread 最新
 /// 一条)时可交互——历史消息一律纯展示,避免翻旧账时执行过时的批量操作。
 struct AgentMessageBubble: View {
+    @Environment(\.lodoAccent) private var lodoAccent
     let message: AgentMessage
     let isLatest: Bool
     var onConfirm: () -> Void = {}
@@ -91,13 +92,13 @@ struct AgentMessageBubble: View {
                     ForEach(attachments, id: \.uuid) { item in
                         Label(item.title.isEmpty ? (item.originalFileName ?? "附件") : item.title,
                               systemImage: item.kind.symbol)
-                            .font(.caption)
+                            .font(.footnote)
                             .lineLimit(1)
                     }
                 }
                 if let quoted = message.quotedContent, !quoted.isEmpty {
                     Label(quoted, systemImage: "quote.bubble")
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.white.opacity(0.75))
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -108,10 +109,12 @@ struct AgentMessageBubble: View {
             }
             .padding(12)
             // 自己发出的气泡填主题色,AI 那侧保持原来的中性底——两边一眼分得开。
-            // 附件名/引用摘要在实色底上跟着用白字,不再用 .secondary(蓝底上发灰)。
-            .background(Color.accentColor,
+            // 附件名/引用摘要在实色底上跟着用同一个前景色,不用 .secondary(实色底上发灰)。
+            // **前景取 lodoAccent.onFill 而不是写死白色**:暗色模式的强调色是亮橙,
+            // 白字压上去对比度只有 2.08,读不清;onFill 在暗色下是近黑(8.92)。
+            .background(lodoAccent.fill,
                         in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
-            .foregroundStyle(.white)
+            .foregroundStyle(lodoAccent.onFill)
             .contextMenu {
                 Button { onCopy() } label: { Label("复制", systemImage: "doc.on.doc") }
                 Button { onQuote() } label: { Label("引用", systemImage: "quote.bubble") }
@@ -290,7 +293,7 @@ struct AgentMessageBubble: View {
                             Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
                             if !item.summary.isEmpty {
                                 Text(item.summary)
-                                    .font(.footnote)
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
@@ -327,7 +330,7 @@ struct AgentMessageBubble: View {
                     Label("收藏这条", systemImage: "bookmark")
                 }
                 .buttonStyle(.bordered)
-                .font(.footnote)
+                .font(.subheadline)
             }
         }
         .agentCard()
@@ -344,7 +347,7 @@ struct AgentMessageBubble: View {
                     Label("撤销", systemImage: "arrow.uturn.backward")
                 }
                 .buttonStyle(.bordered)
-                .font(.footnote)
+                .font(.subheadline)
             }
         }
         .agentCard()
@@ -383,7 +386,7 @@ struct AgentMessageBubble: View {
             Label(message.content, systemImage: "sparkles").font(.body)
             ForEach(message.relatedTitles, id: \.self) { title in
                 Label(title, systemImage: "bookmark.circle")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
@@ -486,7 +489,7 @@ private struct AgentTaskCard: View {
                     Text(snapshot.parsed.title)
                         .foregroundStyle(.primary)
                     Text(snapshot.parsed.caption)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)

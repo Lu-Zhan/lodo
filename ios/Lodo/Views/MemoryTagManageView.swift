@@ -51,7 +51,7 @@ struct MemoryTagManageView: View {
                                     Label(entry.name, systemImage: "tag")
                                     Spacer()
                                     Text("\(entry.count) 条")
-                                        .font(.footnote)
+                                        .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
                             }

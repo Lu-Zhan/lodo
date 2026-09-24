@@ -47,11 +47,11 @@ struct AgentTripPlanCard: View {
                 Label(plan.tripTitle, systemImage: "map")
                     .font(.headline)
                 Text("\(TripPlanFormat.dateRange(plan)) · \(plan.days().count) 天 · \(plan.items.count) 项安排")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 if !plan.summary.isEmpty {
                     Text(plan.summary)
-                        .font(.subheadline)
+                        .font(.body)
                         .padding(.top, 2)
                 }
             }
@@ -72,7 +72,7 @@ struct AgentTripPlanCard: View {
                         Label("展开其余 \(hiddenCount) 项", systemImage: "chevron.down")
                     }
                 }
-                .font(.footnote)
+                .font(.subheadline)
                 .buttonStyle(.borderless)
             }
 
@@ -87,7 +87,7 @@ struct AgentTripPlanCard: View {
     private func dayBlock(title: Text, entries: [TravelEntry]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             title
-                .font(.footnote.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
             ForEach(entries) { TripPlanEntryRow(entry: $0) }
         }
@@ -98,7 +98,7 @@ struct AgentTripPlanCard: View {
         if plan.isApplied {
             HStack(spacing: 8) {
                 Label("已写入「\(plan.tripTitle)」", systemImage: "checkmark.circle.fill")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(Color.accentColor)
                 Spacer(minLength: 8)
                 viewButton
@@ -109,18 +109,18 @@ struct AgentTripPlanCard: View {
                     Label("撤销", systemImage: "arrow.uturn.backward")
                 }
                 .buttonStyle(.bordered)
-                .font(.footnote)
+                .font(.subheadline)
             }
         } else if plan.appliedTripUUID != nil {
             // 写入过又撤销了:和新建待办结果卡片那颗开关一样,不限最新一条。
             HStack(spacing: 8) {
                 Label("已撤销写入", systemImage: "xmark.circle")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
                 Button("重新写入") { apply(plan) }
                     .buttonStyle(.bordered)
-                    .font(.footnote)
+                    .font(.subheadline)
             }
         } else if isLatest {
             HStack(spacing: 8) {
@@ -142,11 +142,11 @@ struct AgentTripPlanCard: View {
         if let inspector, let target = AgentInspectorTarget.from(message) {
             Button("查看") { inspector.show(target) }
                 .buttonStyle(.bordered)
-                .font(.footnote)
+                .font(.subheadline)
         } else if let chrome = sidebarChrome {
             Button("查看") { chrome.go(.travel) }
                 .buttonStyle(.bordered)
-                .font(.footnote)
+                .font(.subheadline)
         }
     }
 
@@ -199,22 +199,22 @@ struct TripPlanEntryRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: entry.kind.systemImage)
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     if let start = entry.start, entry.kind != .lodging {
                         Text(start, format: .dateTime.hour().minute())
-                            .font(.subheadline.monospacedDigit())
+                            .font(.body.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                     Text(entry.title)
-                        .font(.subheadline)
+                        .font(.body)
                 }
                 if !entry.summary.isEmpty {
                     Text(entry.summary)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

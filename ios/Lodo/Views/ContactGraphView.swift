@@ -155,13 +155,13 @@ struct ContactGraphView: View {
             } else {
                 context.fill(Path(ellipseIn: rect), with: .color(.accentColor.opacity(0.85)))
                 context.draw(
-                    Text(initials(for: contact)).font(.footnote.bold()).foregroundStyle(.white),
+                    Text(initials(for: contact)).font(.subheadline.bold()).foregroundStyle(.white),
                     at: point)
             }
 
             let label = contact.title.isEmpty ? "(未命名)" : contact.title
             context.draw(
-                Text(label).font(.caption2),
+                Text(label).font(.caption),
                 at: CGPoint(x: point.x, y: point.y + nodeRadius + 12))
         }
     }

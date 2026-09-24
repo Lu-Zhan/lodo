@@ -202,10 +202,10 @@ struct RoutineEditView: View {
             }
             .disabled(!canSave || previewTask != nil)
             if let previewText {
-                Text(previewText).font(.footnote)
+                Text(previewText).font(.subheadline)
             }
             if let previewError {
-                Text(previewError).font(.footnote).foregroundStyle(.red)
+                Text(previewError).font(.subheadline).foregroundStyle(LodoColor.critical)
             }
         } footer: {
             Text("先看看 AI 会给出什么内容,不会保存进历史记录。")

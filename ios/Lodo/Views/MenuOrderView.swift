@@ -84,14 +84,14 @@ struct MenuOrderView: View {
                     .textSelection(.enabled)
                 if entry.showsOriginal {
                     Text(entry.displayName)
-                        .font(.subheadline)
+                        .font(.body)
                         .foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 8)
             if let price = entry.price {
                 Text(MenuPlan.priceText(price, currency: menu.menuCurrency))
-                    .font(.subheadline.monospacedDigit())
+                    .font(.body.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
         }

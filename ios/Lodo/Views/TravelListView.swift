@@ -140,7 +140,7 @@ struct TravelListView: View {
         let entries = TravelStore.entries(for: trip.uuid, from: memoryItems)
         return VStack(alignment: .leading, spacing: 8) {
             statusText(trip)
-                .font(.caption.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(trip.isOngoing() || trip.isUpcoming() ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
             Group {
                 if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
@@ -152,12 +152,12 @@ struct TravelListView: View {
                 }
                 Label("\(dateRange(trip)) · 共 \(trip.dayCount) 天", systemImage: "calendar")
             }
-            .font(.subheadline)
+            .font(.body)
             .foregroundStyle(.secondary)
 
             if entries.isEmpty {
                 Text("还没有行程,点进去添加航班、住宿和想去的地方。")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
                 HStack(spacing: 16) {
@@ -170,12 +170,12 @@ struct TravelListView: View {
                         }
                     }
                 }
-                .font(.subheadline.monospacedDigit())
+                .font(.body.monospacedDigit())
                 if let next = nextEntry(entries), let start = next.start {
                     Divider()
                     VStack(alignment: .leading, spacing: 2) {
                         Text("接下来")
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                         Label {
                             Text("\(next.title) · \(Self.nextFormatter.string(from: start))")
@@ -183,7 +183,7 @@ struct TravelListView: View {
                             Image(systemName: next.kind.systemImage)
                                 .foregroundStyle(.tint)
                         }
-                        .font(.subheadline)
+                        .font(.body)
                         .lineLimit(1)
                     }
                 }
@@ -228,14 +228,14 @@ struct TravelListView: View {
         let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid }.count
         return VStack(alignment: .leading, spacing: 3) {
             Text(trip.title.isEmpty ? "未命名旅行" : trip.title)
-                .font(.subheadline.weight(.medium))
+                .font(.body.weight(.medium))
             if let location = trip.locationText {
                 Label(location, systemImage: "mappin.and.ellipse")
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Text("\(dateRange(trip)) · \(trip.dayCount) 天 · \(count) 项")
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
@@ -396,8 +396,8 @@ struct TripEditView: View {
                     DatePicker("返程", selection: $end, displayedComponents: .date)
                     if hasInvalidRange {
                         Text("返程早于出发,改一下才能保存。")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                 }
                 Section("备注") {

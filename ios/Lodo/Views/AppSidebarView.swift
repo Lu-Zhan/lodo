@@ -112,7 +112,7 @@ struct AppSidebarView: View {
                 collapsedTagRows
 
                 Text("最近")
-                    .font(.subheadline)
+                    .font(.body)
                     .foregroundStyle(.secondary)
                     .listRowInsets(EdgeInsets(top: 12, leading: 24, bottom: 4, trailing: 20))
                     .listRowSeparator(.hidden)
@@ -120,7 +120,7 @@ struct AppSidebarView: View {
                 if filteredThreads.isEmpty {
                     Text("没有匹配的对话")
                         .foregroundStyle(.secondary)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .listRowInsets(EdgeInsets(top: 4, leading: 24, bottom: 4, trailing: 20))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -372,7 +372,7 @@ struct AppSidebarView: View {
                 onSelect()
             } label: {
                 Label("新建", systemImage: "square.and.pencil")
-                    .font(.subheadline.weight(.medium))
+                    .font(.body.weight(.medium))
                     .padding(.horizontal, 6)
                     // 和左侧齿轮一样以 24pt 内容高度交给系统玻璃样式排版。
                     // 辅助功能字号更大时仍可随内容增高。
@@ -395,10 +395,10 @@ struct AppSidebarView: View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-                .font(.footnote)
+                .font(.subheadline)
             TextField("搜索对话", text: $query)
                 .textFieldStyle(.plain)
-                .font(.footnote)
+                .font(.subheadline)
                 .focused($searchFieldFocused)
             if !query.isEmpty {
                 Button {

@@ -21,7 +21,7 @@ struct MemoryComposeView: View {
                 .overlay {
                     if text.isEmpty {
                         Text("写点想收藏的内容,AI 会整理成记忆条目。")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .padding()
                             .allowsHitTesting(false)

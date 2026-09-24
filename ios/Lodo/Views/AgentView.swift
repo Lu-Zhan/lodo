@@ -12,6 +12,7 @@ import UIKit
 /// 保存后往当前 thread 追加一条结果消息,不关掉聊天页。
 /// 对话列表和抽屉本身归外壳(AppShellView/AppSidebarView),这里只管聊天区。
 struct AgentView: View {
+    @Environment(\.lodoAccent) private var lodoAccent
     /// 非 nil 时把文本预填进输入框(深链/Siri 交接/小组件"+"),消费后置 nil。
     @Binding var pendingPrefill: String?
     /// 当前对话。外壳持有——侧栏的对话历史列表和这里看的是同一个值。
@@ -412,7 +413,7 @@ struct AgentView: View {
                             attachmentChipsRow
                             quotedPreviewRow
                             if let error = errorText ?? speech.errorText {
-                                Text(error).font(.footnote).foregroundStyle(.red)
+                                Text(error).font(.subheadline).foregroundStyle(LodoColor.critical)
                                     .padding(.horizontal)
                             }
                             inputBar
@@ -464,7 +465,7 @@ struct AgentView: View {
                 Image(systemName: "quote.bubble")
                     .foregroundStyle(.secondary)
                 Text(quoted.content)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 8)
@@ -487,7 +488,7 @@ struct AgentView: View {
     private func attachmentChip(_ attachment: PendingAttachment) -> some View {
         HStack(spacing: 4) {
             Label(attachment.displayName, systemImage: attachment.symbol)
-                .font(.footnote)
+                .font(.subheadline)
                 .lineLimit(1)
             Button {
                 removeAttachment(attachment)
@@ -729,9 +730,10 @@ struct AgentView: View {
         } label: {
             Image(systemName: "checkmark")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
+                // onFill 而不是写死白色:暗色下强调色是亮橙,白字只有 2.08。
+                .foregroundStyle(lodoAccent.onFill)
                 .frame(width: 36, height: 36)
-                .background(Color.accentColor, in: Circle())
+                .background(lodoAccent.fill, in: Circle())
                 .hitTarget(visualSize: 36)
         }
         .pressable()
@@ -853,9 +855,11 @@ struct AgentView: View {
         } label: {
             Image(systemName: busy ? "stop.fill" : "arrow.up")
                 .font(.system(size: busy ? 15 : 17, weight: .bold))
-                .foregroundStyle(.white)
+                // busy 是灰底,仍用白字;强调色底走 onFill(理由同 confirmRecordingButton)。
+                .foregroundStyle(busy ? AnyShapeStyle(Color.white)
+                                      : AnyShapeStyle(lodoAccent.onFill))
                 .frame(width: Self.composerControlSize, height: Self.composerControlSize)
-                .background(busy ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor),
+                .background(busy ? AnyShapeStyle(.secondary) : AnyShapeStyle(lodoAccent.fill),
                             in: Circle())
                 .hitTarget(visualSize: Self.composerControlSize)
         }
@@ -1612,7 +1616,7 @@ private struct AgentTitleView: View {
                 .font(.headline)
                 .lineLimit(1)
             Text(subtitle)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .opacity(hides ? 0 : 1)
@@ -1641,7 +1645,7 @@ private struct AgentImageViewer: View {
                 VStack {
                     Spacer()
                     Text("\(index + 1) / \(images.count)")
-                        .font(.footnote.monospacedDigit())
+                        .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -1844,7 +1848,7 @@ private struct AgentMessageListView: View {
                     Button(prompt) { onExamplePrompt(prompt) }
                         .buttonStyle(.bordered)
                         .buttonBorderShape(.capsule)
-                        .font(.footnote)
+                        .font(.subheadline)
                 }
             }
         }

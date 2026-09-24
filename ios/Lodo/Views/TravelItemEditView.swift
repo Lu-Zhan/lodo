@@ -119,8 +119,8 @@ struct TravelItemEditView: View {
                     }
                     if hasInvalidRange {
                         Text("结束时间早于开始时间,改一下才能保存。")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                 } footer: {
                     Text(kind == .lodging
@@ -159,8 +159,8 @@ struct TravelItemEditView: View {
                     }
                     if hasInvalidPrice {
                         Text("金额无法识别为数字,改成数字或清空这一栏才能保存。")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                 } header: {
                     Text("花费")
@@ -213,7 +213,7 @@ struct TravelItemEditView: View {
             }
             Button("搜索") { searching = target }
                 .buttonStyle(.bordered)
-                .font(.footnote)
+                .font(.subheadline)
         }
         // 手打名字就说明用户不想用刚才搜到的那个点了,旧坐标留着会把地图钉在错的地方。
         .onChange(of: name.wrappedValue) { old, new in

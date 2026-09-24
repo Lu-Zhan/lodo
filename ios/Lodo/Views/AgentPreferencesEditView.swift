@@ -26,7 +26,7 @@ struct AgentPreferencesEditView: View {
             .overlay {
                 if text.isEmpty {
                     Text("暂无偏好;说一句「以后开会都留一小时」这样的长期要求,AI 会自动记在这里,也可以直接手写。")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding()
                 }

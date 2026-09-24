@@ -115,8 +115,8 @@ struct OverviewView: View {
                     Section("今日例行") {
                         ForEach(todayRoutineRuns) { run in
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(run.routineName).font(.subheadline.weight(.medium))
-                                Text(run.text).font(.footnote)
+                                Text(run.routineName).font(.body.weight(.medium))
+                                Text(run.text).font(.subheadline)
                             }
                             .padding(.vertical, 2)
                         }
@@ -125,13 +125,13 @@ struct OverviewView: View {
                 if let suggestion {
                     Section("处理建议") {
                         Label(suggestion, systemImage: "sparkles")
-                            .font(.subheadline)
+                            .font(.body)
                     }
                 }
                 if let memorySummary {
                     Section("今天的记忆") {
                         Label(memorySummary, systemImage: "sparkles.rectangle.stack")
-                            .font(.subheadline)
+                            .font(.body)
                     }
                 }
                 if let healthTip {
@@ -143,11 +143,11 @@ struct OverviewView: View {
                         } label: {
                             HStack {
                                 Label(healthTip, systemImage: "heart.text.square")
-                                    .font(.subheadline)
+                                    .font(.body)
                                     .foregroundStyle(.primary)
                                 Spacer(minLength: 8)
                                 Image(systemName: "chevron.right")
-                                    .font(.caption)
+                                    .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -227,14 +227,14 @@ struct OverviewView: View {
     ) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                Text("「\(reschedule.task.title)」改期建议").font(.subheadline)
+                Text("「\(reschedule.task.title)」改期建议").font(.body)
                 HorizontalChipRow {
                     ForEach(reschedule.candidates, id: \.label) { candidate in
                         Button(candidate.label) {
                             applyNotificationReschedule(candidate.date)
                         }
                         .buttonStyle(.bordered)
-                        .font(.footnote)
+                        .font(.subheadline)
                         .tint(.accentColor)
                     }
                     Button {

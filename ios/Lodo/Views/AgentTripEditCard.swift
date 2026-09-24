@@ -40,7 +40,7 @@ struct AgentTripEditCard: View {
                 .font(.headline)
                 if !record.summary.isEmpty {
                     Text(record.summary)
-                        .font(.subheadline)
+                        .font(.body)
                 }
             }
 
@@ -65,25 +65,25 @@ struct AgentTripEditCard: View {
                 } icon: {
                     Image(systemName: "exclamationmark.circle")
                 }
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
             }
 
             HStack(spacing: 8) {
                 if reverted {
                     Label("已撤销这次调整", systemImage: "arrow.uturn.backward.circle")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
                 if let inspector, !reverted {
                     Button("查看") { inspector.show(.trip(record.tripUUID)) }
                         .buttonStyle(.bordered)
-                        .font(.footnote)
+                        .font(.subheadline)
                 } else if let chrome = sidebarChrome, !reverted {
                     Button("查看") { chrome.go(.travel) }
                         .buttonStyle(.bordered)
-                        .font(.footnote)
+                        .font(.subheadline)
                 }
                 if !reverted {
                     Button {
@@ -96,7 +96,7 @@ struct AgentTripEditCard: View {
                         Label("撤销", systemImage: "arrow.uturn.backward")
                     }
                     .buttonStyle(.bordered)
-                    .font(.footnote)
+                    .font(.subheadline)
                 }
             }
         }
@@ -113,12 +113,12 @@ struct AgentTripEditCard: View {
                 .foregroundStyle(tint)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.subheadline)
+                    .font(.body)
                     .strikethrough(struck)
                     .foregroundStyle(struck ? .secondary : .primary)
                 if let start {
                     Text(start, format: .dateTime.month().day().weekday().hour().minute())
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }

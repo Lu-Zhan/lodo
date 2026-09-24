@@ -51,7 +51,7 @@ struct MenuImportView: View {
                         .overlay(alignment: .topLeading) {
                             if text.isEmpty {
                                 Text("也可以把菜单文字直接贴进来。")
-                                    .font(.footnote)
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .padding(.top, 8)
                                     .padding(.leading, 5)
@@ -77,8 +77,8 @@ struct MenuImportView: View {
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                 }
             }

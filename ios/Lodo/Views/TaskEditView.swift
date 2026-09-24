@@ -56,7 +56,7 @@ struct TaskEditView: View {
 
                 if let errorText {
                     Section {
-                        Text(errorText).foregroundStyle(.red).font(.footnote)
+                        Text(errorText).foregroundStyle(LodoColor.critical).font(.subheadline)
                     }
                 }
             }
@@ -89,12 +89,12 @@ struct TaskEditView: View {
             Label(attachment.kind.label, systemImage: attachment.kind.symbol)
                 .foregroundStyle(.secondary)
             if !attachment.summary.isEmpty {
-                Text(attachment.summary).font(.footnote)
+                Text(attachment.summary).font(.subheadline)
             } else if !attachment.text.isEmpty {
-                Text(attachment.text).font(.footnote).lineLimit(4)
+                Text(attachment.text).font(.subheadline).lineLimit(4)
             }
             if let urlString = attachment.urlString, let url = URL(string: urlString) {
-                Link(urlString, destination: url).font(.footnote).lineLimit(1)
+                Link(urlString, destination: url).font(.subheadline).lineLimit(1)
             }
         }
     }

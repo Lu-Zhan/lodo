@@ -74,6 +74,10 @@ struct AppShellView: View {
     /// 不会刷新。抽屉是全 app 位移幅度最大的动画,这里单独走环境值。
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    /// 用 @AppStorage 而不是 `AccentPalette.current`:绑同一个键才会在用户于
+    /// 设置里换色时立刻重建整棵树(静态读不会触发刷新)。
+    @AppStorage(AppSettings.accentPaletteKey) private var accentPaletteRaw =
+        AppSettings.accentPalette
 
     /// 常驻并排(而不是抽屉)布局。macOS 上 horizontalSizeClass 可能是 nil
     /// (窗口、预览、自定义宿主都出现过),按 `== .regular` 判会掉进窄屏抽屉分支,
@@ -178,6 +182,11 @@ struct AppShellView: View {
         return true
     }
 
+    /// 当前强调色预设;认不出存的值时回落赤陶(同 `AccentPalette.current`)。
+    private var accentPalette: AccentPalette {
+        AccentPalette(rawValue: accentPaletteRaw) ?? .terracotta
+    }
+
     var body: some View {
         Group {
             if usesRegularLayout {
@@ -186,6 +195,12 @@ struct AppShellView: View {
                 compactLayout
             }
         }
+        // 全 app 唯一一处强调色下发点:系统控件的 tint 以及所有没有显式指定颜色的
+        // 按钮都从这里继承。各视图里**不要**再写 .tint(.blue) 之类的硬编码色,
+        // 否则那一处就不跟随用户设置了(FloatingAddAction 原来就是这个问题)。
+        .tint(accentPalette.accent)
+        // tint 只覆盖系统控件;需要显式写颜色的地方读 \.lodoAccent(见 LodoPalette)。
+        .environment(\.lodoAccent, accentPalette)
         // 挂在最外层:量到的是原始安全区,不会被页面内部的导航栏放大。
         // 忽略键盘那一档很要紧:不忽略的话键盘一弹起 safeAreaInsets.bottom 就
         // 变成键盘高度,而这个值是当"home indicator 有多高"用的(侧栏底栏靠它

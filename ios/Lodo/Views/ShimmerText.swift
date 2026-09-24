@@ -17,14 +17,14 @@ struct ShimmerText: View {
         // 状态说清楚了,不靠动效也不影响理解。
         if reduceMotion {
             Text(text)
-                .font(.footnote)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         } else {
             TimelineView(.animation) { context in
                 let t = context.date.timeIntervalSinceReferenceDate
                 let phase = (t.truncatingRemainder(dividingBy: 1.4)) / 1.4
                 Text(text)
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .overlay(
                         LinearGradient(
@@ -32,7 +32,7 @@ struct ShimmerText: View {
                             startPoint: UnitPoint(x: phase * 3 - 1, y: 0.5),
                             endPoint: UnitPoint(x: phase * 3, y: 0.5)
                         )
-                        .mask(Text(text).font(.footnote))
+                        .mask(Text(text).font(.subheadline))
                     )
             }
         }

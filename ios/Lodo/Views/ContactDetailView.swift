@@ -107,7 +107,7 @@ struct ContactDetailView: View {
                         ForEach(existingTags, id: \.self) { tag in
                             let selected = currentTags.contains(tag)
                             Button("#\(tag)") { toggle(tag) }
-                                .font(.footnote)
+                                .font(.subheadline)
                                 .buttonStyle(.bordered)
                                 .buttonBorderShape(.capsule)
                                 .tint(selected ? Color.accentColor : Color.secondary)
@@ -131,7 +131,7 @@ struct ContactDetailView: View {
             Section {
                 if relationships.isEmpty {
                     Text("还没有关联的人脉。")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(relationships, id: \.relationship.uuid) { entry in
@@ -348,7 +348,7 @@ private struct AddContactRelationshipSheet: View {
                 Section("人脉") {
                     if candidates.isEmpty {
                         Text("还没有其他人脉可以关联。")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
                         Picker("人脉", selection: $selected) {

@@ -8,7 +8,6 @@ import LodoCore
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dynamicTypeSize) private var systemTypeSize
     @AppStorage(AppSettings.hasSeenOnboardingKey) private var hasSeenOnboarding = false
     @State private var showOnboarding = false
 
@@ -22,24 +21,16 @@ struct ContentView: View {
     /// 上次前台全量重排的时间,30 秒内重复 active 不再触发(避免频繁切换的重排风暴)。
     @State private var lastActiveRefresh = Date.distantPast
 
-    /// 在系统当前文字大小上增加一档，同时保留用户的辅助功能字号选择。
-    private var appTypeSize: DynamicTypeSize {
-        switch systemTypeSize {
-        case .xSmall: .small
-        case .small: .medium
-        case .medium: .large
-        case .large: .xLarge
-        case .xLarge: .xxLarge
-        case .xxLarge: .xxxLarge
-        case .xxxLarge: .accessibility1
-        case .accessibility1: .accessibility2
-        case .accessibility2: .accessibility3
-        case .accessibility3: .accessibility4
-        case .accessibility4, .accessibility5: .accessibility5
-        @unknown default: systemTypeSize
-        }
-    }
-
+    /// 以前这里把系统字号整体顶高一档(`appTypeSize`)。那是在给"内容样式整体
+    /// 偏小一档"打补丁——列表主标题当时是 `.subheadline`(15pt),比 Apple 自家
+    /// 列表行低一到两档,于是在根上把所有东西一起放大。副作用是**导航栏标题和
+    /// 分区标题也跟着放大**,而这两处本来就是对的,结果分区标题比它统领的内容
+    /// 还醒目,层级是反的(总览页尤其明显)。
+    ///
+    /// 现在把内容样式整体上移了一档(subheadline→body、footnote→subheadline、
+    /// caption→footnote、caption2→caption,共 206 处),内容的视觉尺寸和之前
+    /// 基本持平,所以这层全局补偿可以撤掉,chrome 回到平台正确的尺寸。
+    /// **别再加回来**——要调内容大小就改文字角色本身。
     var body: some View {
         AppShellView()
             .onAppear {
@@ -108,6 +99,5 @@ struct ContentView: View {
                     MemoryPipeline.consumeInbox(context: modelContext)
                 }
             }
-            .dynamicTypeSize(appTypeSize)
     }
 }

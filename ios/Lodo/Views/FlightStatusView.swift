@@ -77,7 +77,7 @@ struct FlightStatusView: View {
                         .font(.title3.weight(.semibold))
                     if let airline = flight?.airline {
                         Text(airline)
-                            .font(.subheadline)
+                            .font(.body)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -103,8 +103,8 @@ struct FlightStatusView: View {
                 } icon: {
                     Image(systemName: "clock.badge.exclamationmark")
                 }
-                .font(.footnote)
-                .foregroundStyle(.orange)
+                .font(.subheadline)
+                .foregroundStyle(LodoColor.critical)
             }
         }
         .padding(.vertical, 4)
@@ -120,7 +120,7 @@ struct FlightStatusView: View {
                     .font(.title.weight(.bold).monospaced())
                 if let name, !name.isEmpty {
                     Text(name)
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -183,7 +183,7 @@ struct FlightStatusView: View {
             LabeledContent(title) {
                 Text(Self.formatter.string(from: date))
                     .monospacedDigit()
-                    .foregroundStyle(late ? Color.orange : Color.primary)
+                    .foregroundStyle(late ? LodoColor.critical : Color.primary)
             }
         }
     }
@@ -204,7 +204,7 @@ struct FlightStatusBadge: View {
 
     var body: some View {
         Text(LocalizedStrings.text(status.titleKey, language: language))
-            .font(.caption.weight(.semibold))
+            .font(.footnote.weight(.semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -249,8 +249,8 @@ struct FlightInfoLine: View {
         if let first = pieces.first {
             // 拼成一段 Text,放不下时自然换行而不是截断:登机口/座位被截掉就白导入了。
             pieces.dropFirst().reduce(first) { Text("\($0) · \($1)") }
-                .font(.footnote)
-                .foregroundStyle(delay != nil ? Color.orange : Color.secondary)
+                .font(.subheadline)
+                .foregroundStyle(delay != nil ? LodoColor.critical : Color.secondary)
         }
     }
 }

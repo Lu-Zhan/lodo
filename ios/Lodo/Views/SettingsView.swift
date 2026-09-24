@@ -18,6 +18,8 @@ struct SettingsView: View {
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
     @AppStorage(AppSettings.appIconStyleKey) private var appIconStyleRaw = AppIconStyle.white.rawValue
+    @AppStorage(AppSettings.accentPaletteKey) private var accentPaletteRaw =
+        AccentPalette.terracotta.rawValue
     @State private var iconChangeErrorMessage: String?
     @State private var showOnboarding = false
 
@@ -30,6 +32,11 @@ struct SettingsView: View {
     @State private var showImportConfirm = false
     @State private var importErrorMessage: String?
     @State private var importSuccessMessage: String?
+
+    /// 当前强调色预设(设置页自己也要用它渲染色块)。
+    private var accentPalette: AccentPalette {
+        AccentPalette(rawValue: accentPaletteRaw) ?? .terracotta
+    }
 
     var body: some View {
         NavigationStack {
@@ -120,6 +127,49 @@ struct SettingsView: View {
                 }
                 #endif
 
+                // ---- 强调色 ----
+                Section {
+                    HorizontalChipRow {
+                        ForEach(AccentPalette.allCases) { palette in
+                            let selected = accentPaletteRaw == palette.rawValue
+                            Button {
+                                accentPaletteRaw = palette.rawValue
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Circle()
+                                        .fill(palette.fill)
+                                        .frame(width: 44, height: 44)
+                                        .overlay {
+                                            // 选中态画在色块**里面**:描在外面的话六个
+                                            // 圆点的间距会随选中来回跳。
+                                            if selected {
+                                                Image(systemName: "checkmark")
+                                                    .font(.footnote.weight(.bold))
+                                                    .foregroundStyle(palette.onFill)
+                                            }
+                                        }
+                                        .overlay {
+                                            Circle().strokeBorder(
+                                                selected ? Color.primary.opacity(0.35) : .clear,
+                                                lineWidth: 2)
+                                        }
+                                    Text(palette.displayName)
+                                        .font(.footnote)
+                                        .foregroundStyle(selected ? .primary : .secondary)
+                                }
+                            }
+                            .pressable()
+                            .accessibilityLabel(palette.displayName)
+                            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("强调色")
+                } footer: {
+                    Text("按钮、选中态和链接的颜色。每一档的浅色/深色两套取值都核过对比度,换色不会让文字变得难读。")
+                }
+
                 // ---- App 图标(莫兰迪色系,仅 iOS 支持切换备用图标)----
                 #if os(iOS)
                 Section {
@@ -141,7 +191,7 @@ struct SettingsView: View {
                                                 .stroke(selected ? Color.accentColor : .clear, lineWidth: 2.5)
                                         }
                                     Text(LocalizedStrings.translate(style.displayName, language: language))
-                                        .font(.caption)
+                                        .font(.footnote)
                                         .foregroundStyle(selected ? .primary : .secondary)
                                 }
                             }
@@ -244,6 +294,11 @@ struct SettingsView: View {
             }
             #endif
         }
+        // 设置页是以 sheet 呈现的,而 **sheet 的内容是独立的呈现宿主,不继承
+        // AppShellView 根上那份 .tint**(实测:根上换成赤陶后,设置页里的
+        // Label 图标仍是系统蓝)。所以这里自己再下发一份,和根上同源同一个键。
+        .tint(accentPalette.accent)
+        .environment(\.lodoAccent, accentPalette)
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
         #endif

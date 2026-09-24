@@ -173,7 +173,7 @@ struct TaskFormSections: View {
                 HorizontalChipRow {
                     ForEach(existingProjects, id: \.self) { project in
                         Button("#\(project)") { form.project = project }
-                            .font(.footnote)
+                            .font(.subheadline)
                             .buttonStyle(.bordered)
                             .buttonBorderShape(.capsule)
                             .tint(form.project == project ? Color.accentColor : Color.secondary)

@@ -6,6 +6,7 @@ import LodoCore
 /// 选了菜之后底部浮出一条 Liquid Glass 条,点它从下面拉起已选清单
 /// (默认半屏、可以上拉到九成),那张是给服务员看的。
 struct MenuDetailView: View {
+    @Environment(\.lodoAccent) private var lodoAccent
     @Bindable var menu: MemoryItem
 
     @Environment(\.modelContext) private var context
@@ -135,18 +136,18 @@ struct MenuDetailView: View {
                         Spacer(minLength: 8)
                         if let price = entry.price {
                             Text(MenuPlan.priceText(price, currency: menu.menuCurrency))
-                                .font(.subheadline.monospacedDigit())
+                                .font(.body.monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
                     }
                     if entry.showsOriginal {
                         Text(entry.originalName)
-                            .font(.subheadline)
+                            .font(.body)
                             .foregroundStyle(.secondary)
                     }
                     if !entry.intro.isEmpty {
                         Text(entry.intro)
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -178,25 +179,26 @@ struct MenuDetailView: View {
         } label: {
             HStack(spacing: 12) {
                 Text("\(selected.count)")
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.white)
+                    .font(.body.weight(.semibold).monospacedDigit())
+                    // onFill:暗色下强调色是亮橙,白字读不清(见 LodoPalette)。
+                    .foregroundStyle(lodoAccent.onFill)
                     .frame(minWidth: 28, minHeight: 28)
-                    .background(Color.accentColor, in: Circle())
+                    .background(lodoAccent.fill, in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
                     Text("已选菜品")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.body.weight(.semibold))
                     Text(selected.map(\.displayName).joined(separator: "、"))
-                        .font(.caption)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 if let total = MenuPlan.total(selected) {
                     Text(MenuPlan.priceText(total, currency: menu.menuCurrency))
-                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .font(.body.weight(.semibold).monospacedDigit())
                 }
                 Image(systemName: "chevron.up")
-                    .font(.footnote.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)

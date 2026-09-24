@@ -25,11 +25,11 @@ struct PlaceSearchView: View {
                     }
                 } else if failed {
                     Text("搜索失败,检查一下网络再试。")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else if results.isEmpty && !query.isEmpty {
                     Text("没有找到这个地方。")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 ForEach(results, id: \.self) { item in
@@ -42,7 +42,7 @@ struct PlaceSearchView: View {
                                 .foregroundStyle(.primary)
                             if let address = addressLine(of: item) {
                                 Text(address)
-                                    .font(.footnote)
+                                    .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
                         }

@@ -24,7 +24,7 @@ struct MemoryEditView: View {
             .overlay {
                 if text.isEmpty {
                     Text("暂无记忆;AI 会在事项完成后自动归纳,也可以直接在这里手写。")
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding()
                 }

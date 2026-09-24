@@ -51,7 +51,7 @@ struct AISettingsView: View {
                             Text("苹果智能需要 iOS 26 及以上系统。")
                         }
                     }
-                    .font(.footnote)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 } else if aiProvider == "自定义" {
                     TextField("接口地址(…/chat/completions)", text: $aiCustomEndpoint)
@@ -72,7 +72,7 @@ struct AISettingsView: View {
                 if aiProvider != AppSettings.appleIntelligenceProvider {
                     if useBuiltInKey, BuiltInAPIKey.key(for: aiProvider) != nil {
                         Text("已使用内置 API Key,无需再填。")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
                         SecureField("API Key", text: $apiKey)
@@ -108,7 +108,7 @@ struct AISettingsView: View {
                 } else if let preset = AppSettings.personaPresets
                     .first(where: { $0.name == personaStyle }) {
                     Text(LocalizedStrings.translate(preset.text, language: language))
-                        .font(.footnote)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             } header: {
@@ -128,7 +128,7 @@ struct AISettingsView: View {
                     }
                     if useBuiltInSTTKey, BuiltInAPIKey.key(for: QwenASRClient.providerName) != nil {
                         Text("已使用内置 API Key,无需再填。")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
                         SecureField("API Key", text: $sttApiKey)
@@ -193,7 +193,7 @@ struct AISettingsView: View {
                                 Text(id.title)
                                 if AgentSkillStore.isCustomized(id) {
                                     Text("已自定义")
-                                        .font(.caption2)
+                                        .font(.caption)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
                                         .background(.tint.opacity(0.15), in: Capsule())
@@ -201,7 +201,7 @@ struct AISettingsView: View {
                                 }
                             }
                             Text(id.subtitle)
-                                .font(.footnote)
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                     }

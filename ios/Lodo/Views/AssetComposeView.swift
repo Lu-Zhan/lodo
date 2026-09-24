@@ -84,8 +84,8 @@ struct AssetComposeView: View {
                     }
                     if hasInvalidValue {
                         Text("金额无法识别为数字,改成数字或清空这一栏才能保存。")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                     TextField("分类(可选),如 银行卡、房产、保险", text: $category)
                 } footer: {
@@ -98,8 +98,8 @@ struct AssetComposeView: View {
                         #endif
                     if hasInvalidLiability {
                         Text("负债无法识别为数字,改成数字或清空这一栏才能保存。")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                     TextField("利率(可选),年化百分比数值,如 4.5", text: $interestRateText)
                         #if os(iOS)
@@ -107,8 +107,8 @@ struct AssetComposeView: View {
                         #endif
                     if hasInvalidInterestRate {
                         Text("利率无法识别为数字,改成数字或清空这一栏才能保存。")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                 } footer: {
                     Text("负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。")
