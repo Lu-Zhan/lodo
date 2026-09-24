@@ -547,7 +547,11 @@ public struct BackupAgentMessage: Codable {
     /// 已退役的 key(多对话改成单一持续对话时 `AgentMessage.threadUUID` 一起删了)。
     /// 属性留着只为**向下**兼容:老版本 app 里这个 key 是必需的,新备份不写它会让
     /// 那边整条 decode 失败——比少恢复一段对话糟得多。恒为全零 uuid,自己不读。
-    public var threadUUID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+    public var threadUUID = BackupAgentMessage.retiredThreadUUID
+    /// 退役字段的占位值。固定全零而不是随机 uuid:同一份数据反复导出时
+    /// 内容要稳定(便于 diff),而且老版本 app 拿到它只会落进一个不存在的
+    /// thread,看不见也不报错。
+    public static let retiredThreadUUID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
     public var roleRaw: String
     public var kindRaw: String
     public var content: String
@@ -567,6 +571,24 @@ public struct BackupAgentMessage: Codable {
         self.relatedTitles = relatedTitles
         self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
         self.createdAt = createdAt
+    }
+}
+
+extension BackupAgentMessage {
+    /// 手写 init(from:):`threadUUID` 已退役,自己不再读它,但为了向下兼容仍要
+    /// **写**出去(老版本 app 那边它是必需 key)。读的时候用 decodeIfPresent,
+    /// 这样"将来某个版本真把这个 key 去掉了"也照样解得开——不然这份兼容就
+    /// 反过来变成了新格式自己的枷锁。理由同 `BackupManifest` 的手写 init(from:)。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        uuid = try c.decode(UUID.self, forKey: .uuid)
+        threadUUID = try c.decodeIfPresent(UUID.self, forKey: .threadUUID) ?? Self.retiredThreadUUID
+        roleRaw = try c.decode(String.self, forKey: .roleRaw)
+        kindRaw = try c.decode(String.self, forKey: .kindRaw)
+        content = try c.decode(String.self, forKey: .content)
+        relatedTitles = try c.decode([String].self, forKey: .relatedTitles)
+        attachmentMemoryUUIDs = try c.decode([UUID].self, forKey: .attachmentMemoryUUIDs)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
 
@@ -729,6 +751,27 @@ public struct BackupManifest: Codable {
         self.agentMessageCount = agentMessageCount
         self.skillOverrideCount = skillOverrideCount
         self.contactRelationshipCount = contactRelationshipCount
+    }
+
+    /// 手写 init(from:):`contactRelationshipCount` 是后加的字段、
+    /// `agentThreadCount` 是已退役的字段,老备份/将来的新备份都可能缺其中一个。
+    /// **合成的 Codable 不会用属性的默认值兜底**(缺 key 直接抛 keyNotFound),
+    /// 而 manifest 是导入的第一步——它一抛错,用户连确认页都走不到,整份备份
+    /// 一条都恢复不了。理由同 `BackupPayload` 的手写 init(from:)。
+    /// 以后再加计数字段,记得也加在这里、并且用 decodeIfPresent。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        formatVersion = try c.decode(Int.self, forKey: .formatVersion)
+        exportedAt = try c.decode(Date.self, forKey: .exportedAt)
+        appVersion = try c.decode(String.self, forKey: .appVersion)
+        taskCount = try c.decode(Int.self, forKey: .taskCount)
+        memoryCount = try c.decode(Int.self, forKey: .memoryCount)
+        memoryTagCount = try c.decode(Int.self, forKey: .memoryTagCount)
+        agentThreadCount = try c.decodeIfPresent(Int.self, forKey: .agentThreadCount) ?? 0
+        agentMessageCount = try c.decode(Int.self, forKey: .agentMessageCount)
+        skillOverrideCount = try c.decode(Int.self, forKey: .skillOverrideCount)
+        contactRelationshipCount =
+            try c.decodeIfPresent(Int.self, forKey: .contactRelationshipCount) ?? 0
     }
 
     public static let currentFormatVersion = 1

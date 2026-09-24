@@ -75,6 +75,9 @@ struct AgentView: View {
     /// 后台压缩正在跑;防重入(连发两条消息时不重复压同一批)。
     @State private var isCompacting = false
     static let historyPageSize = 200
+    /// 一次最多压缩多少条。够覆盖正常节奏下攒出来的量,又不至于让长期离线后的
+    /// 第一次压缩把几千条一股脑塞进 prompt。
+    static let maxCompressBatch = 200
 
     @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showFileImporter = false
@@ -934,9 +937,14 @@ struct AgentView: View {
     /// 压成一段摘要另外拼进 prompt,不在这里带。
     private func recentHistory(excluding: AgentMessage?) -> [(role: String, content: String)] {
         let excludeUUID = excluding?.uuid
-        let all = (try? context.fetch(FetchDescriptor<AgentMessage>(
-            sortBy: [SortDescriptor(\.createdAt)]))) ?? []
-        return all.filter { $0.uuid != excludeUUID }
+        // 倒序 + fetchLimit,不是全表取回来再 suffix:对话永不结束,全表取数
+        // 会随着聊天次数一路变慢,而且就发生在发送这条主路径上。多取一条是给
+        // 要排除的那条(刚插进去的用户气泡)留的位。
+        var descriptor = FetchDescriptor<AgentMessage>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        descriptor.fetchLimit = AgentConversationSummary.recentWindow + 1
+        let recent = ((try? context.fetch(descriptor)) ?? []).reversed()
+        return recent.filter { $0.uuid != excludeUUID }
             .suffix(AgentConversationSummary.recentWindow)
             .map { (role: $0.roleRaw, content: $0.content) }
     }
@@ -951,11 +959,27 @@ struct AgentView: View {
     private func compactHistoryIfNeeded() {
         guard DeepSeekClient.isConfigured, !isCompacting else { return }
         let covered = AgentConversationSummary.coveredUntil
-        let all = (try? context.fetch(FetchDescriptor<AgentMessage>(
-            sortBy: [SortDescriptor(\.createdAt)]))) ?? []
-        // 窗口里那批要原样逐条回传,不能压;只看它前面、且还没压过的。
-        let pending = all.dropLast(AgentConversationSummary.recentWindow)
-            .filter { $0.createdAt > covered }
+
+        // 两次都是有上界的取数(理由同 recentHistory:全表取数会随聊天次数
+        // 一路变慢,而这段就跑在每次发送之后)。
+        // ① 先定出窗口起点 = 倒数第 recentWindow 条的时间。
+        var windowDescriptor = FetchDescriptor<AgentMessage>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        windowDescriptor.fetchLimit = AgentConversationSummary.recentWindow
+        let window = (try? context.fetch(windowDescriptor)) ?? []
+        // 总共还不够一个窗口,窗口之外什么都没有。
+        guard window.count == AgentConversationSummary.recentWindow,
+              let windowStart = window.last?.createdAt else { return }
+
+        // ② 窗口之外、且还没压过的那些。一次最多压这么多,剩下的下一轮再压——
+        // 不设上界的话,长期没联网攒下的一大批会一次性全塞进 prompt。
+        var pendingDescriptor = FetchDescriptor<AgentMessage>(
+            predicate: #Predicate<AgentMessage> {
+                $0.createdAt > covered && $0.createdAt < windowStart
+            },
+            sortBy: [SortDescriptor(\.createdAt)])
+        pendingDescriptor.fetchLimit = Self.maxCompressBatch
+        let pending = (try? context.fetch(pendingDescriptor)) ?? []
         guard pending.count >= AgentConversationSummary.compressBatch else { return }
 
         // ModelContext 不跨线程:先在主线程把要压的内容取成纯值,再进后台任务。

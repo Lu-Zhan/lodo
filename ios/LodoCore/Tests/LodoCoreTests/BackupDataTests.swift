@@ -241,6 +241,52 @@ final class BackupDataTests: XCTestCase {
         XCTAssertEqual(restoredMessage.formatVersion, 1)
     }
 
+    /// 人脉功能之前导出的备份,manifest 里没有 contactRelationshipCount。
+    /// **合成的 Codable 不会用默认值兜底**,而 manifest 是导入的第一步
+    /// (`BackupManager.preview`)——它一抛错用户连确认页都走不到,整份备份一条
+    /// 都恢复不了。
+    func testOldManifestWithoutContactCountStillDecodes() throws {
+        let json = """
+        {
+          "formatVersion": 1, "exportedAt": 0, "appVersion": "1.0",
+          "taskCount": 3, "memoryCount": 2, "memoryTagCount": 1,
+          "agentThreadCount": 1, "agentMessageCount": 4, "skillOverrideCount": 0
+        }
+        """
+        let manifest = try JSONDecoder().decode(BackupManifest.self, from: Data(json.utf8))
+        XCTAssertEqual(manifest.taskCount, 3)
+        XCTAssertEqual(manifest.agentMessageCount, 4)
+        XCTAssertEqual(manifest.contactRelationshipCount, 0)
+    }
+
+    /// agentThreadCount 已退役;将来真把这个 key 去掉时也要照样解得开,
+    /// 不然这份向下兼容会反过来变成新格式自己的枷锁。
+    func testManifestWithoutRetiredThreadCountStillDecodes() throws {
+        let json = """
+        {
+          "formatVersion": 1, "exportedAt": 0, "appVersion": "1.0",
+          "taskCount": 3, "memoryCount": 2, "memoryTagCount": 1,
+          "agentMessageCount": 4, "skillOverrideCount": 0, "contactRelationshipCount": 2
+        }
+        """
+        let manifest = try JSONDecoder().decode(BackupManifest.self, from: Data(json.utf8))
+        XCTAssertEqual(manifest.agentThreadCount, 0)
+        XCTAssertEqual(manifest.contactRelationshipCount, 2)
+    }
+
+    /// 同理:退役的 threadUUID 缺席时也要解得开。
+    func testAgentMessageWithoutRetiredThreadUUIDStillDecodes() throws {
+        let json = """
+        {
+          "uuid": "\(UUID().uuidString)", "roleRaw": "user", "kindRaw": "text",
+          "content": "你好", "relatedTitles": [], "attachmentMemoryUUIDs": [], "createdAt": 0
+        }
+        """
+        let message = try JSONDecoder().decode(BackupAgentMessage.self, from: Data(json.utf8))
+        XCTAssertEqual(message.content, "你好")
+        XCTAssertEqual(message.threadUUID, BackupAgentMessage.retiredThreadUUID)
+    }
+
     /// 退役的 agentThreads / threadUUID 仍要写进新备份:老版本 app 里这两个 key
     /// 是必需的,不写会让那边整条 decode 失败。别"顺手清理"掉。
     func testEncodedPayloadStillCarriesRetiredThreadKeys() throws {

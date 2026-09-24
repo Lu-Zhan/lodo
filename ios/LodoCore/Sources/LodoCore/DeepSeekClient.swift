@@ -1497,11 +1497,14 @@ public enum DeepSeekClient {
                 unsupportedStreamEndpoints.insert(endpoint.absoluteString)
                 return try await fallback()
             }
-            for try await line in bytes.lines {
+            // 带标签:`switch` 里的 `break` 跳出的是 switch 不是循环,
+            // 收到 [DONE] 还得继续读下去,读到的就是服务端在结束标记之后
+            // 多吐的东西。
+            streaming: for try await line in bytes.lines {
                 guard let event = AgentStream.parseLine(line) else { continue }
                 switch event {
                 case .done:
-                    break
+                    break streaming
                 case .delta(let content, let reasoning):
                     if let reasoning, !reasoning.isEmpty { onReasoning?(reasoning) }
                     guard let content, !content.isEmpty else { continue }
