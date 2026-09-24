@@ -86,7 +86,6 @@ struct AgentInspectorHost<Content: View>: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.sidebarChrome) private var sidebarChrome
     @Environment(\.sectionIsActive) private var sectionIsActive
     @AppStorage(AppSettings.agentInspectorPinnedKey) private var pinned = false
@@ -214,7 +213,8 @@ struct AgentInspectorHost<Content: View>: View {
             if target != nil {
                 inspectorContent
                     .frame(width: panelWidth)
-                    .background(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
+                    // 右栏和左抽屉是镜像关系,材质也跟着走 Liquid Glass。
+                    .background { GlassSurface() }
                     .compositingGroup()
                     .shadow(color: .black.opacity(0.18 * progress), radius: 14, x: 3)
                     .offset(x: (1 - progress) * (panelWidth + 20))

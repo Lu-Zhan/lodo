@@ -74,3 +74,48 @@ func confirmButton(_ title: LocalizedStringKey, action: @escaping () -> Void) ->
         Button(title, action: action)
     }
 }
+
+extension View {
+    /// **相邻的多块玻璃必须共处一个 `GlassEffectContainer`。**玻璃不能采样玻璃:
+    /// 各自为政时每块各采一次背景,挨在一起时亮度/折射对不上,看着就不是同一层
+    /// 材质;顺带每块玻璃还各建一个 CABackdropLayer(各带 3 张离屏纹理),合进
+    /// 一个容器只采一次。
+    ///
+    /// 只有**彼此挨着**的玻璃需要它:隔着整屏的两块(侧栏顶部搜索键 vs 底部那排)
+    /// 不必硬凑一个容器,单独一块玻璃更不需要(理由见 `AgentView.inputBar` 的注释)。
+    ///
+    /// `spacing` 是**两块玻璃开始互相融合的距离**,不是布局间距——写得比调用处的
+    /// 实际间距大,相邻两块就黏成一坨了。默认值刻意取小:只要共享采样,不要融合。
+    /// 旧系统没有这个容器,原样透传,调用处不必重复 `#available`。
+    @ViewBuilder
+    func glassGroup(spacing: CGFloat = 4) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            GlassEffectContainer(spacing: spacing) { self }
+        } else {
+            self
+        }
+    }
+}
+
+/// 整块面板(侧栏抽屉、AI 右栏)用的玻璃面。和 `glassBackground` 是两个入口:
+/// 那个是给输入栏、悬浮条那种小块 chrome 的,旧系统回退到 `thinMaterial`;面板
+/// 这边回退要落回 `DesignMetrics.panelBackground`——旧系统上「面板和被推开的
+/// 页面卡取同色、只靠投影分层」那套配色还得照旧,退成 thinMaterial 会把那道
+/// 刻意做平的边界又拉出来。
+///
+/// 「减弱透明度」同 `GlassBackground`:不换更厚的材质,直接走 panelBackground
+/// 的不透明分支。
+struct GlassSurface: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if DesignMetrics.reducesTransparency(reduceTransparency) {
+            Rectangle().fill(DesignMetrics.panelBackground(scheme, reduceTransparency: true))
+        } else if #available(iOS 26.0, macOS 26.0, *) {
+            Color.clear.glassEffect(.regular, in: Rectangle())
+        } else {
+            Rectangle().fill(DesignMetrics.panelBackground(scheme))
+        }
+    }
+}

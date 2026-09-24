@@ -384,6 +384,10 @@ struct AppSidebarView: View {
             .buttonBorderShape(.capsule)
             .accessibilityLabel("新建对话")
         }
+        // 这排是全 app 仅有的"两块玻璃挨在同一行"的地方(齿轮 + 新建胶囊),
+        // 合进一个容器共享采样,免得同一排的两块玻璃亮度对不上。间距取默认的
+        // 小值:两颗之间隔着 Spacer,不该融合成一坨。
+        .glassGroup()
         .padding(.leading, 20)
         .padding(.trailing, 24)
         // 面板本身已经用 deviceBottomInset 把 home indicator 那截让开了,这里

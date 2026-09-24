@@ -332,10 +332,11 @@ struct AppShellView: View {
         .padding(.bottom, usesRegularLayout ? 0 : deviceBottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 窄屏抽屉里面板自己不铺底色,由 compactLayout 整个容器那层 drawerBackdrop
-        // 统一铺(理由见那里)。
-        .background(usesRegularLayout
-            ? DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency)
-            : AnyShapeStyle(Color.clear))
+        // 统一铺(理由见那里)——**玻璃尤其不能两层叠**,玻璃采样不到玻璃,面板
+        // 一层叠在容器一层上面那块会直接失真。
+        .background {
+            if usesRegularLayout { GlassSurface() }
+        }
     }
 
     /// 窄屏抽屉的旁白语义。收起时面板只是被 offset 推到屏幕外,**元素还在**
@@ -629,11 +630,20 @@ struct AppShellView: View {
         .ignoresSafeArea(.container)
     }
 
-    /// 抽屉容器的整块底色。夜间叠两层材质,保持原来"面板材质叠在容器材质上"
-    /// 那个亮度——面板和近黑的页面卡之间还得靠这点亮度差分层(见 panelBackground)。
+    /// 抽屉容器的整块底色,也就是侧栏面板看上去的那层材质(面板自己不铺,见
+    /// sidebarPanel)。iOS 26 起是 Liquid Glass:侧栏是导航层,按 Liquid Glass
+    /// 的分工就该是玻璃。
+    ///
+    /// **夜间原来叠两层材质的那个 hack 只留给旧系统**:那是为了让"面板材质叠在
+    /// 容器材质上"和只有容器一层的圆角缺口处亮度对齐,不然侧栏右边缘会出现一道
+    /// 竖直明暗分界。玻璃这条路上侧栏和缺口本来就是同一层(GlassSurface 只铺一次),
+    /// 没有两层可叠,也就没有那道边。
     @ViewBuilder
     private var drawerBackdrop: some View {
-        if colorScheme == .dark {
+        if #available(iOS 26.0, macOS 26.0, *),
+           !DesignMetrics.reducesTransparency(reduceTransparency) {
+            GlassSurface()
+        } else if colorScheme == .dark {
             ZStack {
                 Rectangle().fill(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
                 Rectangle().fill(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))

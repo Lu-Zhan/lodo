@@ -503,19 +503,21 @@ struct AgentView: View {
         .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: DesignMetrics.chipRadius, style: .continuous))
     }
 
-    /// 参考 Claude app 的输入栏:一整块合并的磨砂卡片悬浮在内容上方(四周留白,
-    /// 不贴屏幕物理边缘)。非录音态(composingBar)卡片内竖直分两行——上面纯
-    /// 文本输入框(没有自己的胶囊背景,直接落在卡片底色上),下面是控件行:
-    /// 左边 + 号纯图标(无背景),右边麦克风/发送纯图标或强调色圆按钮,没在
-    /// 打字时是麦克风(点了开始录音);一旦有内容待发送,同一个槽位换成强调色
-    /// 发送按钮——是"麦克风 ↔ 独立发送按钮"互斥切换,不是文本框内嵌图标,两态
-    /// **同尺寸同圆心**(都是 composerControlSize 见方),换按钮时输入框纹丝不动。
-    /// 发送/停止那颗是实心强调色圆(不是 Liquid Glass 圆钮,理由见 sendButton),
-    /// +/麦克风都是纯图标,靠卡片本身的玻璃背景衬底,不需要各自再套一层——也
-    /// 因此不需要 `GlassEffectContainer`:那是给多个相邻独立玻璃形状互相感知
-    /// 融合用的,这里只有卡片本身一层玻璃。录音态(recordingBar)整条换成
-    /// "取消 / 波形 / 确认"三段式,同一张卡片容器,不再有文本框/+/麦克风;
-    /// 它和输入条共用 composerRowMinHeight,切换录音时卡片高度不变。
+    /// 输入栏悬浮在内容上方(四周留白,不贴屏幕物理边缘),**一整行**:
+    /// 左边 + 号是一颗独立的 Liquid Glass 圆钮,右边一路到底是玻璃输入胶囊,
+    /// 麦克风/发送**嵌在胶囊里**靠右端。没在打字时是麦克风(点了开始录音);
+    /// 一旦有内容待发送,同一个槽位换成强调色发送按钮——两态**同尺寸同圆心**
+    /// (都是 composerInlineControlSize 见方),换按钮时胶囊和文本纹丝不动。
+    /// 发送/停止那颗是实心强调色圆,麦克风是纯图标(它已经落在胶囊的玻璃底上,
+    /// 不用再套一层玻璃——玻璃也采样不到玻璃)。
+    ///
+    /// 原来是"一整块合并的磨砂卡片、里面竖直分两行(文本框在上、控件行在下)",
+    /// 高度 86pt;现在是一行两块形状(+ 号、胶囊),只剩 36pt。拆开之后 + 号和
+    /// 输入胶囊是**两块挨着的玻璃**,所以这里必须套 `glassGroup()`——玻璃采样不到
+    /// 玻璃,不共享容器时紧挨着的两块亮度和折射对不上。
+    ///
+    /// 录音态(recordingBar)整行换成"取消 / 波形 / 确认"三段式,同样是三块形状、
+    /// 同样的行高(共用 composerRowMinHeight),切换录音时这一行高度不变。
     private var inputBar: some View {
         inputBarRow
     }
@@ -530,15 +532,13 @@ struct AgentView: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        // 录音条和输入条共用同一个最小高度:两者自然高度差了二十多点,不拉平的话
-        // 一按麦克风整张输入卡就缩一截、松开又弹回来。输入条多行时会超过这个值
-        // (文本框 1...5 行),那时按内容走,不受这里限制。
+        // 录音条和输入条共用同一个最小高度:不拉平的话一按麦克风整行就缩一截、
+        // 松开又弹回来。输入条多行时会超过这个值(文本框 1...5 行,照片缩略图行
+        // 也在胶囊里),那时按内容走,不受这里限制。
         .frame(minHeight: Self.composerRowMinHeight)
         .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isRecording)
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
+        // 同一行上的多块玻璃合进一个采样区(见上面的说明)。
+        .glassGroup()
         .padding(.horizontal)
         .padding(.top, 8)
         .padding(.bottom, 18)
@@ -546,11 +546,82 @@ struct AgentView: View {
 
     /// 输入栏控件行的固定高度(+ / 麦克风 / 发送 / 识别中 都按它取 frame)。
     private static let composerControlSize: CGFloat = 36
-    /// 输入条(单行文本框 + 控件行)与录音条共用的最小高度。数值来自单行输入条的
-    /// 自然高度:文本框一行 ≈ 22 + VStack 间距 6 + 控件行 36。
-    private static let composerRowMinHeight: CGFloat = 64
+    /// 输入胶囊**里面**那颗(麦克风/发送/识别中)的尺寸。比外面的 + 小一档:
+    /// 胶囊总高就是 36,里面再放一颗 36 的会顶满、上下不留缝。28 + 上下各 4 的
+    /// 胶囊内边距正好 36,和左边那颗 + 同高。
+    private static let composerInlineControlSize: CGFloat = 28
+    /// 输入条与录音条共用的最小高度。拆成单行之后就等于控件本身的高度——
+    /// + 号玻璃圆、输入胶囊、发送圆三块同高,整行没有别的东西再撑高它。
+    /// (原来是 64:文本框一行 ≈ 22 + VStack 间距 6 + 底下那条控件行 36。)
+    private static let composerRowMinHeight: CGFloat = composerControlSize
 
+    /// 非录音态的一整行:[ + 玻璃圆 ][ 玻璃输入胶囊(末尾嵌着麦克风/发送) ]。
+    /// 对齐取 `.bottom`——文本多行时胶囊往上长,左边那颗 + 要留在底边不跟着飘。
     private var composingBar: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            attachButton
+            textCapsule
+        }
+    }
+
+    /// 独立的 + 号:自己一颗玻璃圆,不再是靠合并卡片衬底的纯图标。
+    ///
+    /// **这里不用 `.glassButton()`**(即 `.buttonStyle(.glass)`):理由和 sendButton
+    /// 那段一样——系统按钮样式自带内容内边距和 HIG 最小触控尺寸,外面叠 .frame
+    /// 收不住,会比右边麦克风/发送大一圈,而这一行三块形状必须同高。改成直接给
+    /// 36pt 的标签铺一层 `glassBackground`,尺寸完全由这里的 frame 说了算,
+    /// 「减弱透明度」也照样走 GlassBackground 那条不透明分支。
+    /// 命中区仍用 hitTarget 补到 HIG 的 44pt(外观不变)。
+    private var attachButton: some View {
+        Menu {
+            Button {
+                showPhotoPicker = true
+            } label: {
+                Label("照片", systemImage: "photo")
+            }
+            .disabled(remainingPhotoSlots == 0)
+            Button {
+                showFileImporter = true
+            } label: {
+                Label("文件", systemImage: "doc")
+            }
+            Button {
+                showMemoryPicker = true
+            } label: {
+                Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: Self.composerControlSize, height: Self.composerControlSize)
+                .glassBackground(Circle())
+                .hitTarget(visualSize: Self.composerControlSize)
+        }
+        .disabled(busy)
+        .accessibilityLabel("添加附件")
+    }
+
+    /// 玻璃输入胶囊。照片缩略图行和麦克风/发送都在胶囊**里面**——照片和要发的
+    /// 文字是同一条消息,视觉上该是一块;麦克风嵌在文本末尾而不是另立一颗,
+    /// 胶囊会随照片/多行文本一起长高。
+    ///
+    /// 横向对齐取 `.bottom`,并且给文本那一列垫上和按钮一样的 minHeight:
+    /// 单行时两者等高,底对齐即居中对齐;多行时文本往上长,按钮留在底边。
+    private var textCapsule: some View {
+        HStack(alignment: .bottom, spacing: 6) {
+            textColumn
+            trailingControl
+        }
+        .padding(.leading, 14)
+        // 右边只留 4:里面那颗 28pt 的按钮自己就占掉了视觉上的"内边距"。
+        .padding(.trailing, 4)
+        // 上下各 4:28 的按钮 + 8 正好 36,和左边那颗 + 同高。
+        .padding(.vertical, 4)
+        .frame(minHeight: Self.composerControlSize)
+        .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
+    }
+
+    private var textColumn: some View {
         VStack(alignment: .leading, spacing: 6) {
             photoPreviewRow
             TextField("试试加入一个待办/记忆…", text: $text, axis: .vertical)
@@ -566,56 +637,29 @@ struct AgentView: View {
                         Haptics.tick()
                     }
                 }
-
-            HStack(alignment: .center, spacing: 8) {
-                Menu {
-                    Button {
-                        showPhotoPicker = true
-                    } label: {
-                        Label("照片", systemImage: "photo")
-                    }
-                    .disabled(remainingPhotoSlots == 0)
-                    Button {
-                        showFileImporter = true
-                    } label: {
-                        Label("文件", systemImage: "doc")
-                    }
-                    Button {
-                        showMemoryPicker = true
-                    } label: {
-                        Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 36, height: 36)
-                        // 没有背景形状后,点击区默认会缩成图标本身的紧凑边界;
-                        // hitTarget 一并把它补到 HIG 的 44pt(外观仍是 36)。
-                        .hitTarget(visualSize: 36)
-                }
-                .disabled(busy)
-                .accessibilityLabel("添加附件")
-
-                Spacer()
-
-                if speech.isProcessing {
-                    speechProcessingIndicator
-                        .transition(.scale.combined(with: .opacity))
-                } else if showsInlineMic {
-                    inlineMicButton
-                        .transition(.scale.combined(with: .opacity))
-                } else {
-                    sendButton
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-            // 行高定死:打字时**只该换那颗按钮**,输入框不能动。三个态
-            //(麦克风/发送/识别中)现在都是 composerControlSize 见方,本来就不会
-            //撑高这一行;定死是兜底,以后谁换了按钮样式也不会把输入卡顶高。
-            .frame(height: Self.composerControlSize)
-            .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
-            .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isProcessing)
         }
+        .frame(minHeight: Self.composerInlineControlSize)
+    }
+
+    /// 右边那个槽位:识别中 / 麦克风 / 发送,三态互斥、同尺寸同圆心。
+    @ViewBuilder
+    private var trailingControl: some View {
+        Group {
+            if speech.isProcessing {
+                speechProcessingIndicator
+                    .transition(.scale.combined(with: .opacity))
+            } else if showsInlineMic {
+                inlineMicButton
+                    .transition(.scale.combined(with: .opacity))
+            } else {
+                sendButton
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        // 高度定死:打字时**只该换那颗按钮**,胶囊和文本不能跟着动。
+        .frame(height: Self.composerInlineControlSize)
+        .animation(.lodoAware(.snappy(duration: 0.2)), value: showsInlineMic)
+        .animation(.lodoAware(.snappy(duration: 0.2)), value: speech.isProcessing)
     }
 
     /// 一次最多带几张照片。
@@ -631,9 +675,9 @@ struct AgentView: View {
         max(0, Self.maxPhotos - pendingImages.count)
     }
 
-    /// 输入卡片顶部的照片缩略图行:选了照片后卡片随之长高,每张右上角 ✕ 移除,
-    /// 点缩略图全屏看大图。放在卡片里而不是卡片外的胶囊行,照片和要发的文字
-    /// 是同一条消息,视觉上也该是一块。
+    /// 输入胶囊里、文本框上方的照片缩略图行:选了照片后胶囊随之长高,每张右上角
+    /// ✕ 移除,点缩略图全屏看大图。放在胶囊**里面**而不是另起一行,照片和要发的
+    /// 文字是同一条消息,视觉上也该是一块。
     @ViewBuilder
     private var photoPreviewRow: some View {
         let images = pendingImages
@@ -696,16 +740,20 @@ struct AgentView: View {
     /// 消息录制条:左边取消(丢弃录音、不转写、不发送),中间波形随音量起伏,
     /// 右边确认(等同原先"录音中再点一次麦克风"——停止并走已有的自动发送流程)。
     private var recordingBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             cancelRecordingButton
             RecordingWaveform(level: speech.audioLevel)
                 .frame(maxWidth: .infinity)
+                .frame(height: Self.composerControlSize)
+                // 和非录音态的输入胶囊同一块形状、同一个圆角:切进切出录音时
+                // 中间这块玻璃只是换了内容,不是换了一张卡。
+                .glassBackground(
+                    RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
             confirmRecordingButton
         }
-        // 自身仍按 40 布局,拉平到输入条那个高度由外层 inputBarRow 的 minHeight
-        // 负责(在这里写 maxHeight: .infinity 会一路撑满 safeAreaInset 给的空间,
-        // 整张卡会窜到半屏高)。
-        .frame(height: 40)
+        // 写死行高而不是 maxHeight: .infinity——后者会一路撑满 safeAreaInset 给的
+        // 空间,整条窜到半屏高。
+        .frame(height: Self.composerControlSize)
     }
 
     private var cancelRecordingButton: some View {
@@ -716,9 +764,10 @@ struct AgentView: View {
             Image(systemName: "xmark")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.primary)
-                .frame(width: 36, height: 36)
-                .background(.quaternary, in: Circle())
-                .hitTarget(visualSize: 36)
+                .frame(width: Self.composerControlSize, height: Self.composerControlSize)
+                // 和 + 号同一套独立玻璃圆:它俩是同一个槽位的两态。
+                .glassBackground(Circle())
+                .hitTarget(visualSize: Self.composerControlSize)
         }
         .pressable()
         .accessibilityLabel("取消录音")
@@ -732,9 +781,9 @@ struct AgentView: View {
                 .font(.system(size: 15, weight: .bold))
                 // onFill 而不是写死白色:暗色下强调色是亮橙,白字只有 2.08。
                 .foregroundStyle(lodoAccent.onFill)
-                .frame(width: 36, height: 36)
+                .frame(width: Self.composerControlSize, height: Self.composerControlSize)
                 .background(lodoAccent.fill, in: Circle())
-                .hitTarget(visualSize: 36)
+                .hitTarget(visualSize: Self.composerControlSize)
         }
         .pressable()
         .accessibilityLabel("完成录音")
@@ -755,8 +804,10 @@ struct AgentView: View {
         private static let barCount = 24
         private static let barWidth: CGFloat = 3
         private static let barSpacing: CGFloat = 3
-        private static let minBarHeight: CGFloat = 5
-        private static let maxBarHeight: CGFloat = 34
+        private static let minBarHeight: CGFloat = 4
+        /// 峰值要收在 36pt 的玻璃胶囊里、上下各留一点余量(原来整条 40pt 高、
+        /// 没有自己的形状,可以放到 34)。
+        private static let maxBarHeight: CGFloat = 22
         /// 相邻条的相位间隔,决定"波浪流动"的疏密。
         private static let phaseStep: Double = 0.34
         /// 起伏一个完整周期的时长(秒)。
@@ -812,21 +863,27 @@ struct AgentView: View {
     private var speechProcessingIndicator: some View {
         ProgressView()
             .controlSize(.small)
-            .frame(width: 36, height: 36)
+            .frame(width: Self.composerInlineControlSize, height: Self.composerInlineControlSize)
             .contentShape(Rectangle())
             .accessibilityLabel("识别中")
     }
 
+    /// 嵌在输入胶囊末尾的麦克风:纯图标,**不套玻璃**——它已经落在胶囊那层玻璃
+    /// 上了,玻璃采样不到玻璃,再叠一层只会那一块失真。发送/完成录音仍是实心
+    /// 强调色圆:主操作要压过玻璃这一档。
+    ///
+    /// 命中区照例补到 44pt。它会往左吃进文本框 8pt——这是内嵌按钮的固有取舍
+    /// (系统自家的文本框内嵌按钮也一样),换来的是不必把可点区缩到 28pt。
     private var inlineMicButton: some View {
         Button {
             typedPrefix = text
             speech.toggle()
         } label: {
             Image(systemName: "mic.fill")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
-                .frame(width: 36, height: 36)
-                .hitTarget(visualSize: 36)
+                .frame(width: Self.composerInlineControlSize, height: Self.composerInlineControlSize)
+                .hitTarget(visualSize: Self.composerInlineControlSize)
         }
         .pressable()
         #if os(iOS)
@@ -854,14 +911,14 @@ struct AgentView: View {
             }
         } label: {
             Image(systemName: busy ? "stop.fill" : "arrow.up")
-                .font(.system(size: busy ? 15 : 17, weight: .bold))
+                .font(.system(size: busy ? 13 : 15, weight: .bold))
                 // busy 是灰底,仍用白字;强调色底走 onFill(理由同 confirmRecordingButton)。
                 .foregroundStyle(busy ? AnyShapeStyle(Color.white)
                                       : AnyShapeStyle(lodoAccent.onFill))
-                .frame(width: Self.composerControlSize, height: Self.composerControlSize)
+                .frame(width: Self.composerInlineControlSize, height: Self.composerInlineControlSize)
                 .background(busy ? AnyShapeStyle(.secondary) : AnyShapeStyle(lodoAccent.fill),
                             in: Circle())
-                .hitTarget(visualSize: Self.composerControlSize)
+                .hitTarget(visualSize: Self.composerInlineControlSize)
         }
         .pressable()
         #if os(iOS)
@@ -1812,6 +1869,12 @@ private struct AgentMessageListView: View {
                     }
                 }
                 .padding()
+                // 对话里挨着的玻璃不止一处:结果卡片自己是玻璃底,卡片下面那排
+                // 「确认/写入」又是高亮玻璃,连着两条带卡片的消息更是上下贴着。
+                // 整列合进一个容器共享采样,既让这些玻璃看起来是同一层材质,也
+                // 免得每块各建一个 CABackdropLayer(滚动时是实打实的开销)。
+                // 容器不影响布局,下面的 frame/animation 照旧。
+                .glassGroup()
                 .animation(.lodoAware(.snappy), value: messages.count)
                 // 内容比屏幕短时也把这一坨顶到底部,最后一条消息紧挨着输入栏
                 // ——短对话原来是从顶上开始排,和输入栏之间空出一大片。
