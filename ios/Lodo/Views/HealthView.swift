@@ -28,7 +28,6 @@ struct HealthView: View {
     @State private var loadingReport = false
     @State private var loadingAnalysis = false
     @State private var chartKind: HealthMetricKind?
-    @State private var showCompose = false
     #if DEBUG
     /// --demo-health 的临时放行。用 @State 而不是把 healthEnabled 写成 true:
     /// 那是 @AppStorage,会落进 UserDefaults 影响之后不带参数的启动。
@@ -79,9 +78,12 @@ struct HealthView: View {
                 } else if report.isEmpty {
                     noDataSection
                 } else {
+                    // AI 分析排在最前:它是这一页真正要看的结论,指标格子和
+                    // 折线图是支撑它的原始数据,读的顺序该是"先看结论,再往下
+                    // 核对数据",不是反过来滑到底才看到一句话。
+                    analysisSection
                     metricsSection
                     chartSection
-                    analysisSection
                 }
                 memoriesSection
             }
@@ -91,9 +93,6 @@ struct HealthView: View {
             #endif
             .sidebarToolbarButton()
             .askBar(isVisible: !(sidebarChrome?.hidesChrome ?? false))
-            .sheet(isPresented: $showCompose) {
-                MemoryComposeView(presetTags: [MemoryItem.healthTagName])
-            }
             .task {
                 await reload()
                 #if DEBUG
@@ -259,7 +258,7 @@ struct HealthView: View {
     private var memoriesSection: some View {
         Section {
             if healthMemories.isEmpty {
-                Text("还没有健康记录。体检报告、用药、饮食这些可以记一笔,AI 分析时会一并参考。")
+                Text("还没有健康记录。体检报告、用药、饮食这些跟底下那条「问问 AI」说一句就能记下来,AI 分析时会一并参考。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
@@ -289,17 +288,7 @@ struct HealthView: View {
                 }
             }
         } header: {
-            HStack {
-                Text("健康记录")
-                Spacer()
-                Button {
-                    showCompose = true
-                } label: {
-                    Label("记一笔", systemImage: "plus")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.bordered)
-            }
+            Text("健康记录")
         }
     }
 

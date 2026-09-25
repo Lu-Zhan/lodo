@@ -1,7 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// 手动输入文字收藏的弹窗(记忆 tab → "+" → 输入文字)。
+/// 手动输入文字收藏的备用表单。当前没有入口：文字收藏统一说给底部的
+/// 「问问 AI」(`memorize`)，或从其他 app 分享进来；`presetTags` 可在将来
+/// 恢复独立入口时为健康记录等场景预设标签。
 struct MemoryComposeView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss

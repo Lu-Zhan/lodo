@@ -520,8 +520,7 @@ ios_view.ai_analysis,AI 分析,AI Analysis,ios_view,
 ios_view.analyzing,正在分析…,Analyzing…,ios_view,
 ios_view.health_analysis_needs_ai,"配置 AI 服务后,这里会给出针对这几天数据的分析和建议。",Set up an AI provider and you'll get analysis and suggestions for these days here.,ios_view,
 ios_view.health_records,健康记录,Health Records,ios_view,
-ios_view.no_health_records,"还没有健康记录。体检报告、用药、饮食这些可以记一笔,AI 分析时会一并参考。","No health records yet. Jot down checkups, medication or meals and the AI analysis will take them into account.",ios_view,
-ios_view.add_a_note,记一笔,Add a Note,ios_view,
+ios_view.no_health_records,"还没有健康记录。体检报告、用药、饮食这些跟底下那条「问问 AI」说一句就能记下来,AI 分析时会一并参考。","No health records yet. Tell the AI in the bar below about checkups, medication or meals and the analysis will take them into account.",ios_view,
 ios_view.untitled,未命名,Untitled,ios_view,
 ios_view.rising,上升,Rising,ios_view,趋势箭头的旁白
 ios_view.falling,下降,Falling,ios_view,趋势箭头的旁白
