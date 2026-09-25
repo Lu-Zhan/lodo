@@ -76,9 +76,8 @@ private struct AskBarModifier: ViewModifier {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
-            // 和 AI 输入栏那条胶囊同一档高度(36 是控件本体,这里是整条,
-            // 再给上下各 6 的呼吸),手指够得着又不至于压掉一行列表。
-            .frame(minHeight: 48)
+            // 和 AI 页面真实输入栏共用同一个高度，两个入口切换时尺寸不跳变。
+            .frame(minHeight: DesignMetrics.aiInputHeight)
             .glassBackground(Capsule())
             // 玻璃本身不吃点击,整条胶囊(含 Spacer 那段空白)都要可点。
             .contentShape(Capsule())

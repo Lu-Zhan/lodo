@@ -13,16 +13,18 @@ enum DesignMetrics {
     static let chipRadius: CGFloat = 10
     static let cardRadius: CGFloat = 14
     static let bubbleRadius: CGFloat = 18
-    /// AI 助手输入栏那块玻璃的圆角。取 `AgentView.composerControlSize` 的一半:
+    /// 各展示页底部「问问 AI」与 AI 页面真实输入栏共用的单行高度。
+    static let aiInputHeight: CGFloat = 48
+    /// AI 助手输入栏那块玻璃的圆角。取输入栏高度的一半:
     /// 单行时正好是个胶囊,和左边 + 号那颗玻璃圆、右边发送那颗实心圆同高同弧;
     /// 文本多行长高时圆角不跟着变,上下两端仍是半圆。
     /// (原来 26 是给"文本框 + 控件行"那张合并卡片用的,单行胶囊套 26 会被夹掉。)
-    static let composerRadius: CGFloat = 18
+    static let composerRadius: CGFloat = aiInputHeight / 2
     /// 应用导航侧栏(窄屏抽屉 / 宽屏常驻列)的固定宽度。
     static let sidebarWidth: CGFloat = 300
     /// HIG 规定的最小可点尺寸。app 里有几处图标按钮的**视觉**尺寸刻意小于它
-    /// (AI 输入栏那五颗定在 36pt,彼此必须同尺寸同圆心,见
-    /// `AgentView.composerControlSize`),这些地方放大的是热区不是外观——见
+    /// (AI 输入栏的内嵌按钮仍小于 44pt,彼此必须同尺寸同圆心,见
+    /// `AgentView.composerInlineControlSize`),这些地方放大的是热区不是外观——见
     /// `View.hitTarget(visualSize:)`。
     static let minimumHitTarget: CGFloat = 44
 

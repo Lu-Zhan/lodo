@@ -514,7 +514,8 @@ struct AgentView: View {
     /// 不用再套一层玻璃——玻璃也采样不到玻璃)。
     ///
     /// 原来是"一整块合并的磨砂卡片、里面竖直分两行(文本框在上、控件行在下)",
-    /// 高度 86pt;现在是一行两块形状(+ 号、胶囊),只剩 36pt。拆开之后 + 号和
+    /// 高度 86pt;现在是一行两块形状(+ 号、胶囊),高度与各页面底部的
+    /// 「问问 AI」入口一致。拆开之后 + 号和
     /// 输入胶囊是**两块挨着的玻璃**,所以这里必须套 `glassGroup()`——玻璃采样不到
     /// 玻璃,不共享容器时紧挨着的两块亮度和折射对不上。
     ///
@@ -546,12 +547,11 @@ struct AgentView: View {
         .padding(.bottom, 18)
     }
 
-    /// 输入栏控件行的固定高度(+ / 麦克风 / 发送 / 识别中 都按它取 frame)。
-    private static let composerControlSize: CGFloat = 36
+    /// 输入栏控件行的固定高度，与展示页底部「问问 AI」胶囊一致。
+    private static let composerControlSize: CGFloat = DesignMetrics.aiInputHeight
     /// 输入胶囊**里面**那颗(麦克风/发送/识别中)的尺寸。比外面的 + 小一档:
-    /// 胶囊总高就是 36,里面再放一颗 36 的会顶满、上下不留缝。28 + 上下各 4 的
-    /// 胶囊内边距正好 36,和左边那颗 + 同高。
-    private static let composerInlineControlSize: CGFloat = 28
+    /// 胶囊内部控件比外框小一档，上下各留 6pt 呼吸空间。
+    private static let composerInlineControlSize: CGFloat = 36
     /// 输入条与录音条共用的最小高度。拆成单行之后就等于控件本身的高度——
     /// + 号玻璃圆、输入胶囊、发送圆三块同高,整行没有别的东西再撑高它。
     /// (原来是 64:文本框一行 ≈ 22 + VStack 间距 6 + 底下那条控件行 36。)
@@ -571,7 +571,7 @@ struct AgentView: View {
     /// **这里不用 `.glassButton()`**(即 `.buttonStyle(.glass)`):理由和 sendButton
     /// 那段一样——系统按钮样式自带内容内边距和 HIG 最小触控尺寸,外面叠 .frame
     /// 收不住,会比右边麦克风/发送大一圈,而这一行三块形状必须同高。改成直接给
-    /// 36pt 的标签铺一层 `glassBackground`,尺寸完全由这里的 frame 说了算,
+    /// 标签铺一层 `glassBackground`,尺寸完全由这里的 frame 说了算,
     /// 「减弱透明度」也照样走 GlassBackground 那条不透明分支。
     /// 命中区仍用 hitTarget 补到 HIG 的 44pt(外观不变)。
     private var attachButton: some View {
@@ -615,10 +615,10 @@ struct AgentView: View {
             trailingControl
         }
         .padding(.leading, 14)
-        // 右边只留 4:里面那颗 28pt 的按钮自己就占掉了视觉上的"内边距"。
-        .padding(.trailing, 4)
-        // 上下各 4:28 的按钮 + 8 正好 36,和左边那颗 + 同高。
-        .padding(.vertical, 4)
+        // 右边只留 6:里面那颗按钮自己就占掉了视觉上的"内边距"。
+        .padding(.trailing, 6)
+        // 36pt 内部按钮 + 上下各 6pt，正好与 48pt 的页面 AI 入口同高。
+        .padding(.vertical, 6)
         .frame(minHeight: Self.composerControlSize)
         .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
     }
@@ -807,9 +807,8 @@ struct AgentView: View {
         private static let barWidth: CGFloat = 3
         private static let barSpacing: CGFloat = 3
         private static let minBarHeight: CGFloat = 4
-        /// 峰值要收在 36pt 的玻璃胶囊里、上下各留一点余量(原来整条 40pt 高、
-        /// 没有自己的形状,可以放到 34)。
-        private static let maxBarHeight: CGFloat = 22
+        /// 峰值收在 48pt 的玻璃胶囊里，上下保留呼吸空间。
+        private static let maxBarHeight: CGFloat = 30
         /// 相邻条的相位间隔,决定"波浪流动"的疏密。
         private static let phaseStep: Double = 0.34
         /// 起伏一个完整周期的时长(秒)。
