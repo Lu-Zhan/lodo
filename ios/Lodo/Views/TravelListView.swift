@@ -14,7 +14,6 @@ struct TravelListView: View {
     @Query private var memoryItems: [MemoryItem]
 
     @State private var path: [TravelTrip] = []
-    @State private var creating = false
     @State private var pendingDelete: TravelTrip?
     @State private var showsPast = false
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
@@ -45,10 +44,7 @@ struct TravelListView: View {
                         ContentUnavailableView {
                             Label("还没有旅行", systemImage: "suitcase.rolling")
                         } description: {
-                            Text("建一次旅行,把航班、住宿、想去的地方都放进去,可以按天看,也可以看花了多少。")
-                        } actions: {
-                            Button("新建旅行") { creating = true }
-                                .glassProminentButton()
+                            Text("在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。")
                         }
                     }
                 }
@@ -82,18 +78,9 @@ struct TravelListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
-                Button { creating = true } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("新建旅行")
-            }
             .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .navigationDestination(for: TravelTrip.self) { trip in
                 TravelDetailView(trip: trip)
-            }
-            .sheet(isPresented: $creating) {
-                TripEditView(trip: nil) { path = [$0] }
             }
             .alert("删除这次旅行?", isPresented: Binding(
                 get: { pendingDelete != nil },

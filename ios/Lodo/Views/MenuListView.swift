@@ -2,8 +2,12 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// "菜单"页:第七个平级页面。每一行是一张整理过的菜单(打了「菜单」保留标签的
-/// 记忆条目),点进去是菜品清单,勾选后给服务员看。
+/// "菜单"页:每一行是一张整理过的菜单(打了「菜单」保留标签的记忆条目),
+/// 点进去是菜品清单,勾选后给服务员看。
+///
+/// 右下角那颗「+」已按"新建一律走 AI"去掉,`MenuImportView`(拍照/截图/贴文字
+/// → 端上 OCR → `parseMenu`)因此**暂时没有入口**:`command` 协议里没有菜单动作,
+/// AI 也接不了这一棒。文件原样留着,要恢复入口时挂回工具栏即可。
 struct MenuListView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.sidebarChrome) private var sidebarChrome
@@ -13,7 +17,6 @@ struct MenuListView: View {
     @Query private var dishes: [MenuDish]
 
     @State private var path: [MemoryItem] = []
-    @State private var importing = false
     @State private var pendingDelete: MemoryItem?
 
     private var menus: [MemoryItem] { memoryItems.filter(\.isMenu) }
@@ -27,9 +30,6 @@ struct MenuListView: View {
                             Label("还没有菜单", systemImage: "menucard")
                         } description: {
                             Text("拍一张菜单或导入截图,AI 会整理出每道菜、翻译外文并补上简介,选好了直接给服务员看。")
-                        } actions: {
-                            Button("新建菜单") { importing = true }
-                                .glassProminentButton()
                         }
                     }
                 }
@@ -51,18 +51,9 @@ struct MenuListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
-                Button { importing = true } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("新建菜单")
-            }
             .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .navigationDestination(for: MemoryItem.self) { menu in
                 MenuDetailView(menu: menu)
-            }
-            .sheet(isPresented: $importing) {
-                MenuImportView { path = [$0] }
             }
             .alert("删除这张菜单?", isPresented: Binding(
                 get: { pendingDelete != nil },

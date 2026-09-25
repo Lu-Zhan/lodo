@@ -15,15 +15,11 @@ struct ContactListView: View {
     @Query private var edges: [ContactRelationship]
 
     @State private var path: [MemoryItem] = []
-    @State private var showCompose = false
     @State private var showGraph = false
     @State private var pendingDelete: MemoryItem?
     #if os(iOS)
-    @State private var showImportConfirm = false
-    @State private var showPicker = false
     @State private var showExportPicker = false
     @State private var permissionDenied = false
-    @State private var importResultMessage: String?
     #endif
 
     private var contacts: [MemoryItem] { allItems.filter(\.isContact) }
@@ -36,10 +32,7 @@ struct ContactListView: View {
                         ContentUnavailableView {
                             Label("还没有人脉", systemImage: "person.crop.circle")
                         } description: {
-                            Text("记下姓名、联系方式和喜好,再把人和人之间的关系连起来,可以看关系图谱。")
-                        } actions: {
-                            Button("记一位人脉") { showCompose = true }
-                                .glassProminentButton()
+                            Text("在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。")
                         }
                     }
                 } else {
@@ -66,9 +59,10 @@ struct ContactListView: View {
             .navigationDestination(for: MemoryItem.self) { contact in
                 ContactDetailView(item: contact)
             }
+            // 两颗都放右上角:左上角只留 ☰(导航),页面自己的操作一律收在右边。
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false), !contacts.isEmpty {
-                    ToolbarItem(placement: .navigation) {
+                    ToolbarItem(placement: .primaryAction) {
                         Button {
                             showGraph = true
                         } label: {
@@ -76,7 +70,7 @@ struct ContactListView: View {
                         }
                     }
                     #if os(iOS)
-                    ToolbarItem(placement: .navigation) {
+                    ToolbarItem(placement: .primaryAction) {
                         Button {
                             Task { await beginExport() }
                         } label: {
@@ -87,30 +81,7 @@ struct ContactListView: View {
                 }
             }
             .sidebarToolbarButton()
-            .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
-                Menu {
-                    Button("记一位人脉", systemImage: "person.crop.circle.badge.plus") {
-                        showCompose = true
-                    }
-                    #if os(iOS)
-                    Divider()
-                    Button("从通讯录选择导入", systemImage: "person.crop.circle.badge.checkmark") {
-                        // 系统选择器只把选中的联系人交给 app,无需读取通讯录权限。
-                        showPicker = true
-                    }
-                    Button("从通讯录批量导入", systemImage: "person.2.badge.plus") {
-                        showImportConfirm = true
-                    }
-                    #endif
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("记一位人脉")
-            }
             .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
-            .sheet(isPresented: $showCompose) {
-                ContactComposeView()
-            }
             .sheet(isPresented: $showGraph) {
                 NavigationStack {
                     ContactGraphView()
@@ -122,33 +93,8 @@ struct ContactListView: View {
                 }
             }
             #if os(iOS)
-            .sheet(isPresented: $showPicker) {
-                ContactPickerView(
-                    onPicked: { cnContacts in
-                        showPicker = false
-                        importResultMessage = importSummary(
-                            ContactsBridge.importContacts(cnContacts, context: context))
-                    },
-                    onCancel: { showPicker = false })
-            }
             .sheet(isPresented: $showExportPicker) {
                 ContactExportPickerView()
-            }
-            .confirmationDialog(
-                "确定要导入通讯录中的全部联系人吗?", isPresented: $showImportConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("导入") { Task { await beginBulkImport() } }
-            } message: {
-                Text("已存在的人脉(按手机号/邮箱匹配)会自动跳过,不会重复导入。")
-            }
-            .alert("导入完成", isPresented: Binding(
-                get: { importResultMessage != nil },
-                set: { if !$0 { importResultMessage = nil } }
-            )) {
-                Button("好") { importResultMessage = nil }
-            } message: {
-                Text(importResultMessage ?? "")
             }
             .alert("无法访问通讯录", isPresented: $permissionDenied) {
                 Button("好", role: .cancel) {}
@@ -234,16 +180,11 @@ struct ContactListView: View {
     }
 
     #if os(iOS)
-    // MARK: - 通讯录批量导入/导出(权限门控,选择导入的系统选择器不需要走这里)
-
-    private func beginBulkImport() async {
-        guard await ContactsBridge.requestAccess() == .granted else {
-            permissionDenied = true
-            return
-        }
-        importResultMessage = importSummary(
-            ContactsBridge.importContacts(ContactsBridge.fetchAllContacts(), context: context))
-    }
+    // MARK: - 批量导出到通讯录(权限门控)
+    //
+    // 「从通讯录导入」的两条入口随右下角那颗「+」一起去掉了(新建一律走 AI),
+    // `ContactsBridge.importContacts`/`ContactPickerView` 仍在,要恢复入口时
+    // 挂回来即可。
 
     private func beginExport() async {
         guard await ContactsBridge.requestAccess() == .granted else {
@@ -251,12 +192,6 @@ struct ContactListView: View {
             return
         }
         showExportPicker = true
-    }
-
-    private func importSummary(_ result: (imported: Int, skipped: Int)) -> String {
-        var message = "已导入 \(result.imported) 位"
-        if result.skipped > 0 { message += ",跳过 \(result.skipped) 位重复" }
-        return message
     }
     #endif
 
@@ -268,7 +203,6 @@ struct ContactListView: View {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains(where: { $0.hasPrefix("--demo-contact") }) else { return }
         if contacts.isEmpty { seedDemoContacts() }
-        if args.contains("--demo-contact-compose") { showCompose = true }
         if args.contains("--demo-contact-graph") { showGraph = true }
         if args.contains("--demo-contact-detail"), let first = contacts.first {
             path = [first]

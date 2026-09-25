@@ -1,12 +1,13 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 import LodoCore
-#if os(iOS)
-import UIKit
-#endif
 
 /// "记忆" tab:AI 整理后的收藏条目列表,筛选靠侧栏的标签/资产行。
+/// 新建入口(粘贴收藏/选文件/输入文字/记一笔资产)已随右下角那颗「+」一起去掉,
+/// 收藏改为说给底下那条「问问 AI」(`memorize`)或从别的 app 分享进来;
+/// `MemoryComposeView`/`AssetComposeView` 原样留着(前者健康页还在用),
+/// 要恢复入口时挂回工具栏即可。
+///
 /// **这一页自己没有搜索框**——底下常驻着「问问 AI」那条,找东西说一句就行,
 /// 再摆一个只按标题关键词匹配的本地搜索框是同一件事的两个入口、还弱一档;
 /// 自然语言检索走 AI 助手(AgentHostView+Routing.answerFromMemory)。
@@ -30,9 +31,6 @@ struct MemoryListView: View {
     @State private var selectedTags: Set<String> = []
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @State private var showAssets = false
-    @State private var showCompose = false
-    @State private var showAssetCompose = false
-    @State private var showFileImporter = false
     @State private var showTagManage = false
     @State private var pendingDelete: MemoryItem?
 
@@ -125,13 +123,13 @@ struct MemoryListView: View {
                         ContentUnavailableView {
                             Label("还没有收藏", systemImage: "sparkles.rectangle.stack")
                         } description: {
-                            Text("粘贴文字或链接、导入文件,AI 会整理成记忆条目。")
+                            Text("在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。")
                         }
                     } else if filtered.isEmpty {
                         ContentUnavailableView(
                             showAssets ? "还没有资产记录" : "这个筛选下还没有收藏",
                             systemImage: showAssets ? "creditcard" : "line.3.horizontal.decrease",
-                            description: Text(showAssets ? "点右下角「+」记一笔资产。" : "取消上面选中的筛选就能看到全部。"))
+                            description: Text(showAssets ? "在底下那条「问问 AI」里说一句要记的资产。" : "取消上面选中的筛选就能看到全部。"))
                     } else {
                         ForEach(filtered) { item in
                             // 目的地统一挂在下面的 navigationDestination 上:
@@ -186,50 +184,23 @@ struct MemoryListView: View {
             .navigationDestination(for: MemoryItem.self) { item in
                 MemoryDetailView(item: item)
             }
-            .sidebarToolbarButton()
-            .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
-                Menu {
-                    Button("粘贴收藏", systemImage: "doc.on.clipboard") {
-                        pasteFromClipboard()
+            // 页面自己的操作收在右上角。「管理标签」不是新建入口,所以它没跟着
+            // 右下角那颗「+」一起去掉(收藏一律说给底下那条「问问 AI」)。
+            .toolbar {
+                if !(sidebarChrome?.hidesChrome ?? false), path.isEmpty {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showTagManage = true
+                        } label: {
+                            Label("管理标签", systemImage: "tag")
+                        }
                     }
-                    Button("选择文件", systemImage: "folder") {
-                        showFileImporter = true
-                    }
-                    Button("输入文字", systemImage: "square.and.pencil") {
-                        showCompose = true
-                    }
-                    Divider()
-                    Button("记一笔资产", systemImage: "creditcard") {
-                        showAssetCompose = true
-                    }
-                    Divider()
-                    Button("管理标签", systemImage: "tag") {
-                        showTagManage = true
-                    }
-                } label: {
-                    Image(systemName: "plus")
                 }
-                .accessibilityLabel("收藏")
             }
+            .sidebarToolbarButton()
             .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
-            .sheet(isPresented: $showCompose) {
-                MemoryComposeView()
-            }
-            .sheet(isPresented: $showAssetCompose) {
-                AssetComposeView(onSaved: { showAssets = true })
-            }
             .sheet(isPresented: $showTagManage) {
                 MemoryTagManageView()
-            }
-            .fileImporter(
-                isPresented: $showFileImporter,
-                allowedContentTypes: [.pdf, .image, .plainText, .presentation, .data],
-                allowsMultipleSelection: false
-            ) { result in
-                guard let url = try? result.get().first else { return }
-                let scoped = url.startAccessingSecurityScopedResource()
-                MemoryPipeline.saveFile(url, context: context)
-                if scoped { url.stopAccessingSecurityScopedResource() }
             }
             .confirmationDialog(
                 "删除这条收藏?原始文件会一并删除。", isPresented: Binding(
@@ -246,40 +217,6 @@ struct MemoryListView: View {
             }
         }
     }
-
-    // MARK: - 粘贴收藏(优先级:图片 > 链接 > 文字)
-
-    #if os(iOS)
-    private func pasteFromClipboard() {
-        let pasteboard = UIPasteboard.general
-        if let image = pasteboard.image, let data = image.pngData() {
-            MemoryPipeline.saveImageData(data, context: context)
-        } else if let url = pasteboard.url {
-            MemoryPipeline.saveURL(url, context: context)
-        } else if let text = pasteboard.string {
-            MemoryPipeline.saveText(text, context: context)
-        }
-    }
-    #else
-    private func pasteFromClipboard() {
-        let pasteboard = NSPasteboard.general
-        if let image = NSImage(pasteboard: pasteboard),
-           let tiff = image.tiffRepresentation,
-           let data = NSBitmapImageRep(data: tiff)?
-               .representation(using: .png, properties: [:]) {
-            MemoryPipeline.saveImageData(data, context: context)
-        } else if let url = NSURL(from: pasteboard) as URL? {
-            // Finder 里拷贝的文件是 file URL,按文件收藏;网页地址按链接收藏
-            if url.isFileURL {
-                MemoryPipeline.saveFile(url, context: context)
-            } else {
-                MemoryPipeline.saveURL(url, context: context)
-            }
-        } else if let text = pasteboard.string(forType: .string) {
-            MemoryPipeline.saveText(text, context: context)
-        }
-    }
-    #endif
 
     #if DEBUG
     // MARK: - 测试数据(--demo-seed-memory,仅在收藏为空时插入)
