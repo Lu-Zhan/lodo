@@ -328,9 +328,13 @@ struct TravelListView: View {
             tripUUID: trip.uuid, kind: .place, title: "teamLab 无边界",
             start: at(2, 13), price: 3800, currency: "JPY",
             placeName: "台场", latitude: 35.6256, longitude: 139.7756, context: context)
+        // 这一条**故意不给坐标**:打开详情页时由 TravelStore.fillMissingCoordinates
+        // 按地名补上,截图里能看到它自己跑到地图上去。地名用当地写法「秋葉原」——
+        // 简体的「秋叶原」在 Apple Maps 上只匹配得到国内的同名店铺,正好会被
+        // PlaceGeocoder 的距离判据挡掉(那条判据本身也是这么试出来的)。
         TravelStore.create(
             tripUUID: trip.uuid, kind: .place, title: "秋叶原(还没定时间)",
-            currency: "JPY", placeName: "秋叶原", context: context)
+            currency: "JPY", placeName: "秋葉原", context: context)
         TravelStore.create(
             tripUUID: trip.uuid, kind: .flight, title: "国航 东京–北京", code: "CA168",
             start: at(3, 15), end: at(3, 18), price: 2800, currency: "CNY",

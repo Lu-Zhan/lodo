@@ -11,6 +11,9 @@ struct TravelDetailView: View {
     @Bindable var trip: TravelTrip
 
     @Environment(\.modelContext) private var context
+    @Environment(\.lodoAccent) private var lodoAccent
+    /// 抽屉推开时把底部那条「问问 AI」一起收起(判据和各平级页面一致)。
+    @Environment(\.sidebarChrome) private var sidebarChrome
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var displayCurrency = "CNY"
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -75,30 +78,40 @@ struct TravelDetailView: View {
         #else
         .navigationTitle(trip.title.isEmpty ? "未命名旅行" : trip.title)
         #endif
-        .floatingAddAction {
-            Menu {
-                Button {
-                    addingDate = trip.startDate
-                    addingItem = true
+        // 右下角那颗「+」去掉了:底下常驻的「问问 AI」就是这一页的新建入口
+        // (说一句"第二天加个锦市场"走 edit_trip)。AI 接不了的两条——手动填一条、
+        // 把订单/截图交给 OCR——和「编辑旅行」一起收到右上角(同人脉页/记忆页那套
+        // "页面自己的操作收在右上角")。
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button {
+                        addingDate = trip.startDate
+                        addingItem = true
+                    } label: {
+                        Label("手动添加", systemImage: "plus")
+                    }
+                    Button {
+                        importing = true
+                    } label: {
+                        Label("从订单导入", systemImage: "sparkles")
+                    }
+                    Divider()
+                    Button {
+                        editingTrip = true
+                    } label: {
+                        Label("编辑旅行", systemImage: "pencil")
+                    }
                 } label: {
-                    Label("手动添加", systemImage: "plus")
+                    Image(systemName: "ellipsis.circle")
                 }
-                Button {
-                    importing = true
-                } label: {
-                    Label("从订单导入", systemImage: "sparkles")
-                }
-                Divider()
-                Button {
-                    editingTrip = true
-                } label: {
-                    Label("编辑旅行", systemImage: "pencil")
-                }
-            } label: {
-                Image(systemName: "plus")
+                .accessibilityLabel("行程操作")
             }
-            .accessibilityLabel("添加行程")
         }
+        // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
+        // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
+        .askBar(focus: .travel(trip: trip.title),
+                isVisible: !(sidebarChrome?.hidesChrome ?? false))
         .sheet(isPresented: $addingItem) {
             TravelItemEditView(tripUUID: trip.uuid, defaultDate: addingDate)
         }
@@ -113,6 +126,11 @@ struct TravelDetailView: View {
         }
         .sheet(isPresented: $editingTrip) {
             TripEditView(trip: trip)
+        }
+        // 手打的地名、AI 规划出来的安排都没有坐标,打开这一页时补一遍,地图上才
+        // 有点可画(查不到的照旧留空,见 TravelStore.fillMissingCoordinates)。
+        .task(id: trip.uuid) {
+            await TravelStore.fillMissingCoordinates(for: trip, context: context)
         }
         #if DEBUG
         .onAppear {
@@ -178,24 +196,17 @@ struct TravelDetailView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(day.entries) { entry in
-                            entryRow(entry, showDate: false)
+                            entryRow(entry, showDate: false,
+                                     night: TravelPlan.lodgingNight(entry, day: day.date))
                         }
                     }
                 } header: {
-                    HStack {
-                        // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
-                        // verbatim 的,拼好的字符串进不了字符串目录。
-                        Text("第 \(dayIndex(day.date)) 天 · \(Self.dayFormatter.string(from: day.date))")
-                        Spacer()
-                        Button {
-                            addingDate = day.date
-                            addingItem = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("在这天添加行程")
-                    }
+                    // 分区表头上原来右边还有一颗「在这天添加」的「+」,和右下角那颗
+                    // FAB 一起去掉了:新建走底下的「问问 AI」("第二天加个锦市场"),
+                    // 手动填仍在右上角菜单里。
+                    // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
+                    // verbatim 的,拼好的字符串进不了字符串目录。
+                    Text("第 \(dayIndex(day.date)) 天 · \(Self.dayFormatter.string(from: day.date))")
                 }
             }
             let extras = TravelPlan.outOfRange(entries, days: trip.days)
@@ -220,7 +231,9 @@ struct TravelDetailView: View {
     // MARK: - 地图
 
     /// MapKit 的 SwiftUI `Map` 是系统框架,和 Swift Charts 同理——不算自绘、不算第三方。
-    /// 只画有坐标的点:搜地名选过点的才有坐标,手打名字的没有(见 PlaceSearchView)。
+    /// 只画有坐标的点。坐标要么来自表单里的「搜索」选点(`PlaceSearchView`),要么来自
+/// 打开这一页时按地名自动补的那一遍(`TravelStore.fillMissingCoordinates`);
+/// 两条路都没搜到的项不上地图——不编一个大概的位置。
     @ViewBuilder
     private var mapView: some View {
         let pins = mapPins
@@ -228,7 +241,7 @@ struct TravelDetailView: View {
             ContentUnavailableView {
                 Label("地图上还没有点", systemImage: "map")
             } description: {
-                Text("给行程项填地点时点「搜索」选一下,才会记下坐标画到地图上。")
+                Text("填了地点的行程项会自动找坐标画到地图上;这里空着,说明还没填地点,或者按名字没搜到。")
             }
             .frame(maxHeight: .infinity)
         } else {
@@ -364,7 +377,9 @@ struct TravelDetailView: View {
 
     // MARK: - 行
 
-    private func entryRow(_ entry: TravelEntry, showDate: Bool = true) -> some View {
+    /// `night` 只有按天视图里的住宿才传:那一晚是入住当晚 / 最后一晚时各挂一枚标签。
+    private func entryRow(_ entry: TravelEntry, showDate: Bool = true,
+                          night: LodgingNight? = nil) -> some View {
         Button {
             open(entry)
         } label: {
@@ -379,6 +394,12 @@ struct TravelDetailView: View {
                             .foregroundStyle(.primary)
                         if let status = entry.flight?.status, showsStatus(entry) {
                             FlightStatusBadge(status: status)
+                        }
+                        if night?.isCheckIn == true {
+                            LodgingNightBadge(title: "入住", color: lodoAccent.accent)
+                        }
+                        if night?.isLastNight == true {
+                            LodgingNightBadge(title: "明日离开", color: LodoColor.muted)
                         }
                     }
                     if let detail = detailLine(entry, showDate: showDate) {
@@ -496,5 +517,22 @@ struct TravelDetailView: View {
 
     private func dayIndex(_ date: Date) -> Int {
         (trip.days.firstIndex(of: date) ?? 0) + 1
+    }
+}
+
+/// 按天视图里住宿行上的那两枚小标签(「入住」/「明日离开」)。
+/// 样式对齐 `FlightStatusBadge`,只是颜色由调用方给:入住是强调色(这一天的
+/// 起点),明日离开是灰(提个醒,不是主操作)。
+private struct LodgingNightBadge: View {
+    let title: LocalizedStringKey
+    let color: Color
+
+    var body: some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.15), in: Capsule())
     }
 }

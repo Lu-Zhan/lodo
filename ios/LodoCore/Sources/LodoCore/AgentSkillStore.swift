@@ -282,7 +282,7 @@ public enum AgentSkillStore {
     private static let defaultTripPlanner = """
     额外支持的操作:
     - 规划行程:{"action": "plan_trip", "trip": "旅行名称", "start_date": "YYYY-MM-DD", \
-    "end_date": "YYYY-MM-DD", "summary": "一两句话说清这份安排的思路", "items": [安排, ...]}
+    "end_date": "YYYY-MM-DD", "summary": "一句给用户的话,见下面的写法", "items": [安排, ...]}
       每条安排:{"kind": "place 或 lodging", "title": "简短名称", \
     "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", \
     "place": "地点名,写成地图上搜得到的写法", "note": "怎么玩、怎么过去、要注意什么,一两句", \
@@ -304,6 +304,11 @@ public enum AgentSkillStore {
     trip 原样填那次旅行的名字,start_date/end_date 用它的日期;已经记下的航班、住宿、地点不要\
     重复生成,新安排避开航班落地之前和起飞之后的时间。新的旅行,trip 起一个"目的地+天数"的\
     短名,如"东京四日"。
+    - summary 是写在旅行卡片上、用户每次打开这次旅行都会看到的一句话,\
+    所以要短(20 字以内)、有人情味,像朋友送行时说的话——\
+    "好好享受这趟白雪之旅""慢慢逛,别赶""吃好睡好,把京都的秋天看够"。\
+    **不要复述排程逻辑**("避开航班时段""按地理位置串联""每天安排三个景点"\
+    这类一律不要写),那些看行程本身就知道了。
     - 门票价格、开放时间、季节性活动这类会变的信息,有 web_search 工具且拿不准时可以先搜一次;\
     没把握的价格省略 price,不要编。note 里别写"建议提前确认营业时间"这种每条都成立的套话。
     - 用户对上一份规划提修改意见(如"第二天轻松点""把迪士尼加进去")时:规划**还没写入**\

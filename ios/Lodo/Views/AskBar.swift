@@ -14,7 +14,7 @@ import LodoCore
 /// 调用顺序是先 `.floatingAddAction`、后 `.askBar()`,FAB 才会落在对话条上方。
 private struct AskBarModifier: ViewModifier {
     let isVisible: Bool
-    let focus: AgentPageFocus
+    let focus: AgentFocus
 
     #if DEBUG
     @Environment(\.sectionIsActive) private var sectionIsActive
@@ -95,7 +95,7 @@ extension View {
     /// 底部「问问 AI」对话条。`isVisible` 的判据和 `floatingAddAction` 一致:
     /// 二级页(push 进详情)和抽屉推开时都收起来。
     /// `focus` 是所在页面:唤出的 AI 默认把含糊指令当成这一页的事。
-    func askBar(focus: AgentPageFocus, isVisible: Bool = true) -> some View {
+    func askBar(focus: AgentFocus, isVisible: Bool = true) -> some View {
         modifier(AskBarModifier(isVisible: isVisible, focus: focus))
     }
 }

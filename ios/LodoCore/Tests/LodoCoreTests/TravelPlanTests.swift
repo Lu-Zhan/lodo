@@ -64,6 +64,51 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertEqual(grouped[1].entries.map(\.title), ["筑地市场", "午餐"])
     }
 
+    /// 住宿排在当天最上面:入住时刻在傍晚,纯按时间排会掉到最底下。
+    func testLodgingSortsAboveTheRestOfTheDay() {
+        let hotel = entry(.lodging, "新宿某酒店",
+                          start: date(day: 8, hour: 18), end: date(day: 11, hour: 10))
+        let morning = entry(.place, "筑地市场", start: date(day: 8, hour: 8))
+        let noon = entry(.place, "午餐", start: date(day: 8, hour: 12))
+        let grouped = TravelPlan.group([morning, noon, hotel], into: days)
+        XCTAssertEqual(grouped[0].entries.map(\.title), ["新宿某酒店", "筑地市场", "午餐"])
+    }
+
+    /// 入住当晚标「入住」,退房前一晚标「明日离开」,中间几晚两个都不标。
+    func testLodgingNightBadges() {
+        let hotel = entry(.lodging, "新宿某酒店",
+                          start: date(day: 8, hour: 18), end: date(day: 11, hour: 10))
+        XCTAssertEqual(TravelPlan.lodgingNight(hotel, day: date(day: 8)),
+                       LodgingNight(isCheckIn: true, isLastNight: false))
+        XCTAssertEqual(TravelPlan.lodgingNight(hotel, day: date(day: 9)),
+                       LodgingNight(isCheckIn: false, isLastNight: false))
+        XCTAssertEqual(TravelPlan.lodgingNight(hotel, day: date(day: 10)),
+                       LodgingNight(isCheckIn: false, isLastNight: true))
+        // 退房当天已经不住了,压根不在那一天里。
+        XCTAssertNil(TravelPlan.lodgingNight(hotel, day: date(day: 11)))
+    }
+
+    /// 只住一晚:同一晚既是入住也是最后一晚。
+    func testSingleNightLodgingIsBothCheckInAndLastNight() {
+        let hotel = entry(.lodging, "机场酒店",
+                          start: date(day: 9, hour: 20), end: date(day: 10, hour: 9))
+        XCTAssertEqual(TravelPlan.lodgingNight(hotel, day: date(day: 9)),
+                       LodgingNight(isCheckIn: true, isLastNight: true))
+    }
+
+    /// 没填退房时间的住宿不猜"明天就走"。
+    func testLodgingWithoutEndHasNoLastNightBadge() {
+        let hotel = entry(.lodging, "民宿", start: date(day: 9, hour: 19))
+        XCTAssertEqual(TravelPlan.lodgingNight(hotel, day: date(day: 9)),
+                       LodgingNight(isCheckIn: true, isLastNight: false))
+    }
+
+    /// 地点/航班没有这两枚标签。
+    func testNonLodgingHasNoNightBadge() {
+        let place = entry(.place, "浅草寺", start: date(day: 9, hour: 14))
+        XCTAssertNil(TravelPlan.lodgingNight(place, day: date(day: 9)))
+    }
+
     // MARK: - 未排期 / 超出范围
 
     func testUnscheduledEntriesAreSeparated() {

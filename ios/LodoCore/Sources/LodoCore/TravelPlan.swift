@@ -121,6 +121,19 @@ public struct TravelDay: Equatable, Sendable, Identifiable {
     }
 }
 
+/// 住宿在某一天的位置(按天视图上那两枚标签)。
+public struct LodgingNight: Equatable, Sendable {
+    /// 今天入住。
+    public let isCheckIn: Bool
+    /// 今晚是最后一晚,明天退房离开。
+    public let isLastNight: Bool
+
+    public init(isCheckIn: Bool, isLastNight: Bool) {
+        self.isCheckIn = isCheckIn
+        self.isLastNight = isLastNight
+    }
+}
+
 /// 一种币种的合计。
 public struct TravelCostLine: Equatable, Sendable, Identifiable {
     public let currency: String
@@ -161,8 +174,39 @@ public enum TravelPlan {
     ) -> [TravelDay] {
         days.map { day in
             let inDay = entries.filter { covers($0, day: day, calendar: calendar) }
-            return TravelDay(date: day, entries: sorted(inDay))
+            return TravelDay(date: day, entries: sortedForDay(inDay))
         }
+    }
+
+    /// 一天之内的排序:**住宿排在最上面**,其余按时间。
+    /// 住宿的开始时间是入住时刻(通常傍晚),纯按时间排会掉到当天最底下,而
+    /// "今晚住哪"是看这一天时首先要确认的一件事;中间几晚更是连时间都没有,
+    /// 按 `sorted` 的规则会被扔到没时间那一档的最后。
+    public static func sortedForDay(_ entries: [TravelEntry]) -> [TravelEntry] {
+        sorted(entries.filter { $0.kind == .lodging })
+            + sorted(entries.filter { $0.kind != .lodging })
+    }
+
+    /// 住宿在某一天的位置:是不是入住当晚、是不是最后一晚(第二天就退房走了)。
+    /// 只住一晚时两个都为 true。不是住宿、或这一晚不住这儿时返回 nil。
+    ///
+    /// 最后一晚只在**填了退房时间**时才认得出来——没填退房的住宿本来就只出现在
+    /// 入住那天,"明天就走"是猜的,不标。
+    public static func lodgingNight(
+        _ entry: TravelEntry, day: Date, calendar: Calendar = .current
+    ) -> LodgingNight? {
+        guard entry.kind == .lodging, let start = entry.start,
+              covers(entry, day: day, calendar: calendar) else { return nil }
+        let startDay = calendar.startOfDay(for: start)
+        var isLastNight = false
+        if let end = entry.end {
+            let endDay = calendar.startOfDay(for: end)
+            if endDay > startDay,
+               let lastNight = calendar.date(byAdding: .day, value: -1, to: endDay) {
+                isLastNight = lastNight == day
+            }
+        }
+        return LodgingNight(isCheckIn: startDay == day, isLastNight: isLastNight)
     }
 
     /// 这一项是否属于某一天(day 是当天 0 点)。

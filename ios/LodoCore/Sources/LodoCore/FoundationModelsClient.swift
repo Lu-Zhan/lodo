@@ -1,12 +1,15 @@
-#if canImport(FoundationModels)
+// watchOS 也带了 FoundationModels 这个框架,但里面的 API 要 watchOS 27 才有
+// (`SystemLanguageModel` 在 watchOS 26 SDK 里直接标着 unavailable),光靠
+// canImport 挡不住,Watch target 一编译就报一串 unavailable。Watch 侧本来就
+// 永远走云端服务商分支,这里连同 os(watchOS) 一起排除掉。
+#if canImport(FoundationModels) && !os(watchOS)
 import Foundation
 import FoundationModels
 
 /// 苹果智能(Foundation Models)端侧推理:与云服务商同形的 JSON 传输层。
 /// prompt 复用 DeepSeekClient 的全套指令(要求只返回 JSON),
 /// 免 key、离线、数据不出设备;仅在支持 Apple Intelligence 的设备上可用。
-/// watchOS 不提供这个框架,`canImport` 门控让这个文件在 Watch 上直接编译为空,
-/// Watch 侧永远走云端服务商分支。
+/// Watch 上这个文件整体不编译(见文件头的门控),Watch 侧永远走云端服务商分支。
 @available(iOS 26.0, macOS 26.0, *)
 public enum FoundationModelsClient {
     /// 设备当前是否可用苹果智能。

@@ -287,7 +287,7 @@ public enum DeepSeekClient {
         travelEnabled: Bool = false,
         tripPlanEnabled: Bool = false,
         /// 从哪一页唤出;nil ⇒ 整段不出现(侧栏 AI 页、Watch)。
-        pageFocus: AgentPageFocus? = nil,
+        pageFocus: AgentFocus? = nil,
         history: [(role: String, content: String)] = [],
         /// 更早对话的摘要;默认 nil ⇒ 整段不出现,Watch 等调用方 prompt 逐字不变。
         summary: String? = nil,
@@ -1348,7 +1348,7 @@ public enum DeepSeekClient {
     /// 当前 AI 是否已配置可用:云服务商=已存 key;苹果智能=设备端可用。
     public static var isConfigured: Bool {
         if AppSettings.usesAppleIntelligence {
-            #if canImport(FoundationModels)
+            #if canImport(FoundationModels) && !os(watchOS)
             if #available(iOS 26.0, macOS 26.0, *) {
                 return FoundationModelsClient.isAvailable
             }
@@ -1411,7 +1411,7 @@ public enum DeepSeekClient {
         // 苹果智能:端侧推理,免 key,payload 形态与云端一致;端侧模型没有
         // reasoning_effort 这个概念,thinking 参数在这条路径上不生效。
         if AppSettings.usesAppleIntelligence {
-            #if canImport(FoundationModels)
+            #if canImport(FoundationModels) && !os(watchOS)
             if #available(iOS 26.0, macOS 26.0, *) {
                 if FoundationModelsClient.isAvailable {
                     return try await FoundationModelsClient.payload(system: system, user: user)

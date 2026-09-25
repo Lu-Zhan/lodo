@@ -2225,22 +2225,6 @@
         }
       }
     },
-    "在这天添加行程": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add to this day"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在这天添加行程"
-          }
-        }
-      }
-    },
     "地图": {
       "localizations": {
         "en": {
@@ -2317,6 +2301,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。"
+          }
+        }
+      }
+    },
+    "填了地点的行程项会自动找坐标画到地图上;这里空着,说明还没填地点,或者按名字没搜到。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trip items with a place are looked up and pinned automatically. Nothing here means no place was filled in, or the name could not be found."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "填了地点的行程项会自动找坐标画到地图上;这里空着,说明还没填地点,或者按名字没搜到。"
           }
         }
       }
@@ -4033,6 +4033,22 @@
         }
       }
     },
+    "明日离开": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaves Tomorrow"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明日离开"
+          }
+        }
+      }
+    },
     "昵称": {
       "localizations": {
         "en": {
@@ -5665,22 +5681,6 @@
         }
       }
     },
-    "给行程项填地点时点「搜索」选一下,才会记下坐标画到地图上。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tap “Search” when filling in a place so its coordinates get saved and pinned."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "给行程项填地点时点「搜索」选一下,才会记下坐标画到地图上。"
-          }
-        }
-      }
-    },
     "绿色": {
       "localizations": {
         "en": {
@@ -6061,6 +6061,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "行李转盘"
+          }
+        }
+      }
+    },
+    "行程操作": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trip Actions"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行程操作"
           }
         }
       }

@@ -341,6 +341,11 @@ struct AgentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-sidebar") {
                     isInputFocused = false
                 }
+                // 截图验证用:键盘收起态。进页面默认就聚焦,而 simctl 点不了空白处
+                // 收键盘,没有这个参数就截不到"键盘没弹起来"的那一版页面。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-unfocused") {
+                    isInputFocused = false
+                }
                 // 截图验证用:模拟长按气泡选了"引用"——simctl 没法长按弹
                 // contextMenu,直接把状态摆出来看输入框上方的预览行(超长文本
                 // 单行省略号截断)。

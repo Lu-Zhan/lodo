@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import CoreLocation
 import LodoCore
 
 /// 旅行的应用层操作:行程项的增删改查,以及给 AI 的行程摘要。
@@ -239,6 +240,79 @@ enum TravelStore {
         var result = plan
         result.reverted = true
         return result
+    }
+
+    // MARK: - 地图坐标补全
+
+    /// 把"有地名、没坐标"的行程项补上坐标,让它们能画到地图上。
+    ///
+    /// 坐标原本只有一条来路:用户在表单里点「搜索」选点(`PlaceSearchView`)。
+    /// 手打的地名、AI 规划/调整生成的安排都没有坐标,地图那一页于是常年是空的。
+    /// 这里在打开旅行详情时补一遍:按地名(带上旅行的城市/国家消歧)查一次
+    /// `MKLocalSearch`,**查得到就记下来,查不到就留空**——留空的项照旧不上地图,
+    /// 不编一个大概的位置糊弄(画错位置比不画更糟)。
+    ///
+    /// 航班不在此列:它的起降点是机场,名字来自订单解析,不拿地名搜索去猜。
+    /// 一次最多补 `geocodeBudget` 条,逐条串行——`MKLocalSearch` 有限流,
+    /// 并发打一堆只会集体拿到 throttled。
+    static func fillMissingCoordinates(
+        for trip: TravelTrip, context: ModelContext, limit: Int = geocodeBudget
+    ) async {
+        let all = items(for: trip.uuid, in: context)
+        let pending = all.filter { item in
+            item.travelLatitude == nil && item.travelLongitude == nil
+                && item.travelKind != .flight && !geocodeQuery(for: item).isEmpty
+        }
+        guard !pending.isEmpty else { return }
+        let hint = geocodeHint(for: trip)
+        // 先定一个锚点:这趟旅行大致在地球上的哪儿。有已经带坐标的行程项就用它
+        // (航班除外——起降机场分处两地,拿它当锚点会把整趟偏到出发地去),
+        // 否则按城市名单独搜一次。没有锚点也能搜,只是"秋叶原"这种到处都有同名
+        // 店铺的地方容易搜岔(见 PlaceGeocoder.maxDistanceFromAnchor)。
+        var anchor = all.first { $0.travelKind != .flight && $0.travelLatitude != nil }
+            .flatMap { item in item.travelLatitude.flatMap { lat in
+                item.travelLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
+            } }
+        if anchor == nil, let hint {
+            anchor = await PlaceGeocoder.coordinate(for: hint)
+        }
+        var filled = false
+        for item in pending.prefix(limit) {
+            guard let coordinate = await PlaceGeocoder.coordinate(
+                for: geocodeQuery(for: item), hint: hint, anchor: anchor) else { continue }
+            item.travelLatitude = coordinate.latitude
+            item.travelLongitude = coordinate.longitude
+            // 地名原来空着(用标题搜到的)时顺手补上,详情页那行才显示得出地点。
+            if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
+            anchor = anchor ?? coordinate
+            filled = true
+        }
+        if filled { try? context.save() }
+    }
+
+    /// 消歧用的城市/国家。`TravelTrip.locationText` 是给人看的("东京 · 日本"),
+    /// 那个中点拼进搜索词只会添乱,这里按空格拼。
+    ///
+    /// 城市/国家都空着时退回旅行名("东京四日"这类名字里通常就带着目的地)——
+    /// AI 规划出来的旅行只有名字没有城市字段,那种情况正是最需要消歧的:整趟的
+    /// 行程项一个坐标都没有,没有任何锚点可依。
+    private static func geocodeHint(for trip: TravelTrip) -> String? {
+        let parts = [trip.city, trip.country]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !parts.isEmpty { return parts.joined(separator: " ") }
+        let title = trip.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? nil : title
+    }
+
+    /// 一次补全最多查几条。够覆盖一趟旅行的常规条数,又不至于一打开详情页就把
+    /// `MKLocalSearch` 打到限流。
+    static let geocodeBudget = 25
+
+    /// 拿去搜的词:优先填过的地点名,没填就用标题("清水寺"这种本身就是地名)。
+    private static func geocodeQuery(for item: MemoryItem) -> String {
+        let place = (item.travelPlaceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return place.isEmpty ? item.title.trimmingCharacters(in: .whitespacesAndNewlines) : place
     }
 
     // MARK: - AI 调整

@@ -76,9 +76,11 @@ struct MemoryListView: View {
             rates: ExchangeRateStore.shared)
     }
 
-    /// 侧栏点了某个标签行:资产有自己独立的显示开关(它默认从列表隐藏),其余标签
-    /// 走普通的标签筛选。每次都先清掉上一轮的筛选,不做叠加——侧栏那一下是"我要看
-    /// 这一类",不是"再加一个条件"。侧栏不再有「人脉」标签行(它是独立页面)。
+    /// 外部带一个标签进来时按它筛选:资产有自己独立的显示开关(它默认从列表隐藏),
+    /// 其余标签走普通的标签筛选。每次都先清掉上一轮的筛选,不做叠加——那一下是
+    /// "我要看这一类",不是"再加一个条件"。
+    /// **当前没有调用方**:唯一的入口(侧栏标签行)已去掉,见 `AppSidebarView`
+    /// 文件头;机制留着,要恢复入口时把 `tagFilter` 接回去即可。
     private func consumeTagFilter(_ tag: String?) {
         guard let tag else { return }
         tagFilter = nil

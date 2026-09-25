@@ -35,8 +35,6 @@ public enum AppSettings {
     public static let languageKey = "appLanguage"
     public static let appIconStyleKey = "appIconStyle"
     public static let openAgentOnLaunchKey = "openAgentOnLaunch"
-    /// 侧栏里被"常驻"到折叠区外面的记忆标签,换行分隔的标签名(顺序即展示顺序)。
-    public static let sidebarPinnedTagsKey = "sidebarPinnedTags"
     /// AI 助手右侧栏在宽屏(iPad/macOS)上是否固定显示。窄屏是左滑临时拉出的,不看这个。
     public static let agentInspectorPinnedKey = "agentInspectorPinned"
     public static let healthEnabledKey = "healthEnabled"

@@ -108,7 +108,9 @@ struct AppShellView: View {
     @State private var rescheduleRequestUUID: String?
     /// 非 nil 时切到待办页并弹出预填的新建表单(记忆条目"转为待办")。
     @State private var convertToTodoRequest: ConvertToTodoRequest?
-    /// 非 nil 时切到记忆页并按这个标签筛选(侧栏标签行)。
+    /// 非 nil 时切到记忆页并按这个标签筛选。**当前没有入口**:侧栏那排标签行
+    /// 已经去掉(理由见 `AppSidebarView` 文件头),按标签筛选的机制原样留在
+    /// `MemoryListView` 里,要恢复入口时把这个 State 接回去即可。
     @State private var memoryTagFilter: String?
     /// 记忆页的 push 栈。提到这里持有有两个用处:深链回记忆页时能弹回根,
     /// 以及下面 swipeGestureEnabled 要知道现在是不是在二级页。
@@ -136,13 +138,16 @@ struct AppShellView: View {
     /// 那排浮层按钮和页面内容都会一路贴到屏幕物理底边、被 home indicator 压住,
     /// 得手动加回来(侧栏用 padding,页面用 safeAreaInset)。
     @State private var deviceBottomInset: CGFloat = 0
-    /// 键盘顶上来的那截高度。容器安全区已经在抽屉容器那层被忽略掉了,所以在
-    /// 那棵子树里量到的底部安全区**只剩键盘**这一项——拿它反推还该给页面补多少
-    /// home indicator:没键盘时是 0、补满;键盘顶上来时它已经比 home indicator
-    /// 高,补 0。这是从布局里算出来的,不再监听 keyboardWillShow/Hide 通知:
-    /// 那是进程级通知(不分 scene/window),浮动键盘明明不占底部安全区也会发,
-    /// 交互式下拉收键盘的中间态更没法用一个布尔表达。
-    @State private var keyboardInset: CGFloat = 0
+    /// 窗口底部安全区的**原始**值:没键盘时就是 home indicator 那截,键盘顶上来时
+    /// 是键盘高度(系统把键盘算进底部安全区)。和 `deviceBottomInset` 的差就是
+    /// "键盘比 home indicator 多出来那截",见 `keyboardOverlap`。
+    ///
+    /// 这是从布局里量出来的,不监听 keyboardWillShow/Hide 通知:那是进程级通知
+    /// (不分 scene/window),浮动键盘明明不占底部安全区也会发,交互式下拉收键盘
+    /// 的中间态更没法用一个布尔表达。**iOS 27 起键盘浮在界面之上、不再占底部安全区
+    /// 时,这里量到的就一直是 home indicator**,页面自然一动不动——不需要按版本
+    /// 分叉,那正是想要的结果。
+    @State private var windowBottomInset: CGFloat = 0
     /// 收起动画还在播。sidebarProgress 是从 showSidebar 直接算的,点☰/点遮罩
     /// 关闭时它瞬间变 0,而页面还在往回滑——只看它的话导航栏那颗 ☰ 会提前冒出来,
     /// 悬在还没滑回去的页面上。收起期间靠这个标记把 chrome 继续压住,动画回调
@@ -219,6 +224,18 @@ struct AppShellView: View {
                     }
             }
             .ignoresSafeArea(.keyboard)
+        )
+        // 第二个探针:这一层**不**忽略键盘,量到的底部安全区在键盘弹起时就是键盘
+        // 高度。抽屉容器整个忽略了键盘安全区(见 compactLayout),那棵子树里量不到
+        // 键盘,只能在根上量一次再发下去。
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { windowBottomInset = proxy.safeAreaInsets.bottom }
+                    .onChange(of: proxy.safeAreaInsets.bottom) { _, newValue in
+                        windowBottomInset = newValue
+                    }
+            }
         )
         .environment(\.sidebarChrome,
                      SidebarChrome(open: toggleSidebar, go: go, collapse: closeSidebar,
@@ -320,11 +337,6 @@ struct AppShellView: View {
     private var sidebarPanel: some View {
         AppSidebarView(
             section: $section,
-            onSelectTag: { tag in
-                memoryTagFilter = tag
-                memoryPath = []
-                go(.memory)
-            },
             onOpenSettings: { showSettings = true },
             onSelect: { if !usesRegularLayout { closeSidebarAfterSelection() } }
         )
@@ -420,13 +432,22 @@ struct AppShellView: View {
         (colorScheme == .dark ? Color.black.opacity(0.35) : Color.white.opacity(0.5))
     }
 
-    /// 抽屉容器忽略了容器安全区,页面内容要自己把 home indicator 那截补回来。
-    /// 键盘顶上来时系统已经用键盘安全区把内容抬走了,这时再叠一截会让 AI 输入栏
-    /// 浮在键盘上方空出一条,所以按"还差多少"补:没键盘 keyboardInset 是 0、
-    /// 补满;键盘一上来它就超过 home indicator,补 0。浮动键盘不占底部安全区、
-    /// keyboardInset 仍是 0,照常补——正是想要的。
+    /// 键盘比 home indicator 多出来的那截。键盘收着时是 0。
+    private var keyboardOverlap: CGFloat {
+        max(0, windowBottomInset - deviceBottomInset)
+    }
+
+    /// 抽屉容器把**容器安全区和键盘安全区一起**忽略掉了(见 compactLayout),
+    /// 页面内容要自己把这两截都补回来:home indicator 那截恒补,键盘那截按量到的
+    /// 高度补。
+    ///
+    /// 补的是 `safeAreaInset`——它只给内容加安全区,**不缩小 frame**,所以页面自己
+    /// 那层背景(AI 页是 NavigationStack 的底色)照样铺满整块卡、一路铺到键盘背后。
+    /// 这正是"键盘升起时背景不变"的关键:原来整张卡跟着键盘缩一截,键盘圆角缺口
+    /// 和弹起/收起动画那一瞬露出来的是下面另一层底色(抽屉容器那层),看上去就是
+    /// 背景换了颜色。
     private var pageBottomRefill: CGFloat {
-        max(0, deviceBottomInset - keyboardInset)
+        deviceBottomInset + keyboardOverlap
     }
 
     /// 0 = 完全收起,1 = 完全展开;拖拽期间取中间值,松手后回到 0/1。
@@ -510,7 +531,10 @@ struct AppShellView: View {
         GeometryReader { proxy in
             compactDrawer(width: proxy.size.width / 2)
         }
-        .ignoresSafeArea(.container)
+        // 容器安全区 + 键盘安全区一起忽略:整张页面卡恒等于整块屏幕,键盘弹起时
+        // 不再重新布局,背景也就不会跟着变(键盘该让开的那截由 pageBottomRefill
+        // 以 safeAreaInset 的形式补给内容)。
+        .ignoresSafeArea([.container, .keyboard])
     }
 
     private func compactDrawer(width: CGFloat) -> some View {
@@ -611,17 +635,6 @@ struct AppShellView: View {
         // 窗口上(≈30)亮,侧栏右边缘会出现一道竖直的明暗分界,圆角看上去像压在一块
         // 方角暗色底板上。日间是不透明色,叠几层都一样,所以只有夜间露馅。
         .background { drawerBackdrop }
-        // 量键盘顶上来那截:这一层在下面那句 ignoresSafeArea(.container) 的
-        // 覆盖范围内,容器安全区已经被吃掉,量到的底部安全区就只剩键盘。
-        .background(
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear { keyboardInset = proxy.safeAreaInsets.bottom }
-                    .onChange(of: proxy.safeAreaInsets.bottom) { _, newValue in
-                        keyboardInset = newValue
-                    }
-            }
-        )
         // 手势被系统中断时没有 onEnded,拖到一半的抽屉会卡住;@GestureState
         // 一定会复位,借它把位移归零。
         .onChange(of: isDraggingSidebar) { _, active in
@@ -638,8 +651,8 @@ struct AppShellView: View {
         // 挂在最外层之后 sectionStack 才拿到整屏的 frame,44pt 圆角落在屏幕真正的
         // 四角上。deviceTopInset 是在 body 的 background 上量的(在这一层之外),
         // 不受影响,侧栏 header 该让开灵动岛还是照让。
-        // 只忽略 .container 这一档:默认的 .all 连键盘区一起忽略掉,AI 页输入栏
-        // 会被弹起的键盘盖住。
+        // 键盘那一档也一起忽略(见 compactLayout 那句):输入栏该让开的高度改由
+        // pageBottomRefill 以 safeAreaInset 的形式补,不靠系统缩小整张卡。
     }
 
     /// 抽屉容器的整块底色,也就是侧栏面板看上去的那层材质(面板自己不铺,见
@@ -677,10 +690,16 @@ struct AppShellView: View {
                     .transition(.opacity)
             }
             // 同样补页面底色(理由见 compactLayout),但常驻侧栏不推移、不裁圆角,
-            // 也就不需要忽略安全区。
+            // 容器安全区不用忽略。**键盘那一档仍要忽略**:理由同 compactLayout——
+            // 让页面卡的高度不随键盘变,背景才不会在键盘弹起时换一层;键盘该让开的
+            // 那截照样以 safeAreaInset 的形式补给内容。
             sectionStack
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear.frame(height: keyboardOverlap)
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
+                .ignoresSafeArea(.keyboard)
         }
         .animation(sidebarAnimation, value: showSidebar)
     }
