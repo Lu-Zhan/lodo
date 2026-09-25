@@ -168,6 +168,11 @@ with st.sidebar:
         "稍等间隔(分钟)", min_value=1, max_value=240, value=settings.snooze_minutes,
         help="稍等或忽略提醒后,多久再次提醒",
     )
+    repeat_on = st.toggle(
+        "反复提醒", value=settings.repeat_reminder,
+        help="到期后每隔一个稍等间隔重复提醒,直到完成。关掉则只提醒一次"
+             "(事项仍然显示为逾期,你主动点「稍等」也照样有效)",
+    )
     ad_h, ad_m = map(int, settings.all_day_time.split(":"))
     all_day_t = st.time_input("全天事项提醒时间", value=dtime(ad_h, ad_m), step=300,
                               help="只有日期、没有时间的事项,当天几点提醒")
@@ -196,6 +201,7 @@ with st.sidebar:
     new_quiet_end = quiet_end_val.strftime("%H:%M")
     if (
         snooze != settings.snooze_minutes
+        or repeat_on != settings.repeat_reminder
         or new_digest != settings.daily_digest_time
         or new_all_day != settings.all_day_time
         or quiet_on != settings.quiet_hours_enabled
@@ -203,6 +209,7 @@ with st.sidebar:
         or new_quiet_end != settings.quiet_hours_end
     ):
         settings.snooze_minutes = int(snooze)
+        settings.repeat_reminder = repeat_on
         settings.daily_digest_time = new_digest
         settings.all_day_time = new_all_day
         settings.quiet_hours_enabled = quiet_on
@@ -276,7 +283,13 @@ def reminder_and_lists() -> None:
 
     # 到期检查:弹出提醒并自动顺延(忽略也会在间隔后再次提醒)
     for task in scheduler.due_tasks(pending, now):
-        scheduler.mark_notified(task, now, settings.snooze_minutes)
+        # 关掉「反复提醒」时 mark_notified 不顺延 next_remind_at,事项会一直
+        # 停在到期状态;这里靠 last_notified_at 去重,免得每次轮询都再弹一次。
+        # 这个判断对开着的情况同样成立(顺延之后 last < next),不用分支。
+        if task.last_notified_at is not None and task.last_notified_at >= task.next_remind_at:
+            continue
+        scheduler.mark_notified(task, now, settings.snooze_minutes,
+                                repeat_enabled=settings.repeat_reminder)
         db.update_task(task)
         st.session_state.active_reminders.add(task.id)
         verb = "该开始了" if task.phase == Phase.START and task.duration_minutes > 0 else "到时间了"

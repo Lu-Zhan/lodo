@@ -1,4 +1,4 @@
-"""应用设置:默认稍等间隔、每日汇总时间。存储在 settings 表。"""
+"""应用设置:默认稍等间隔、反复提醒开关、每日汇总时间。存储在 settings 表。"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +15,8 @@ DEFAULT_QUIET_HOURS_END = "08:00"
 @dataclass
 class AppSettings:
     snooze_minutes: int = DEFAULT_SNOOZE_MINUTES
+    # 关掉后到期只提醒一次,不再每隔一个稍等间隔反复敲门(事项仍然逾期)
+    repeat_reminder: bool = True
     all_day_time: str = DEFAULT_ALL_DAY_TIME  # 全天(仅日期)事项当天的提醒时间
     daily_digest_time: Optional[str] = None  # "HH:MM",None 表示关闭
     last_digest_date: Optional[str] = None   # "YYYY-MM-DD"
@@ -28,11 +30,13 @@ def load_settings(db: Database) -> AppSettings:
     all_day_time = db.get_setting("all_day_time", DEFAULT_ALL_DAY_TIME)
     digest_time = db.get_setting("daily_digest_time") or None
     last_date = db.get_setting("last_digest_date") or None
+    repeat_reminder = db.get_setting("repeat_reminder", "1")
     quiet_hours_enabled = db.get_setting("quiet_hours_enabled", "1")
     quiet_hours_start = db.get_setting("quiet_hours_start", DEFAULT_QUIET_HOURS_START)
     quiet_hours_end = db.get_setting("quiet_hours_end", DEFAULT_QUIET_HOURS_END)
     return AppSettings(
         snooze_minutes=int(snooze),
+        repeat_reminder=repeat_reminder == "1",
         all_day_time=all_day_time,
         daily_digest_time=digest_time,
         last_digest_date=last_date,
@@ -44,6 +48,7 @@ def load_settings(db: Database) -> AppSettings:
 
 def save_settings(db: Database, settings: AppSettings) -> None:
     db.set_setting("snooze_minutes", str(settings.snooze_minutes))
+    db.set_setting("repeat_reminder", "1" if settings.repeat_reminder else "0")
     db.set_setting("all_day_time", settings.all_day_time)
     db.set_setting("daily_digest_time", settings.daily_digest_time or "")
     db.set_setting("quiet_hours_enabled", "1" if settings.quiet_hours_enabled else "0")

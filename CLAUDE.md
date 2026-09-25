@@ -50,9 +50,11 @@ cd android
 - **周几 0=周一 … 6=周日**(Swift 里 `(weekday+5)%7`,Kotlin 里 `DayOfWeek.value - 1`)
 - **重复时间点**是 `"HH:MM"` 字符串列表,一天可多个;`nextOccurrence` 做 8 天前瞻
 - **时长两阶段**:duration>0 的事项先提醒"该开始了"(phase start→end),结束再提醒"完成了吗"
-- **markNotified 语义**:提醒发出即把 nextRemindAt 顺延一个稍等间隔(忽略也会重响)
+- **markNotified 语义**:提醒发出即把 nextRemindAt 顺延一个稍等间隔(忽略也会重响);带 `repeatEnabled` 参数(三端同名同义,默认 true),传 false 时**不顺延**——见下面「反复提醒开关」
 - **重复事项完成一次**:保持 pending 并顺延到下一次发生,同时插入一条 done 历史记录
-- **设置默认值**:稍等 15 分钟、全天提醒 09:00、每日汇总 21:00
+- **设置默认值**:稍等 15 分钟、全天提醒 09:00、每日汇总 21:00、反复提醒**开**
+
+**反复提醒开关(三端对齐)**:`repeatReminderEnabled` / `repeat_reminder`,**默认开**——纠缠式提醒是 lodo 的立身之本,不该默认关掉。关掉后到期只提醒一次,**事项仍然 pending、仍然逾期**(纠缠的是"还没做完"这件事,关掉的只是反复敲门),用户**主动**点的「稍等」/「忽略」不受影响、仍然按稍等间隔顺延——所以设置页里那个稍等间隔**不要**跟着 disable。纯逻辑层三端一致:`markNotified(..., repeatEnabled:)` 为 false 时不顺延 nextRemindAt,测试 `repeatDisabledDoesNotPostpone` / `repeatDisabledStillAllowsExplicitSnooze` 三端 1:1。**真正"不再响"落在各端自己的提醒引擎上**(那本来就是有意的架构差异,见下):iOS 把通知链从 8 条缩成 1 条,**并且跳过 `refreshAll` 里那段 `Scheduler.catchUp` 追平**(那段就是在补算"如果链上通知各自响过、此刻该是第几次",没有反复就没有要追的,硬追会把逾期事项推向未来、看上去像还没到期);Android 的 `ReminderReceiver` 发完通知后不再重排下一个闹钟;web 轮询靠 `last_notified_at >= next_remind_at` 去重(这个判断对开着的情况同样成立,不用分支)。iOS 截图参数 `--demo-reminder-settings` 直接推到「提醒」二级页。
 
 **DeepSeek prompt 三端逐字一致**:`web/lodo/ai.py`、`ios/LodoCore/Sources/LodoCore/DeepSeekClient.swift`、`android/.../ai/DeepSeekClient.kt`。接口:`parse`(新建)、`edit`(改单个事项)、`command`(AI 总入口,目前仅 iOS/Android 有——携带全部待办列表;客户端必须校验 uuid 在列表内,且返回后用**最新**列表重新匹配)。iOS/Android 把 prompt 拆为 taskSchema + taskRules 拼装,web 仍是整段 `_FORMAT_AND_RULES`,文字内容一致。错误文案("未配置 DeepSeek API key…"/"调用 DeepSeek 失败:…"/"无法解析:…")三端一致。改 prompt 时同步三端。iOS 把 `command` 的总则/待办规则/记忆规则进一步拆成 `agent.md` + 两个可在设置里编辑/重置的 skill(`AgentSkillStore`,内置默认文本 + Application Support 下的覆盖文件),默认内容仍与 web/Android 逐字一致;用户主动自定义后本机 prompt 会偏离默认值,属预期行为,不算破坏三端对齐。
 

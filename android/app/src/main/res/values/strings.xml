@@ -177,4 +177,7 @@
     <string name="android_ui_quiet_hours_start">开始时间</string>
     <string name="android_ui_quiet_hours_end">结束时间</string>
     <string name="android_ui_quiet_hours_footer">开启后,免打扰时段内到期的提醒会推迟到时段结束后再通知;事项仍按时显示为到期,只是不弹通知打扰你。</string>
+    <string name="android_ui_repeat_reminder">反复提醒</string>
+    <string name="android_ui_repeat_reminder_footer">到期后每隔一个稍等间隔重复提醒,直到完成。</string>
+    <string name="android_ui_repeat_reminder_off_footer">关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。</string>
 </resources>

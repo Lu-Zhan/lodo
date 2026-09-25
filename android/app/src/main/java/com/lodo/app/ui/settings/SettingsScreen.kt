@@ -137,13 +137,29 @@ fun SettingsScreen(
             FooterText(stringResource(R.string.shared_independent_of_the_system_language))
 
             SectionHeader(stringResource(R.string.shared_reminders))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.android_ui_repeat_reminder),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = settings.repeatReminderEnabled,
+                    onCheckedChange = vm::setRepeatReminderEnabled,
+                )
+            }
+            // 关掉反复提醒也不 disable 稍等间隔:用户主动点「稍等」用的就是它。
             StepperRow(
                 label = stringResource(R.string.android_ui_snooze_interval_0_min, settings.snoozeMinutes),
                 onDecrement = { vm.setSnoozeMinutes(settings.snoozeMinutes - 5) },
                 onIncrement = { vm.setSnoozeMinutes(settings.snoozeMinutes + 5) },
             )
             TimeRow("全天事项提醒时间", settings.allDayTime) { showAllDayPicker = true }
-            FooterText("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
+            FooterText(stringResource(R.string.android_ui_repeat_reminder_footer))
+            FooterText(stringResource(R.string.android_ui_repeat_reminder_off_footer))
             FooterText("只有日期、没有时间的事项,当天几点提醒。")
 
             SectionHeader(stringResource(R.string.android_ui_quiet_hours))

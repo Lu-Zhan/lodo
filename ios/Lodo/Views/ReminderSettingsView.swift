@@ -12,10 +12,13 @@ struct ReminderSettingsView: View {
     @AppStorage(AppSettings.digestTimesKey) private var digestTimesRaw = ""
     @AppStorage(AppSettings.digestRepeatTypeKey) private var digestRepeatType = "daily"
     @AppStorage(AppSettings.digestDaysKey) private var digestDaysRaw = "0,1,2,3,4"
+    @AppStorage(AppSettings.repeatReminderEnabledKey) private var repeatReminderEnabled = true
 
     var body: some View {
         Form {
             Section {
+                Toggle("反复提醒", isOn: $repeatReminderEnabled)
+                // 关掉反复提醒也不 disable 它:用户主动点「稍等」用的就是这个间隔。
                 Stepper("稍等间隔:\(snoozeMinutes) 分钟",
                         value: $snoozeMinutes, in: 1...240, step: 5)
                 DatePicker("全天事项提醒时间", selection: timeBinding($allDayTime),
@@ -24,7 +27,8 @@ struct ReminderSettingsView: View {
                 Text("提醒")
             } footer: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("稍等或忽略提醒后,间隔多久再次提醒,直到完成。")
+                    Text("到期后每隔一个稍等间隔重复提醒,直到完成。")
+                    Text("关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。")
                     Text("只有日期、没有时间的事项,当天几点提醒。")
                 }
             }

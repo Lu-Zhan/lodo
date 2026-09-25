@@ -34,6 +34,22 @@ final class SchedulerTests: XCTestCase {
         XCTAssertTrue(t.isDue(now: t0.addingTimeInterval(minutes(15))))
     }
 
+    /// 关掉"反复提醒":提醒发出后不顺延,事项仍然逾期但不再自动重响。
+    func testRepeatDisabledDoesNotPostpone() {
+        var t = makeTask()
+        Scheduler.markNotified(&t, now: t0, snoozeMinutes: 15, repeatEnabled: false)
+        XCTAssertEqual(t.nextRemindAt, t0)
+        XCTAssertTrue(t.isDue(now: t0.addingTimeInterval(minutes(15))))  // 还是逾期,只是不再敲门
+    }
+
+    /// 开关只管被动的反复,用户主动点"稍等"照样顺延。
+    func testRepeatDisabledStillAllowsExplicitSnooze() {
+        var t = makeTask()
+        Scheduler.markNotified(&t, now: t0, snoozeMinutes: 15, repeatEnabled: false)
+        Scheduler.snooze(&t, now: t0.addingTimeInterval(minutes(2)), snoozeMinutes: 15)
+        XCTAssertEqual(t.nextRemindAt, t0.addingTimeInterval(minutes(17)))
+    }
+
     func testExplicitSnooze() {
         var t = makeTask()
         Scheduler.markNotified(&t, now: t0, snoozeMinutes: 15)

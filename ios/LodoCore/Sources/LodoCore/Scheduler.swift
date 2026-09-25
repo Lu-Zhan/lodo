@@ -10,7 +10,14 @@ public enum Scheduler {
     }
 
     /// 弹出提醒的同时把下次提醒自动顺延——忽略提醒也会在间隔后再次提醒。
-    public static func markNotified(_ task: inout TaskData, now: Date, snoozeMinutes: Int) {
+    /// repeatEnabled=false(设置里关掉"反复提醒")时**不顺延**:这条提醒发过就
+    /// 算了,不再自动重响。事项本身仍然 pending、仍然逾期——纠缠的是"还没做完"
+    /// 这件事,关掉的只是反复敲门。真正"不再响"由各端的提醒引擎负责(三端机制
+    /// 本就不同,见 CLAUDE.md 的架构差异:iOS 把通知链缩成 1 条、不再做 catchUp
+    /// 追平,Android 不再重排下一个闹钟,web 轮询靠 last_notified_at 去重)。
+    public static func markNotified(_ task: inout TaskData, now: Date, snoozeMinutes: Int,
+                                    repeatEnabled: Bool = true) {
+        guard repeatEnabled else { return }
         task.nextRemindAt = now.addingTimeInterval(TimeInterval(snoozeMinutes * 60))
     }
 

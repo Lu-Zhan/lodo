@@ -32,6 +32,23 @@ def test_ignored_reminder_fires_again_after_snooze():
     assert t.is_due(T0 + timedelta(minutes=15))
 
 
+def test_repeat_disabled_does_not_postpone():
+    """关掉"反复提醒":提醒发出后不顺延,事项仍然逾期但不再自动重响。"""
+    t = make_task()
+    scheduler.mark_notified(t, T0, 15, repeat_enabled=False)
+    assert t.next_remind_at == T0
+    assert t.last_notified_at == T0
+    assert t.is_due(T0 + timedelta(minutes=15))  # 还是逾期,只是不再敲门
+
+
+def test_repeat_disabled_still_allows_explicit_snooze():
+    """开关只管被动的反复,用户主动点"稍等"照样顺延。"""
+    t = make_task()
+    scheduler.mark_notified(t, T0, 15, repeat_enabled=False)
+    scheduler.snooze(t, T0 + timedelta(minutes=2), 15)
+    assert t.next_remind_at == T0 + timedelta(minutes=17)
+
+
 def test_explicit_snooze():
     t = make_task()
     scheduler.mark_notified(t, T0, 15)

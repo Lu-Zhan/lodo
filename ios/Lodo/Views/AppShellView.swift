@@ -727,7 +727,9 @@ struct AppShellView: View {
             go(target)
             break
         }
-        if args.contains("--demo-settings") { showSettings = true }
+        if args.contains("--demo-settings") || args.contains("--demo-reminder-settings") {
+            showSettings = true
+        }
         // 抽屉本身:simctl 既点不了 ☰ 也滑不了手势,直接摆成展开。
         if args.contains("--demo-sidebar") || args.contains("--demo-agent-sidebar") {
             showSidebar = true

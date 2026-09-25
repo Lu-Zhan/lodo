@@ -65,6 +65,8 @@ val personaPresets = listOf(
 /** 应用设置快照,默认值与 iOS AppSettings / web settings.py 一致。 */
 data class Settings(
     val snoozeMinutes: Int = 15,
+    /** 关掉后到期只提醒一次,不再每隔一个稍等间隔反复敲门(事项仍然逾期)。 */
+    val repeatReminderEnabled: Boolean = true,
     /** 全天(仅日期)事项当天的提醒时间,"HH:MM"。 */
     val allDayTime: String = "09:00",
     val digestEnabled: Boolean = false,
@@ -132,6 +134,7 @@ class SettingsRepository(private val context: Context) {
         val NOTIFICATION_PERMISSION_DENIED = booleanPreferencesKey("notificationPermissionDenied")
         val NOTIFY_MISS_COUNT = intPreferencesKey("notifyMissCount")
         val LANGUAGE = stringPreferencesKey("language")
+        val REPEAT_REMINDER_ENABLED = booleanPreferencesKey("repeatReminderEnabled")
         val QUIET_HOURS_ENABLED = booleanPreferencesKey("quietHoursEnabled")
         val QUIET_HOURS_START = stringPreferencesKey("quietHoursStart")
         val QUIET_HOURS_END = stringPreferencesKey("quietHoursEnd")
@@ -169,6 +172,7 @@ class SettingsRepository(private val context: Context) {
             notificationPermissionDenied = p[Keys.NOTIFICATION_PERMISSION_DENIED] ?: false,
             notifyMissCount = p[Keys.NOTIFY_MISS_COUNT] ?: 0,
             language = p[Keys.LANGUAGE] ?: "zh",
+            repeatReminderEnabled = p[Keys.REPEAT_REMINDER_ENABLED] ?: true,
             quietHoursEnabled = p[Keys.QUIET_HOURS_ENABLED] ?: true,
             quietHoursStart = p[Keys.QUIET_HOURS_START] ?: "22:00",
             quietHoursEnd = p[Keys.QUIET_HOURS_END] ?: "08:00",
@@ -253,6 +257,10 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[Keys.LANGUAGE] = language }
         com.lodo.app.core.CurrentLang.value =
             if (language == "en") com.lodo.app.core.Lang.EN else com.lodo.app.core.Lang.ZH
+    }
+
+    suspend fun setRepeatReminderEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.REPEAT_REMINDER_ENABLED] = enabled }
     }
 
     suspend fun setQuietHoursEnabled(enabled: Boolean) {

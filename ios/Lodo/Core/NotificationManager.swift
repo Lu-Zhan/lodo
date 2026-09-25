@@ -82,12 +82,20 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
         let interval = TimeInterval(AppSettings.snoozeMinutes * 60)
         let now = Date()
+        let repeats = AppSettings.repeatReminderEnabled
         // 已过期的事项把链锚定到下一个未来的稍等槽位,否则 8 条全落在过去,
         // 纠缠提醒会静默断链(数据库 nextRemindAt 保持过去值,app 内到期卡片不受影响)。
-        let anchor = Scheduler.catchUp(nextRemindAt: task.nextRemindAt, now: now,
-                                       snoozeMinutes: AppSettings.snoozeMinutes)
+        // 关掉「反复提醒」时**不追平**:那条提醒本来就只该响一次,追平等于又把它
+        // 挪到未来再响一遍。落在过去的那一条会被下面的 `fire > now` 跳过——
+        // 它已经响过(或在 app 没开时被系统发过)了,这是对的。
+        let anchor = repeats
+            ? Scheduler.catchUp(nextRemindAt: task.nextRemindAt, now: now,
+                                snoozeMinutes: AppSettings.snoozeMinutes)
+            : task.nextRemindAt
         let starting = task.phase == .start && task.durationMinutes > 0
-        for i in 0..<min(chainLength, Self.chainLength) {
+        // 关掉「反复提醒」= 只排一条,不排后面那串纠缠。
+        let count = repeats ? min(chainLength, Self.chainLength) : 1
+        for i in 0..<count {
             // 免打扰时段:只调整实际弹通知的时刻,不碰 task.nextRemindAt——
             // 到期状态与这个调整无关(见 Scheduler.applyQuietHours)。
             let fire = Scheduler.applyQuietHours(
@@ -166,12 +174,17 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         // 只能在每次进前台时把已过期的 nextRemindAt 按时间差批量追平到"如果
         // 链上通知按计划各自触发过,此刻应处于的下一个未来槽位",让数据库
         // 与小组件/CloudKit 多端同步读到的状态不再停留在最初的过期值上。
+        // 关掉「反复提醒」时整段跳过:这段追平本身就是在补算"如果链上通知各自
+        // 响过、此刻该是第几次"——没有反复,就没有要追的东西,硬追会把逾期事项的
+        // nextRemindAt 一路推向未来,看上去像是还没到期。
         let now = Date()
         var reconciled = false
-        for task in tasks where task.nextRemindAt <= now {
-            task.nextRemindAt = Scheduler.catchUp(nextRemindAt: task.nextRemindAt, now: now,
-                                                  snoozeMinutes: AppSettings.snoozeMinutes)
-            reconciled = true
+        if AppSettings.repeatReminderEnabled {
+            for task in tasks where task.nextRemindAt <= now {
+                task.nextRemindAt = Scheduler.catchUp(nextRemindAt: task.nextRemindAt, now: now,
+                                                      snoozeMinutes: AppSettings.snoozeMinutes)
+                reconciled = true
+            }
         }
         if reconciled { try? context.save() }
 

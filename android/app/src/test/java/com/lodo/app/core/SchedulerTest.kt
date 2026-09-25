@@ -40,6 +40,22 @@ class SchedulerTest {
         assertTrue(t.isDue(t0.plusMinutes(15)))
     }
 
+    /** 关掉"反复提醒":提醒发出后不顺延,事项仍然逾期但不再自动重响。 */
+    @Test
+    fun repeatDisabledDoesNotPostpone() {
+        val t = Scheduler.markNotified(makeTask(), t0, 15, repeatEnabled = false)
+        assertEquals(t0, t.nextRemindAt)
+        assertTrue(t.isDue(t0.plusMinutes(15))) // 还是逾期,只是不再敲门
+    }
+
+    /** 开关只管被动的反复,用户主动点"稍等"照样顺延。 */
+    @Test
+    fun repeatDisabledStillAllowsExplicitSnooze() {
+        var t = Scheduler.markNotified(makeTask(), t0, 15, repeatEnabled = false)
+        t = Scheduler.snooze(t, t0.plusMinutes(2), 15)
+        assertEquals(t0.plusMinutes(17), t.nextRemindAt)
+    }
+
     @Test
     fun explicitSnooze() {
         var t = Scheduler.markNotified(makeTask(), t0, 15)

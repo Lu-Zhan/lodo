@@ -177,4 +177,7 @@
     <string name="android_ui_quiet_hours_start">Start Time</string>
     <string name="android_ui_quiet_hours_end">End Time</string>
     <string name="android_ui_quiet_hours_footer">When enabled, reminders due during quiet hours are delayed until the window ends; tasks still show as due on time — only the notification itself is delayed.</string>
+    <string name="android_ui_repeat_reminder">Repeat Reminders</string>
+    <string name="android_ui_repeat_reminder_footer">After it comes due, lodo reminds you again every snooze interval until it is done.</string>
+    <string name="android_ui_repeat_reminder_off_footer">Turn it off and you are reminded once: the task still shows as overdue, and tapping Snooze yourself still works.</string>
 </resources>

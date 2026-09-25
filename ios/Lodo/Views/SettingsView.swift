@@ -38,8 +38,14 @@ struct SettingsView: View {
         AccentPalette(rawValue: accentPaletteRaw) ?? .terracotta
     }
 
+    /// 只给截图参数用的 push 栈:simctl 点不了行,二级页要靠 --demo-* 直接推进来。
+    /// 页面里原有的 NavigationLink { } label: { } 不走这个栈,照常工作。
+    @State private var path: [SettingsRoute] = []
+
+    enum SettingsRoute: Hashable { case reminder }
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Form {
                 // ---- AI:服务商/API Key、思考、联网搜索、个性、语音、洞察、记忆、Skill 统一入口 ----
                 Section {
@@ -249,6 +255,19 @@ struct SettingsView: View {
                 backupRestoreSection
             }
             .formStyle(.grouped)
+            .navigationDestination(for: SettingsRoute.self) { route in
+                switch route {
+                case .reminder: ReminderSettingsView()
+                }
+            }
+            #if DEBUG
+            // 截图验证用:直接推到「提醒」二级页(simctl 点不了那一行)。
+            .onAppear {
+                if ProcessInfo.processInfo.arguments.contains("--demo-reminder-settings") {
+                    path = [.reminder]
+                }
+            }
+            #endif
             .navigationTitle("设置")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

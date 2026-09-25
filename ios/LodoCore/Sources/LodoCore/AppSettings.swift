@@ -6,6 +6,7 @@ import Foundation
 /// (这轮范围内 Watch 只用这里的合理默认值,设置页本身不做跨设备同步)。
 public enum AppSettings {
     public static let snoozeMinutesKey = "snoozeMinutes"
+    public static let repeatReminderEnabledKey = "repeatReminderEnabled"
     public static let allDayTimeKey = "allDayTime"
     public static let digestEnabledKey = "digestEnabled"
     public static let digestTimeKey = "digestTime"
@@ -52,6 +53,15 @@ public enum AppSettings {
     public static var healthRangeDays: Int {
         let v = UserDefaults.standard.integer(forKey: healthRangeDaysKey)
         return v > 0 ? v : 14
+    }
+
+    /// 「反复提醒」总开关,**默认开**——这是 lodo 的核心("纠缠式提醒":到期后
+    /// 每隔一个稍等间隔重响直到完成)。关掉后到期只提醒一次,事项仍然 pending、
+    /// 仍然逾期,只是不再反复敲门;用户主动点的「稍等」不受影响。
+    public static var repeatReminderEnabled: Bool {
+        UserDefaults.standard.object(forKey: repeatReminderEnabledKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: repeatReminderEnabledKey)
     }
 
     public static var snoozeMinutes: Int {

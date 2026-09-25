@@ -17,10 +17,20 @@ def due_tasks(tasks: list[Task], now: datetime) -> list[Task]:
     return [t for t in tasks if t.is_due(now)]
 
 
-def mark_notified(task: Task, now: datetime, snooze_minutes: int) -> Task:
-    """弹出提醒的同时把下次提醒自动顺延——忽略提醒也会在间隔后再次提醒。"""
+def mark_notified(
+    task: Task, now: datetime, snooze_minutes: int, repeat_enabled: bool = True
+) -> Task:
+    """弹出提醒的同时把下次提醒自动顺延——忽略提醒也会在间隔后再次提醒。
+
+    repeat_enabled=False(设置里关掉"反复提醒")时**不顺延**:这条提醒发过就算了,
+    不再自动重响。事项本身仍然 pending、仍然逾期——纠缠的是"还没做完"这件事,
+    关掉的只是反复敲门。真正"不再响"由各端的提醒引擎负责(三端机制本就不同:
+    web 轮询靠 last_notified_at 去重,iOS 把通知链缩成 1 条,Android 不再重排
+    下一个闹钟)。
+    """
     task.last_notified_at = now
-    task.next_remind_at = now + timedelta(minutes=snooze_minutes)
+    if repeat_enabled:
+        task.next_remind_at = now + timedelta(minutes=snooze_minutes)
     return task
 
 

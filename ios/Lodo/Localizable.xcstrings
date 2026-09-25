@@ -1201,6 +1201,22 @@
         }
       }
     },
+    "关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn it off and you are reminded once: the task still shows as overdue, and tapping Snooze yourself still works."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。"
+          }
+        }
+      }
+    },
     "关掉通知后,结果只在这里和「总览」里显示。": {
       "localizations": {
         "en": {
@@ -1553,6 +1569,22 @@
         }
       }
     },
+    "到期后每隔一个稍等间隔重复提醒,直到完成。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After it comes due, lodo reminds you again every snooze interval until it is done."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到期后每隔一个稍等间隔重复提醒,直到完成。"
+          }
+        }
+      }
+    },
     "到设定时间自动执行,结果推送给你。系统会挑合适的时机在后台完成,如果没赶上,到点会先提醒你打开 app,打开后立刻补跑。": {
       "localizations": {
         "en": {
@@ -1757,6 +1789,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "去掉"
+          }
+        }
+      }
+    },
+    "反复提醒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat Reminders"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "反复提醒"
           }
         }
       }

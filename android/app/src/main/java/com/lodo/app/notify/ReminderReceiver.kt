@@ -46,10 +46,14 @@ class ReminderReceiver : BroadcastReceiver() {
         }
         val shown = Notifications.showTask(app, entity, app.settings.snapshot().personaStyle)
         if (shown) {
-            // 忽略通知也会在稍等间隔后再次提醒(与 web 版 markNotified 语义一致)
-            val notified = Scheduler.markNotified(data, now, app.settings.snapshot().snoozeMinutes)
+            // 忽略通知也会在稍等间隔后再次提醒(与 web 版 markNotified 语义一致);
+            // 关掉「反复提醒」时 markNotified 不顺延,这里也不再排下一个闹钟——
+            // 这条就是它最后一次响,事项仍然 PENDING、仍然逾期。
+            val repeats = app.settings.snapshot().repeatReminderEnabled
+            val notified = Scheduler.markNotified(
+                data, now, app.settings.snapshot().snoozeMinutes, repeatEnabled = repeats)
             app.repository.persistNotified(uuid, notified)
-            app.alarms.scheduleReminder(uuid, notified.nextRemindAt)
+            if (repeats) app.alarms.scheduleReminder(uuid, notified.nextRemindAt)
             if (app.settings.snapshot().notifyMissCount > 0) app.settings.setNotifyMissCount(0)
         } else {
             // 通知权限缺失:不顺延 nextRemindAt(事项继续显示为"过期未提醒"),

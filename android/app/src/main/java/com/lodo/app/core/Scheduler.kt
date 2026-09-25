@@ -14,8 +14,20 @@ object Scheduler {
         tasks.filter { it.isDue(now) }
 
     /** 弹出提醒的同时把下次提醒自动顺延——忽略提醒也会在间隔后再次提醒。 */
-    fun markNotified(task: TaskData, now: LocalDateTime, snoozeMinutes: Int): TaskData =
-        task.copy(nextRemindAt = now.plusMinutes(snoozeMinutes.toLong()))
+    /**
+     * repeatEnabled=false(设置里关掉"反复提醒")时**不顺延**:这条提醒发过就算了,
+     * 不再自动重响。事项本身仍然 PENDING、仍然逾期——纠缠的是"还没做完"这件事,
+     * 关掉的只是反复敲门。真正"不再响"由各端的提醒引擎负责(三端机制本就不同,
+     * 见 CLAUDE.md 的架构差异:这边是 ReminderReceiver 不再重排下一个闹钟)。
+     */
+    fun markNotified(
+        task: TaskData,
+        now: LocalDateTime,
+        snoozeMinutes: Int,
+        repeatEnabled: Boolean = true,
+    ): TaskData =
+        if (repeatEnabled) task.copy(nextRemindAt = now.plusMinutes(snoozeMinutes.toLong()))
+        else task
 
     /** 用户点"稍等"——明确的正常交互,不是逃避,清零忽略连击。 */
     fun snooze(task: TaskData, now: LocalDateTime, snoozeMinutes: Int): TaskData =

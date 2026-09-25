@@ -129,6 +129,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         app.settings.setAllDayTime(hhmm)
     }
 
+    /** 「反复提醒」开关变更后重排闹钟:关掉时要把已经排出去的后续闹钟撤掉,
+     * 打开时要把停住的事项重新接上(理由同下面免打扰那条)。 */
+    fun setRepeatReminderEnabled(enabled: Boolean) = viewModelScope.launch {
+        app.settings.setRepeatReminderEnabled(enabled)
+        app.repository.syncAlarms()
+    }
+
     /** 免打扰时段变更后重排所有待办的闹钟,让新设置立即生效(与 setDigestEnabled
      * 等汇总设置变更后 syncAlarms 的思路一致)。 */
     fun setQuietHoursEnabled(enabled: Boolean) = viewModelScope.launch {
