@@ -95,11 +95,21 @@ struct TodoListView: View {
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
     @State private var now = Date()
+    /// 顶部周条当前显示的那一周(周一零点)。
+    @State private var weekStart = CalendarWeek.start(of: Date())
+    /// 周条里选中的那天;非 nil 时列表整个切成"那天的日程",筛选胶囊让位。
+    @State private var selectedDay: Date?
+    /// 当前这一周的系统日历事件(只读)。开关关着或没授权时恒为空数组。
+    @State private var weekEvents: [CalendarEvent] = []
+    #if DEBUG
+    /// --demo-calendar 塞了样板事件:之后的真实查询要让开,不然一进来就被
+    /// 空结果覆盖掉(同 HealthView 的 demoOverride,只落在 @State 上)。
+    @State private var demoCalendar = false
+    #endif
     /// 顶部 4 个筛选胶囊(今天/未来/全部/已完成)当前选中的态。
     @State var filter: TodoFilter = .today
     @State var sheet: SheetMode?
     /// 工具栏"项目视图"菜单的两个入口。
-    @State private var showProjectList = false
     /// 完成后询问实际耗时的轻量条(队列,连续完成不互相覆盖)。
     @State var askDurationQueue: [(title: String, planned: Int)] = []
     /// 通知权限被拒绝(app 内唯一提醒渠道失效)时提示用户去系统设置开启。
@@ -294,16 +304,23 @@ struct TodoListView: View {
                 if NotificationBudgetState.shared.overflowCount > 0 {
                     notificationOverflowSection
                 }
+                weekStripSection
                 filterBar
                 if let ask = askDurationQueue.first {
                     askDurationSection(ask)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                switch filter {
-                case .today: todaySection
-                case .future: futureSection
-                case .all: allSections
-                case .done: doneSections
+                // 周条选中了某天就整个让位给那天的日程(任务 + 系统事件);
+                // 点任何一个筛选胶囊会把选中取消掉,回到原来四个态。
+                if let day = selectedDay {
+                    daySection(day)
+                } else {
+                    switch filter {
+                    case .today: todaySection
+                    case .future: futureSection
+                    case .all: allSections
+                    case .done: doneSections
+                    }
                 }
             }
             // 三路各自独立的触发源(到期列表变化/时长反问队列变化/筛选切换)
@@ -316,29 +333,23 @@ struct TodoListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar {
-                // 抽屉推开时整颗撤掉,理由同 ☰(sidebarToolbarButton 的注释):
-                // 工具栏挂在 NavigationStack 上、不跟着内容平移,留着会浮在
-                // 已经露出来的侧栏上面,而且照样能点。
-                if !(sidebarChrome?.hidesChrome ?? false) {
-                    // 「并行时间线」已整个去掉,这里只剩一项,不再套 Menu
-                    // ——一个菜单点开只有一条,多一次点击没换来任何选择。
-                    ToolbarItem {
-                        Button {
-                            showProjectList = true
-                        } label: {
-                            Label("按项目查看", systemImage: "folder")
-                        }
-                    }
-                }
-            }
+            // 右上角现在什么都不放:「并行时间线」和「按项目查看」先后去掉了,
+            // 左上角只剩 ☰。项目字段本身还在(表单里能填、AI 也会填),只是
+            // 暂时没有按项目浏览的入口(`ProjectListView` 原样留着)。
             .sidebarToolbarButton()
             .askBar(isVisible: !(sidebarChrome?.hidesChrome ?? false))
-            .sheet(isPresented: $showProjectList) { ProjectListView() }
             // 剩下的三个 sheet 目的地都是叠在待办列表上的卡片型表单
             // (新建/编辑事项、编辑定时任务),iOS 和 macOS 走同一路。
             .sheet(item: $sheet, onDismiss: handleSheetDismiss) { mode in
                 sheetContent(mode)
+            }
+            // 周条那一周的系统日历事件。翻周就重取;开关关着/没授权时
+            // CalendarBridge 返回空数组,这里不必自己判断。放 .task 而不是
+            // onAppear:翻周要能跟着重跑。
+            .task(id: weekStart) { reloadWeekEvents() }
+            // 从设置页开完日历开关回来、或别的 app 改过日程之后,回前台重取一次。
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { reloadWeekEvents() }
             }
             // 按需唤醒:睡到下一个到期时刻/明天零点再刷新 now,替代固定 10 秒轮询
             .task(id: nextWakeDate) {
@@ -371,16 +382,35 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-seed-data"), pending.isEmpty {
                     seedDemoData()
                 }
+                // 截图验证用:模拟器里既点不了周条、也没法点系统日历的授权弹窗,
+                // 直接塞两条样板事件并选中今天(同 --demo-health 塞样本序列的做法,
+                // 只落在 @State 上,不写 UserDefaults、不碰真实日历)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-calendar") {
+                    demoCalendar = true
+                    let calendar = Calendar.current
+                    let today = calendar.startOfDay(for: Date())
+                    weekEvents = [
+                        CalendarEvent(id: "demo-1", title: "产品评审",
+                                      start: today.addingTimeInterval(10 * 3600),
+                                      end: today.addingTimeInterval(11 * 3600),
+                                      isAllDay: false, calendarTitle: "工作"),
+                        CalendarEvent(id: "demo-2", title: "体检",
+                                      start: today, end: today.addingTimeInterval(86400),
+                                      isAllDay: true, calendarTitle: "个人"),
+                        CalendarEvent(id: "demo-3", title: "牙医",
+                                      start: today.addingTimeInterval(86400 + 15 * 3600),
+                                      end: today.addingTimeInterval(86400 + 16 * 3600),
+                                      isAllDay: false, calendarTitle: "个人"),
+                    ]
+                    if ProcessInfo.processInfo.arguments.contains("--demo-calendar-day") {
+                        selectedDay = today
+                    }
+                }
                 if ProcessInfo.processInfo.arguments.contains("--demo-filter-all") {
                     filter = .all
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-filter-done") {
                     filter = .done
-                }
-                if ProcessInfo.processInfo.arguments.contains("--demo-project-list"),
-                   pending.isEmpty {
-                    seedProjectDemoData()
-                    showProjectList = true
                 }
                 #endif
             }
@@ -446,6 +476,13 @@ struct TodoListView: View {
                 }
             }
         }
+        // 胶囊和周条选中的那天是两个互斥的"看哪些"——点胶囊就把那天取消掉,
+        // 否则点了半天列表纹丝不动(它还在显示选中的那一天)。
+        .onChange(of: filter) { _, _ in
+            if selectedDay != nil {
+                withAnimation(.lodoAware(.lodoQuickFade)) { selectedDay = nil }
+            }
+        }
         .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
         .listRowBackground(Color.clear)
     }
@@ -501,6 +538,61 @@ struct TodoListView: View {
     }
 
     // MARK: - 区块
+
+    /// 取这一周的系统日历事件。开关关着/没授权时 `CalendarBridge` 返回空数组,
+    /// 这里不必自己判断。
+    private func reloadWeekEvents() {
+        #if DEBUG
+        if demoCalendar { return }
+        #endif
+        let calendar = Calendar.current
+        let end = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+        weekEvents = CalendarBridge.events(from: weekStart, to: end)
+    }
+
+    /// 顶部常驻的一周视图。事件在 `.task(id:)` 里按周加载(见 body 下面),
+    /// 这里只把"某天有没有东西"的判断喂给它。
+    private var weekStripSection: some View {
+        Section {
+            TaskWeekStrip(
+                weekStart: $weekStart, selectedDay: $selectedDay,
+                hasTask: { day in
+                    pending.contains { Calendar.current.isDate(effectiveDay($0), inSameDayAs: day) }
+                        || routines.contains { routine in
+                            guard let routineDay = effectiveRoutineDay(routine) else { return false }
+                            return Calendar.current.isDate(routineDay, inSameDayAs: day)
+                        }
+                },
+                hasEvent: { day in weekEvents.contains { $0.occurs(on: day) } })
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 2, trailing: 12))
+        .listRowBackground(Color.clear)
+    }
+
+    /// 周条选中某一天:那天的任务 + 定时任务 + 系统日历事件,按时间混排。
+    /// 任务用的是和"全部"一样的 `effectiveDay`(逾期的冒泡到今天),事件按
+    /// 区间相交判断(跨天的中间几天也算),全天事件排最前面。
+    @ViewBuilder
+    private func daySection(_ day: Date) -> some View {
+        let calendar = Calendar.current
+        let rows = allRowsGroupedByDay
+            .first { calendar.isDate($0.date, inSameDayAs: day) }?.rows ?? []
+        let events = weekEvents.filter { $0.occurs(on: day) }
+            .sorted { $0.sortDate(on: day) < $1.sortDate(on: day) }
+        Section {
+            if rows.isEmpty && events.isEmpty {
+                Text("这天没有安排").foregroundStyle(.secondary)
+            }
+            ForEach(events) { event in
+                CalendarEventRow(event: event)
+            }
+            ForEach(rows) { row in
+                todoRow(row)
+            }
+        } header: {
+            Text(dayLabel(day))
+        }
+    }
 
     /// 完成后的实际耗时轻量条(智能采样,队列化;选择/跳过后出下一条)。
     private func askDurationSection(_ ask: (title: String, planned: Int)) -> some View {

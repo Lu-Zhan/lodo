@@ -66,6 +66,7 @@ enum TaskActions {
         context.delete(task)
         try? context.save()
         WidgetBridge.sync(context: context)
+        CalendarSync.sync(context: context)
     }
 
     static func snooze(_ task: TaskItem, context: ModelContext) {

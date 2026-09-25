@@ -41,12 +41,42 @@ public enum AppSettings {
     public static let agentInspectorPinnedKey = "agentInspectorPinned"
     public static let healthEnabledKey = "healthEnabled"
     public static let healthRangeDaysKey = "healthRangeDays"
+    public static let calendarEnabledKey = "calendarEnabled"
+    public static let calendarWriteEnabledKey = "calendarWriteEnabled"
+    /// lodo 自己那本日历的标识符(EKCalendar.calendarIdentifier)。只在写开关
+    /// 开着时才会有;用户在系统日历里把它删了,下次同步会新建一本并覆盖这里。
+    public static let calendarIdentifierKey = "calendarIdentifier"
 
     /// 健康分析总开关。**默认关**:读健康数据要系统授权,而且开了之后汇总统计
     /// 会发给所选 AI 服务商——这种事不该替用户默认打开。关着时健康页只画本地
     /// 图表,一个网络请求都不发。
     public static var healthEnabled: Bool {
         UserDefaults.standard.bool(forKey: healthEnabledKey)
+    }
+
+    /// 系统日历总开关(读)。**默认关**:读日历要系统授权,不该替用户默认打开。
+    /// 关着时任务页顶部的周条照常显示,只是上面只有 lodo 自己的任务。
+    public static var calendarEnabled: Bool {
+        UserDefaults.standard.bool(forKey: calendarEnabledKey)
+    }
+
+    /// 把 lodo 任务写进系统日历。**默认关**,而且是 `calendarEnabled` 的下级——
+    /// 往用户的日历里写东西比读更重,要单独点一次头。
+    public static var calendarWriteEnabled: Bool {
+        calendarEnabled && UserDefaults.standard.bool(forKey: calendarWriteEnabledKey)
+    }
+
+    public static var calendarIdentifier: String? {
+        UserDefaults.standard.string(forKey: calendarIdentifierKey)
+    }
+
+    public static func setCalendarIdentifier(_ identifier: String?) {
+        let defaults = UserDefaults.standard
+        if let identifier {
+            defaults.set(identifier, forKey: calendarIdentifierKey)
+        } else {
+            defaults.removeObject(forKey: calendarIdentifierKey)
+        }
     }
 
     /// 健康数据回看天数,默认 14 天(够算出"最近 7 天 vs 之前 7 天"的趋势)。

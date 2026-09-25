@@ -229,6 +229,7 @@ enum BackupManager {
         // 否则语义检索("问 AI")永远命中不了这些条目,只能靠关键词兜底。
         await MemoryPipeline.reindexAll(importedMemoryItems, context: context)
         WidgetBridge.sync(context: context)
+        CalendarSync.sync(context: context)
     }
 
     // MARK: - 内部

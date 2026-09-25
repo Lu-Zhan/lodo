@@ -22,6 +22,8 @@
 	     开关默认关,见 AppSettings.healthEnabled。 -->
 	<key>NSHealthShareUsageDescription</key>
 	<string>用于读取步数、睡眠、心率等数据,在本机汇总成健康趋势与建议;只有汇总统计会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备。</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>用于在任务页显示你日历里的日程,并把 lodo 的任务写进一本名为 lodo 的日历;两个开关默认都关着,不开就一条也不读、不写。</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

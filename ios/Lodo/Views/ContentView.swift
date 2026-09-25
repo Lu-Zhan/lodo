@@ -97,6 +97,10 @@ struct ContentView: View {
                     }
                     // Share Extension 落在收件箱的分享内容,回前台时入库整理
                     MemoryPipeline.consumeInbox(context: modelContext)
+                    // 系统日历镜像的兜底对账:改动时各处都会调 CalendarSync.sync,
+                    // 但通知按钮、Siri、小组件那几条路径可能在 app 没运行时发生,
+                    // 回前台补一次,把漏掉的增删改一次性对平。
+                    CalendarSync.reconcile(context: modelContext)
                 }
             }
     }

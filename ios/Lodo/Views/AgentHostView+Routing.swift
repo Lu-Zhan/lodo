@@ -158,6 +158,7 @@ extension AgentHostView {
                         // 单条修改那支完全对称。
                         let created = TaskActions.create(parsed, context: context)
                         WidgetBridge.sync(context: context)
+                        CalendarSync.sync(context: context)
                         lastUndo = [.created(uuid: created.uuid)]
                         return .created(task: created, parsed: parsed)
                     }
@@ -172,6 +173,7 @@ extension AgentHostView {
                         let before = task.backup
                         TaskActions.apply(parsed, to: task, context: context)
                         WidgetBridge.sync(context: context)
+                        CalendarSync.sync(context: context)
                         lastUndo = [.updated(before: before)]
                         return .updated(task: task, parsed: parsed)
                     }
@@ -457,6 +459,7 @@ extension AgentHostView {
         lastUndo = undoOps.isEmpty ? nil : undoOps
         try? context.save()
         WidgetBridge.sync(context: context)
+        CalendarSync.sync(context: context)
         if missingCount > 0 {
             actionsWarning = "有 \(missingCount) 项操作未执行:对应事项已不存在"
         }
@@ -517,6 +520,7 @@ extension AgentHostView {
         lastUndo = nil
         try? context.save()
         WidgetBridge.sync(context: context)
+        CalendarSync.sync(context: context)
         let suffix = missingCount > 0 ? "(\(missingCount) 项因事项已不存在无法撤销)" : ""
         return .answer(text: "已撤销上一步操作\(suffix)。", related: [])
     }

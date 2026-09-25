@@ -75,6 +75,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                  syncWidget: Bool = true) {
         if syncWidget, let context = container?.mainContext {
             WidgetBridge.sync(context: context)
+            CalendarSync.sync(context: context)
         }
         let center = UNUserNotificationCenter.current()
         cancelChain(for: task.uuid)
@@ -209,6 +210,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             .sorted { $0.nextRemindAt < $1.nextRemindAt }
         refreshDigest(for: todayTasks)
         WidgetBridge.sync(context: context)
+        CalendarSync.sync(context: context)
     }
 
     // MARK: - 汇总正文的 AI 改写
@@ -330,6 +332,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         if task.status == .done {
             cancelChain(for: task.uuid)
             WidgetBridge.sync(context: context)
+            CalendarSync.sync(context: context)
         } else {
             rebuild(for: task)
         }

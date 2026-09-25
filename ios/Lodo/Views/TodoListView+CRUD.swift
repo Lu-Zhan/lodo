@@ -75,9 +75,10 @@ extension TodoListView {
         try? context.save()
     }
 
-    /// 截图/测试用(--demo-project-list/--demo-project-timeline,仅在待办为空时
-    /// 插入):跨"工作/健康/生活/未分类"几个项目,含零时长(圆点兜底)和全天
-    /// (条带兜底)两种边界场景。
+    /// 截图/测试用:跨"工作/健康/生活/未分类"几个项目,含零时长和全天两种边界
+    /// 场景。原来的两个消费者(--demo-project-list / --demo-project-timeline)
+    /// 随「按项目查看」「并行时间线」两个入口一起去掉了,这份种子数据留着,
+    /// 之后要验项目相关的东西直接调它。
     func seedProjectDemoData() {
         let now = Date()
 

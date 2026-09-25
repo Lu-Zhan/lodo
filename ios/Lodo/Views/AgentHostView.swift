@@ -58,6 +58,7 @@ struct AgentHostView: View {
                     context.delete(task)
                     try? context.save()
                     WidgetBridge.sync(context: context)
+                    CalendarSync.sync(context: context)
                     // 这条正是 lastUndo 记着的那次新建的话,顺手清掉——不然之后
                     // 打字"撤销"会去删一个已经不在的事项,只换来一句"无法撤销"。
                     if case .created(let recorded)? = lastUndo?.first, recorded == uuid,
@@ -68,6 +69,7 @@ struct AgentHostView: View {
                 }
                 let created = TaskActions.create(parsed, context: context)
                 WidgetBridge.sync(context: context)
+                CalendarSync.sync(context: context)
                 return created.uuid
             })
         .alert("提示", isPresented: Binding(

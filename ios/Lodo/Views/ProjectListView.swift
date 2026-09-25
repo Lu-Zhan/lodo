@@ -7,6 +7,9 @@ import LodoCore
 /// "未分类"、固定殿后。行直接复用 TaskRowView,滑动完成/改期/稍等/删除都继承。
 /// 不叠加 TodoListView 现有的今天/未来/全部/已完成筛选——项目是另一个独立维度,
 /// v1 不在同一屏混两个筛选轴。
+// 注:任务页右上角那颗「按项目查看」已按"页面操作从简"去掉,这个视图当前
+// **没有入口**(代码原样留着,要恢复时挂回工具栏即可)。项目字段本身仍在用:
+// 表单里能填、AI 解析也会给。
 struct ProjectListView: View {
     private static let unclassifiedKey = "未分类"
 
@@ -39,7 +42,7 @@ struct ProjectListView: View {
         NavigationStack {
             Group {
                 if pending.isEmpty {
-                    ContentUnavailableView("暂无待办事项", systemImage: "folder")
+                    ContentUnavailableView("暂无任务", systemImage: "folder")
                 } else {
                     List {
                         ForEach(groups, id: \.project) { group in

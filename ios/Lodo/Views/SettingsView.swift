@@ -12,6 +12,8 @@ struct SettingsView: View {
     @AppStorage(AppSettings.icloudSyncEnabledKey) private var icloudSyncEnabled = true
     @AppStorage(AppSettings.hapticsEnabledKey) private var hapticsEnabled = true
     @AppStorage(AppSettings.openAgentOnLaunchKey) private var openAgentOnLaunch = true
+    @AppStorage(AppSettings.calendarEnabledKey) private var calendarEnabled = false
+    @AppStorage(AppSettings.calendarWriteEnabledKey) private var calendarWriteEnabled = false
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var healthRangeDays = 14
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
@@ -86,8 +88,45 @@ struct SettingsView: View {
                         Label("定时任务", systemImage: "clock.badge")
                     }
                 } footer: {
-                    Text("让 AI 在你设定的时间自动跑一件事,比如早上总结今天的待办、看天气给穿搭建议。")
+                    Text("让 AI 在你设定的时间自动跑一件事,比如早上总结今天的任务、看天气给穿搭建议。")
                 }
+
+                // ---- 系统日历(仅 iOS:macOS 那边 EventKit 要另配沙盒 entitlement)----
+                #if os(iOS)
+                Section {
+                    Toggle("连接系统日历", isOn: $calendarEnabled)
+                        .onChange(of: calendarEnabled) { _, enabled in
+                            // 打开时就把授权弹窗走一遍,免得用户回到任务页
+                            // 只看到空荡荡的周条却不知道去哪授权。
+                            guard enabled else {
+                                // 关读也就关了写(写是读的下级),顺手把已经
+                                // 写进去的镜像事件清掉——用户关开关的意思就是
+                                // "别在我日历里留东西"。
+                                calendarWriteEnabled = false
+                                CalendarBridge.removeAllMirroredEvents()
+                                return
+                            }
+                            Task { await CalendarBridge.requestAccess() }
+                        }
+                    if calendarEnabled {
+                        Toggle("把任务写进系统日历", isOn: $calendarWriteEnabled)
+                            .onChange(of: calendarWriteEnabled) { _, enabled in
+                                Task { @MainActor in
+                                    if enabled {
+                                        await CalendarBridge.requestAccess()
+                                        CalendarSync.reconcile(context: context)
+                                    } else {
+                                        CalendarBridge.removeAllMirroredEvents()
+                                    }
+                                }
+                            }
+                    }
+                } header: {
+                    Text("系统日历")
+                } footer: {
+                    Text("开启后任务页顶部的周视图会把你日历里的日程和任务排在一起(只读,点不动也改不了)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),关掉时会把写进去的事件一并清掉,你自己的日程一条都不碰。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。")
+                }
+                #endif
 
                 // ---- 健康分析(仅 iOS:macOS 没有 HealthKit)----
                 #if os(iOS)
