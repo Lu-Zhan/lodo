@@ -74,7 +74,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         backupMessage = null
         try {
             val result = Backup.import(app, uri, app.database)
-            backupMessage = "已导入 ${result.taskCount} 项待办、${result.memoryCount} 条记忆、" +
+            backupMessage = "已导入 ${result.taskCount} 项任务、${result.memoryCount} 条记忆、" +
                 "${result.relationshipCount} 条人脉关系。"
         } catch (e: Exception) {
             backupMessage = "导入失败:${e.message}"

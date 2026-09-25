@@ -109,7 +109,7 @@ private struct EmptyTodayView: View {
     var body: some View {
         VStack {
             Spacer(minLength: 0)
-            Text("今天没有待办事项 🎉")
+            Text("今天没有任务 🎉")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
@@ -170,7 +170,7 @@ struct LodoWidgetView: View {
 
     private var largeBody: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("今天待办")
+            Text("今天任务")
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
@@ -211,7 +211,7 @@ struct LodoWidget: Widget {
             LodoWidgetView(entry: entry)
         }
         .configurationDisplayName("lodo")
-        .description("今天的待办一目了然,轻点即可用 AI 记下新的一件事。")
+        .description("今天的任务一目了然,轻点即可用 AI 记下新的一件事。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

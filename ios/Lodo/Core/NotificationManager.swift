@@ -260,11 +260,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
             let content = UNMutableNotificationContent()
             let language = AppSettings.language
-            content.title = LocalizedStrings.translate("每日待办汇总", language: language)
+            content.title = LocalizedStrings.translate("每日任务汇总", language: language)
             if let aiSummary, !todayTitles.isEmpty {
                 content.body = aiSummary
             } else if todayTitles.isEmpty {
-                content.body = LocalizedStrings.translate("今日暂无待办事项 🎉", language: language)
+                content.body = LocalizedStrings.translate("今日暂无任务 🎉", language: language)
             } else {
                 let shown = todayTitles.prefix(3).joined(separator: "、")
                 content.body = todayTitles.count > 3

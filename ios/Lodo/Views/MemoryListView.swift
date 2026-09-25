@@ -147,7 +147,7 @@ struct MemoryListView: View {
                                     let attachment = MemoryPipeline.makeAttachment(from: item)
                                     onConvertToTodo(attachment.title, attachment)
                                 } label: {
-                                    Label("转为待办", systemImage: "checklist")
+                                    Label("转为任务", systemImage: "checklist")
                                 }
                                 .tint(.accentColor)
                                 Button(role: .destructive) {

@@ -73,7 +73,7 @@ class ReminderReceiver : BroadcastReceiver() {
             .filter { it.nextRemindAt.isBefore(tomorrow) }
             .sortedBy { it.nextRemindAtMillis }
         val body = if (today.isEmpty()) {
-            Strings.translate("今日暂无待办事项 🎉", CurrentLang.value)
+            Strings.translate("今日暂无任务 🎉", CurrentLang.value)
         } else {
             val items = today.map { task ->
                 buildString {

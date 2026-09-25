@@ -75,7 +75,7 @@ struct SettingsView: View {
                         Label("提醒", systemImage: "bell")
                     }
                 } footer: {
-                    Text("稍等间隔、全天事项提醒时间、每日待办汇总都在这里。")
+                    Text("稍等间隔、全天事项提醒时间、每日任务汇总都在这里。")
                 }
 
                 // ---- 定时任务:用户自定义的 AI 例行任务 ----
@@ -237,7 +237,7 @@ struct SettingsView: View {
                 Section {
                     Toggle("iCloud 同步", isOn: $icloudSyncEnabled)
                 } footer: {
-                    Text("开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
+                    Text("开启后,任务会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
                 }
 
                 // ---- 引导 ----
@@ -360,7 +360,7 @@ struct SettingsView: View {
         } header: {
             Text("备份与恢复")
         } footer: {
-            Text("导出一份包含待办、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。")
+            Text("导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。")
         }
     }
 
@@ -394,7 +394,7 @@ struct SettingsView: View {
         Task {
             do {
                 try await BackupManager.commit(zipURL: url, strategy: strategy, context: context)
-                importSuccessMessage = "待办、记忆与 AI 对话已导入;如果设置项有变化(如 iCloud 同步),需要退出并重新打开 App 才能生效。"
+                importSuccessMessage = "任务、记忆与 AI 对话已导入;如果设置项有变化(如 iCloud 同步),需要退出并重新打开 App 才能生效。"
             } catch {
                 importErrorMessage = error.localizedDescription
             }
@@ -405,7 +405,7 @@ struct SettingsView: View {
 
     private func importSummary(_ manifest: BackupManifest) -> String {
         let date = manifest.exportedAt.formatted(date: .abbreviated, time: .shortened)
-        return "导出于 \(date) · \(manifest.taskCount) 条待办 · \(manifest.memoryCount) 条记忆 · \(manifest.agentMessageCount) 条对话消息"
+        return "导出于 \(date) · \(manifest.taskCount) 条任务 · \(manifest.memoryCount) 条记忆 · \(manifest.agentMessageCount) 条对话消息"
     }
 
 }
@@ -440,7 +440,7 @@ private extension View {
                 Button("先清空再导入", role: .destructive, action: onReplace)
                 Button("取消", role: .cancel, action: onCancelImport)
             } message: {
-                Text("合并更新按待办/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有待办、记忆和 AI 对话,不可撤销。")
+                Text("合并更新按任务/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有任务、记忆和 AI 对话,不可撤销。")
             }
             .alert("导出失败", isPresented: Binding(
                 get: { exportErrorMessage.wrappedValue != nil },

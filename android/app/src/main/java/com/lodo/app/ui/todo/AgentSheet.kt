@@ -296,7 +296,7 @@ fun AgentSheet(
                 }
             }
 
-            FooterText("一句话新增/修改/完成/删除待办,可一次说多件事;输入内容和当前待办列表会发送给 DeepSeek 解析。")
+            FooterText("一句话新增/修改/完成/删除任务,可一次说多件事;输入内容和当前任务列表会发送给 DeepSeek 解析。")
 
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
                 Spacer(Modifier.weight(1f))

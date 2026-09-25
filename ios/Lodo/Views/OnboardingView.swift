@@ -20,7 +20,7 @@ struct OnboardingView: View {
     private let pages: [Page] = [
         Page(symbol: "sparkles",
              title: "欢迎使用 Lodo",
-             body: "一个「纠缠式提醒」待办 app:到期后可以完成,也可以稍等——\n没处理掉的事项会按稍等间隔反复提醒,直到你真正完成。"),
+             body: "一个「纠缠式提醒」任务 app:到期后可以完成,也可以稍等——\n没处理掉的事项会按稍等间隔反复提醒,直到你真正完成。"),
         Page(symbol: "checklist",
              title: "到期就纠缠你",
              body: "到期提醒后完成或稍等都行,但不完成就会一直被提醒;\n带时长的事项分两阶段提醒「该开始了」和「完成了吗」,\n还支持每天/每周重复。"),

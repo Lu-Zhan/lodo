@@ -16,7 +16,7 @@ struct WatchTodoListView: View {
         NavigationStack {
             List {
                 if pending.isEmpty {
-                    ContentUnavailableView("暂无待办", systemImage: "checkmark.circle")
+                    ContentUnavailableView("暂无任务", systemImage: "checkmark.circle")
                 }
                 ForEach(pending) { task in
                     VStack(alignment: .leading, spacing: 2) {

@@ -46,7 +46,7 @@ struct ReminderSettingsView: View {
             }
 
             Section {
-                Toggle("每日待办汇总", isOn: $digestEnabled)
+                Toggle("每日任务汇总", isOn: $digestEnabled)
                 if digestEnabled {
                     Picker("重复", selection: $digestRepeatType) {
                         Text("每天").tag("daily")

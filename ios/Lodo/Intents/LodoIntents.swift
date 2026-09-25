@@ -44,7 +44,7 @@ enum LodoIntentSupport {
 // MARK: - 事项实体(Siri 消歧/快捷指令选择器用)
 
 struct TaskEntity: AppEntity {
-    static let typeDisplayRepresentation: TypeDisplayRepresentation = "待办事项"
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "任务"
     static let defaultQuery = TaskQuery()
 
     let id: UUID
@@ -88,7 +88,7 @@ struct TaskQuery: EntityStringQuery {
 
 struct AddTaskIntent: AppIntent {
     static let title: LocalizedStringResource = "添加事项"
-    static let description = IntentDescription("用一句话添加待办事项,AI 解析时间和时长。")
+    static let description = IntentDescription("用一句话添加任务,AI 解析时间和时长。")
 
     @Parameter(title: "内容", requestValueDialog: "要提醒你什么?")
     var text: String
@@ -131,13 +131,13 @@ struct AddTaskIntent: AppIntent {
 
 struct TodayTasksIntent: AppIntent {
     static let title: LocalizedStringResource = "今天有什么安排"
-    static let description = IntentDescription("查看今天开始或到期的待办事项。")
+    static let description = IntentDescription("查看今天开始或到期的任务。")
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let tasks = LodoIntentSupport.todayPending()
         guard !tasks.isEmpty else {
-            return .result(dialog: "今天没有待办事项 🎉")
+            return .result(dialog: "今天没有任务 🎉")
         }
         let names = tasks.prefix(5).map(\.title).joined(separator: "、")
         let suffix = tasks.count > 5 ? "等 \(tasks.count) 件事" : "共 \(tasks.count) 件事"
@@ -149,7 +149,7 @@ struct TodayTasksIntent: AppIntent {
 
 struct CompleteTaskIntent: AppIntent {
     static let title: LocalizedStringResource = "完成事项"
-    static let description = IntentDescription("把一个待办事项标记为完成。")
+    static let description = IntentDescription("把一个任务标记为完成。")
 
     @Parameter(title: "事项", requestValueDialog: "完成哪个事项?")
     var task: TaskEntity
@@ -186,13 +186,13 @@ struct LodoShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AddTaskIntent(),
                     phrases: ["在\(.applicationName)里添加事项",
-                              "用\(.applicationName)添加待办"],
+                              "用\(.applicationName)添加任务"],
                     shortTitle: "添加事项",
                     systemImageName: "plus.circle")
         AppShortcut(intent: TodayTasksIntent(),
                     phrases: ["\(.applicationName)今天有什么安排",
-                              "问\(.applicationName)今天的待办"],
-                    shortTitle: "今天待办",
+                              "问\(.applicationName)今天的任务"],
+                    shortTitle: "今天任务",
                     systemImageName: "calendar")
         AppShortcut(intent: CompleteTaskIntent(),
                     phrases: ["在\(.applicationName)里完成事项"],

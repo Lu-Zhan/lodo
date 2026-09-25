@@ -163,7 +163,7 @@ struct RoutineEditView: View {
     @ViewBuilder
     private var optionsSection: some View {
         Section {
-            Toggle("带上今天的待办", isOn: $includeTasks)
+            Toggle("带上今天的任务", isOn: $includeTasks)
             // 没配 Tavily key 也让开——运行时自会退回不联网(见 RoutineRunner.generate),
             // 禁用一个模板默认打开的开关反而让用户既关不掉也不知道为什么。
             Toggle("允许联网搜索", isOn: $useWebSearch)
@@ -172,7 +172,7 @@ struct RoutineEditView: View {
             Text("选项")
         } footer: {
             VStack(alignment: .leading, spacing: 2) {
-                Text("总结/复盘类任务打开「带上今天的待办」;天气、行情这类要开「允许联网搜索」。")
+                Text("总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」。")
                 if !WebSearchClient.isConfigured {
                     Text("联网搜索需要先在「AI 设置」里配置 Tavily API key。")
                 }

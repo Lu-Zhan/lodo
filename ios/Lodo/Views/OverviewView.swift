@@ -93,7 +93,7 @@ struct OverviewView: View {
                 }
                 if due.isEmpty && todayUpcoming.isEmpty {
                     Section {
-                        ContentUnavailableView("今天暂无待办", systemImage: "checkmark.circle")
+                        ContentUnavailableView("今天暂无任务", systemImage: "checkmark.circle")
                     }
                 } else {
                     if !due.isEmpty {
@@ -104,7 +104,7 @@ struct OverviewView: View {
                         }
                     }
                     if !todayUpcoming.isEmpty {
-                        Section("今天待办") {
+                        Section("今天任务") {
                             ForEach(todayUpcoming) { task in
                                 taskRow(task)
                             }

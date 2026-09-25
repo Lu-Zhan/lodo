@@ -215,18 +215,18 @@ fun TodoListScreen(
 
             item(key = "day-header") {
                 SectionHeader(
-                    if (vm.selectedDate == LocalDate.now()) "今天待办"
-                    else "${vm.selectedDate.format(monthDayFormatter)}待办"
+                    if (vm.selectedDate == LocalDate.now()) "今天任务"
+                    else "${vm.selectedDate.format(monthDayFormatter)}任务"
                 )
             }
             if (upcoming.isEmpty() && state.due.isEmpty()) {
                 item(key = "empty-pending") {
-                    EmptyState(Icons.Outlined.CheckCircle, "暂无待办事项")
+                    EmptyState(Icons.Outlined.CheckCircle, "暂无任务")
                 }
             } else if (dayTasks.isEmpty()) {
                 item(key = "empty-day") {
                     Text(
-                        "当天暂无待办",
+                        "当天暂无任务",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp),

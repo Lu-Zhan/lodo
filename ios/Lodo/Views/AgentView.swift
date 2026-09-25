@@ -626,7 +626,7 @@ struct AgentView: View {
     private var textColumn: some View {
         VStack(alignment: .leading, spacing: 6) {
             photoPreviewRow
-            TextField("试试加入一个待办/记忆…", text: $text, axis: .vertical)
+            TextField("试试加入一个任务/记忆…", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($isInputFocused)

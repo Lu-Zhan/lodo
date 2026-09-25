@@ -21,7 +21,7 @@ struct RoutineListView: View {
                 if routines.isEmpty {
                     ContentUnavailableView(
                         "还没有定时任务", systemImage: "clock.badge",
-                        description: Text("用右下角的 + 添加,比如每天早上让 AI 总结今天的待办。"))
+                        description: Text("用右下角的 + 添加,比如每天早上让 AI 总结今天的任务。"))
                 } else {
                     ForEach(routines) { routine in
                         row(routine)

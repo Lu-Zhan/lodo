@@ -353,18 +353,18 @@
         }
       }
     },
-    "agent.md 是总则,待办/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。": {
+    "agent.md 是总则,任务/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "agent.md is the general rules; todo/memory are separately editable skills. Edits directly change the instructions sent to the AI; reset restores the defaults."
+            "value": "agent.md is the general rules; task/memory are separately editable skills. Edits directly change the instructions sent to the AI; reset restores the defaults."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "agent.md 是总则,待办/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。"
+            "value": "agent.md 是总则,任务/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。"
           }
         }
       }
@@ -593,7 +593,7 @@
         }
       }
     },
-    "今天待办": {
+    "今天任务": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -604,12 +604,12 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "今天待办"
+            "value": "今天任务"
           }
         }
       }
     },
-    "今天暂无待办": {
+    "今天暂无任务": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -620,7 +620,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "今天暂无待办"
+            "value": "今天暂无任务"
           }
         }
       }
@@ -1169,7 +1169,7 @@
         }
       }
     },
-    "全部待办": {
+    "全部任务": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1180,7 +1180,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "全部待办"
+            "value": "全部任务"
           }
         }
       }
@@ -1921,18 +1921,18 @@
         }
       }
     },
-    "合并更新按待办/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有待办、记忆和 AI 对话,不可撤销。": {
+    "合并更新按任务/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有任务、记忆和 AI 对话,不可撤销。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Merge matches todos/memories item by item and keeps existing content; Clear then Import deletes all todos, memories, and AI conversations on this device—this cannot be undone."
+            "value": "Merge matches tasks/memories item by item and keeps existing content; Clear then Import deletes all tasks, memories, and AI conversations on this device—this cannot be undone."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "合并更新按待办/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有待办、记忆和 AI 对话,不可撤销。"
+            "value": "合并更新按任务/记忆逐条对齐,不删除设备上已有的内容;先清空再导入会删除设备上所有任务、记忆和 AI 对话,不可撤销。"
           }
         }
       }
@@ -2577,18 +2577,18 @@
         }
       }
     },
-    "导出一份包含待办、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。": {
+    "导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exports a zip with your todos, memories (with attachments), AI conversations, and settings—useful for switching devices or keeping a local archive. Doesn't include API keys, and is independent of iCloud sync."
+            "value": "Exports a zip with your tasks, memories (with attachments), AI conversations, and settings—useful for switching devices or keeping a local archive. Doesn't include API keys, and is independent of iCloud sync."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "导出一份包含待办、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。"
+            "value": "导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。"
           }
         }
       }
@@ -2913,18 +2913,18 @@
         }
       }
     },
-    "带上今天的待办": {
+    "带上今天的任务": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Include Today's Todos"
+            "value": "Include Today's Tasks"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "带上今天的待办"
+            "value": "带上今天的任务"
           }
         }
       }
@@ -3073,18 +3073,18 @@
         }
       }
     },
-    "开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。": {
+    "开启后,任务会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When on, todos sync automatically across iPhone/Mac/Apple Watch signed into the same Apple ID; when off, they're kept only on this device. Quit and reopen the app for changes to take effect."
+            "value": "When on, tasks sync automatically across iPhone/Mac/Apple Watch signed into the same Apple ID; when off, they're kept only on this device. Quit and reopen the app for changes to take effect."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启后,待办会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。"
+            "value": "开启后,任务会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。"
           }
         }
       }
@@ -3169,22 +3169,6 @@
         }
       }
     },
-    "待办": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todo"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "待办"
-          }
-        }
-      }
-    },
     "思考强度": {
       "localizations": {
         "en": {
@@ -3217,18 +3201,18 @@
         }
       }
     },
-    "总结/复盘类任务打开「带上今天的待办」;天气、行情这类要开「允许联网搜索」。": {
+    "总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "For summary/review tasks, turn on \"Include today's todos\"; for weather, market data, etc., turn on \"Allow web search\"."
+            "value": "For summary/review tasks, turn on \"Include today's tasks\"; for weather, market data, etc., turn on \"Allow web search\"."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "总结/复盘类任务打开「带上今天的待办」;天气、行情这类要开「允许联网搜索」。"
+            "value": "总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」。"
           }
         }
       }
@@ -4097,6 +4081,22 @@
         }
       }
     },
+    "暂无任务": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tasks yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无任务"
+          }
+        }
+      }
+    },
     "暂无偏好;说一句「以后开会都留一小时」这样的长期要求,AI 会自动记在这里,也可以直接手写。": {
       "localizations": {
         "en": {
@@ -4125,22 +4125,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "暂无健康数据"
-          }
-        }
-      }
-    },
-    "暂无待办事项": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No tasks yet"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无待办事项"
           }
         }
       }
@@ -4369,7 +4353,7 @@
         }
       }
     },
-    "未来待办": {
+    "未来任务": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4380,7 +4364,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "未来待办"
+            "value": "未来任务"
           }
         }
       }
@@ -4817,7 +4801,7 @@
         }
       }
     },
-    "没有待办": {
+    "没有任务": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4828,7 +4812,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有待办"
+            "value": "没有任务"
           }
         }
       }
@@ -4865,7 +4849,7 @@
         }
       }
     },
-    "没有未来待办": {
+    "没有未来任务": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4876,7 +4860,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有未来待办"
+            "value": "没有未来任务"
           }
         }
       }
@@ -5201,18 +5185,18 @@
         }
       }
     },
-    "用右上角的 + 添加,比如每天早上让 AI 总结今天的待办。": {
+    "用右上角的 + 添加,比如每天早上让 AI 总结今天的任务。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tap + in the top right to add one, like having the AI summarize today's todos every morning."
+            "value": "Tap + in the top right to add one, like having the AI summarize today's tasks every morning."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用右上角的 + 添加,比如每天早上让 AI 总结今天的待办。"
+            "value": "用右上角的 + 添加,比如每天早上让 AI 总结今天的任务。"
           }
         }
       }
@@ -5393,7 +5377,7 @@
         }
       }
     },
-    "稍等间隔、全天事项提醒时间、每日待办汇总都在这里。": {
+    "稍等间隔、全天事项提醒时间、每日任务汇总都在这里。": {
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5404,7 +5388,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "稍等间隔、全天事项提醒时间、每日待办汇总都在这里。"
+            "value": "稍等间隔、全天事项提醒时间、每日任务汇总都在这里。"
           }
         }
       }
@@ -6225,18 +6209,18 @@
         }
       }
     },
-    "让 AI 在你设定的时间自动跑一件事,比如早上总结今天的待办、看天气给穿搭建议。": {
+    "让 AI 在你设定的时间自动跑一件事,比如早上总结今天的任务、看天气给穿搭建议。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Have the AI automatically do something at times you set, like summarizing today's todos in the morning or suggesting an outfit based on the weather."
+            "value": "Have the AI automatically do something at times you set, like summarizing today's tasks in the morning or suggesting an outfit based on the weather."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "让 AI 在你设定的时间自动跑一件事,比如早上总结今天的待办、看天气给穿搭建议。"
+            "value": "让 AI 在你设定的时间自动跑一件事,比如早上总结今天的任务、看天气给穿搭建议。"
           }
         }
       }
@@ -6625,18 +6609,18 @@
         }
       }
     },
-    "转为待办": {
+    "转为任务": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Convert to Todo"
+            "value": "Convert to Task"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "转为待办"
+            "value": "转为任务"
           }
         }
       }

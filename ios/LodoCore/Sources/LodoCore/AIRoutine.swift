@@ -105,7 +105,7 @@ extension AIRoutine {
     }
 
     public static let presets: [Preset] = [
-        Preset(name: "今日待办总结",
+        Preset(name: "今日任务总结",
                prompt: "总结我今天要做的事,指出哪几件优先处理、哪些可以往后放,末尾给一句今天的行动重点。",
                time: "08:00", includeTasks: true, useWebSearch: false,
                symbol: "checklist"),

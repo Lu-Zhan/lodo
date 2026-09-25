@@ -37,7 +37,7 @@ object Notifications {
         )
         manager.createNotificationChannel(
             NotificationChannel(
-                CHANNEL_DIGEST, Strings.translate("每日待办汇总", lang), NotificationManager.IMPORTANCE_DEFAULT
+                CHANNEL_DIGEST, Strings.translate("每日任务汇总", lang), NotificationManager.IMPORTANCE_DEFAULT
             )
         )
         manager.createNotificationChannel(
@@ -146,7 +146,7 @@ object Notifications {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_DIGEST)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(Strings.translate("每日待办汇总", CurrentLang.value))
+            .setContentTitle(Strings.translate("每日任务汇总", CurrentLang.value))
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(contentIntent)

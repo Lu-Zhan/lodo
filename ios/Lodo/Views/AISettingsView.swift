@@ -226,7 +226,7 @@ struct AISettingsView: View {
             } header: {
                 Text("AI Agent Skill")
             } footer: {
-                Text("agent.md 是总则,待办/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。")
+                Text("agent.md 是总则,任务/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。")
             }
         }
         .formStyle(.grouped)
