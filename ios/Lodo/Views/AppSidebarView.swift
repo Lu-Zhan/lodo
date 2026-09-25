@@ -4,9 +4,8 @@ import LodoCore
 
 /// 应用侧栏(导航栏)的面板内容;窄屏抽屉和宽屏常驻列共用同一份视图。
 /// 自上而下:「Lodo 衬线体 wordmark」固定头部 → 总览/待办/记忆三个页面导航行
-/// (记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→ 人脉/健康/旅行/菜单
-/// → 底部浮层(左「设置」、右「AI 助手」)。
-/// AI 页没有自己的导航行——它就是右下角那颗主操作胶囊,再单列一行只会重复。
+/// (记忆行下面嵌一段记忆标签,常驻的排在前面)→ 人脉/健康/旅行/菜单
+/// → AI 助手 → 底部浮层「设置」。
 /// AI 助手是**单一持续对话**,所以这里既没有对话列表也没有"新建对话":
 /// 清空对话的入口在 设置 → AI 设置。
 struct AppSidebarView: View {
@@ -22,9 +21,7 @@ struct AppSidebarView: View {
     /// 选中任何一项后调用,外层用来收起侧栏(窄屏抽屉才需要;宽屏常驻列传空实现)。
     let onSelect: () -> Void
 
-    /// 非常驻标签默认折叠,点"更多标签"才展开。
-    @State private var showMoreTags = false
-    /// 被"常驻"到折叠区外面的标签,换行分隔持久化(顺序即展示顺序)。
+    /// 常驻标签换行分隔持久化(顺序即展示顺序)。
     @AppStorage(AppSettings.sidebarPinnedTagsKey) private var pinnedTagsRaw = ""
 
     // MARK: - 记忆标签
@@ -50,8 +47,8 @@ struct AppSidebarView: View {
         return pinnedTags.filter(all.contains)
     }
 
-    /// 折叠区:除去常驻的其余标签。
-    private var collapsedTags: [String] {
+    /// 常驻标签之后的其余标签。
+    private var unpinnedTags: [String] {
         let pinned = Set(pinnedTags)
         return allTagNames.filter { !pinned.contains($0) }
     }
@@ -74,14 +71,15 @@ struct AppSidebarView: View {
                 navRow(.todo, title: "任务", systemImage: "checklist")
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
                 pinnedTagRows
-                // 人脉/健康/旅行/菜单都是建在记忆库上的功能(条目就是打了保留标签的
-                // 记忆),放在常驻标签之后、「更多标签」折叠之前:展开折叠时不会被
-                // 一长串标签挤到下面去找不着。
+                // 人脉/健康/旅行/菜单放在常驻标签之后,避免其他标签过多时难找。
                 navRow(.contact, title: "人脉", systemImage: "person.crop.circle")
                 navRow(.health, title: "健康", systemImage: "heart.text.square")
                 navRow(.travel, title: "旅行", systemImage: "suitcase.rolling")
                 navRow(.menu, title: "菜单", systemImage: "menucard")
-                collapsedTagRows
+                navRow(.agent, title: "AI 助手", systemImage: "sparkles")
+                ForEach(unpinnedTags, id: \.self) { tag in
+                    tagRow(tag, pinned: false)
+                }
 
             }
             .listStyle(.plain)
@@ -96,15 +94,13 @@ struct AppSidebarView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         }
         #if DEBUG
-        // 截图验证用:simctl 点不了行,直接把"常驻 + 展开折叠区"两态摆出来。
+        // 截图验证用:simctl 点不了行,直接摆出常驻标签。
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("--demo-sidebar-tags") {
                 pinnedTagsRaw = [MemoryItem.assetTagName, "工作"].joined(separator: "\n")
-                showMoreTags = true
             }
         }
         #endif
-        .animation(.lodoAware(.lodoQuickFade), value: showMoreTags)
         .frame(maxHeight: .infinity)
     }
 
@@ -135,7 +131,7 @@ struct AppSidebarView: View {
                     .foregroundStyle(.primary)
                 Spacer()
             }
-            .frame(minHeight: 40)
+            .frame(minHeight: DesignMetrics.aiInputHeight)
         }
         .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
         .listRowSeparator(.hidden)
@@ -153,37 +149,6 @@ struct AppSidebarView: View {
         }
     }
 
-    @ViewBuilder
-    private var collapsedTagRows: some View {
-        if !collapsedTags.isEmpty {
-            Button {
-                showMoreTags.toggle()
-            } label: {
-                // 和标签行/导航行同一个 Label 结构:图标槽放会转的 chevron,
-                // 文字才跟上面几行落在同一条竖线上。
-                Label {
-                    Text("更多标签")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                } icon: {
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(showMoreTags ? 90 : 0))
-                }
-                .frame(minHeight: 36)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-            if showMoreTags {
-                ForEach(collapsedTags, id: \.self) { tag in
-                    tagRow(tag, pinned: false)
-                }
-            }
-        }
-    }
-
     /// 标签行的图标。资产/AI记录 这两个保留标签各自沿用记忆页里已经在用的
     /// 那个符号("记一笔资产"菜单项、AI 记录条目的行图标),不另挑一套;
     /// 普通标签用通用的 tag,和搜索建议/"管理标签"入口一致。
@@ -196,10 +161,9 @@ struct AppSidebarView: View {
     }
 
     /// 单个记忆标签行:点进去 = 打开记忆页并按这个标签筛选;左滑切换"常驻"
-    /// (常驻的平铺在"记忆"下面,其余收进"更多标签")。缩进和字号都跟导航行一致
+    /// (常驻的排在前面,其余直接列出)。缩进和字号都跟导航行一致
     /// ——Label 的图标槽宽度是跟着字号走的,字号一变文字就落不到同一条竖线上了;
-    /// 行高比导航行矮一点,标签多的时候不至于把"最近"整个挤下去(再矮就低于
-    /// 能稳稳点中的尺寸了,36 是这里的下限)。
+    /// 行高与导航行、底部输入框一致,方便在半屏侧栏中逐项点选。
     private func tagRow(_ tag: String, pinned: Bool) -> some View {
         Button {
             onSelectTag(tag)
@@ -212,7 +176,7 @@ struct AppSidebarView: View {
                     .foregroundStyle(.primary)
                 Spacer()
             }
-            .frame(minHeight: 36)
+            .frame(minHeight: DesignMetrics.aiInputHeight)
         }
         .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 20))
         .listRowSeparator(.hidden)
@@ -243,8 +207,8 @@ struct AppSidebarView: View {
         .padding(.vertical, 12)
     }
 
-    /// 底部浮层:左下角「设置」(全 app 唯一入口)、右下角主操作「AI 助手」胶囊,
-    /// 叠在列表上方,列表内容从它们下面滚过。
+    /// 底部浮层:左对齐的圆形「设置」按钮(全 app 唯一入口),
+    /// 叠在列表上方,列表内容从它下面滚过。AI 助手是列表里的一行。
     private var bottomBar: some View {
         HStack {
             Button {
@@ -253,42 +217,17 @@ struct AppSidebarView: View {
                 Image(systemName: "gearshape")
                     .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
-                    .frame(width: 24, height: 24)
+                    .frame(width: DesignMetrics.aiInputHeight, height: DesignMetrics.aiInputHeight)
+                    .glassBackground(Circle())
+                    .contentShape(Circle())
             }
-            .glassButton()
-            .buttonBorderShape(.circle)
+            .buttonStyle(.plain)
             .accessibilityLabel("设置")
-
             Spacer()
-
-            Button {
-                section = .agent
-                onSelect()
-            } label: {
-                Label("AI 助手", systemImage: "sparkles")
-                    .font(.body.weight(.medium))
-                    .padding(.horizontal, 6)
-                    // 和左侧齿轮一样以 24pt 内容高度交给系统玻璃样式排版。
-                    // 辅助功能字号更大时仍可随内容增高。
-                    .frame(minHeight: 24)
-            }
-            // 侧栏的主操作使用高亮玻璃(旧系统回退 .borderedProminent),
-            // 设置是普通玻璃的次要入口。
-            .glassProminentButton()
-            .buttonBorderShape(.capsule)
-            // 它是这份侧栏里 AI 页唯一的入口,所以也要报选中态;胶囊不套
-            // rowHighlight(那是给 List 行用的)。
-            .accessibilityAddTraits(section == .agent ? .isSelected : [])
-            .accessibilityLabel("AI 助手")
         }
-        // 这排是全 app 仅有的"两块玻璃挨在同一行"的地方(齿轮 + AI 助手胶囊),
-        // 合进一个容器共享采样,免得同一排的两块玻璃亮度对不上。间距取默认的
-        // 小值:两颗之间隔着 Spacer,不该融合成一坨。
-        .glassGroup()
-        .padding(.leading, 20)
-        .padding(.trailing, 24)
+        .padding(.horizontal, 16)
         // 面板本身已经用 deviceBottomInset 把 home indicator 那截让开了,这里
-        // 只再留一点点余量——两个数是叠加的,这里写大了整排按钮会离屏幕底边太远。
+        // 只再留一点点余量——两个数是叠加的,这里写大了按钮会离屏幕底边太远。
         .padding(.bottom, 10)
     }
 }

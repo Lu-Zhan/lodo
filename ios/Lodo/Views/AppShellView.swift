@@ -409,7 +409,7 @@ struct AppShellView: View {
     /// 拖拽一起手就得撤掉;收起动画播完之前也不能放回来(见 closeSidebar)。
     /// 宽屏常驻列不推移内容,照常显示。
     private var hidesToolbarChrome: Bool {
-        !usesRegularLayout && (sidebarProgress > 0 || isClosingSidebar)
+        !usesRegularLayout && (showSidebar || sidebarDragOffset > 0 || isClosingSidebar)
     }
 
     /// 侧栏推开时盖在页面上的那层遮罩:日间压一层半透明**白**——内容被洗淡、
@@ -432,14 +432,13 @@ struct AppShellView: View {
     /// 0 = 完全收起,1 = 完全展开;拖拽期间取中间值,松手后回到 0/1。
     /// 抽屉的所有视觉量(推移/圆角/变暗)都从这一个进度插值出来,
     /// 开合两个方向才能同样跟手。
-    private var sidebarProgress: CGFloat {
+    private func sidebarProgress(width: CGFloat) -> CGFloat {
         let base: CGFloat = showSidebar ? 1 : 0
-        return min(1, max(0, base + sidebarDragOffset / DesignMetrics.sidebarWidth))
+        return min(1, max(0, base + sidebarDragOffset / max(width, 1)))
     }
 
     /// 松手后按"已拖过 30% 宽 或 甩动预测能到 50% 宽"判定落到哪一端,开合对称。
-    private func settleSidebar(_ value: DragGesture.Value, opening: Bool) {
-        let width = DesignMetrics.sidebarWidth
+    private func settleSidebar(_ value: DragGesture.Value, opening: Bool, width: CGFloat) {
         let sign: CGFloat = opening ? 1 : -1
         let passed = value.translation.width * sign > width * 0.3
             || value.predictedEndTranslation.width * sign > width * 0.5
@@ -460,8 +459,8 @@ struct AppShellView: View {
         }
     }
 
-    /// 唤出 / 收回的手势本体:收起时挂在屏幕左边缘那条窄带上,展开后挂在遮罩上。
-    private func sidebarDrag() -> some Gesture {
+    /// 唤出 / 收回的手势本体:收起时挂在页面内容上,展开后挂在遮罩上。
+    private func sidebarDrag(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 12)
             // 只为拿"手势还在不在"这一个信号:系统中断(来电、切后台、被别的
             // 手势抢走)时不走 onEnded,@GestureState 却一定会复位。
@@ -491,7 +490,7 @@ struct AppShellView: View {
             .onEnded { value in
                 let wasSidebar = dragSession?.intent == .sidebar
                 dragSession = nil
-                if wasSidebar { settleSidebar(value, opening: !showSidebar) }
+                if wasSidebar { settleSidebar(value, opening: !showSidebar, width: width) }
             }
     }
 
@@ -503,12 +502,20 @@ struct AppShellView: View {
         (section != .memory || memoryPath.isEmpty) && !(section == .agent && agentInspectorOpen)
     }
 
-    /// 窄屏(iPhone、紧凑宽度 iPad):侧栏从左滑入,页面整体推移变暗。
+    /// 窄屏(iPhone、紧凑宽度 iPad):侧栏宽度占屏幕一半,页面随之推移变暗。
     /// **整页任意位置**往右拖都能唤出(不再限于左边缘那条窄带);为此全 app 的
     /// 行操作都收在了向左滑那一侧,没有任何 leading action 跟它抢方向。
     /// 收回则是展开后在遮罩上任意位置左滑,或者点一下遮罩。
     private var compactLayout: some View {
-        ZStack(alignment: .leading) {
+        GeometryReader { proxy in
+            compactDrawer(width: proxy.size.width / 2)
+        }
+        .ignoresSafeArea(.container)
+    }
+
+    private func compactDrawer(width: CGFloat) -> some View {
+        let progress = sidebarProgress(width: width)
+        return ZStack(alignment: .leading) {
             // 侧栏排在前面 = 画在底下:页面盖在它上面,页面的投影才能落到侧栏上。
             // 面板自己因此不带投影。面板常驻渲染,靠 offset 推到屏幕外表示收起
             // ——这样拖拽中间态才有东西可跟手(条件渲染 + transition 做不到跟手,
@@ -517,8 +524,8 @@ struct AppShellView: View {
                 // 拉到屏幕物理顶部,不吃页面 NavigationStack 给导航栏预留的那截
                 // 安全区(展开时导航栏内容已经撤空,留着那截空白没意义)。
                 .ignoresSafeArea(.container, edges: .top)
-                .frame(width: DesignMetrics.sidebarWidth)
-                .offset(x: -(1 - sidebarProgress) * DesignMetrics.sidebarWidth)
+                .frame(width: width)
+                .offset(x: -(1 - progress) * width)
                 // 这里**不挂**关闭拖拽。面板里那个 List 自己就有向左滑的行操作
                 // (删除对话、标签常驻),挂一个不判方向归属的 DragGesture 会和
                 // 它们抢同一个方向。收回抽屉靠右边遮罩那一层(左滑或点一下),
@@ -556,7 +563,7 @@ struct AppShellView: View {
                 .onPreferenceChange(AgentInspectorPresentedKey.self) { agentInspectorOpen = $0 }
                 // 收起时手势挂在页面内容上,和列表的纵向滚动并行(sidebarDrag 第一帧
                 // 就按"横向为主 + 方向对"定死归属,纵向滚动照常让给底下的视图)。
-                .simultaneousGesture(showSidebar || !swipeGestureEnabled ? nil : sidebarDrag())
+                .simultaneousGesture(showSidebar || !swipeGestureEnabled ? nil : sidebarDrag(width: width))
                 // allowsHitTesting 只罩页面内容本身,不能挂到遮罩外面去——遮罩要
                 // 继续吃"点一下关闭"和"左滑收回"这两个手势。
                 // 它只挡触摸,**不挡旁白**:辅助功能树照样能划进被盖住的页面,
@@ -564,12 +571,12 @@ struct AppShellView: View {
                 .allowsHitTesting(!showSidebar)
                 .accessibilityHidden(showSidebar)
                 .overlay {
-                    if sidebarProgress > 0 {
+                    if progress > 0 {
                         sidebarScrim
-                            .opacity(sidebarProgress)
+                            .opacity(progress)
                             .contentShape(Rectangle())
                             .onTapGesture { closeSidebar() }
-                            .gesture(sidebarDrag())
+                            .gesture(sidebarDrag(width: width))
                             // 对旁白来说这层不是装饰,是"点一下关掉导航"的按钮。
                             .accessibilityElement()
                             .accessibilityLabel("关闭导航")
@@ -583,18 +590,18 @@ struct AppShellView: View {
                 // 对不上的角;刚离开 0 那一瞬间卡还基本满屏,44pt 的圆角落在屏幕
                 // 自身的遮罩里面,看不出跳变。
                 .clipShape(RoundedRectangle(
-                    cornerRadius: sidebarProgress > 0 ? DesignMetrics.deviceCornerRadius : 0,
+                    cornerRadius: progress > 0 ? DesignMetrics.deviceCornerRadius : 0,
                     style: .continuous))
                 // 拖拽/弹簧动画期间这块阴影每帧都要重算,compositingGroup 先把整页
                 // 拍平成一张位图再算阴影,不然 SwiftUI 会对一整棵视图树逐层算阴影,
                 // 内容一多拖拽就跟不上手、animation 收尾那截也容易掉帧。
                 .compositingGroup()
-                .shadow(color: .black.opacity(0.18 * sidebarProgress), radius: 14, x: -3)
+                .shadow(color: .black.opacity(0.18 * progress), radius: 14, x: -3)
                 // 只平移不缩放:页面保持原大小整块推出去(右侧推出屏幕外),
                 // 缩小那版看着像整页被"捏小",不是一张卡被推开的感觉。
-                .offset(x: sidebarProgress * DesignMetrics.sidebarWidth)
+                .offset(x: progress * width)
         }
-        // 整个 ZStack 垫一层和侧栏同源的底色。侧栏只有 300pt 宽,页面被推开后
+        // 整个 ZStack 垫一层和侧栏同源的底色。页面被推开后
         // 裁出来的那个 44pt 圆角缺口在它右边、什么都没有,露的是窗口自己的纯白
         // ——白底方角衬在圆角外面,看上去就像页面背后还压着一张没裁圆角的卡。
         // 垫成侧栏同色之后,缺口处和侧栏连成一片,只剩卡自己那一道圆角。
@@ -633,7 +640,6 @@ struct AppShellView: View {
         // 不受影响,侧栏 header 该让开灵动岛还是照让。
         // 只忽略 .container 这一档:默认的 .all 连键盘区一起忽略掉,AI 页输入栏
         // 会被弹起的键盘盖住。
-        .ignoresSafeArea(.container)
     }
 
     /// 抽屉容器的整块底色,也就是侧栏面板看上去的那层材质(面板自己不铺,见

@@ -48,7 +48,7 @@ private struct AskBarModifier: ViewModifier {
             }
             #endif
             .sheet(isPresented: $showAgent) {
-                AgentHostView(agentRequest: $prefill)
+                AgentHostView(agentRequest: $prefill, showsCloseButton: true)
                     // 拉起来的这层里不该再有 ☰:抽屉在 sheet **背后**,点了只会
                     // 在看不见的地方推开一扇门。把 chrome 覆盖成 nil,
                     // `sidebarToolbarButton()` 那颗按钮自然不渲染。

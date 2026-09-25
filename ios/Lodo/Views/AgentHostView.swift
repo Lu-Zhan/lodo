@@ -32,10 +32,18 @@ struct AgentHostView: View {
 
     /// 非 nil 时把文本预填进输入框(深链/Siri 交接/小组件"+"),消费后置 nil。
     @Binding var agentRequest: String?
+    /// 从展示页以 sheet 弹出时显示关闭按钮；侧栏里的常驻 AI 页面不显示。
+    let showsCloseButton: Bool
+
+    init(agentRequest: Binding<String?>, showsCloseButton: Bool = false) {
+        self._agentRequest = agentRequest
+        self.showsCloseButton = showsCloseButton
+    }
 
     var body: some View {
         AgentView(
             pendingPrefill: $agentRequest,
+            showsCloseButton: showsCloseButton,
             submit: { text, history, onThought, onStream, onReasoning in
                 try await route(text, history: history, onThought: onThought,
                                 onStream: onStream, onReasoning: onReasoning)

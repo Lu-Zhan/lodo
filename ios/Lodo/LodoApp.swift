@@ -28,6 +28,7 @@ struct LodoApp: App {
         WindowGroup {
             ContentView()
                 .environment(\.locale, (AppLanguage(rawValue: languageRaw) ?? .zhHans).locale)
+                .softTopScrollEdgeTransition()
         }
         .modelContainer(container)
         // 定时任务的后台刷新:系统在接近计划时间时给一小段执行时间,跑完直接把

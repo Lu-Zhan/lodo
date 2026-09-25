@@ -38,6 +38,18 @@ extension View {
     func glassBackground(_ shape: some Shape) -> some View {
         modifier(GlassBackground(shape: shape))
     }
+
+    /// 所有页面顶部统一使用柔和的透明模糊渐变，让滚动内容进入导航栏时
+    /// 逐渐消隐。修饰符配置整个子树，因此根视图调用一次即可覆盖其中的
+    /// List/ScrollView；旧系统保留原有的系统滚动边缘表现。
+    @ViewBuilder
+    func softTopScrollEdgeTransition() -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            scrollEdgeEffectStyle(.soft, for: .top)
+        } else {
+            self
+        }
+    }
 }
 
 /// `glassBackground` 的实体。之所以是 ViewModifier 而不是直接在 View extension 里

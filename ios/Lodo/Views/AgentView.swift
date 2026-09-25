@@ -14,8 +14,11 @@ import UIKit
 /// 抽屉本身归外壳(AppShellView/AppSidebarView),这里只管聊天区。
 struct AgentView: View {
     @Environment(\.lodoAccent) private var lodoAccent
+    @Environment(\.dismiss) private var dismiss
     /// 非 nil 时把文本预填进输入框(深链/Siri 交接/小组件"+"),消费后置 nil。
     @Binding var pendingPrefill: String?
+    /// 展示页弹出的 sheet 需要右上角关闭入口；常驻 AI 页面保持原导航结构。
+    let showsCloseButton: Bool
     /// 解析并路由输入文本 + 最近对话历史;onThought 在 ReAct 循环中间步骤时被调用
     /// (如"正在查记忆…"),驱动 thinkingText 那条轻量提示。返回本页要展示的回应形态。
     /// onStream 收到的是"到目前为止的全文"(不是增量),直接赋给预览气泡即可;
@@ -95,6 +98,7 @@ struct AgentView: View {
     /// @State 属性都是 private,合成的 memberwise init 会跟着降级成 private、
     /// 别的文件用不了,所以显式写一个。
     init(pendingPrefill: Binding<String?>,
+         showsCloseButton: Bool = false,
          submit: @escaping (
             String, [(role: String, content: String)], @escaping (String) -> Void,
             @escaping (String) -> Void, @escaping (String) -> Void
@@ -104,6 +108,7 @@ struct AgentView: View {
          saveTask: @escaping (TaskItem?, ParsedTask) -> Void,
          toggleCreatedTask: @escaping (UUID?, ParsedTask) -> UUID?) {
         self._pendingPrefill = pendingPrefill
+        self.showsCloseButton = showsCloseButton
         self.submit = submit
         self.onConfirm = onConfirm
         self.onUndo = onUndo
@@ -170,6 +175,14 @@ struct AgentView: View {
                 ToolbarItem(placement: .principal) {
                     AgentTitleView(title: "AI 助手", mode: aiModeSummary,
                                    capability: aiCapabilitySummary)
+                }
+                if showsCloseButton {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("关闭")
+                    }
                 }
             }
             .sidebarToolbarButton()
