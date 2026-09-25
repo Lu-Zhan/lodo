@@ -181,7 +181,7 @@ struct TaskFormSections: View {
                 }
             }
         } footer: {
-            Text("给这件事归个类,按项目查看/并行时间线里会按这个分组,可留空。")
+            Text("给这件事归个类,「按项目查看」里会按这个分组,可留空。")
         }
 
         Section {

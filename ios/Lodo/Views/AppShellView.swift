@@ -722,7 +722,7 @@ struct AppShellView: View {
             (.travel, ["--demo-travel"]),
             (.menu, ["--demo-menu"]),
             (.todo, ["--demo-done-tab", "--demo-seed-data", "--demo-filter-all",
-                     "--demo-filter-done", "--demo-project-list", "--demo-project-timeline",
+                     "--demo-filter-done", "--demo-project-list",
                      "--demo-ask-duration", "--demo-convert-to-todo"]),
             (.agent, ["--demo-agent", "--demo-agent-hascontent", "--demo-agent-busy",
                       "--demo-agent-recording", "--demo-easter-egg",

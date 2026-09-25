@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 项目名 → 颜色的确定性映射,ProjectListView/ProjectTimelineView 共用。按项目名
+/// 项目名 → 颜色的确定性映射,ProjectListView 用(并行时间线那个视图已整个去掉)。按项目名
 /// 字符串手算哈希取调色板下标(不用 Hasher/hashValue——那个每次进程启动种子
 /// 随机,同一项目名颜色会在两次打开 app 之间跳变)。浅色系,配合低透明度使用。
 enum ProjectColor {

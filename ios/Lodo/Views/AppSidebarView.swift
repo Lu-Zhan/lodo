@@ -71,7 +71,7 @@ struct AppSidebarView: View {
             header
             List {
                 navRow(.overview, title: "总览", systemImage: "square.stack.3d.up")
-                navRow(.todo, title: "待办", systemImage: "checklist")
+                navRow(.todo, title: "任务", systemImage: "checklist")
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
                 pinnedTagRows
                 // 人脉/健康/旅行/菜单都是建在记忆库上的功能(条目就是打了保留标签的

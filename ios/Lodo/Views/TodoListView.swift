@@ -60,8 +60,9 @@ enum UndoOp {
     case memorized(uuid: UUID)
 }
 
-/// 待办页:顶部 4 个筛选胶囊(今天/未来/全部/已完成)、到期卡片(完成/稍等,
-/// 不受筛选影响永远显示)、按筛选态切换的待办/已完成列表。
+/// 任务页(原来叫"待办页"——页面名统一成「任务」,事项本身在文案里仍叫待办/
+/// 事项):顶部 4 个筛选胶囊(今天/未来/全部/已完成)、到期卡片(完成/稍等,
+/// 不受筛选影响永远显示)、按筛选态切换的任务/已完成列表。
 struct TodoListView: View {
     /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,
     /// 见 AppShellView)。
@@ -99,7 +100,6 @@ struct TodoListView: View {
     @State var sheet: SheetMode?
     /// 工具栏"项目视图"菜单的两个入口。
     @State private var showProjectList = false
-    @State private var showProjectTimeline = false
     /// 完成后询问实际耗时的轻量条(队列,连续完成不互相覆盖)。
     @State var askDurationQueue: [(title: String, planned: Int)] = []
     /// 通知权限被拒绝(app 内唯一提醒渠道失效)时提示用户去系统设置开启。
@@ -312,7 +312,7 @@ struct TodoListView: View {
             // 修饰符各管一段,冗余且不好看出这几路本质上是"同一份列表的动画"。
             .animation(.lodoAware(.snappy), value: ListAnimationKey(
                 dueUUIDs: due.map(\.uuid), askTitles: askDurationQueue.map(\.title), filter: filter))
-            .navigationTitle("待办")
+            .navigationTitle("任务")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -321,14 +321,13 @@ struct TodoListView: View {
                 // 工具栏挂在 NavigationStack 上、不跟着内容平移,留着会浮在
                 // 已经露出来的侧栏上面,而且照样能点。
                 if !(sidebarChrome?.hidesChrome ?? false) {
+                    // 「并行时间线」已整个去掉,这里只剩一项,不再套 Menu
+                    // ——一个菜单点开只有一条,多一次点击没换来任何选择。
                     ToolbarItem {
-                        Menu {
-                            Button("按项目查看", systemImage: "folder") { showProjectList = true }
-                            Button("并行时间线", systemImage: "calendar.day.timeline.left") {
-                                showProjectTimeline = true
-                            }
+                        Button {
+                            showProjectList = true
                         } label: {
-                            Label("项目视图", systemImage: "square.grid.2x2")
+                            Label("按项目查看", systemImage: "folder")
                         }
                     }
                 }
@@ -336,7 +335,6 @@ struct TodoListView: View {
             .sidebarToolbarButton()
             .askBar(isVisible: !(sidebarChrome?.hidesChrome ?? false))
             .sheet(isPresented: $showProjectList) { ProjectListView() }
-            .sheet(isPresented: $showProjectTimeline) { ProjectTimelineView() }
             // 剩下的三个 sheet 目的地都是叠在待办列表上的卡片型表单
             // (新建/编辑事项、编辑定时任务),iOS 和 macOS 走同一路。
             .sheet(item: $sheet, onDismiss: handleSheetDismiss) { mode in
@@ -383,11 +381,6 @@ struct TodoListView: View {
                    pending.isEmpty {
                     seedProjectDemoData()
                     showProjectList = true
-                }
-                if ProcessInfo.processInfo.arguments.contains("--demo-project-timeline"),
-                   pending.isEmpty {
-                    seedProjectDemoData()
-                    showProjectTimeline = true
                 }
                 #endif
             }
@@ -525,7 +518,7 @@ struct TodoListView: View {
         Section {
             if pending.isEmpty && routines.isEmpty {
                 ContentUnavailableView {
-                    Label("暂无待办事项", systemImage: "checkmark.circle")
+                    Label("暂无任务", systemImage: "checkmark.circle")
                 } description: {
                     Text("跟 AI 说一句话就能新建,比如「明天下午3点开会」。")
                 } actions: {
@@ -533,13 +526,13 @@ struct TodoListView: View {
                         .glassProminentButton()
                 }
             } else if todayRows.isEmpty {
-                Text("今天暂无待办").foregroundStyle(.secondary)
+                Text("今天暂无任务").foregroundStyle(.secondary)
             }
             ForEach(todayRows) { row in
                 todoRow(row)
             }
         } header: {
-            Text("今天待办")
+            Text("今天任务")
         }
     }
 
@@ -547,13 +540,13 @@ struct TodoListView: View {
     private var futureSection: some View {
         Section {
             if futureRows.isEmpty {
-                Text("没有未来待办").foregroundStyle(.secondary)
+                Text("没有未来任务").foregroundStyle(.secondary)
             }
             ForEach(futureRows) { row in
                 todoRow(row)
             }
         } header: {
-            Text("未来待办")
+            Text("未来任务")
         }
     }
 
@@ -562,9 +555,9 @@ struct TodoListView: View {
     private var allSections: some View {
         if pending.isEmpty && routines.isEmpty {
             Section {
-                Text("没有待办").foregroundStyle(.secondary)
+                Text("没有任务").foregroundStyle(.secondary)
             } header: {
-                Text("全部待办")
+                Text("全部任务")
             }
         } else {
             ForEach(allRowsGroupedByDay, id: \.date) { group in
