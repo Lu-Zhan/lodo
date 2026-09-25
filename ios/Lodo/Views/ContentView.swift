@@ -1,5 +1,8 @@
 import SwiftUI
 import LodoCore
+#if os(iOS)
+import EventKit
+#endif
 
 /// 最外层:导航外壳(`AppShellView`,四个平级页面 + 左滑抽屉)+ 首次引导,
 /// 再加上几件和导航无关、必须挂在整个 app 上的前台副作用(提醒重排、定时任务
@@ -81,6 +84,13 @@ struct ContentView: View {
                 OnboardingView(onFinish: { showOnboarding = false })
             }
             #endif
+            // 用户在日历 app 里改了东西:EventKit 会发这条进程级通知,收到就
+            // 立刻对账(不必等回前台——分屏/侧拉时两个 app 可能同时在前台)。
+            #if os(iOS)
+            .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
+                CalendarSync.reconcile(context: modelContext)
+            }
+            #endif
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     if Date().timeIntervalSince(lastActiveRefresh) > 30 {
@@ -97,9 +107,9 @@ struct ContentView: View {
                     }
                     // Share Extension 落在收件箱的分享内容,回前台时入库整理
                     MemoryPipeline.consumeInbox(context: modelContext)
-                    // 系统日历镜像的兜底对账:改动时各处都会调 CalendarSync.sync,
+                    // 系统日历的兜底对账:改动时各处都会调 CalendarSync.sync,
                     // 但通知按钮、Siri、小组件那几条路径可能在 app 没运行时发生,
-                    // 回前台补一次,把漏掉的增删改一次性对平。
+                    // 用户也可能在日历 app 里改过东西,回前台一次性对平。
                     CalendarSync.reconcile(context: modelContext)
                 }
             }

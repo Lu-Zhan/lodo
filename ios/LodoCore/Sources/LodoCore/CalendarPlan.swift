@@ -98,13 +98,24 @@ public struct CalendarTaskMirror: Equatable, Sendable {
     public let start: Date
     public let end: Date
     public let isAllDay: Bool
+    /// 重复事项。**双向同步里它只推不拉**:镜像的是"下一次发生",在日历里把这一次
+    /// 挪个时间没法表达"整条重复规则怎么变",硬回写会把规则改坏,所以下一次对账
+    /// 会把它推回原样(删除仍然照常生效,见 `CalendarSyncPlanner`)。
+    public let isRecurring: Bool
 
-    public init(uuid: UUID, title: String, start: Date, end: Date, isAllDay: Bool) {
+    public init(uuid: UUID, title: String, start: Date, end: Date, isAllDay: Bool,
+                isRecurring: Bool = false) {
         self.uuid = uuid
         self.title = title
         self.start = start
         self.end = end
         self.isAllDay = isAllDay
+        self.isRecurring = isRecurring
+    }
+
+    /// 时长(分钟),回写任务时用。
+    public var durationMinutes: Int {
+        max(0, Int(end.timeIntervalSince(start) / 60))
     }
 
     /// 没填时长的事项在日历上占多久。日历事件必须有长度,零长度的在月/周视图里
@@ -121,8 +132,8 @@ public struct CalendarTaskMirror: Equatable, Sendable {
         let start = task.isRecurring ? task.nextRemindAt : task.remindAt
         let minutes = task.durationMinutes > 0 ? task.durationMinutes : defaultDurationMinutes
         let end = start.addingTimeInterval(TimeInterval(minutes * 60))
-        return CalendarTaskMirror(uuid: uuid, title: task.title,
-                                  start: start, end: end, isAllDay: task.allDay)
+        return CalendarTaskMirror(uuid: uuid, title: task.title, start: start, end: end,
+                                  isAllDay: task.allDay, isRecurring: task.isRecurring)
     }
 
     /// 写进事件的 URL,同时也是回读时认领"这条事件是哪件任务"的凭据。

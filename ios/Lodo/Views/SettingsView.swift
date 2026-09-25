@@ -101,9 +101,12 @@ struct SettingsView: View {
                             guard enabled else {
                                 // 关读也就关了写(写是读的下级),顺手把已经
                                 // 写进去的镜像事件清掉——用户关开关的意思就是
-                                // "别在我日历里留东西"。
+                                // "别在我日历里留东西"。账本也要清:留着的话
+                                // 下次开开关,那些"事件是被我们自己删掉的"记录
+                                // 会被当成"用户在日历里删的",把任务一起删掉。
                                 calendarWriteEnabled = false
                                 CalendarBridge.removeAllMirroredEvents()
+                                CalendarSyncLedger.reset()
                                 return
                             }
                             Task { await CalendarBridge.requestAccess() }
@@ -117,6 +120,7 @@ struct SettingsView: View {
                                         CalendarSync.reconcile(context: context)
                                     } else {
                                         CalendarBridge.removeAllMirroredEvents()
+                                        CalendarSyncLedger.reset()
                                     }
                                 }
                             }
@@ -124,7 +128,7 @@ struct SettingsView: View {
                 } header: {
                     Text("系统日历")
                 } footer: {
-                    Text("开启后任务页顶部的周视图会把你日历里的日程和任务排在一起(只读,点不动也改不了)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),关掉时会把写进去的事件一并清掉,你自己的日程一条都不碰。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。")
+                    Text("开启后任务页顶部的周视图会把你日历里的日程和任务排在一起。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程默认只读,左滑「转为任务」认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。")
                 }
                 #endif
 

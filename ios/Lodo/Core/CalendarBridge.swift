@@ -15,6 +15,9 @@ import EventKit
 /// 3. **写只写自己那本**——lodo 任务镜像进一本自己建的日历(名字就叫 lodo),
 ///    读事件时把这本排除掉,否则自己写进去的任务会当成"系统事件"再读回来显示两遍;
 ///    删除时也只动这本里带 lodo URL 的事件,绝不碰用户自己的日程。
+/// 4. **双向**——日历那边改了时间/标题会回写进任务,在日历里删掉事件会连任务一起
+///    删掉(用户确认过的语义)。谁改了、冲突算谁的、什么时候算"被删",全部由
+///    `CalendarSyncPlanner` 这个纯函数判断,这里只负责执行它算出来的 plan。
 ///
 /// macOS 上不做(EventKit 在 macOS 要另配沙盒 entitlement,而 macOS 端本来就是
 /// 捎带支持),整份实现 `#if os(iOS)` 门控、另一侧留同名空实现,调用方不写平台判断。
@@ -59,52 +62,82 @@ enum CalendarBridge {
 
     // MARK: - 写
 
-    /// 把当前未完成的任务镜像进 lodo 那本日历:有则更新、无则新建、任务没了就删掉。
-    ///
-    /// **只在一个窗口内对账**(往前 7 天、往后 90 天):日历里没有"全部事件"这种
-    /// 查询,必须给区间;窗口外的旧事件留着不动,反正用户也翻不到那么远的将来。
-    static func syncTasks(_ mirrors: [CalendarTaskMirror]) {
-        guard AppSettings.calendarWriteEnabled, isAuthorized,
-              let calendar = ensureOwnCalendar() else { return }
-        let now = Date()
-        let windowStart = now.addingTimeInterval(-7 * 86400)
-        let windowEnd = now.addingTimeInterval(90 * 86400)
-        let predicate = store.predicateForEvents(withStart: windowStart, end: windowEnd,
-                                                 calendars: [calendar])
-        var existing: [UUID: EKEvent] = [:]
+    /// 对账窗口:往前 7 天、往后 90 天。日历里没有"全部事件"这种查询,必须给区间;
+    /// **窗口外查不到不等于被删**,这个区分在 `CalendarSyncPlanner` 里要用到。
+    static func syncWindow(now: Date = Date()) -> ClosedRange<Date> {
+        now.addingTimeInterval(-7 * 86400)...now.addingTimeInterval(90 * 86400)
+    }
+
+    /// lodo 自己那本日历在窗口内的事件,连带"事件 id → 任务 uuid"(读事件 URL)。
+    /// 账本丢了之后靠这张表把镜像关系认回来。
+    static func ownEvents(in window: ClosedRange<Date>)
+        -> (events: [CalendarEvent], claimed: [String: UUID]) {
+        guard isAuthorized, let calendar = ownCalendar() else { return ([], [:]) }
+        let predicate = store.predicateForEvents(withStart: window.lowerBound,
+                                                 end: window.upperBound, calendars: [calendar])
+        var events: [CalendarEvent] = []
+        var claimed: [String: UUID] = [:]
         for event in store.events(matching: predicate) {
-            guard let uuid = CalendarTaskMirror.taskUUID(fromEventURL: event.url) else { continue }
-            // 同一件任务在窗口里理应只有一条;万一重复(手动拷贝过),留一条删其余。
-            if existing[uuid] != nil {
-                try? store.remove(event, span: .thisEvent, commit: false)
-            } else {
-                existing[uuid] = event
+            guard let id = event.eventIdentifier else { continue }
+            events.append(snapshot(event))
+            if let uuid = CalendarTaskMirror.taskUUID(fromEventURL: event.url) {
+                claimed[id] = uuid
             }
         }
+        return (events, claimed)
+    }
 
-        let wanted = mirrors.filter { $0.start >= windowStart && $0.start <= windowEnd }
-        var keep: Set<UUID> = []
-        for mirror in wanted {
-            keep.insert(mirror.uuid)
-            let event = existing[mirror.uuid] ?? EKEvent(eventStore: store)
-            // 没变就不写:每次 save 都会让系统日历产生一次变更通知,没必要。
-            if existing[mirror.uuid] != nil, event.title == mirror.title,
-               event.startDate == mirror.start, event.endDate == mirror.end,
-               event.isAllDay == mirror.isAllDay {
-                continue
-            }
+    /// 按 id 取几条事件(账本里认领过的、别人家日历里那些)。取不到的就是被删了。
+    static func events(withIDs ids: [String]) -> [CalendarEvent] {
+        guard isAuthorized else { return [] }
+        return ids.compactMap { store.event(withIdentifier: $0).map(snapshot) }
+    }
+
+    private static func snapshot(_ event: EKEvent) -> CalendarEvent {
+        CalendarEvent(id: event.eventIdentifier ?? UUID().uuidString,
+                      title: event.title ?? "(无标题)", start: event.startDate,
+                      end: event.endDate, isAllDay: event.isAllDay,
+                      calendarTitle: event.calendar?.title ?? "")
+    }
+
+    /// 执行 plan 的**事件那一侧**(新建/更新/删除),返回新建出来的事件 id,
+    /// 调用方据此把账本补全。任务那一侧由 `CalendarSync` 执行——那边要动
+    /// SwiftData 和通知链,不该塞进这个只管 EventKit 的文件里。
+    @discardableResult
+    static func apply(_ plan: CalendarSyncPlan) -> [UUID: String] {
+        guard isAuthorized, let calendar = ensureOwnCalendar() else { return [:] }
+        var created: [UUID: String] = [:]
+
+        for mirror in plan.createEvents {
+            let event = EKEvent(eventStore: store)
             event.calendar = calendar
-            event.title = mirror.title
-            event.startDate = mirror.start
-            event.endDate = mirror.end
-            event.isAllDay = mirror.isAllDay
-            event.url = mirror.eventURL
+            write(mirror, into: event)
+            guard (try? store.save(event, span: .thisEvent, commit: false)) != nil else { continue }
+            if let id = event.eventIdentifier { created[mirror.uuid] = id }
+        }
+        for (eventID, mirror) in plan.updateEvents {
+            guard let event = store.event(withIdentifier: eventID) else { continue }
+            write(mirror, into: event)
             try? store.save(event, span: .thisEvent, commit: false)
         }
-        for (uuid, event) in existing where !keep.contains(uuid) {
+        for eventID in plan.deleteEventIDs {
+            guard let event = store.event(withIdentifier: eventID) else { continue }
             try? store.remove(event, span: .thisEvent, commit: false)
         }
         try? store.commit()
+        return created
+    }
+
+    /// 写字段。**URL 只在自己那本日历里写**——别人家日历里的事件是用户的,
+    /// 往上面盖一个 lodo:// 链接属于改人家的数据。
+    private static func write(_ mirror: CalendarTaskMirror, into event: EKEvent) {
+        event.title = mirror.title
+        event.startDate = mirror.start
+        event.endDate = mirror.end
+        event.isAllDay = mirror.isAllDay
+        if event.calendar?.title == ownCalendarTitle {
+            event.url = mirror.eventURL
+        }
     }
 
     /// 关掉写开关时把 lodo 写过的事件清干净(窗口同上)。用户关开关的意思就是
@@ -157,24 +190,33 @@ enum CalendarBridge {
     @discardableResult
     static func requestAccess() async -> Bool { false }
     static func events(from start: Date, to end: Date) -> [CalendarEvent] { [] }
-    static func syncTasks(_ mirrors: [CalendarTaskMirror]) {}
+    static func syncWindow(now: Date = Date()) -> ClosedRange<Date> { now...now }
+    static func ownEvents(in window: ClosedRange<Date>)
+        -> (events: [CalendarEvent], claimed: [String: UUID]) { ([], [:]) }
+    static func events(withIDs ids: [String]) -> [CalendarEvent] { [] }
+    @discardableResult
+    static func apply(_ plan: CalendarSyncPlan) -> [UUID: String] { [:] }
     static func removeAllMirroredEvents() {}
 #endif
 }
 
-/// 数据变更后把任务镜像进系统日历的统一入口。和 `WidgetBridge.sync(context:)`
-/// 一样挂在"事项有变动"的地方,自己判断开关、自己做窗口对账。
+/// 双向对账的执行者:把 `CalendarSyncPlanner` 算出来的 plan 落到两边。
+///
+/// 和 `WidgetBridge.sync(context:)` 一样挂在"事项有变动"的地方,自己判断开关。
+/// **双向整套受写开关门控**——只读展示不需要账本,也不该因为看了一眼日历
+/// 就把任务改掉。
 @MainActor
 enum CalendarSync {
-    /// 合并同一轮里的多次请求:AI 批量执行会连着改十几条事项,每条都整本对账
-    /// 一遍纯属浪费。置位后丢到下一个 runloop 再跑,中间再来的调用直接忽略。
+    /// 合并同一轮里的多次请求:AI 批量执行会连着改十几条事项,每条都对账一遍
+    /// 纯属浪费。置位后丢到下一个 runloop 再跑,中间再来的调用直接忽略。
     private static var scheduled = false
+    /// 正在落 plan 的任务侧改动。回写任务会触发 TaskActions → WidgetBridge.sync →
+    /// 又调回这里,不挡住就会无限递归(而且第二次进来时账本还没存,会把刚回写的
+    /// 改动当成"任务这边改了"再推回日历)。
+    private static var applying = false
 
-    /// 把库里全部未完成事项同步一遍。**整本对账而不是逐条增量**:完成、删除、
-    /// 改期、撤销这些路径太多,逐个挂钩子迟早漏一条,而一次对账本来就要把窗口内
-    /// 的事件全查出来,顺带比一遍几乎不多花什么。
     static func sync(context: ModelContext) {
-        guard AppSettings.calendarWriteEnabled, !scheduled else { return }
+        guard AppSettings.calendarWriteEnabled, !applying, !scheduled else { return }
         scheduled = true
         Task { @MainActor in
             scheduled = false
@@ -182,13 +224,75 @@ enum CalendarSync {
         }
     }
 
-    /// 立即对账(不合并)。开关刚打开、回前台这类"就这一次"的场景用它。
+    /// 立即对账(不合并)。开关刚打开、回前台、收到系统日历变更通知时用它。
     static func reconcile(context: ModelContext) {
-        guard AppSettings.calendarWriteEnabled else { return }
+        guard AppSettings.calendarWriteEnabled, CalendarBridge.isAuthorized, !applying else { return }
+        let window = CalendarBridge.syncWindow()
         let descriptor = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" })
         let tasks = (try? context.fetch(descriptor)) ?? []
         let mirrors = tasks.compactMap { CalendarTaskMirror.from($0.data, uuid: $0.uuid) }
-        CalendarBridge.syncTasks(mirrors)
+            .filter { window.contains($0.start) }
+        let tasksByUUID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.uuid, $0) })
+
+        let records = CalendarSyncLedger.records
+        let own = CalendarBridge.ownEvents(in: window)
+        // 别人家日历里被「转为任务」认领过的那几条,按 id 单独取(它们不在
+        // 自家日历的查询结果里)。
+        let foreignIDs = records.filter { !$0.isOwnCalendar }.map(\.eventID)
+        let events = own.events + CalendarBridge.events(withIDs: foreignIDs)
+
+        let plan = CalendarSyncPlanner.plan(records: records, tasks: mirrors, events: events,
+                                            claimedUUIDs: own.claimed, window: window)
+        guard !plan.isEmpty || plan.records != records else { return }
+
+        applying = true
+        defer { applying = false }
+
+        // ① 事件侧
+        let created = CalendarBridge.apply(plan)
+
+        // ② 任务侧:回写改动
+        for update in plan.updateTasks {
+            guard let task = tasksByUUID[update.uuid] else { continue }
+            // 走和表单保存同一条路(TaskActions.apply):它会重置 phase、把
+            // nextRemindAt 拉回 remindAt 并重排通知链——少了这几步,改完时间
+            // 提醒还挂在旧时刻上。
+            TaskActions.apply(ParsedTask(
+                title: update.title, remindAt: update.start, allDay: update.isAllDay,
+                durationMinutes: update.durationMinutes, repeatType: task.repeatType,
+                repeatDays: task.repeatDays, repeatTimes: task.repeatTimes,
+                project: task.project), to: task, context: context)
+        }
+        // ③ 任务侧:日历里删掉事件 = 删掉任务(用户确认过的语义,不可撤销)
+        for uuid in plan.deleteTaskUUIDs {
+            guard let task = tasksByUUID[uuid] else { continue }
+            TaskActions.delete(task, context: context)
+        }
+
+        // ④ 账本:plan 里已经算好的那些 + 这次新建出来的
+        var ledger = plan.records
+        for mirror in plan.createEvents {
+            guard let id = created[mirror.uuid] else { continue }
+            ledger.append(.from(mirror, eventID: id, isOwnCalendar: true))
+        }
+        CalendarSyncLedger.save(ledger)
+        WidgetBridge.sync(context: context)
+    }
+
+    /// 把别人家日历里的一条事件「转为任务」:建任务 + 记进账本(`isOwnCalendar`
+    /// 为 false)。从这一刻起这条也进入双向——之后在日历里改时间会回写进任务,
+    /// 在日历里删掉会连任务一起删;反过来 lodo 这边改了会改那条事件,但
+    /// **任务被删时不删它**(那是用户自己的日程,见 CalendarSyncPlanner)。
+    @discardableResult
+    static func importEvent(_ event: CalendarEvent, context: ModelContext) -> TaskItem {
+        let minutes = max(0, Int(event.end.timeIntervalSince(event.start) / 60))
+        let task = TaskActions.create(ParsedTask(
+            title: event.title, remindAt: event.start, allDay: event.isAllDay,
+            durationMinutes: event.isAllDay ? 0 : minutes,
+            repeatType: .none, repeatDays: [], repeatTimes: []), context: context)
+        CalendarSyncLedger.append(.from(event, taskUUID: task.uuid, isOwnCalendar: false))
+        WidgetBridge.sync(context: context)
+        return task
     }
 }

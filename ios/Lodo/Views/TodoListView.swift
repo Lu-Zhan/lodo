@@ -585,6 +585,20 @@ struct TodoListView: View {
             }
             ForEach(events) { event in
                 CalendarEventRow(event: event)
+                    // 别人家日历里的日程默认只读展示;左滑「转为任务」认领成
+                    // lodo 任务(带纠缠式提醒),认领之后这条也进入双向同步,
+                    // 见 CalendarSync.importEvent。只在写开关开着时给——
+                    // 双向整套都由那个开关门控。
+                    .swipeActions(edge: .trailing) {
+                        if AppSettings.calendarWriteEnabled {
+                            Button {
+                                CalendarSync.importEvent(event, context: context)
+                            } label: {
+                                Label("转为任务", systemImage: "checklist")
+                            }
+                            .tint(.accentColor)
+                        }
+                    }
             }
             ForEach(rows) { row in
                 todoRow(row)
