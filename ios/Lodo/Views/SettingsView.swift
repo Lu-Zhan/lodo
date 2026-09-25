@@ -56,6 +56,8 @@ struct SettingsView: View {
                     } label: {
                         Label("AI 设置", systemImage: "sparkles")
                     }
+                } header: {
+                    Text("AI")
                 } footer: {
                     Text("服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。")
                 }
@@ -69,26 +71,22 @@ struct SettingsView: View {
                 }
                 #endif
 
-                // ---- 提醒:稍等间隔/全天提醒时间 + 每日待办汇总统一入口 ----
+                // ---- 提醒与自动化:稍等间隔/全天提醒/每日汇总 + 用户自定义的 AI 例行任务 ----
                 Section {
                     NavigationLink {
                         ReminderSettingsView()
                     } label: {
                         Label("提醒", systemImage: "bell")
                     }
-                } footer: {
-                    Text("稍等间隔、全天事项提醒时间、每日任务汇总都在这里。")
-                }
-
-                // ---- 定时任务:用户自定义的 AI 例行任务 ----
-                Section {
                     NavigationLink {
                         RoutineListView()
                     } label: {
                         Label("定时任务", systemImage: "clock.badge")
                     }
+                } header: {
+                    Text("提醒与自动化")
                 } footer: {
-                    Text("让 AI 在你设定的时间自动跑一件事,比如早上总结今天的任务、看天气给穿搭建议。")
+                    Text("稍等间隔、全天事项提醒时间、每日任务汇总都在这里。")
                 }
 
                 // ---- 系统日历(仅 iOS:macOS 那边 EventKit 要另配沙盒 entitlement)----
@@ -163,16 +161,10 @@ struct SettingsView: View {
                 #if os(iOS)
                 Section {
                     Toggle("振动反馈", isOn: $hapticsEnabled)
-                } footer: {
-                    Text("滑动完成、删除等操作时轻微振动。")
-                }
-
-                // 四个页面平级之后这个开关在所有尺寸下都有意义:决定冷启动
-                // 落在 AI 页还是总览页(见 AppShellView.shouldOpenAgentOnLaunch)。
-                Section {
+                    // 决定冷启动落在 AI 页还是总览页(见 AppShellView.shouldOpenAgentOnLaunch)。
                     Toggle("打开 App 后默认进入 AI 助手", isOn: $openAgentOnLaunch)
-                } footer: {
-                    Text("开启后,完成首次引导的下一次冷启动会直接落在 AI 助手页;退到后台再回前台不受影响。")
+                } header: {
+                    Text("通用")
                 }
                 #endif
 
@@ -248,6 +240,8 @@ struct SettingsView: View {
                         }
                     }
                     .padding(.vertical, 4)
+                } header: {
+                    Text("App 图标")
                 } footer: {
                     Text("莫兰迪色系,默认白色。")
                 }
@@ -260,6 +254,8 @@ struct SettingsView: View {
                             Text(lang.displayName).tag(lang.rawValue)
                         }
                     }
+                } header: {
+                    Text("语言")
                 } footer: {
                     Text("独立于系统语言设置;AI 助手的对话内容不受影响,始终为中文。")
                 }
@@ -272,6 +268,8 @@ struct SettingsView: View {
                                 .tag(entry.code)
                         }
                     }
+                } header: {
+                    Text("资产")
                 } footer: {
                     Text("记忆 tab 的「资产总览」把不同币种的资产换算成这种货币求和;汇率联网免费获取,每天自动更新一次。")
                 }
@@ -279,6 +277,8 @@ struct SettingsView: View {
                 // ---- iCloud ----
                 Section {
                     Toggle("iCloud 同步", isOn: $icloudSyncEnabled)
+                } header: {
+                    Text("iCloud")
                 } footer: {
                     Text("开启后,任务会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。")
                 }

@@ -718,3 +718,8 @@ android_ui.repeat_reminder_off_footer,"关掉后只提醒一次:事项仍然显�
 ios_view.repeat_reminder,反复提醒,Repeat Reminders,ios_view,
 ios_view.repeat_reminder_footer,"到期后每隔一个稍等间隔重复提醒,直到完成。","After it comes due, lodo reminds you again every snooze interval until it is done.",ios_view,
 ios_view.repeat_reminder_off_footer,"关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。","Turn it off and you are reminded once: the task still shows as overdue, and tapping Snooze yourself still works.",ios_view,
+ios_view.settings_header_ai,AI,AI,ios_view,
+ios_view.settings_header_reminders_automation,提醒与自动化,Reminders & Automation,ios_view,
+ios_view.settings_header_general,通用,General,ios_view,
+ios_view.settings_header_app_icon,App 图标,App Icon,ios_view,
+ios_view.settings_header_assets,资产,Assets,ios_view,
