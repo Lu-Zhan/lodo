@@ -68,8 +68,34 @@ struct TravelItemEditView: View {
     private var titlePrompt: LocalizedStringKey {
         switch kind {
         case .flight: return "航空公司/航段,如 国航 北京–东京"
+        case .train: return "车次/区间,如 新干线 东京–京都"
+        case .coach: return "班次/区间,如 机场大巴 T2–市区"
         case .lodging: return "住宿名称,如 新宿王子酒店"
         case .place: return "地点名称,如 浅草寺"
+        }
+    }
+
+    /// 单号那一栏的提示语。交通类填车次/航班号,其余填订单号。
+    private var codePrompt: LocalizedStringKey {
+        kind.isTransport ? "车次/航班号(可选)" : "订单号/房号(可选)"
+    }
+
+    /// 起讫时间那两个开关的名字。
+    private var startLabel: LocalizedStringKey {
+        switch kind {
+        case .flight: return "起飞时间"
+        case .train, .coach: return "发车时间"
+        case .lodging: return "入住"
+        case .place: return "开始时间"
+        }
+    }
+
+    private var endLabel: LocalizedStringKey {
+        switch kind {
+        case .flight: return "降落时间"
+        case .train, .coach: return "到达时间"
+        case .lodging: return "退房"
+        case .place: return "结束时间"
         }
     }
 
@@ -84,23 +110,22 @@ struct TravelItemEditView: View {
                         }
                     }
                     TextField(titlePrompt, text: $title)
-                    TextField(kind == .flight ? "航班号(可选)" : "订单号/房号(可选)", text: $code)
+                    TextField(codePrompt, text: $code)
                 }
 
                 Section {
-                    if kind == .flight {
+                    if kind.isTransport {
                         placeRow(title: "出发地", name: $originName,
                                  coordinate: $originCoordinate, target: .origin)
                     }
-                    placeRow(title: kind == .flight ? "到达地" : "地点",
+                    placeRow(title: kind.isTransport ? "到达地" : "地点",
                              name: $placeName, coordinate: $placeCoordinate, target: .place)
                 } footer: {
                     Text("点「搜索」选地点才会记下坐标,地图上才画得出这个点;只手打名字也能存,只是不上地图。")
                 }
 
                 Section {
-                    Toggle(kind == .flight ? "起飞时间" : (kind == .lodging ? "入住" : "开始时间"),
-                           isOn: $hasStart)
+                    Toggle(startLabel, isOn: $hasStart)
                     if hasStart {
                         DatePicker("", selection: $start)
                             .labelsHidden()
@@ -108,8 +133,7 @@ struct TravelItemEditView: View {
                             .datePickerStyle(.compact)
                             #endif
                     }
-                    Toggle(kind == .flight ? "降落时间" : (kind == .lodging ? "退房" : "结束时间"),
-                           isOn: $hasEnd)
+                    Toggle(endLabel, isOn: $hasEnd)
                     if hasEnd {
                         DatePicker("", selection: $end)
                             .labelsHidden()
@@ -290,8 +314,9 @@ struct TravelItemEditView: View {
         let place = placeName.trimmingCharacters(in: .whitespacesAndNewlines)
         let origin = originName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        // 出发地只对航班有意义,换成别的类型再存时要把它连坐标一起清掉。
-        let keepOrigin = kind == .flight && !origin.isEmpty
+        // 出发地只对交通类(航班/火车/客车)有意义,换成住宿/地点再存时要把它
+        // 连坐标一起清掉。航班补充信息那一坨仍然只有 flight 有。
+        let keepOrigin = kind.isTransport && !origin.isEmpty
         let keptFlight = kind == .flight ? editedFlight(code: trimmedCode) : nil
         if let existing {
             TravelStore.update(

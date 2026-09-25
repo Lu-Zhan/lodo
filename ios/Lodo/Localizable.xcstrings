@@ -1201,6 +1201,22 @@
         }
       }
     },
+    "全部": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部"
+          }
+        }
+      }
+    },
     "全部任务": {
       "localizations": {
         "en": {
@@ -1665,6 +1681,22 @@
         }
       }
     },
+    "到达时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrival Time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到达时间"
+          }
+        }
+      }
+    },
     "到达航站楼": {
       "localizations": {
         "en": {
@@ -1837,6 +1869,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "反复提醒"
+          }
+        }
+      }
+    },
+    "发车时间": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Departure Time"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发车时间"
           }
         }
       }
@@ -5217,6 +5265,22 @@
         }
       }
     },
+    "班次/区间,如 机场大巴 T2–市区": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route, e.g. Airport Bus T2–Downtown"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "班次/区间,如 机场大巴 T2–市区"
+          }
+        }
+      }
+    },
     "瑞士法郎": {
       "localizations": {
         "en": {
@@ -6257,6 +6321,22 @@
         }
       }
     },
+    "订单号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Order No."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订单号"
+          }
+        }
+      }
+    },
     "订单号/房号(可选)": {
       "localizations": {
         "en": {
@@ -6657,6 +6737,54 @@
         }
       }
     },
+    "车次/区间,如 新干线 东京–京都": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route, e.g. Shinkansen Tokyo–Kyoto"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "车次/区间,如 新干线 东京–京都"
+          }
+        }
+      }
+    },
+    "车次/航班号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train/Flight No."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "车次/航班号"
+          }
+        }
+      }
+    },
+    "车次/航班号(可选)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train/flight number (optional)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "车次/航班号(可选)"
+          }
+        }
+      }
+    },
     "转为任务": {
       "localizations": {
         "en": {
@@ -6925,6 +7053,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "这些行程项的时间不在这次旅行的日期范围里。改一下旅行日期,或者改这一项的时间。"
+          }
+        }
+      }
+    },
+    "这句话会显示在旅行列表的卡片上。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This line shows on the trip card in the list."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这句话会显示在旅行列表的卡片上。"
           }
         }
       }
@@ -7261,6 +7405,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新写入"
+          }
+        }
+      }
+    },
+    "重新生成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regenerate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新生成"
           }
         }
       }

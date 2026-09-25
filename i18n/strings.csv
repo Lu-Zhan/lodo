@@ -531,6 +531,8 @@ ios_view.30_days,30 天,30 days,ios_view,
 ios_view.request_health_access_again,重新请求健康权限,Request Health Access Again,ios_view,
 ios_view.health_settings_footer,"开启后「健康」页会读取步数、睡眠、心率等数据,在本机汇总成趋势。只有汇总统计(日均、最近一天、环比变化)会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备;关闭后这一页不发任何请求。撤销授权请到系统「设置 → 隐私与安全性 → 健康」。","When enabled, the Health page reads steps, sleep, heart rate and more, and summarizes trends on this device. Only aggregate statistics (daily averages, the latest day, period-over-period change) are sent to your chosen AI provider — raw records never leave this device. Turn it off and this page makes no requests at all. To revoke access, go to Settings → Privacy & Security → Health.",ios_view,
 ios_core.travel_flight,航班,Flight,ios_core,行程项类型
+ios_core.travel_train,火车,Train,ios_core,行程项类型
+ios_core.travel_coach,客车,Coach,ios_core,行程项类型
 ios_core.travel_lodging,住宿,Lodging,ios_core,行程项类型
 ios_core.travel_place,地点,Place,ios_core,行程项类型
 ios_core.invalid_response_read_trip_is_missing,返回格式异常:read_trip 缺少 name,Invalid response: read_trip is missing name,ios_core,
@@ -724,3 +726,13 @@ ios_view.settings_header_app_icon,App 图标,App Icon,ios_view,
 ios_view.settings_header_assets,资产,Assets,ios_view,
 ios_view.leaves_tomorrow,明日离开,Leaves Tomorrow,ios_view,按天视图里住宿最后一晚的标签
 ios_view.trip_actions,行程操作,Trip Actions,ios_view,旅行详情页右上角菜单的旁白
+ios_view.train_title_prompt,"车次/区间,如 新干线 东京–京都","Route, e.g. Shinkansen Tokyo–Kyoto",ios_view,行程项标题输入提示
+ios_view.coach_title_prompt,"班次/区间,如 机场大巴 T2–市区","Route, e.g. Airport Bus T2–Downtown",ios_view,行程项标题输入提示
+ios_view.train_code_optional,车次/航班号(可选),Train/flight number (optional),ios_view,
+ios_view.train_code,车次/航班号,Train/Flight No.,ios_view,
+ios_view.order_number,订单号,Order No.,ios_view,
+ios_view.depart_time,发车时间,Departure Time,ios_view,
+ios_view.arrive_time,到达时间,Arrival Time,ios_view,
+ios_view.all_days,全部,All,ios_view,地图上按天筛选的「全部」
+ios_view.regenerate,重新生成,Regenerate,ios_view,让 AI 重写旅行备注
+ios_view.trip_note_footer,这句话会显示在旅行列表的卡片上。,This line shows on the trip card in the list.,ios_view,

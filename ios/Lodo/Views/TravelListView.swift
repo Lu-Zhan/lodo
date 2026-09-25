@@ -143,6 +143,14 @@ struct TravelListView: View {
             .font(.body)
             .foregroundStyle(.secondary)
 
+            // 那句概述只在这一页显示(详情页里不再重复,见 TravelDetailView.header)。
+            if !trip.notes.isEmpty {
+                Text(trip.notes)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+
             if entries.isEmpty {
                 Text("还没有行程,点进去添加航班、住宿和想去的地方。")
                     .font(.subheadline)
@@ -225,6 +233,12 @@ struct TravelListView: View {
             Text("\(dateRange(trip)) · \(trip.dayCount) 天 · \(count) 项")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            if !trip.notes.isEmpty {
+                Text(trip.notes)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -324,6 +338,15 @@ struct TravelListView: View {
             tripUUID: trip.uuid, kind: .place, title: "浅草寺",
             start: at(1, 10), price: 0, currency: "JPY",
             placeName: "浅草", latitude: 35.7148, longitude: 139.7967, context: context)
+        // 和浅草寺同一天,按天视图里两点连成一条路线(地图上每天一个颜色)。
+        TravelStore.create(
+            tripUUID: trip.uuid, kind: .place, title: "上野公园",
+            start: at(1, 14), price: 0, currency: "JPY",
+            placeName: "上野", latitude: 35.7156, longitude: 139.7745, context: context)
+        TravelStore.create(
+            tripUUID: trip.uuid, kind: .train, title: "JR 山手线 上野–东京",
+            start: at(1, 17), end: at(1, 17, 10), price: 170, currency: "JPY",
+            placeName: "东京站", originName: "上野站", context: context)
         TravelStore.create(
             tripUUID: trip.uuid, kind: .place, title: "teamLab 无边界",
             start: at(2, 13), price: 3800, currency: "JPY",
@@ -364,6 +387,10 @@ struct TripEditView: View {
     @State private var city = ""
     @State private var country = ""
     @State private var didLoad = false
+    /// 正在让 AI 重写备注。
+    @State private var regenerating = false
+    @State private var noteError: String?
+    @Query private var memoryItems: [MemoryItem]
 
     private var hasInvalidRange: Bool {
         Calendar.current.startOfDay(for: end) < Calendar.current.startOfDay(for: start)
@@ -392,9 +419,41 @@ struct TripEditView: View {
                             .foregroundStyle(LodoColor.critical)
                     }
                 }
-                Section("备注") {
+                Section {
                     TextEditor(text: $notes)
                         .frame(minHeight: 80)
+                } header: {
+                    HStack {
+                        Text("备注")
+                        Spacer()
+                        // 备注就是旅行卡片上那句概述(AI 规划时也是它写的),所以这里
+                        // 给一颗重写按钮:把旅行名/日期/行程摘要发过去,换一句新的。
+                        // 没配 AI 或还没保存过这次旅行时不显示——前者调不通,后者
+                        // 还没有行程可以参考,重写出来的只能是空话。
+                        if DeepSeekClient.isConfigured, let trip {
+                            Button {
+                                regenerateNote(trip)
+                            } label: {
+                                if regenerating {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Label("重新生成", systemImage: "sparkles")
+                                        .labelStyle(.titleAndIcon)
+                                        .font(.footnote)
+                                }
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(regenerating)
+                            .textCase(nil)
+                        }
+                    }
+                } footer: {
+                    if let noteError {
+                        Text(noteError)
+                            .foregroundStyle(LodoColor.critical)
+                    } else {
+                        Text("这句话会显示在旅行列表的卡片上。")
+                    }
                 }
             }
             .navigationTitle(trip == nil ? "新建旅行" : "编辑旅行")
@@ -411,6 +470,25 @@ struct TripEditView: View {
                 }
             }
             .onAppear(perform: load)
+        }
+    }
+
+    /// 让 AI 按这次旅行的行程重写一句备注。失败只在 footer 上报一行,不动原文
+    /// ——重写不成还把用户自己写的那句冲掉就太蠢了。
+    private func regenerateNote(_ trip: TravelTrip) {
+        regenerating = true
+        noteError = nil
+        let entries = TravelStore.entries(for: trip.uuid, from: memoryItems)
+        let days = TravelTrip(title: title, startDate: start, endDate: end).days
+        let summary = TravelPlan.promptSummary(
+            tripTitle: title.isEmpty ? trip.title : title, days: days, entries: entries)
+        Task {
+            do {
+                notes = try await DeepSeekClient.suggestTripNote(summary: summary)
+            } catch {
+                noteError = error.localizedDescription
+            }
+            regenerating = false
         }
     }
 

@@ -109,6 +109,41 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertNil(TravelPlan.lodgingNight(place, day: date(day: 9)))
     }
 
+    /// 路线只串当天有坐标的**地点**:住宿(傍晚才入住)、交通(两头分处两地)不进线。
+    func testRouteConnectsPlacesOnlyInTimeOrder() {
+        let coord = TravelCoordinate(latitude: 35.7, longitude: 139.7)
+        func placed(_ title: String, hour: Int) -> TravelEntry {
+            TravelEntry(id: UUID(), kind: .place, title: title,
+                        start: date(day: 9, hour: hour), coordinate: coord)
+        }
+        let noon = placed("午餐", hour: 12)
+        let morning = placed("筑地市场", hour: 8)
+        let noCoordinate = entry(.place, "朋友家", start: date(day: 9, hour: 15))
+        let hotel = TravelEntry(id: UUID(), kind: .lodging, title: "酒店",
+                                start: date(day: 9, hour: 18), coordinate: coord)
+        let train = TravelEntry(id: UUID(), kind: .train, title: "新干线",
+                                start: date(day: 9, hour: 7), coordinate: coord)
+        let day = TravelPlan.group([noon, morning, noCoordinate, hotel, train],
+                                   into: days)[1]
+        XCTAssertEqual(TravelPlan.route(day).map(\.title), ["筑地市场", "午餐"])
+    }
+
+    /// 火车/客车和航班一样只落在出发那天,也和航班一样算"交通"。
+    func testTransportKindsLandOnStartDay() {
+        let train = entry(.train, "新干线 のぞみ", start: date(day: 9, hour: 7))
+        let coach = entry(.coach, "机场大巴", start: date(day: 11, hour: 6))
+        let grouped = TravelPlan.group([train, coach], into: days)
+        XCTAssertEqual(grouped[1].entries.map(\.title), ["新干线 のぞみ"])
+        XCTAssertEqual(grouped[3].entries.map(\.title), ["机场大巴"])
+        XCTAssertTrue(TravelItemKind.train.isTransport)
+        XCTAssertTrue(TravelItemKind.coach.isTransport)
+        XCTAssertFalse(TravelItemKind.lodging.isTransport)
+        XCTAssertFalse(TravelItemKind.place.isTransport)
+        // 存储值不能变(老库里的行程项按它认类型)。
+        XCTAssertEqual(TravelItemKind.allCases.map(\.rawValue),
+                       ["flight", "train", "coach", "lodging", "place"])
+    }
+
     // MARK: - 未排期 / 超出范围
 
     func testUnscheduledEntriesAreSeparated() {

@@ -578,8 +578,8 @@ public enum DeepSeekClient {
             summary: text("summary") ?? "", items: items)
     }
 
-    /// 规划/调整里的一条安排。只认地点和住宿:模型不守规矩给了 flight 也丢掉,
-    /// 航班编不出来;缺标题、类型不认识的同样跳过。
+    /// 规划/调整里的一条安排。五种类型都认(交通类是用户明确说了车次/航班和时刻时
+    /// 才该出现,prompt 里写着"不知道就别编");缺标题、类型不认识的跳过。
     private static func parsePlanItem(_ item: [String: Any]) -> TripPlanItem? {
         func field(_ key: String) -> String? {
             guard let value = (item[key] as? String)?
@@ -587,7 +587,6 @@ public enum DeepSeekClient {
             return value
         }
         guard let kind = field("kind").flatMap(TravelItemKind.init(rawValue:)),
-              kind != .flight,
               let title = field("title") else { return nil }
         let price: Double? = {
             if let value = item["price"] as? Double { return value }
@@ -760,6 +759,32 @@ public enum DeepSeekClient {
         return insight
     }
 
+    /// 旅行的备注(卡片上那一句概述)重新生成一版。编辑旅行表单里备注右边那颗
+    /// AI 按钮走这里:给它旅行名/日期/行程摘要,返回一句给用户看的话。
+    ///
+    /// 口径和 `plan_trip` 的 summary 完全一致(那条规则写在 tripPlanner skill 里):
+    /// 短、有人情味、**不复述排程逻辑**——"避开航班时段""按地理位置串联"这类是
+    /// 排程说明,用户看行程本身就知道,写进备注只是噪声。
+    public static func suggestTripNote(summary: String) async throws -> String {
+        let system = """
+        你是旅行应用 lodo 的旅行助手。根据这次旅行的名字、日期和行程,\
+        写一句写在旅行卡片上的话:**20 个字以内**,有人情味,像朋友送行时说的——\
+        "好好享受这趟白雪之旅""慢慢逛,别赶""吃好睡好,把京都的秋天看够"。\
+        不要复述排程逻辑("避开航班时段""按地理位置串联""每天安排三个景点"这类一律不要),\
+        不要列行程,不要加引号。只返回 JSON:{"note": "一句话"},不要任何其他文字。\(personaBlock)
+        """
+        return try parseTripNote(await payload(system: system, user: summary, timeout: 60))
+    }
+
+    /// 从 payload 里取那一句备注(单测入口,不发请求)。
+    static func parseTripNote(_ payload: [String: Any]) throws -> String {
+        guard let note = (payload["note"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 note")
+        }
+        return note
+    }
+
     /// "总览" tab 用:给一句今天待办的处理建议(到期未处理的 + 今天该做的都算,
     /// 调用方把列表格式化成 summary 传进来)。
     public static func suggestTodayHandling(summary: String) async throws -> String {
@@ -854,10 +879,11 @@ public enum DeepSeekClient {
         当前这趟旅行叫「\(tripTitle)」,日期范围 \(dateFormatter.string(from: tripStart)) 到 \(dateFormatter.string(from: tripEnd))。
 
         只返回 JSON:{"items": [行程项, ...]},不要任何其他文字。每个行程项:
-        {"kind": "flight|lodging|place", "title": "简短名称", "code": "航班号/订单号,没有就省略", \
+        {"kind": "flight|train|coach|lodging|place", "title": "简短名称", \
+        "code": "航班号/车次/订单号,没有就省略", \
         "start": "yyyy-MM-dd HH:mm", "end": "yyyy-MM-dd HH:mm", \
-        "place": "主要地点(住宿/地点填它本身,航班填**到达地**)", \
-        "origin": "航班的出发地,其余类型省略", \
+        "place": "主要地点(住宿/地点填它本身,航班/火车/客车填**到达地**)", \
+        "origin": "航班/火车/客车的出发地,其余类型省略", \
         "price": 数字, "currency": "ISO 4217 币种码如 CNY/JPY/USD", "note": "补充说明", \
         "flight": 航班补充信息,仅 flight 有,见下}
 
@@ -871,7 +897,8 @@ public enum DeepSeekClient {
         "status": "scheduled|check_in|boarding|gate_closed|departed|delayed|arrived|canceled|diverted"}
 
         规则:
-        - 往返机票是**两条** flight,别合成一条。
+        - 往返机票是**两条** flight,别合成一条;火车票、大巴票同理,一程一条。
+        - 高铁/动车/城际按 train,长途大巴/机场大巴/旅游巴士按 coach;车次填进 code。
         - 航班的 start/end 填**计划**起降时刻;航班动态里显示的变更后/预计时刻填 \
         estimated_departure/estimated_arrival,不要覆盖到 start/end 上。只有预计时刻、\
         看不到计划时刻时省略 start/end。

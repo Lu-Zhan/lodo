@@ -7,12 +7,16 @@ import Foundation
 /// 行程项类型。存储值是 `MemoryItem.travelKindRaw` 里的字符串,别随便改。
 public enum TravelItemKind: String, CaseIterable, Sendable {
     case flight
+    case train
+    case coach
     case lodging
     case place
 
     public var titleKey: LK {
         switch self {
         case .flight: return .ios_core_travel_flight
+        case .train: return .ios_core_travel_train
+        case .coach: return .ios_core_travel_coach
         case .lodging: return .ios_core_travel_lodging
         case .place: return .ios_core_travel_place
         }
@@ -22,6 +26,8 @@ public enum TravelItemKind: String, CaseIterable, Sendable {
     public var promptName: String {
         switch self {
         case .flight: return "航班"
+        case .train: return "火车"
+        case .coach: return "客车"
         case .lodging: return "住宿"
         case .place: return "地点"
         }
@@ -30,8 +36,19 @@ public enum TravelItemKind: String, CaseIterable, Sendable {
     public var systemImage: String {
         switch self {
         case .flight: return "airplane"
+        case .train: return "tram.fill"
+        case .coach: return "bus"
         case .lodging: return "bed.double"
         case .place: return "mappin.and.ellipse"
+        }
+    }
+
+    /// 交通类(有出发地和到达地,落在出发那天)。住宿铺开住的每一晚、地点只占一个
+    /// 点,这两类不算。航班的补充信息(航站楼/登机口…)仍然只有 flight 有。
+    public var isTransport: Bool {
+        switch self {
+        case .flight, .train, .coach: return true
+        case .lodging, .place: return false
         }
     }
 }
@@ -185,6 +202,15 @@ public enum TravelPlan {
     public static func sortedForDay(_ entries: [TravelEntry]) -> [TravelEntry] {
         sorted(entries.filter { $0.kind == .lodging })
             + sorted(entries.filter { $0.kind != .lodging })
+    }
+
+    /// 某一天的路线:按时间串起当天**有坐标的地点**。
+    ///
+    /// 只连 `.place`:住宿傍晚才入住,连到早上的景点会画出一条来回折返的线;
+    /// 交通类(航班/火车/客车)的两头分处两地,连进来整条路线会被拉到另一个城市去。
+    /// 它们照旧在地图上各自画点,只是不进这条线。
+    public static func route(_ day: TravelDay) -> [TravelEntry] {
+        sorted(day.entries.filter { $0.kind == .place && $0.coordinate != nil })
     }
 
     /// 住宿在某一天的位置:是不是入住当晚、是不是最后一晚(第二天就退房走了)。

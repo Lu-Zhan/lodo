@@ -22,7 +22,7 @@ final class TripPlanTests: XCTestCase {
                 ["kind": "place", "title": "清水寺", "start": "2026-07-08 16:00",
                  "end": "2026-07-08 17:30", "place": "清水寺", "note": "从五条坂上去。",
                  "price": 500, "currency": "jpy"],
-                // 航班编不出来,就算模型给了也丢掉。
+                // 交通类现在也认(用户说清了班次时刻时模型才该给,见 tripPlanner skill)。
                 ["kind": "flight", "title": "CA927", "start": "2026-07-08 09:00"],
                 // 缺标题、类型不认识的都跳过,不让整份规划失败。
                 ["kind": "place", "start": "2026-07-09 09:00"],
@@ -46,15 +46,17 @@ final class TripPlanTests: XCTestCase {
         XCTAssertEqual(plan.summary, "东山、岚山、伏见各一天。")
         XCTAssertEqual(plan.startDate, date(day: 8))
         XCTAssertEqual(plan.endDate, date(day: 10))
-        XCTAssertEqual(plan.items.map(\.title), ["住四条河原町一带", "清水寺", "伏见稻荷大社"])
+        XCTAssertEqual(plan.items.map(\.title),
+                       ["住四条河原町一带", "清水寺", "CA927", "伏见稻荷大社"])
         XCTAssertEqual(plan.items[0].kind, .lodging)
         XCTAssertEqual(plan.items[1].start, date(day: 8, hour: 16))
         XCTAssertEqual(plan.items[1].placeName, "清水寺")
         XCTAssertEqual(plan.items[1].note, "从五条坂上去。")
         XCTAssertEqual(plan.items[1].price, 500)
         XCTAssertEqual(plan.items[1].currency, "JPY")
-        XCTAssertNil(plan.items[2].end)
-        XCTAssertEqual(plan.items[2].price, 0)
+        XCTAssertEqual(plan.items[2].kind, .flight)
+        XCTAssertNil(plan.items[3].end)
+        XCTAssertEqual(plan.items[3].price, 0)
         XCTAssertNil(plan.appliedTripUUID)
         XCTAssertFalse(plan.isApplied)
     }
@@ -103,10 +105,11 @@ final class TripPlanTests: XCTestCase {
     }
 
     func testRejectsPlanWithoutUsableItemsOrDates() {
-        // 只有航班:没有一条能写的安排。
+        // 一条都解析不出来(缺标题、类型不认识):没有能写的安排。
         XCTAssertThrowsError(try DeepSeekClient.parseTripPlan([
             "trip": "东京", "start_date": "2026-07-08",
-            "items": [["kind": "flight", "title": "CA167", "start": "2026-07-08 09:00"]],
+            "items": [["kind": "flight", "start": "2026-07-08 09:00"],
+                      ["kind": "restaurant", "title": "锦市场"]],
         ]))
         // 安排都没时间、也没给起止日:推不出是哪几天。
         XCTAssertThrowsError(try DeepSeekClient.parseTripPlan([
@@ -120,7 +123,7 @@ final class TripPlanTests: XCTestCase {
         let grouped = TravelPlan.group(plan.entries, into: plan.days())
         XCTAssertEqual(grouped.count, 3)
         // 住宿按住的每一晚铺开:8、9 号两晚。
-        XCTAssertEqual(grouped[0].entries.map(\.title), ["住四条河原町一带", "清水寺"])
+        XCTAssertEqual(grouped[0].entries.map(\.title), ["住四条河原町一带", "CA927", "清水寺"])
         XCTAssertEqual(grouped[1].entries.map(\.title), ["住四条河原町一带"])
         XCTAssertEqual(grouped[2].entries.map(\.title), ["伏见稻荷大社"])
         // id 稳定:两次取 entries 一致。
@@ -174,7 +177,8 @@ final class TripPlanTests: XCTestCase {
         XCTAssertEqual(edit.tripTitle, "京都三日")
         XCTAssertEqual(edit.summary, "第二天改去奈良")
         XCTAssertEqual(edit.removeIDs, [drop, both])
-        XCTAssertEqual(edit.additions.map(\.title), ["东大寺"])
+        // 航班现在也能加(用户说清了班次时刻时)。
+        XCTAssertEqual(edit.additions.map(\.title), ["东大寺", "CA927"])
         XCTAssertEqual(edit.additions[0].start, date(day: 9, hour: 10))
         XCTAssertEqual(edit.updates.count, 1)
         XCTAssertEqual(edit.updates[0].id, keep)
@@ -230,7 +234,8 @@ final class TripPlanTests: XCTestCase {
     func testEditTripWithoutChangesThrows() {
         XCTAssertThrowsError(try DeepSeekClient.parseTripEdit([
             "trip": "京都三日", "remove": ["不是 uuid"],
-            "add": [["kind": "flight", "title": "CA927"]], "update": [],
+            // 缺标题的安排解析不出来,删的 id 也不是 uuid:一处改动都没有。
+            "add": [["kind": "flight", "start": "2026-07-09 09:00"]], "update": [],
         ]))
     }
 

@@ -22,6 +22,12 @@ struct TravelDetailView: View {
 
     @State private var mode: Mode = .days
     @State private var editingItem: MemoryItem?
+    /// 点开某一条行程项看详情(航班走 viewingFlight 那条)。
+    @State private var viewingItem: MemoryItem?
+    /// 地图上正在看哪一天(nil = 全部)。
+    @State private var mapDay: Date?
+    /// 地图镜头。选了某一天就缩放到把那一天框完整。
+    @State private var camera: MapCameraPosition = .automatic
     @State private var viewingFlight: MemoryItem?
     @State private var addingItem = false
     @State private var addingDate: Date = .now
@@ -118,6 +124,9 @@ struct TravelDetailView: View {
         .sheet(item: $editingItem) { item in
             TravelItemEditView(tripUUID: trip.uuid, existing: item)
         }
+        .sheet(item: $viewingItem) { item in
+            TravelItemDetailView(item: item, trip: trip)
+        }
         .sheet(item: $viewingFlight) { item in
             FlightStatusView(item: item, trip: trip)
         }
@@ -138,9 +147,20 @@ struct TravelDetailView: View {
             let args = ProcessInfo.processInfo.arguments
             if args.contains("--demo-travel-day") { mode = .days }
             if args.contains("--demo-travel-map") { mode = .map }
+            // 截图验证用:simctl 点不了地图左边那条按天胶囊,直接选中第 2 天
+            // (镜头会缩放到那一天,见 focusCamera)。
+            if args.contains("--demo-travel-map-day") {
+                mode = .map
+                mapDay = trip.days.count > 1 ? trip.days[1] : trip.days.first
+            }
             if args.contains("--demo-travel-cost") { mode = .cost }
             if args.contains("--demo-travel-add") { addingItem = true }
             if args.contains("--demo-travel-import") { importing = true }
+            // 截图验证用:simctl 点不了行,直接打开第一条非航班项的详情 / 编辑旅行。
+            if args.contains("--demo-travel-item") {
+                viewingItem = items.first { $0.travelKind != .flight }
+            }
+            if args.contains("--demo-travel-trip-edit") { editingTrip = true }
             if args.contains("--demo-travel-flight") {
                 viewingFlight = items.first { $0.travelKind == .flight && $0.travelFlightData != nil }
             }
@@ -166,10 +186,8 @@ struct TravelDetailView: View {
                         Label(location, systemImage: "mappin.and.ellipse")
                     }
                     Label("\(dateRangeText) · 共 \(trip.dayCount) 天", systemImage: "calendar")
-                    if !trip.notes.isEmpty {
-                        Text(trip.notes)
-                            .lineLimit(3)
-                    }
+                    // 备注(那句概述)只在旅行列表页显示:进到这一页要看的是行程本身,
+                    // 那句话每天翻十遍不再带来信息,反而把第一天压到屏幕外面去。
                 }
                 .font(.body)
                 .foregroundStyle(.secondary)
@@ -236,8 +254,8 @@ struct TravelDetailView: View {
 /// 两条路都没搜到的项不上地图——不编一个大概的位置。
     @ViewBuilder
     private var mapView: some View {
-        let pins = mapPins
-        if pins.isEmpty {
+        let pins = mapPins(for: mapDay)
+        if mapPins(for: nil).isEmpty {
             ContentUnavailableView {
                 Label("地图上还没有点", systemImage: "map")
             } description: {
@@ -245,13 +263,118 @@ struct TravelDetailView: View {
             }
             .frame(maxHeight: .infinity)
         } else {
-            Map(initialPosition: .region(region(for: pins))) {
+            Map(position: $camera) {
                 ForEach(pins) { pin in
                     Marker(pin.title, systemImage: pin.systemImage, coordinate: pin.coordinate)
+                        .tint(pin.color)
+                }
+                // 每天一条线、一个颜色:一眼看出哪几个点是同一天串起来的。
+                ForEach(routes(for: mapDay)) { route in
+                    MapPolyline(coordinates: route.coordinates)
+                        .stroke(route.color,
+                                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
                 }
             }
             .ignoresSafeArea(edges: .bottom)
+            .overlay(alignment: .leading) { dayFilterRail }
+            .onAppear { focusCamera(animated: false) }
+            .onChange(of: mapDay) { _, _ in focusCamera(animated: true) }
         }
+    }
+
+    /// 地图左边那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
+    /// 并缩放到把那一天完整框进来(`focusCamera`)。
+    /// 天数多了能上下滑,所以它经 `SidebarDragExclusionKey` 申报排除区——
+    /// 理由同 `HorizontalChipRow`,只是方向反过来,避免和抽屉手势抢。
+    private var dayFilterRail: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 6) {
+                railButton(title: "全部", selected: mapDay == nil) { mapDay = nil }
+                ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
+                    railButton(title: "\(index + 1)", selected: mapDay == day) {
+                        mapDay = (mapDay == day) ? nil : day
+                    }
+                }
+            }
+            .padding(6)
+        }
+        // 高度按条目数算,不要让 ScrollView 贪满整屏(4 天的旅行配一条顶天立地的
+        // 长条很怪);天多了才滚,上限约 8 个。
+        .frame(maxHeight: CGFloat(min(trip.days.count + 1, 8)) * 40 + 12)
+        .fixedSize(horizontal: true, vertical: false)
+        .glassBackground(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(.leading, 12)
+        .padding(.vertical, 12)
+    }
+
+    private func railButton(title: LocalizedStringKey, selected: Bool,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(selected ? lodoAccent.onFill : .primary)
+                .frame(minWidth: 34, minHeight: 34)
+                .padding(.horizontal, 4)
+                // 胶囊而不是圆:「全部」两个字比数字宽,套圆会被撑成椭圆。
+                .background {
+                    if selected {
+                        Capsule().fill(lodoAccent.fill)
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .pressable()
+    }
+
+    /// 选中那一天(或全部)时把镜头挪过去。切换是用户主动点的,给个动画;
+    /// 首次出现时直接定位,不要从世界地图飞过来。
+    private func focusCamera(animated: Bool) {
+        let pins = mapPins(for: mapDay)
+        // 这一天没有任何带坐标的点时不动镜头——把地图甩到 (0,0) 比留在原处更糟。
+        guard !pins.isEmpty else { return }
+        let region = region(for: pins)
+        if animated {
+            withAnimation(.lodoAware(.easeInOut(duration: 0.4))) { camera = .region(region) }
+        } else {
+            camera = .region(region)
+        }
+    }
+
+    /// 某一天(nil = 全部)的路线:当天按时间串起来的地点连线 + 那天的颜色。
+    private func routes(for day: Date?) -> [MapRoute] {
+        TravelPlan.group(entries, into: trip.days)
+            .enumerated()
+            .filter { day == nil || $0.element.date == day }
+            .compactMap { index, grouped in
+                let coordinates = TravelPlan.route(grouped).compactMap(\.coordinate).map {
+                    CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                }
+                guard coordinates.count >= 2 else { return nil }
+                return MapRoute(id: grouped.date, coordinates: coordinates,
+                                color: Self.dayColor(index))
+            }
+    }
+
+    private struct MapRoute: Identifiable {
+        let id: Date
+        let coordinates: [CLLocationCoordinate2D]
+        let color: Color
+    }
+
+    /// 第几天用哪个颜色。**只是区分第几天,不承载语义**(不是 `LodoColor` 那套
+    /// 状态色),所以单独一张表;天数超过表长就循环。强调色不进这张表——
+    /// 它会跟着用户设置变,和某一天绑在一起只会让两天看起来是同一天。
+    private static let dayColors: [Color] = [
+        Color(red: 0.00, green: 0.48, blue: 0.80),
+        Color(red: 0.85, green: 0.37, blue: 0.10),
+        Color(red: 0.21, green: 0.55, blue: 0.24),
+        Color(red: 0.55, green: 0.27, blue: 0.68),
+        Color(red: 0.78, green: 0.16, blue: 0.40),
+        Color(red: 0.13, green: 0.52, blue: 0.55),
+    ]
+
+    private static func dayColor(_ index: Int) -> Color {
+        dayColors[index % dayColors.count]
     }
 
     private struct MapPin: Identifiable {
@@ -259,10 +382,26 @@ struct TravelDetailView: View {
         let title: String
         let systemImage: String
         let coordinate: CLLocationCoordinate2D
+        let color: Color
     }
 
-    private var mapPins: [MapPin] {
-        entries.flatMap { entry -> [MapPin] in
+    /// 地图上的点。`day` 为 nil = 全部(含未排期和日期之外的);给了某一天就只要那天的。
+    private func mapPins(for day: Date?) -> [MapPin] {
+        let visible: [TravelEntry]
+        if let day {
+            visible = TravelPlan.group(entries, into: trip.days)
+                .first { $0.date == day }?.entries ?? []
+        } else {
+            visible = entries
+        }
+        let colorByDay = Dictionary(uniqueKeysWithValues:
+            trip.days.enumerated().map { ($0.element, Self.dayColor($0.offset)) })
+        return visible.flatMap { entry -> [MapPin] in
+            // 点的颜色跟着它所在的那一天走,和线对上;跨多天的住宿取入住那天,
+            // 未排期/区间外的没有对应的天,用次要灰。
+            let color = entry.start
+                .map { Calendar.current.startOfDay(for: $0) }
+                .flatMap { colorByDay[$0] } ?? LodoColor.muted
             var pins: [MapPin] = []
             if let coordinate = entry.coordinate {
                 pins.append(MapPin(
@@ -270,15 +409,17 @@ struct TravelDetailView: View {
                     title: entry.placeName ?? entry.title,
                     systemImage: entry.kind.systemImage,
                     coordinate: CLLocationCoordinate2D(latitude: coordinate.latitude,
-                                                       longitude: coordinate.longitude)))
+                                                       longitude: coordinate.longitude),
+                    color: color))
             }
             if let origin = entry.originCoordinate {
                 pins.append(MapPin(
                     id: "\(entry.id)-origin",
                     title: entry.originName ?? entry.title,
-                    systemImage: "airplane.departure",
+                    systemImage: entry.kind == .flight ? "airplane.departure" : entry.kind.systemImage,
                     coordinate: CLLocationCoordinate2D(latitude: origin.latitude,
-                                                       longitude: origin.longitude)))
+                                                       longitude: origin.longitude),
+                    color: color))
             }
             return pins
         }
@@ -387,11 +528,12 @@ struct TravelDetailView: View {
                 Image(systemName: entry.kind.systemImage)
                     .foregroundStyle(.tint)
                     .frame(width: 22)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(entry.title)
                             .font(.body.weight(.medium))
                             .foregroundStyle(.primary)
+                            .lineLimit(1)
                         if let status = entry.flight?.status, showsStatus(entry) {
                             FlightStatusBadge(status: status)
                         }
@@ -402,29 +544,23 @@ struct TravelDetailView: View {
                             LodgingNightBadge(title: "明日离开", color: LodoColor.muted)
                         }
                     }
+                    // 一行副标题就够:时间 · 地点 · 单号。备注、航班的航站楼登机口
+                    // 那些都收进详情页——按天这一页要的是密度,一眼扫完一天有几件事。
                     if let detail = detailLine(entry, showDate: showDate) {
                         Text(detail)
-                            .font(.subheadline)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
-                    }
-                    if let flight = entry.flight {
-                        FlightInfoLine(flight: flight, planned: entry.start)
-                    }
-                    if !entry.summary.isEmpty {
-                        Text(entry.summary)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                            .lineLimit(1)
                     }
                 }
                 Spacer(minLength: 4)
                 if let price = entry.price, price != 0 {
                     Text("\(entry.currency) \(String(format: "%.0f", price))")
-                        .font(.subheadline.monospacedDigit())
+                        .font(.footnote.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 1)
             .contentShape(Rectangle())
         }
         .pressableCard()
@@ -446,13 +582,15 @@ struct TravelDetailView: View {
         }
     }
 
-    /// 航班行进航班详情(补充信息、导入截图更新都在那里),其余进编辑表单。
+    /// 航班行进航班详情(补充信息、导入截图更新都在那里),其余进行程项详情
+    /// (`TravelItemDetailView`,备注在第一个 section,编辑在它的工具栏里)。
+    /// 行本身只剩标题 + 一行摘要,展开的信息都在这一层。
     private func open(_ entry: TravelEntry) {
         guard let item = item(for: entry) else { return }
         if entry.kind == .flight {
             viewingFlight = item
         } else {
-            editingItem = item
+            viewingItem = item
         }
     }
 

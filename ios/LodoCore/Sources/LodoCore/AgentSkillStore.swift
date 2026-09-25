@@ -247,7 +247,8 @@ public enum AgentSkillStore {
     "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], \
     "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", \
     "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明"}]}\
-    (安排的写法:{"kind": "place 或 lodging", "title", "start", "end", "place", "note", \
+    (安排的写法:{"kind": "place / lodging / flight / train / coach", \
+    "title", "start", "end", "place", "note", \
     "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
 
     额外判断规则:
@@ -270,7 +271,9 @@ public enum AgentSkillStore {
     start 必填,日期落在要调整的那一天。
     - 调整会直接生效(卡片上可以撤销),所以只改用户说要改的那部分,不要顺手重排别的天,\
     也不要把没提到的项删了再原样加回来。
-    - 航班不能通过 edit_trip 删改,add 里也不要放航班——航班号和时刻不是你能决定的;\
+    - 用户把班次和时刻说清楚了(如"加一班 CA167,28号早上九点起飞""第三天高铁 G7 回上海"),\
+    add 里可以放 flight/train/coach,车次/航班号填进 code;**说不清就不要编**车次和时刻。
+    - **已经记下的航班不能通过 edit_trip 删改**(多半是从订单/截图导入的,时刻座位都是真的);\
     用户要改航班,如实说明去「旅行」页里改。带附件(订单确认单)的行程项 app 也不会删,\
     会在结果里如实列出来。
     - 用户要你**新增/修改行程项**时,不要用 actions 里的待办操作去凑\
@@ -283,7 +286,7 @@ public enum AgentSkillStore {
     额外支持的操作:
     - 规划行程:{"action": "plan_trip", "trip": "旅行名称", "start_date": "YYYY-MM-DD", \
     "end_date": "YYYY-MM-DD", "summary": "一句给用户的话,见下面的写法", "items": [安排, ...]}
-      每条安排:{"kind": "place 或 lodging", "title": "简短名称", \
+      每条安排:{"kind": "place / lodging / flight / train / coach", "title": "简短名称", \
     "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", \
     "place": "地点名,写成地图上搜得到的写法", "note": "怎么玩、怎么过去、要注意什么,一两句", \
     "price": 数字, "currency": "ISO 4217 币种码如 JPY"}
@@ -299,7 +302,10 @@ public enum AgentSkillStore {
     别排到深夜。每条 start 必填,end 能估就估;第一天和最后一天要考虑到达、离开的时间。
     - 住宿:没订酒店时给一条 lodging,title 写建议住的区域(如"住新宿一带"),start 为第一天\
     入住、end 为最后一天退房;不要编造具体酒店名和房价。
-    - 不要生成航班,kind 只能是 place 或 lodging——航班号和起降时刻编不出来。
+    - 交通类(flight/train/coach)**只在用户把班次和时刻说清楚了**(如"去程 CA167 早上九点"\
+    "第二天坐新干线 10:03 到京都")时才写,车次填进 code、时刻填进 start/end;\
+    用户没说就不要编航班号、车次和起降时刻,写成地点/住宿的安排即可,\
+    要坐什么车可以写在 note 里(如"从大阪坐特急过去,约 1 小时")。
     - 规划的是已经记过的某次旅行时(用户提到了那次旅行,或说"这趟"),有 read_trip 工具就先读行程:\
     trip 原样填那次旅行的名字,start_date/end_date 用它的日期;已经记下的航班、住宿、地点不要\
     重复生成,新安排避开航班落地之前和起飞之后的时间。新的旅行,trip 起一个"目的地+天数"的\
