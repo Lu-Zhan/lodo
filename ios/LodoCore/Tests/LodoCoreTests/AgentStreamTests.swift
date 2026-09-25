@@ -22,6 +22,30 @@ final class AgentStreamTests: XCTestCase {
         XCTAssertEqual(AgentStream.parseLine(line), .delta(content: nil, reasoning: "嗯"))
     }
 
+    /// OpenAI 的形状:usage 单独一片,choices 是空数组。
+    func testParsesUsageChunk() {
+        let line = #"data: {"choices":[],"usage":{"prompt_tokens":1120,"completion_tokens":320,"total_tokens":1440}}"#
+        XCTAssertEqual(AgentStream.parseLine(line), .usage(input: 1120, output: 320))
+    }
+
+    /// DeepSeek 的形状:usage 搭在最后那片 finish_reason 上,delta 里 content 是空串。
+    /// 按"这片有没有可显示的增量"判断,不能看 choices 空不空。
+    func testParsesUsageOnFinalEmptyDelta() {
+        let line = #"data: {"choices":[{"index":0,"delta":{"content":"","reasoning_content":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":3039,"completion_tokens":168,"total_tokens":3207}}"#
+        XCTAssertEqual(AgentStream.parseLine(line), .usage(input: 3039, output: 168))
+    }
+
+    /// 万一有网关把 usage 搭在正文那片上:正文优先,内容一个字都不能丢。
+    func testContentWinsOverUsageOnTheSameChunk() {
+        let line = #"data: {"choices":[{"delta":{"content":"你好"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}"#
+        XCTAssertEqual(AgentStream.parseLine(line), .delta(content: "你好", reasoning: nil))
+    }
+
+    func testIgnoresEmptyUsage() {
+        XCTAssertNil(AgentStream.parseLine(#"data: {"choices":[],"usage":null}"#))
+        XCTAssertNil(AgentStream.parseLine(#"data: {"choices":[],"usage":{}}"#))
+    }
+
     func testParsesDone() {
         XCTAssertEqual(AgentStream.parseLine("data: [DONE]"), .done)
     }

@@ -326,6 +326,7 @@ public enum DeepSeekClient {
         let raw: [String: Any]
         do {
             raw = try await payload(system: system, user: text, timeout: 90, thinking: true,
+                                    tracksUsage: true,
                                     onStream: onStream, onReasoning: onReasoning)
         } catch let DeepSeekError.parse(message)
             where message != malformedPayloadMessage
@@ -1396,9 +1397,13 @@ public enum DeepSeekClient {
     /// true——AI 助手对话入口才需要深度推理,解析/汇总等后台小请求不需要多等)。
     /// onStream / onReasoning 非 nil 时走 SSE 流式(只有 command 这条路径传),
     /// 端侧的苹果智能不支持,那条分支照旧一次性返回。
+    /// tracksUsage:把这次请求的 token 用量记进 `AIUsageMonitor`(标题行读它)。
+    /// **只有 `command()` 传 true**——那是用户"这句话"的成本;memorize/汇总/时长建议
+    /// 这些后台小请求不该混进去。端侧的苹果智能没有 usage 概念,那条路径不统计。
     private static func payload(system: String, user: String,
                                 timeout: TimeInterval = 20,
                                 thinking: Bool = false,
+                                tracksUsage: Bool = false,
                                 onStream: ((String) -> Void)? = nil,
                                 onReasoning: ((String) -> Void)? = nil) async throws -> [String: Any] {
         // 苹果智能:端侧推理,免 key,payload 形态与云端一致;端侧模型没有
@@ -1434,16 +1439,22 @@ public enum DeepSeekClient {
             return try await cloudStream(
                 endpoint: endpoint, apiKey: apiKey, model: AppSettings.aiModel,
                 system: system, user: user, timeout: timeout, thinking: thinking,
-                onStream: onStream, onReasoning: onReasoning)
+                tracksUsage: tracksUsage, onStream: onStream, onReasoning: onReasoning)
         }
         return try await cloudRequest(endpoint: endpoint, apiKey: apiKey,
                                       model: AppSettings.aiModel, system: system,
-                                      user: user, timeout: timeout, thinking: thinking)
+                                      user: user, timeout: timeout, thinking: thinking,
+                                      tracksUsage: tracksUsage)
     }
 
     /// 已知不支持 SSE 的 endpoint(试过一次就失败的),本次运行内不再试。
     /// 只活在内存里:不落盘、不进设置页——服务商那边改好了,重开 app 就会再试。
     private static var unsupportedStreamEndpoints: Set<String> = []
+
+    /// 带了 `stream_options` 就报错的 endpoint(有的网关不认这个多出来的字段,
+    /// 直接 400)。去掉它重试一次仍然是流式——不能因为要不到 token 数就把一个
+    /// 本来好用的流式能力整条拉黑。同样只活在内存里。
+    private static var usageUnsupportedStreamEndpoints: Set<String> = []
 
     /// 流式版本的 cloudRequest:边收边把 `answer` 的正文喂给 onStream,
     /// 收完之后仍然交给同一个 `decodePayload`——**最终结果的解析路径与非流式
@@ -1454,14 +1465,18 @@ public enum DeepSeekClient {
     /// 否则屏幕上会留下"半句 + 完整句"两段。
     private static func cloudStream(
         endpoint: URL, apiKey: String, model: String, system: String, user: String,
-        timeout: TimeInterval, thinking: Bool,
+        timeout: TimeInterval, thinking: Bool, tracksUsage: Bool = false,
         onStream: ((String) -> Void)?, onReasoning: ((String) -> Void)?
     ) async throws -> [String: Any] {
+        let monitor = tracksUsage ? AIUsageMonitor.shared : nil
         func fallback() async throws -> [String: Any] {
             onStream?("")
+            // 同一次逻辑请求不能数两遍:这条流上已经数过的分片作废,
+            // 交给下面那次一次性请求报它自己的精确 usage。
+            monitor?.discardRequest()
             return try await cloudRequest(endpoint: endpoint, apiKey: apiKey, model: model,
                                           system: system, user: user, timeout: timeout,
-                                          thinking: thinking)
+                                          thinking: thinking, tracksUsage: tracksUsage)
         }
         guard !unsupportedStreamEndpoints.contains(endpoint.absoluteString) else {
             return try await fallback()
@@ -1486,6 +1501,10 @@ public enum DeepSeekClient {
         if thinking, AppSettings.thinkingLevel != "off" {
             body["reasoning_effort"] = AppSettings.thinkingLevel
         }
+        // 不带这个字段服务端一片 usage 都不会发,标题行就只能显示估算值。
+        let includeUsage = tracksUsage
+            && !usageUnsupportedStreamEndpoints.contains(endpoint.absoluteString)
+        if includeUsage { body["stream_options"] = ["include_usage": true] }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         var scanner = AnswerStreamScanner()
@@ -1494,6 +1513,15 @@ public enum DeepSeekClient {
         do {
             let (bytes, response) = try await URLSession.shared.bytes(for: request)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                if includeUsage {
+                    // 多半是网关不认 stream_options。记下来、去掉它重试一次流式
+                    // (集合里已经有了,重试那次的 includeUsage 必为 false,不会再递归)。
+                    usageUnsupportedStreamEndpoints.insert(endpoint.absoluteString)
+                    return try await cloudStream(
+                        endpoint: endpoint, apiKey: apiKey, model: model, system: system,
+                        user: user, timeout: timeout, thinking: thinking,
+                        tracksUsage: tracksUsage, onStream: onStream, onReasoning: onReasoning)
+                }
                 unsupportedStreamEndpoints.insert(endpoint.absoluteString)
                 return try await fallback()
             }
@@ -1505,7 +1533,12 @@ public enum DeepSeekClient {
                 switch event {
                 case .done:
                     break streaming
+                case .usage(let input, let output):
+                    monitor?.report(inputTokens: input, outputTokens: output)
                 case .delta(let content, let reasoning):
+                    // content 和 reasoning 各算一片 ≈ 一个 token:精确值没来时的兜底,
+                    // 顺便撑起"生成时长"那个分母(第一片的时刻才是生成开始)。
+                    monitor?.noteDelta()
                     if let reasoning, !reasoning.isEmpty { onReasoning?(reasoning) }
                     guard let content, !content.isEmpty else { continue }
                     raw += content
@@ -1533,7 +1566,11 @@ public enum DeepSeekClient {
             return try await fallback()
         }
         do {
-            return try decodePayload(from: raw)
+            let decoded = try decodePayload(from: raw)
+            // 折进累计的时机放在解析成功之后:下面两条退回一次性请求的岔路上
+            // 这次的计数要作废(fallback() 里 discardRequest),不能已经折进去了。
+            monitor?.endRequest()
+            return decoded
         } catch let DeepSeekError.parse(message) where message == malformedPayloadMessage {
             // 有花括号但给坏了(多半是截断):退回一次性请求重来一遍,比直接
             // 报错好——非流式那条路上同样的输入常常是好的。
@@ -1545,7 +1582,8 @@ public enum DeepSeekClient {
     /// 不可用时的 DeepSeek 退回共用。
     private static func cloudRequest(
         endpoint: URL, apiKey: String, model: String,
-        system: String, user: String, timeout: TimeInterval, thinking: Bool = false
+        system: String, user: String, timeout: TimeInterval, thinking: Bool = false,
+        tracksUsage: Bool = false
     ) async throws -> [String: Any] {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
@@ -1568,6 +1606,10 @@ public enum DeepSeekClient {
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
+        // 这条路上没有增量,量不到"第一个 token 什么时候到",只能拿整次请求的耗时
+        // 当生成时长——算出来的速度偏慢(把 prompt 处理和排队都算进去了)。这是
+        // 回退路径的固有损失,主路径(流式)不受影响。
+        let started = Date()
         let (data, response) = try await send(request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let body = String(data: data, encoding: .utf8) ?? ""
@@ -1578,6 +1620,15 @@ public enum DeepSeekClient {
               let message = choices.first?["message"] as? [String: Any],
               let content = message["content"] as? String else {
             throw DeepSeekError.parse(malformedPayloadMessage)
+        }
+        if tracksUsage {
+            let monitor = AIUsageMonitor.shared
+            monitor.beginRequest(at: started)
+            if let usage = root["usage"] as? [String: Any] {
+                monitor.report(inputTokens: usage["prompt_tokens"] as? Int,
+                               outputTokens: usage["completion_tokens"] as? Int)
+            }
+            monitor.endRequest()
         }
         return try decodePayload(from: content)
     }

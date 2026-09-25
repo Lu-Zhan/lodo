@@ -120,22 +120,17 @@ struct AgentView: View {
         isInputFocused = true
     }
 
-    /// 标题下面那行小字:服务商 + 思考强度(关闭时不提)+ 联网搜索是否已配置。
-    private var aiModeSummary: String {
-        var parts = [AppSettings.aiProvider]
-        if AppSettings.thinkingLevel != "off" {
-            // 不能简写成"思考+强度"("思考中"会被读成"正在思考"这个进行时状态,
-            // 和思考强度=中撞了),用"强度思考"的顺序避开这个歧义。
-            let label: String
-            switch AppSettings.thinkingLevel {
-            case "low": label = "低强度"
-            case "high": label = "高强度"
-            default: label = "中等"
-            }
-            parts.append("\(label)思考")
-        }
-        if WebSearchClient.isConfigured { parts.append("联网搜索") }
-        return parts.joined(separator: " · ")
+    /// 标题下面那行小字的前半截:当前服务商。
+    ///
+    /// 这儿曾经还带思考强度——那是个静态设置项(设置页有 Picker),摆在对话页
+    /// 最显眼的位置每次都一样、没有信息量,现在让位给 token 用量与速度
+    /// (`AgentTitleView` 自己读 `AIUsageMonitor`)。
+    private var aiModeSummary: String { AppSettings.aiProvider }
+
+    /// 后半截:联网搜索是否已配置。有 token 指标可报时被指标顶掉(见
+    /// `AgentTitleView`)——导航栏这行放不下两截都留。
+    private var aiCapabilitySummary: String? {
+        WebSearchClient.isConfigured ? "联网搜索" : nil
     }
 
     var body: some View {
@@ -173,7 +168,8 @@ struct AgentView: View {
                 // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
                 // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
                 ToolbarItem(placement: .principal) {
-                    AgentTitleView(title: "AI 助手", subtitle: aiModeSummary)
+                    AgentTitleView(title: "AI 助手", mode: aiModeSummary,
+                                   capability: aiCapabilitySummary)
                 }
             }
             .sidebarToolbarButton()
@@ -360,6 +356,13 @@ struct AgentView: View {
                             streamingAnswer = shown
                         }
                     }
+                }
+                // 截图验证用:不走网络,直接往用量观察点里摆一轮完成态的数字,
+                // 看标题第二行那截「↑… ↓… · NN tok/s」的排版和截断。
+                if ProcessInfo.processInfo.arguments.contains("--demo-agent-usage") {
+                    AIUsageMonitor.shared.seed(
+                        AIUsage(inputTokens: 1120, outputTokens: 320, isEstimated: false,
+                                generatingSeconds: 10, requests: 1))
                 }
                 // 截图验证用:模拟长按气泡选了"修改"——直接弹出截断确认弹窗
                 // (simctl 没法长按+点菜单项)。
@@ -1651,14 +1654,27 @@ private struct ImageViewerTarget: Identifiable {
 
 /// 点输入卡片里的缩略图打开的大图查看页:黑底,左右滑动切换这次要发的几张照片,
 /// 点图片以外的空白处回到对话。
-/// 导航栏正中两行:对话标题 + AI 模式。恒定渲染、只淡出内容——导航栏高度才不会
+/// 导航栏正中两行:对话标题 + 第二行「服务商 · token 用量/速度」(还没发过请求时
+/// 后半截是联网搜索这类能力标记)。恒定渲染、只淡出内容——导航栏高度才不会
 /// 跟着抽屉/右栏开合跳变。
 private struct AgentTitleView: View {
     let title: String
-    let subtitle: String
+    /// 当前服务商。
+    let mode: String
+    /// 联网搜索这类能力标记;有 token 指标时被它顶掉。
+    let capability: String?
     @Environment(\.sidebarChrome) private var chrome
+    /// token 用量/速度。**故意在这个子视图里读**:每 0.25s 跳一次数字,
+    /// 在 AgentView.body 里读会把整条 chatStack 跟着重建,这里只重建导航栏这两行。
+    private let usage = AIUsageMonitor.shared
 
     private var hides: Bool { chrome?.hidesChrome ?? false }
+
+    private var subtitle: String {
+        [mode, usage.turn?.badge ?? capability]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
 
     var body: some View {
         VStack(spacing: 1) {
@@ -1667,6 +1683,8 @@ private struct AgentTitleView: View {
                 .lineLimit(1)
             Text(subtitle)
                 .font(.caption)
+                .monospacedDigit()
+                .lineLimit(1)
                 .foregroundStyle(.secondary)
         }
         .opacity(hides ? 0 : 1)

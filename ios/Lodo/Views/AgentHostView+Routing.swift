@@ -29,6 +29,13 @@ extension AgentHostView {
             return performUndo()
         }
 
+        // token 用量统计的"一轮"边界:ReAct 循环就在这个函数里,几次请求相加正好
+        // 是用户这句话的成本。放这儿而不是 AgentView.send——统计和 UI 无关,
+        // 聊天页只负责把 AIUsageMonitor 里的数字显示出来。取消/抛错时 defer 照样跑,
+        // 冻结的是已经花掉的那部分,如实。
+        AIUsageMonitor.shared.beginTurn()
+        defer { AIUsageMonitor.shared.endTurn() }
+
         let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         var reasoningHistory = history
         var currentText = text

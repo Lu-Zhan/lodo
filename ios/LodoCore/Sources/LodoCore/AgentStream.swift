@@ -8,6 +8,12 @@ public enum AgentStream {
         /// 一片增量。content 是正文(我们协议里是 JSON 的碎片),
         /// reasoning 是推理模型先吐的思考过程。
         case delta(content: String?, reasoning: String?)
+        /// 服务端报的 token 用量。请求体带了 `stream_options.include_usage` 才会有。
+        /// **它不一定单独占一片**:OpenAI 是 `choices` 空数组的一片,DeepSeek 是
+        /// 搭在最后那片 `finish_reason: "stop"` 上、delta 里 content 是空串。所以
+        /// 判据是"这片没有可显示的增量",而不是"choices 是空的"——真有内容的那片
+        /// 仍然走 delta,内容一个字都不能丢。
+        case usage(input: Int?, output: Int?)
         case done
     }
 
@@ -23,14 +29,22 @@ public enum AgentStream {
             .trimmingCharacters(in: .whitespaces)
         guard payload != "[DONE]" else { return .done }
         guard let root = try? JSONSerialization.jsonObject(with: Data(payload.utf8))
-                as? [String: Any],
-              let choices = root["choices"] as? [[String: Any]],
-              let delta = choices.first?["delta"] as? [String: Any] else { return nil }
-        let content = delta["content"] as? String
+                as? [String: Any] else { return nil }
+        let delta = (root["choices"] as? [[String: Any]])?.first?["delta"] as? [String: Any]
+        let content = delta?["content"] as? String
         // reasoning_content 是 DeepSeek 的字段名,reasoning 是另一些兼容服务商的。
-        let reasoning = (delta["reasoning_content"] as? String) ?? (delta["reasoning"] as? String)
-        guard content != nil || reasoning != nil else { return nil }
-        return .delta(content: content, reasoning: reasoning)
+        let reasoning = (delta?["reasoning_content"] as? String) ?? (delta?["reasoning"] as? String)
+        // 空串不算增量:收流那边本来就会跳过它,而 DeepSeek 正是把 usage 搭在
+        // 这样一片空 delta 上,当成 delta 处理就再也读不到 token 数了。
+        if !(content ?? "").isEmpty || !(reasoning ?? "").isEmpty {
+            return .delta(content: content, reasoning: reasoning)
+        }
+        if let usage = root["usage"] as? [String: Any] {
+            let input = usage["prompt_tokens"] as? Int
+            let output = usage["completion_tokens"] as? Int
+            if input != nil || output != nil { return .usage(input: input, output: output) }
+        }
+        return nil
     }
 }
 
