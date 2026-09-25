@@ -35,8 +35,13 @@ struct AgentHostView: View {
     /// 从展示页以 sheet 弹出时显示关闭按钮；侧栏里的常驻 AI 页面不显示。
     let showsCloseButton: Bool
 
-    init(agentRequest: Binding<String?>, showsCloseButton: Bool = false) {
+    /// 从哪一页的「问问 AI」条唤出;侧栏里的 AI 页为 nil。见 `AgentPageFocus`。
+    let pageFocus: AgentPageFocus?
+
+    init(agentRequest: Binding<String?>, showsCloseButton: Bool = false,
+         pageFocus: AgentPageFocus? = nil) {
         self._agentRequest = agentRequest
+        self.pageFocus = pageFocus
         self.showsCloseButton = showsCloseButton
     }
 

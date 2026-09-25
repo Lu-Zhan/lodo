@@ -286,6 +286,8 @@ public enum DeepSeekClient {
         healthEnabled: Bool = false,
         travelEnabled: Bool = false,
         tripPlanEnabled: Bool = false,
+        /// 从哪一页唤出;nil ⇒ 整段不出现(侧栏 AI 页、Watch)。
+        pageFocus: AgentPageFocus? = nil,
         history: [(role: String, content: String)] = [],
         /// 更早对话的摘要;默认 nil ⇒ 整段不出现,Watch 等调用方 prompt 逐字不变。
         summary: String? = nil,
@@ -313,7 +315,7 @@ public enum DeepSeekClient {
         \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")\
         \(tripPlanEnabled ? "\n\n" + AgentSkillStore.content(for: .tripPlanner) : "")
 
-        \(timeContext)\(preferencesBlock)
+        \(timeContext)\(preferencesBlock)\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")
 
         当前待办列表:
         \(json(list))\(personaBlock)\(summaryBlock(summary))\(historyBlock(history))

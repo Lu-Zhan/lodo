@@ -81,7 +81,7 @@ struct ContactListView: View {
                 }
             }
             .sidebarToolbarButton()
-            .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .contact, isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .sheet(isPresented: $showGraph) {
                 NavigationStack {
                     ContactGraphView()

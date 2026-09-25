@@ -51,7 +51,7 @@ struct MenuListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .menu, isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .navigationDestination(for: MemoryItem.self) { menu in
                 MenuDetailView(menu: menu)
             }

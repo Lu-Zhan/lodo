@@ -78,7 +78,7 @@ struct TravelListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .travel, isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .navigationDestination(for: TravelTrip.self) { trip in
                 TravelDetailView(trip: trip)
             }

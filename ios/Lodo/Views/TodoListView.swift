@@ -337,7 +337,7 @@ struct TodoListView: View {
             // 左上角只剩 ☰。项目字段本身还在(表单里能填、AI 也会填),只是
             // 暂时没有按项目浏览的入口(`ProjectListView` 原样留着)。
             .sidebarToolbarButton()
-            .askBar(isVisible: !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .todo, isVisible: !(sidebarChrome?.hidesChrome ?? false))
             // 剩下的三个 sheet 目的地都是叠在待办列表上的卡片型表单
             // (新建/编辑事项、编辑定时任务),iOS 和 macOS 走同一路。
             .sheet(item: $sheet, onDismiss: handleSheetDismiss) { mode in

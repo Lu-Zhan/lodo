@@ -92,7 +92,7 @@ struct HealthView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .askBar(isVisible: !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .health, isVisible: !(sidebarChrome?.hidesChrome ?? false))
             .task {
                 await reload()
                 #if DEBUG

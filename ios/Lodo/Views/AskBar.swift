@@ -14,6 +14,7 @@ import LodoCore
 /// 调用顺序是先 `.floatingAddAction`、后 `.askBar()`,FAB 才会落在对话条上方。
 private struct AskBarModifier: ViewModifier {
     let isVisible: Bool
+    let focus: AgentPageFocus
 
     #if DEBUG
     @Environment(\.sectionIsActive) private var sectionIsActive
@@ -48,7 +49,7 @@ private struct AskBarModifier: ViewModifier {
             }
             #endif
             .sheet(isPresented: $showAgent) {
-                AgentHostView(agentRequest: $prefill, showsCloseButton: true)
+                AgentHostView(agentRequest: $prefill, showsCloseButton: true, pageFocus: focus)
                     // 拉起来的这层里不该再有 ☰:抽屉在 sheet **背后**,点了只会
                     // 在看不见的地方推开一扇门。把 chrome 覆盖成 nil,
                     // `sidebarToolbarButton()` 那颗按钮自然不渲染。
@@ -93,7 +94,8 @@ private struct AskBarModifier: ViewModifier {
 extension View {
     /// 底部「问问 AI」对话条。`isVisible` 的判据和 `floatingAddAction` 一致:
     /// 二级页(push 进详情)和抽屉推开时都收起来。
-    func askBar(isVisible: Bool = true) -> some View {
-        modifier(AskBarModifier(isVisible: isVisible))
+    /// `focus` 是所在页面:唤出的 AI 默认把含糊指令当成这一页的事。
+    func askBar(focus: AgentPageFocus, isVisible: Bool = true) -> some View {
+        modifier(AskBarModifier(isVisible: isVisible, focus: focus))
     }
 }

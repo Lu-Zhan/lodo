@@ -51,7 +51,7 @@ extension AgentHostView {
                 webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
                 travelEnabled: travelEnabled,
                 // 规划行程不看库里有没有旅行:"帮我规划东京四天"本来就是从零开始的。
-                tripPlanEnabled: true, history: reasoningHistory,
+                tripPlanEnabled: true, pageFocus: pageFocus, history: reasoningHistory,
                 // 窗口之外的历史压成的常驻摘要。ReAct 每轮都带同一份——它不像
                 // history 那样随轮次增长。
                 summary: AgentConversationSummary.content,
