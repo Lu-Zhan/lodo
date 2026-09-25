@@ -20,6 +20,9 @@ struct HealthView: View {
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
     private var memoryItems: [MemoryItem]
 
+    /// 抽屉推开时要把底部那条「问问 AI」一起收起来(理由同 ☰)。
+    @Environment(\.sidebarChrome) private var sidebarChrome
+
     @State private var report: HealthReport = .empty
     @State private var analysis: HealthAnalysis?
     @State private var loadingReport = false
@@ -87,6 +90,7 @@ struct HealthView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
+            .askBar(isVisible: !(sidebarChrome?.hidesChrome ?? false))
             .sheet(isPresented: $showCompose) {
                 MemoryComposeView(presetTags: [MemoryItem.healthTagName])
             }

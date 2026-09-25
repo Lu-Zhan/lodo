@@ -6,8 +6,10 @@ import LodoCore
 import UIKit
 #endif
 
-/// "记忆" tab:AI 整理后的收藏条目列表。顶部搜索框输入即本地过滤 + 标签筛选;
-/// 自然语言问答统一走侧栏的「AI 助手」页(AgentHostView+Routing.answerFromMemory)。
+/// "记忆" tab:AI 整理后的收藏条目列表,筛选靠侧栏的标签/资产行。
+/// **这一页自己没有搜索框**——底下常驻着「问问 AI」那条,找东西说一句就行,
+/// 再摆一个只按标题关键词匹配的本地搜索框是同一件事的两个入口、还弱一档;
+/// 自然语言检索走 AI 助手(AgentHostView+Routing.answerFromMemory)。
 struct MemoryListView: View {
     /// 抽屉推开时要把整条工具栏撤掉(理由同 ☰,见 sidebarToolbarButton 的注释)。
     @Environment(\.sidebarChrome) private var sidebarChrome
@@ -25,64 +27,47 @@ struct MemoryListView: View {
     /// 只为让标签行随"用户创建标签"变化刷新;全集经 MemoryTags 汇总。
     @Query private var createdTags: [MemoryTag]
 
-    @State private var query = ""
     @State private var selectedTags: Set<String> = []
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @State private var showAssets = false
-    @State private var showContacts = false
     @State private var showCompose = false
     @State private var showAssetCompose = false
-    @State private var showContactCompose = false
-    @State private var showContactGraph = false
     @State private var showFileImporter = false
     @State private var showTagManage = false
     @State private var pendingDelete: MemoryItem?
-    #if os(iOS)
-    @State private var showContactImportConfirm = false
-    @State private var showContactPicker = false
-    @State private var showContactExportPicker = false
-    @State private var contactsPermissionDenied = false
-    @State private var contactImportResultMessage: String?
-    #endif
-    #if DEBUG
-    /// 截图验证用:simctl 点不了 List 行,--demo-contact-detail 直接弹详情。
-    @State private var demoContactDetailTarget: MemoryItem?
-    #endif
 
-    /// 普通内容标签(不含"资产""人脉"这两个保留标签——它们各有自己独立的
-    /// 筛选开关,不跟其他标签混在一起,更醒目也避免用户把它们当成普通标签删掉)。
+    /// 普通内容标签(不含"资产""人脉"这两个保留标签——资产有自己独立的显示开关,
+    /// 人脉整个独立成页,都不该跟普通标签混在一起,也避免用户把它们当成普通标签删掉)。
     private var allTags: [String] {
         MemoryTags.all(in: context)
             .filter { !MemoryItem.hiddenByDefaultTagNames.contains($0) }
     }
 
     private var activeFilterCount: Int {
-        selectedTags.count + (showAssets ? 1 : 0) + (showContacts ? 1 : 0)
+        selectedTags.count + (showAssets ? 1 : 0)
     }
 
     /// 当前筛选的一句话描述,给列表顶部那行"清除筛选"用。
     private var filterSummary: String {
         if showAssets { return MemoryItem.assetTagName }
-        if showContacts { return MemoryItem.contactTagName }
         return selectedTags.sorted().map { "#" + $0 }.joined(separator: " ")
     }
 
     private func clearFilters() {
         selectedTags = []
         showAssets = false
-        showContacts = false
     }
 
-    /// 文字过滤与标签筛选取交集,标签内部是"同时具备"。资产/人脉条目默认隐藏——
-    /// 不是各自的筛选没打开就永远不会出现在任何列表里,是这类私密/结构化条目
-    /// 不该跟日常收藏混在一起刷屏,筛选里显式选中才看得到。两个维度互相独立
-    /// (不会出现"资产"打开时人脉也跟着冒出来)。
+    /// 文字过滤与标签筛选取交集,标签内部是"同时具备"。资产条目默认隐藏——
+    /// 不是筛选没打开就永远不会出现在任何列表里,是这类私密/结构化条目不该跟
+    /// 日常收藏混在一起刷屏,侧栏点「资产」才看得到。人脉条目在这里**一律不出现**
+    /// ——它整个独立成了一页(ContactListView),留在记忆列表里只会一条内容
+    /// 两个入口、两副样子。
     private var filtered: [MemoryItem] {
         items.filter { item in
             (item.isAsset ? showAssets : true)
-                && (item.isContact ? showContacts : true)
+                && !item.isContact
                 && selectedTags.allSatisfy { item.tags.contains($0) }
-                && item.matches(query)
         }
     }
 
@@ -93,16 +78,15 @@ struct MemoryListView: View {
             rates: ExchangeRateStore.shared)
     }
 
-    /// 侧栏点了某个标签行:资产/人脉各有自己独立的显示开关(它们默认从列表隐藏),
-    /// 其余标签走普通的标签筛选。每次都先清掉上一轮的筛选,不做叠加——侧栏那一下
-    /// 是"我要看这一类",不是"再加一个条件"。
+    /// 侧栏点了某个标签行:资产有自己独立的显示开关(它默认从列表隐藏),其余标签
+    /// 走普通的标签筛选。每次都先清掉上一轮的筛选,不做叠加——侧栏那一下是"我要看
+    /// 这一类",不是"再加一个条件"。侧栏不再有「人脉」标签行(它是独立页面)。
     private func consumeTagFilter(_ tag: String?) {
         guard let tag else { return }
         tagFilter = nil
         clearFilters()
         switch tag {
         case MemoryItem.assetTagName: showAssets = true
-        case MemoryItem.contactTagName: showContacts = true
         default: selectedTags = [tag]
         }
     }
@@ -120,9 +104,9 @@ struct MemoryListView: View {
                     }
                 }
                 if activeFilterCount > 0 {
-                    // 筛选现在只从侧栏(标签/资产/人脉行)和搜索建议进来,工具栏
-                    // 那颗筛选按钮已经撤掉——不给一个就地取消的入口的话,点进某个
-                    // 标签之后就出不来了。
+                    // 筛选现在只从侧栏(标签/资产行)进来,工具栏那颗筛选按钮
+                    // 已经撤掉——不给一个就地取消的入口的话,点进某个标签之后
+                    // 就出不来了。
                     Section {
                         Button(role: .destructive) {
                             clearFilters()
@@ -133,7 +117,11 @@ struct MemoryListView: View {
                     }
                 }
                 Section {
-                    if items.isEmpty {
+                    // 空态的判据是"筛完之后什么都不剩 + 现在没开筛选",不是
+                    // `items.isEmpty`:人脉条目也是 MemoryItem,库里只有人脉时
+                    // items 不空、这一页却一条都没有,那时该说的是"还没有收藏",
+                    // 不是"这个筛选下没有"(用户根本没开筛选)。
+                    if filtered.isEmpty, activeFilterCount == 0 {
                         ContentUnavailableView {
                             Label("还没有收藏", systemImage: "sparkles.rectangle.stack")
                         } description: {
@@ -141,9 +129,9 @@ struct MemoryListView: View {
                         }
                     } else if filtered.isEmpty {
                         ContentUnavailableView(
-                            showAssets ? "还没有资产记录" : "没有匹配的收藏",
-                            systemImage: showAssets ? "creditcard" : "magnifyingglass",
-                            description: Text(showAssets ? "点右下角「+」记一笔资产。" : "换个关键词,或取消选中的筛选。"))
+                            showAssets ? "还没有资产记录" : "这个筛选下还没有收藏",
+                            systemImage: showAssets ? "creditcard" : "line.3.horizontal.decrease",
+                            description: Text(showAssets ? "点右下角「+」记一笔资产。" : "取消上面选中的筛选就能看到全部。"))
                     } else {
                         ForEach(filtered) { item in
                             // 目的地统一挂在下面的 navigationDestination 上:
@@ -192,74 +180,11 @@ struct MemoryListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-assets-view") {
                     showAssets = true
                 }
-                if ProcessInfo.processInfo.arguments.contains("--demo-contacts-view") {
-                    showContacts = true
-                }
-                if ProcessInfo.processInfo.arguments.contains("--demo-contact-compose") {
-                    showContactCompose = true
-                }
-                if ProcessInfo.processInfo.arguments.contains("--demo-contact-graph") {
-                    showContacts = true
-                    showContactGraph = true
-                }
-                if ProcessInfo.processInfo.arguments.contains("--demo-contact-detail"),
-                   let first = items.first(where: { $0.isContact }) {
-                    demoContactDetailTarget = first
-                }
-                #if os(iOS)
-                // 截图验证用:批量导出选择页不需要通讯录权限就能看列表(权限只在
-                // 真正点"导出"时才用到),跳过 beginContactExport() 的权限请求直接弹出。
-                if ProcessInfo.processInfo.arguments.contains("--demo-contact-export-picker") {
-                    showContacts = true
-                    showContactExportPicker = true
-                }
-                #endif
                 #endif
             }
             .onChange(of: tagFilter) { _, tag in consumeTagFilter(tag) }
             .navigationDestination(for: MemoryItem.self) { item in
-                if item.isContact {
-                    ContactDetailView(item: item)
-                } else {
-                    MemoryDetailView(item: item)
-                }
-            }
-            .searchable(text: $query, prompt: "搜索收藏")
-            .searchSuggestions {
-                if !query.trimmingCharacters(in: .whitespaces).isEmpty {
-                    // 输入内容命中标签名时,提供"按标签筛选"的快捷入口
-                    ForEach(allTags.filter { $0.localizedStandardContains(query) },
-                            id: \.self) { tag in
-                        Button {
-                            selectedTags.insert(tag)
-                            query = ""
-                        } label: {
-                            Label("标签:\(tag)", systemImage: "tag")
-                        }
-                    }
-                }
-            }
-            .toolbar {
-                if !(sidebarChrome?.hidesChrome ?? false) {
-                    if showContacts {
-                        ToolbarItem(placement: .navigation) {
-                            Button {
-                                showContactGraph = true
-                            } label: {
-                                Label("关系图谱", systemImage: "point.3.connected.trianglepath.dotted")
-                            }
-                        }
-                        #if os(iOS)
-                        ToolbarItem(placement: .navigation) {
-                            Button {
-                                Task { await beginContactExport() }
-                            } label: {
-                                Label("批量导出到通讯录", systemImage: "square.and.arrow.up")
-                            }
-                        }
-                        #endif
-                    }
-                }
+                MemoryDetailView(item: item)
             }
             .sidebarToolbarButton()
             .floatingAddAction(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false)) {
@@ -277,18 +202,6 @@ struct MemoryListView: View {
                     Button("记一笔资产", systemImage: "creditcard") {
                         showAssetCompose = true
                     }
-                    Button("记一位人脉", systemImage: "person.crop.circle.badge.plus") {
-                        showContactCompose = true
-                    }
-                    #if os(iOS)
-                    Button("从通讯录批量导入", systemImage: "person.crop.circle.badge.plus") {
-                        showContactImportConfirm = true
-                    }
-                    Button("从通讯录选择导入", systemImage: "person.crop.circle.badge.checkmark") {
-                        // 系统选择器只把选中的联系人交给 app,无需读取通讯录权限。
-                        showContactPicker = true
-                    }
-                    #endif
                     Divider()
                     Button("管理标签", systemImage: "tag") {
                         showTagManage = true
@@ -298,69 +211,16 @@ struct MemoryListView: View {
                 }
                 .accessibilityLabel("收藏")
             }
+            .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .sheet(isPresented: $showCompose) {
                 MemoryComposeView()
             }
             .sheet(isPresented: $showAssetCompose) {
                 AssetComposeView(onSaved: { showAssets = true })
             }
-            .sheet(isPresented: $showContactCompose) {
-                ContactComposeView(onSaved: { showContacts = true })
-            }
-            .sheet(isPresented: $showContactGraph) {
-                NavigationStack {
-                    ContactGraphView()
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("关闭") { showContactGraph = false }
-                            }
-                        }
-                }
-            }
             .sheet(isPresented: $showTagManage) {
                 MemoryTagManageView()
             }
-            #if os(iOS)
-            .sheet(isPresented: $showContactPicker) {
-                ContactPickerView(
-                    onPicked: { cnContacts in
-                        showContactPicker = false
-                        let result = ContactsBridge.importContacts(cnContacts, context: context)
-                        contactImportResultMessage = importSummary(result)
-                        showContacts = true
-                    },
-                    onCancel: { showContactPicker = false })
-            }
-            .sheet(isPresented: $showContactExportPicker) {
-                ContactExportPickerView()
-            }
-            .confirmationDialog(
-                "确定要导入通讯录中的全部联系人吗?", isPresented: $showContactImportConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("导入") { Task { await beginBulkImport() } }
-            } message: {
-                Text("已存在的人脉(按手机号/邮箱匹配)会自动跳过,不会重复导入。")
-            }
-            .alert("导入完成", isPresented: Binding(
-                get: { contactImportResultMessage != nil },
-                set: { if !$0 { contactImportResultMessage = nil } }
-            )) {
-                Button("好") { contactImportResultMessage = nil }
-            } message: {
-                Text(contactImportResultMessage ?? "")
-            }
-            .alert("无法访问通讯录", isPresented: $contactsPermissionDenied) {
-                Button("好", role: .cancel) {}
-            } message: {
-                Text("请在系统设置 → 隐私与安全性 → 通讯录 里允许 lodo 访问。")
-            }
-            #endif
-            #if DEBUG
-            .sheet(item: $demoContactDetailTarget) { target in
-                NavigationStack { ContactDetailView(item: target) }
-            }
-            #endif
             .fileImporter(
                 isPresented: $showFileImporter,
                 allowedContentTypes: [.pdf, .image, .plainText, .presentation, .data],
@@ -421,39 +281,11 @@ struct MemoryListView: View {
     }
     #endif
 
-    #if os(iOS)
-    // MARK: - 通讯录批量导入/导出(权限门控,选择导入的系统选择器不需要走这里)
-
-    private func beginBulkImport() async {
-        guard await ContactsBridge.requestAccess() == .granted else {
-            contactsPermissionDenied = true
-            return
-        }
-        let result = ContactsBridge.importContacts(ContactsBridge.fetchAllContacts(), context: context)
-        contactImportResultMessage = importSummary(result)
-        showContacts = true
-    }
-
-    private func beginContactExport() async {
-        guard await ContactsBridge.requestAccess() == .granted else {
-            contactsPermissionDenied = true
-            return
-        }
-        showContactExportPicker = true
-    }
-
-    private func importSummary(_ result: (imported: Int, skipped: Int)) -> String {
-        var message = "已导入 \(result.imported) 位"
-        if result.skipped > 0 { message += ",跳过 \(result.skipped) 位重复" }
-        return message
-    }
-    #endif
-
     #if DEBUG
     // MARK: - 测试数据(--demo-seed-memory,仅在收藏为空时插入)
 
     /// 截图/测试用:文字、链接、资产几种典型场景,status 直接给 ready,
-    /// 不经过 AI 整理请求。
+    /// 不经过 AI 整理请求。样板人脉归人脉页自己种(见 ContactListView)。
     private func seedDemoMemory() {
         context.insert(MemoryItem(
             kind: .text, title: "读书笔记:原子习惯",
@@ -503,19 +335,6 @@ struct MemoryListView: View {
             sourceText: "市值约 300 万,房贷还剩 100 万,商业贷款利率 4.5%。",
             status: .ready, assetValue: 3000000, assetLiability: 1000000,
             assetInterestRate: 4.5))
-
-        let zhang = MemoryItem(
-            kind: .text, title: "张三", summary: "前同事,喜欢爬山。",
-            tags: [MemoryItem.contactTagName], sourceText: "前同事,喜欢爬山。咖啡",
-            status: .ready, contactNickname: "小张", contactPhone: "13800000000",
-            contactPreferences: "咖啡")
-        let li = MemoryItem(
-            kind: .text, title: "李四", summary: "大学同学。",
-            tags: [MemoryItem.contactTagName], sourceText: "大学同学。",
-            status: .ready, contactEmail: "li4@example.com")
-        context.insert(zhang)
-        context.insert(li)
-        context.insert(ContactRelationship(memoryUUIDA: zhang.uuid, memoryUUIDB: li.uuid, label: "同事"))
 
         try? context.save()
     }

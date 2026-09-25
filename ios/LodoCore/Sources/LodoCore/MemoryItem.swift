@@ -218,7 +218,9 @@ public final class MemoryItem {
     /// 老数据(多币种支持加入前创建)没有 assetCurrency,统一按人民币对待——
     /// 展示格式化、汇总换算都读这个,不直接读 assetCurrency。
     public var assetCurrencyOrDefault: String { assetCurrency ?? "CNY" }
-    /// 保留标签:打了这个标签的记忆条目按"人脉"对待,和资产同一套隐藏/筛选规则。
+    /// 保留标签:打了这个标签的记忆条目按"人脉"对待。人脉有自己的一页
+    /// (ContactListView),所以它比资产更彻底——记忆列表里一律不出现,
+    /// 不像资产那样还能靠侧栏那一行显式筛出来。
     public static let contactTagName = "人脉"
     public var isContact: Bool { tags.contains(Self.contactTagName) }
     /// 保留标签:AI 在对话中主动捕捉到的重点事实/事件(不是用户明确要求收藏,
@@ -256,8 +258,9 @@ public final class MemoryItem {
         assetTagName, contactTagName, autoTagName, healthTagName, travelTagName,
         menuTagName,
     ]
-    /// 默认从记忆列表/附件选择器隐藏、需要显式打开对应开关才显示的标签
-    /// (资产、人脉都是隐私/结构化数据,不该跟日常收藏混在一起刷屏)。
+    /// 默认从记忆列表/附件选择器隐藏的标签(资产、人脉都是隐私/结构化数据,
+    /// 不该跟日常收藏混在一起刷屏)。资产在记忆列表里打开侧栏那行筛选就能看到,
+    /// 人脉则整个搬去了自己的页面、记忆列表里不再出现(附件选择器仍有开关)。
     /// "AI记录"/"健康"/"旅行"/"菜单"不在这份集合里——它们是保留标签,但仍应正常显示、
     /// 可被当成普通标签筛选,只是不能被改名/删除。
     public static let hiddenByDefaultTagNames: Set<String> = [assetTagName, contactTagName]

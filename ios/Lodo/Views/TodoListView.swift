@@ -334,6 +334,7 @@ struct TodoListView: View {
                 }
             }
             .sidebarToolbarButton()
+            .askBar(isVisible: !(sidebarChrome?.hidesChrome ?? false))
             .sheet(isPresented: $showProjectList) { ProjectListView() }
             .sheet(isPresented: $showProjectTimeline) { ProjectTimelineView() }
             // 剩下的三个 sheet 目的地都是叠在待办列表上的卡片型表单

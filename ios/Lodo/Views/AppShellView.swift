@@ -2,15 +2,15 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// app 的七个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
+/// app 的八个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
 enum AppSection: Hashable, CaseIterable {
-    case overview, todo, memory, health, travel, menu, agent
+    case overview, todo, memory, contact, health, travel, menu, agent
 }
 
 // MARK: - 导航栏 ☰ 按钮(经 Environment 下发,四个页面共用)
 
-/// 抽屉开关 + 当前是否该藏起导航栏上的自绘按钮。六个页面各自持有自己的
+/// 抽屉开关 + 当前是否该藏起导航栏上的自绘按钮。各个页面各自持有自己的
 /// NavigationStack/toolbar,靠 Environment 拿到这两样东西,不用逐个加 init 参数。
 struct SidebarChrome {
     let open: () -> Void
@@ -96,7 +96,7 @@ struct AppShellView: View {
     }
 
     @State private var section: AppSection
-    /// 已经打开过的页面。六个页面用 ZStack 叠着、只显示当前那个(切回来时筛选
+    /// 已经打开过的页面。页面用 ZStack 叠着、只显示当前那个(切回来时筛选
     /// 胶囊/滚动位置还在,和原来 TabView 的行为一致),但**没打开过的不构建**
     /// ——总览页一挂载就会发起 AI 请求,不能因为它排在第一个就在启动时先跑一遍。
     @State private var visited: Set<AppSection>
@@ -279,7 +279,7 @@ struct AppShellView: View {
 
     // MARK: - 页面
 
-    /// 六个页面叠在一起,只显示当前那个;没打开过的不构建(见 visited 的注释)。
+    /// 全部页面叠在一起,只显示当前那个;没打开过的不构建(见 visited 的注释)。
     private var sectionStack: some View {
         ZStack {
             ForEach(AppSection.allCases, id: \.self) { candidate in
@@ -304,6 +304,8 @@ struct AppShellView: View {
         case .memory:
             MemoryListView(onConvertToTodo: convertToTodo,
                            path: $memoryPath, tagFilter: $memoryTagFilter)
+        case .contact:
+            ContactListView()
         case .health:
             HealthView()
         case .travel:
@@ -382,17 +384,23 @@ struct AppShellView: View {
         }
     }
 
-    /// 选中页面时直接完成收起。新页面的 NavigationStack 会同时建立工具栏；
-    /// 若沿用侧栏收起动画，hidesChrome 会一直为 true，左上角按钮便晚一拍出现。
-    /// 点遮罩、拖拽和 ☰ 的收起仍使用原来的动画。
+    /// 选中页面后的收起:和点遮罩/拖拽/☰ 一样**照常播收起动画**(侧栏往左滑走、
+    /// 新页面跟着推回来),不是硬切——这一下是全 app 位移幅度最大的动画,一个
+    /// 页面切换少了它就像界面自己闪了一下。
+    ///
+    /// 和 `closeSidebar` 唯一的区别是解除 `isClosingSidebar` 的时机:那边等
+    /// `.removed`(弹簧完全静止),这里用 `.logicallyComplete`(动画逻辑上到位、
+    /// 尾巴上那点回弹还在走)。新页面的 NavigationStack 是在这一下里建立的,
+    /// 工具栏被 hidesChrome 压着不渲染,等到弹簧彻底静止才放开的话,左上角
+    /// 那颗 ☰ 会明显晚一拍才冒出来。
     private func closeSidebarAfterSelection() {
         guard showSidebar else { return }
-        var transaction = Transaction(animation: nil)
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
+        isClosingSidebar = true
+        withAnimation(sidebarAnimation, completionCriteria: .logicallyComplete) {
             sidebarDragOffset = 0
-            isClosingSidebar = false
             showSidebar = false
+        } completion: {
+            isClosingSidebar = false
         }
     }
 
@@ -707,9 +715,9 @@ struct AppShellView: View {
         let sectionFlags: [(AppSection, [String])] = [
             (.overview, ["--demo-overview-tab", "--demo-settings", "--demo-reschedule"]),
             (.memory, ["--demo-memory-tab", "--demo-memory-filters", "--demo-seed-memory",
-                       "--demo-assets-view", "--demo-contacts-view", "--demo-contact-compose",
-                       "--demo-contact-graph", "--demo-contact-detail",
-                       "--demo-contact-export-picker"]),
+                       "--demo-assets-view"]),
+            (.contact, ["--demo-contacts", "--demo-contact-compose", "--demo-contact-graph",
+                        "--demo-contact-detail", "--demo-contact-export-picker"]),
             (.health, ["--demo-health"]),
             (.travel, ["--demo-travel"]),
             (.menu, ["--demo-menu"]),

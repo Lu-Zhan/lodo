@@ -4,7 +4,7 @@ import LodoCore
 
 /// 应用侧栏(导航栏)的面板内容;窄屏抽屉和宽屏常驻列共用同一份视图。
 /// 自上而下:「Lodo 衬线体 wordmark」固定头部 → 总览/待办/记忆三个页面导航行
-/// (记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→ 健康/旅行/菜单
+/// (记忆行下面嵌一段记忆标签,常驻的平铺、其余收进"更多标签")→ 人脉/健康/旅行/菜单
 /// → 底部浮层(左「设置」、右「AI 助手」)。
 /// AI 页没有自己的导航行——它就是右下角那颗主操作胶囊,再单列一行只会重复。
 /// AI 助手是**单一持续对话**,所以这里既没有对话列表也没有"新建对话":
@@ -34,10 +34,14 @@ struct AppSidebarView: View {
     }
 
     /// 全部标签名(按使用条数降序)。这里**不**过滤 hiddenByDefaultTagNames——
-    /// 侧栏正是"资产"/"人脉"这两类的快捷入口,和 MemoryListView.allTags 那处
-    /// (筛选面板里它们各有独立开关,不跟普通标签混排)是两个不同的用途。
+    /// 侧栏正是"资产"这类默认隐藏条目的快捷入口,和 MemoryListView.allTags 那处
+    /// (资产有自己独立的显示开关,不跟普通标签混排)是两个不同的用途。
+    /// 「人脉」是唯一的例外:它已经独立成页(下面有自己的导航行),再留一行标签
+    /// 就成了同一个东西的两个入口,点进去还各是一副样子。
     private var allTagNames: [String] {
-        MemoryTags.entries(items: memoryItems, created: createdTags).map(\.name)
+        MemoryTags.entries(items: memoryItems, created: createdTags)
+            .map(\.name)
+            .filter { $0 != MemoryItem.contactTagName }
     }
 
     /// 常驻区:按用户"常驻"时的顺序排,已经不存在的标签(条目删光了)自动消失。
@@ -70,9 +74,10 @@ struct AppSidebarView: View {
                 navRow(.todo, title: "待办", systemImage: "checklist")
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
                 pinnedTagRows
-                // 健康/旅行/菜单都是建在记忆库上的功能(条目就是打了保留标签的记忆),
-                // 放在常驻标签之后、「更多标签」折叠之前:展开折叠时不会被一长串
-                // 标签挤到下面去找不着。
+                // 人脉/健康/旅行/菜单都是建在记忆库上的功能(条目就是打了保留标签的
+                // 记忆),放在常驻标签之后、「更多标签」折叠之前:展开折叠时不会被
+                // 一长串标签挤到下面去找不着。
+                navRow(.contact, title: "人脉", systemImage: "person.crop.circle")
                 navRow(.health, title: "健康", systemImage: "heart.text.square")
                 navRow(.travel, title: "旅行", systemImage: "suitcase.rolling")
                 navRow(.menu, title: "菜单", systemImage: "menucard")
@@ -116,7 +121,7 @@ struct AppSidebarView: View {
         }
     }
 
-    /// 六个页面导航行之一,和下面对话历史行同一套样式(行高/内边距/分隔线),
+    /// 页面导航行之一,和下面标签行同一套样式(行高/内边距/分隔线),
     /// 图标沿用原来三个 tab 的 SF Symbol 保持视觉延续性。当前页面高亮——
     /// 它们是持久态,不像弹层入口那样点完就走。
     private func navRow(_ target: AppSection, title: String, systemImage: String) -> some View {
@@ -179,13 +184,12 @@ struct AppSidebarView: View {
         }
     }
 
-    /// 标签行的图标。资产/人脉/AI记录 这三个保留标签各自沿用记忆页里已经在用的
-    /// 那个符号(筛选开关、"记一笔资产"菜单项、AI 记录条目的行图标),不另挑一套;
+    /// 标签行的图标。资产/AI记录 这两个保留标签各自沿用记忆页里已经在用的
+    /// 那个符号("记一笔资产"菜单项、AI 记录条目的行图标),不另挑一套;
     /// 普通标签用通用的 tag,和搜索建议/"管理标签"入口一致。
     private func tagSymbol(_ tag: String) -> String {
         switch tag {
         case MemoryItem.assetTagName: return "creditcard"
-        case MemoryItem.contactTagName: return "person.crop.circle"
         case MemoryItem.autoTagName: return "sparkles"
         default: return "tag"
         }

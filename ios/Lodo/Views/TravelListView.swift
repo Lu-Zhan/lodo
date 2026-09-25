@@ -88,6 +88,7 @@ struct TravelListView: View {
                 }
                 .accessibilityLabel("新建旅行")
             }
+            .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .navigationDestination(for: TravelTrip.self) { trip in
                 TravelDetailView(trip: trip)
             }

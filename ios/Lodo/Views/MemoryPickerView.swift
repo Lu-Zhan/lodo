@@ -15,9 +15,10 @@ struct MemoryPickerView: View {
 
     @State private var query = ""
     @State private var selectedUUIDs: Set<UUID> = []
-    /// 和记忆列表页一致:资产、人脉默认都不出现在这个选择器里,避免不小心把
-    /// 私密的资产/联系方式等信息当聊天附件发给 AI 服务商;需要时手动打开
-    /// 对应开关才看得到。
+    /// 资产、人脉默认都不出现在这个选择器里,避免不小心把私密的资产/联系方式
+    /// 等信息当聊天附件发给 AI 服务商;需要时手动打开对应开关才看得到。
+    /// 人脉虽然已经独立成页(ContactListView),但当附件发给 AI 仍是合理需求
+    /// (「按他的喜好推荐份礼物」),所以这个选择器里保留那个开关。
     @State private var showAssets = false
     @State private var showContacts = false
 

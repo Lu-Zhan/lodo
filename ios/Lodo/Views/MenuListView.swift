@@ -57,6 +57,7 @@ struct MenuListView: View {
                 }
                 .accessibilityLabel("新建菜单")
             }
+            .askBar(isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
             .navigationDestination(for: MemoryItem.self) { menu in
                 MenuDetailView(menu: menu)
             }

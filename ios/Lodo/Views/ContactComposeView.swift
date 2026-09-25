@@ -7,14 +7,11 @@ import UIKit
 import AppKit
 #endif
 
-/// 记一位人脉(记忆 tab → "+" → 记一位人脉):姓名是结构化必填字段,直接落库
+/// 记一位人脉(人脉页 → "+" → 记一位人脉):姓名是结构化必填字段,直接落库
 /// 不用等 AI 整理;其余字段可选。人脉本质是打了保留标签的记忆条目,见
 /// MemoryItem.contactTagName 与 MemoryPipeline.saveContact。关系链接留到详情页
 /// (新建表单先保持精简,和 AssetComposeView 同思路)。
 struct ContactComposeView: View {
-    /// 保存成功后回调(记忆列表页用来把"显示人脉"筛选打开,不然刚记的这位
-    /// 人脉因为默认隐藏规则,保存完立刻从列表里"消失",像是没保存成功)。
-    var onSaved: () -> Void = {}
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -151,7 +148,6 @@ struct ContactComposeView: View {
             birthday: hasBirthday ? birthday : nil, preferences: preferences, note: note,
             avatarData: avatarData, attachmentFileURLs: pendingAttachments.map(\.stagedURL),
             context: context)
-        onSaved()
         dismiss()
     }
 
