@@ -278,6 +278,10 @@ enum MemoryPipeline {
             switch type {
             case "text":
                 if let text = meta["text"] { saveText(text, context: context) }
+            case "auto":
+                if let text = meta["text"], let title = meta["title"] {
+                    saveAutoMemory(title: title, text: text, context: context)
+                }
             case "url":
                 if let urlString = meta["url"], let url = URL(string: urlString) {
                     saveURL(url, context: context)

@@ -314,6 +314,8 @@ enum RoutineRunner {
 
     /// 后台刷新被系统唤醒时的入口(LodoApp 的 .backgroundTask 调用)。
     static func handleBackgroundRefresh(container: ModelContainer) async {
+        MemoryPipeline.consumeInbox(context: container.mainContext)
+        KeyboardBridge.refresh(context: container.mainContext)
         await runDueRoutines(context: container.mainContext, notifyResults: true)
     }
 }

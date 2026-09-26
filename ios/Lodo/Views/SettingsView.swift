@@ -69,6 +69,11 @@ struct SettingsView: View {
                 } footer: {
                     Text("对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。")
                 }
+                Section {
+                    Label("lodo 键盘", systemImage: "keyboard")
+                } footer: {
+                    Text("在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。")
+                }
                 #endif
 
                 // ---- 提醒与自动化:稍等间隔/全天提醒/每日汇总 + 用户自定义的 AI 例行任务 ----

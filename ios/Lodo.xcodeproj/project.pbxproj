@@ -12,6 +12,8 @@
 		AA00000013 /* LodoCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA00000014 /* LodoCore */; };
 		BB0000000C /* LodoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BB00000002 /* LodoWidgetExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CC0000000C /* LodoShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CC00000002 /* LodoShareExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DD0000000C /* LodoKeyboardExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DD00000002 /* LodoKeyboardExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DD00000012 /* LodoCore in Frameworks */ = {isa = PBXBuildFile; productRef = DD00000011 /* LodoCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,6 +38,13 @@
 			remoteGlobalIDString = CC00000003;
 			remoteInfo = LodoShareExtension;
 		};
+		DD0000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA00000007 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DD00000003;
+			remoteInfo = LodoKeyboardExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -58,6 +67,7 @@
 			files = (
 				BB0000000C /* LodoWidgetExtension.appex in Embed Foundation Extensions */,
 				CC0000000C /* LodoShareExtension.appex in Embed Foundation Extensions */,
+				DD0000000C /* LodoKeyboardExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -69,6 +79,7 @@
 		AA00000006 /* Lodo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lodo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB00000002 /* LodoWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LodoWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC00000002 /* LodoShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LodoShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD00000002 /* LodoKeyboardExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LodoKeyboardExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -76,6 +87,7 @@
 		AA00000002 /* Lodo */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Lodo; sourceTree = "<group>"; };
 		BB00000001 /* LodoWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = LodoWidget; sourceTree = "<group>"; };
 		CC00000001 /* LodoShare */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = LodoShare; sourceTree = "<group>"; };
+		DD00000001 /* LodoKeyboard */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = LodoKeyboard; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +121,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DD00000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD00000012 /* LodoCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -118,6 +138,7 @@
 				AA00000002 /* Lodo */,
 				BB00000001 /* LodoWidget */,
 				CC00000001 /* LodoShare */,
+				DD00000001 /* LodoKeyboard */,
 				74E80C933007B75300341B58 /* LodoWatch Watch App */,
 				AA00000005 /* Products */,
 			);
@@ -129,6 +150,7 @@
 				AA00000006 /* Lodo.app */,
 				BB00000002 /* LodoWidgetExtension.appex */,
 				CC00000002 /* LodoShareExtension.appex */,
+				DD00000002 /* LodoKeyboardExtension.appex */,
 				74E80C923007B75300341B58 /* LodoWatch Watch App.app */,
 			);
 			name = Products;
@@ -175,6 +197,7 @@
 			dependencies = (
 				BB0000000B /* PBXTargetDependency */,
 				CC0000000B /* PBXTargetDependency */,
+				DD0000000B /* PBXTargetDependency */,
 				74E80C9B3007B75400341B58 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
@@ -228,6 +251,29 @@
 			productReference = CC00000002 /* LodoShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		DD00000003 /* LodoKeyboardExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DD00000009 /* Build configuration list for PBXNativeTarget "LodoKeyboardExtension" */;
+			buildPhases = (
+				DD00000004 /* Sources */,
+				DD00000005 /* Frameworks */,
+				DD00000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				DD00000001 /* LodoKeyboard */,
+			);
+			name = LodoKeyboardExtension;
+			packageProductDependencies = (
+				DD00000011 /* LodoCore */,
+			);
+			productName = LodoKeyboardExtension;
+			productReference = DD00000002 /* LodoKeyboardExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -249,6 +295,9 @@
 					};
 					CC00000003 = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					DD00000003 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 				};
 			};
@@ -273,6 +322,7 @@
 				AA00000004 /* Lodo */,
 				BB00000003 /* LodoWidgetExtension */,
 				CC00000003 /* LodoShareExtension */,
+				DD00000003 /* LodoKeyboardExtension */,
 				74E80C913007B75300341B58 /* LodoWatch Watch App */,
 			);
 		};
@@ -301,6 +351,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		CC00000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD00000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -338,6 +395,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DD00000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -357,6 +421,12 @@
 			platformFilter = ios;
 			target = CC00000003 /* LodoShareExtension */;
 			targetProxy = CC0000000A /* PBXContainerItemProxy */;
+		};
+		DD0000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = ios;
+			target = DD00000003 /* LodoKeyboardExtension */;
+			targetProxy = DD0000000A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -760,6 +830,64 @@
 			};
 			name = Release;
 		};
+		DD00000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Support/LodoKeyboard.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3JP78KR74M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Support/LodoKeyboardInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = lodo;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lodo.app.keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DD00000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Support/LodoKeyboard.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3JP78KR74M;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Support/LodoKeyboardInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = lodo;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lodo.app.keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -808,6 +936,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		DD00000009 /* Build configuration list for PBXNativeTarget "LodoKeyboardExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DD00000007 /* Debug */,
+				DD00000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -823,6 +960,10 @@
 			productName = LodoCore;
 		};
 		AA00000014 /* LodoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LodoCore;
+		};
+		DD00000011 /* LodoCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LodoCore;
 		};
