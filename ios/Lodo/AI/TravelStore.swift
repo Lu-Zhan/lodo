@@ -71,6 +71,26 @@ enum TravelStore {
         return item
     }
 
+    /// 拖到另一天:日期换成目标那天,**几点几分不变**;有结束时间的(住宿退房)
+    /// 整体平移同样的天数,时长不变。没有开始时间的(未排期)拖进某天就落在那天 9 点。
+    static func move(_ item: MemoryItem, toDay day: Date, context: ModelContext,
+                     calendar: Calendar = .current) {
+        let target = calendar.startOfDay(for: day)
+        if let start = item.travelStart {
+            let shift = calendar.startOfDay(for: start).distance(to: target)
+            guard shift != 0 else { return }
+            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start),
+                                               to: target).day ?? 0
+            item.travelStart = calendar.date(byAdding: .day, value: days, to: start)
+            if let end = item.travelEnd {
+                item.travelEnd = calendar.date(byAdding: .day, value: days, to: end)
+            }
+        } else {
+            item.travelStart = calendar.date(byAdding: .hour, value: 9, to: target)
+        }
+        MemoryPipeline.finishStructuredSave(item, context: context)
+    }
+
     /// 编辑已有行程项(表单保存)。
     static func update(
         _ item: MemoryItem, kind: TravelItemKind, title: String, note: String,
@@ -205,6 +225,18 @@ enum TravelStore {
                               notes: plan.summary)
             context.insert(trip)
         }
+        // 城市/国家只在空着时补(用户自己填过的不覆盖)。**国家不是可有可无的展示字段**:
+        // 地图按地名找坐标时靠它挡掉搜岔的结果,空着的话「清水寺」会落到国内的同名
+        // 地方去(见 PlaceGeocoder 文件头)。
+        if trip.city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let city = plan.city?.trimmingCharacters(in: .whitespacesAndNewlines), !city.isEmpty {
+            trip.city = city
+        }
+        if trip.country.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let country = plan.country?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !country.isEmpty {
+            trip.country = country
+        }
         var created: [UUID] = []
         for item in plan.items {
             if let saved = create(
@@ -244,6 +276,60 @@ enum TravelStore {
 
     // MARK: - 地图坐标补全
 
+    /// 打开旅行详情时把坐标过一遍:先把**存错国家**的清掉(`pruneMisplacedCoordinates`),
+    /// 再给缺坐标的补上(`fillMissingCoordinates`)。顺序要紧——清掉的那几项正好
+    /// 在同一轮里重新查一次,而且锚点只会从"已经验过"的坐标里取。
+    static func refreshCoordinates(for trip: TravelTrip, context: ModelContext) async {
+        await pruneMisplacedCoordinates(for: trip, context: context)
+        await fillMissingCoordinates(for: trip, context: context)
+    }
+
+    /// 把落在别的国家的坐标清掉。
+    ///
+    /// 为什么要有这一步:`MKLocalSearch` 在国内网络上只给中国大陆数据(详见
+    /// `PlaceGeocoder` 文件头),所以**库里已经存下了一批错坐标**——日本的行程项
+    /// 指着辽宁、浙江的同名店铺。光修搜索那一侧救不了这些:它们有坐标,
+    /// `fillMissingCoordinates` 会直接跳过,地图上就一直画在中国。
+    ///
+    /// 判据是反查:反查得到国家、并且和这趟旅行的国家对不上 → 清掉,让它在同一轮里
+    /// 按正确的判据重查一次。**反查失败一律不动**——在只有中国数据的环境里,反查
+    /// 日本坐标本身就报错,那恰恰是坐标正确的情形。
+    /// 认不出旅行国家时整步跳过(没有判据,不能凭猜清用户的数据)。
+    ///
+    /// **交通类(航班/火车/客车)一概不验**:一趟日本旅行的回程航班落在北京,
+    /// 起降点本来就分处两国,拿旅行的国家去卡会把真坐标清掉;而它们的坐标来自
+    /// 订单解析和表单(机场、车站),不是地名搜索猜的,本来也不会搜岔。
+    static func pruneMisplacedCoordinates(
+        for trip: TravelTrip, context: ModelContext, limit: Int = geocodeBudget
+    ) async {
+        guard let region = expectedRegion(for: trip) else { return }
+        let pending = items(for: trip.uuid, in: context).filter {
+            $0.travelLatitude != nil && $0.travelLongitude != nil
+                && $0.travelKind?.isTransport != true
+                && !verifiedCoordinates.contains($0.uuid)
+        }
+        guard !pending.isEmpty else { return }
+        var cleared = false
+        for item in pending.prefix(limit) {
+            guard let lat = item.travelLatitude, let lon = item.travelLongitude else { continue }
+            let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            guard let actual = await PlaceGeocoder.regionCode(at: coordinate) else { continue }
+            if PlaceRegion.matches(region, actual) {
+                // 验过就记下来,同一台 app 里不再反查它(同 PlaceGeocoder.missed 的定位:
+                // 内存级、不落盘,重开 app 会再验一遍)。
+                verifiedCoordinates.insert(item.uuid)
+            } else {
+                item.travelLatitude = nil
+                item.travelLongitude = nil
+                cleared = true
+            }
+        }
+        if cleared { try? context.save() }
+    }
+
+    /// 这一轮验过、确认在目标国家里的行程项。
+    private static var verifiedCoordinates: Set<UUID> = []
+
     /// 把"有地名、没坐标"的行程项补上坐标,让它们能画到地图上。
     ///
     /// 坐标原本只有一条来路:用户在表单里点「搜索」选点(`PlaceSearchView`)。
@@ -265,21 +351,30 @@ enum TravelStore {
         }
         guard !pending.isEmpty else { return }
         let hint = geocodeHint(for: trip)
+        // 这趟旅行该在哪个国家。有它就只认那个国家的结果(见 PlaceGeocoder 文件头);
+        // 认不出来(只填了城市名、旅行名里也看不出国家)时退回按锚点距离兜底。
+        let region = expectedRegion(for: trip)
         // 先定一个锚点:这趟旅行大致在地球上的哪儿。有已经带坐标的行程项就用它
         // (航班除外——起降机场分处两地,拿它当锚点会把整趟偏到出发地去),
-        // 否则按城市名单独搜一次。没有锚点也能搜,只是"秋叶原"这种到处都有同名
-        // 店铺的地方容易搜岔(见 PlaceGeocoder.maxDistanceFromAnchor)。
+        // 否则按城市名单独搜一次。
         var anchor = all.first { $0.travelKind != .flight && $0.travelLatitude != nil }
             .flatMap { item in item.travelLatitude.flatMap { lat in
                 item.travelLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
             } }
-        if anchor == nil, let hint {
-            anchor = await PlaceGeocoder.coordinate(for: hint)
+        if region == nil {
+            // **认不出国家时,判据只能是一个验过的城市锚点**。这里不敢用现有行程项的
+            // 坐标:没有国家判据的旅行正是当初最容易搜岔的那批,拿它自己存下的错坐标
+            // 当锚点只会把错误坐实。验不出城市就整步跳过——不画点,也不乱画。
+            anchor = await PlaceGeocoder.verifiedAnchor(city: anchorCity(for: trip), hint: hint)
+            guard anchor != nil else { return }
+        } else if anchor == nil, let hint {
+            anchor = await PlaceGeocoder.coordinate(for: hint, region: region)
         }
         var filled = false
         for item in pending.prefix(limit) {
             guard let coordinate = await PlaceGeocoder.coordinate(
-                for: geocodeQuery(for: item), hint: hint, anchor: anchor) else { continue }
+                for: geocodeQuery(for: item), hint: hint, anchor: anchor, region: region)
+            else { continue }
             item.travelLatitude = coordinate.latitude
             item.travelLongitude = coordinate.longitude
             // 地名原来空着(用标题搜到的)时顺手补上,详情页那行才显示得出地点。
@@ -296,13 +391,28 @@ enum TravelStore {
     /// 城市/国家都空着时退回旅行名("东京四日"这类名字里通常就带着目的地)——
     /// AI 规划出来的旅行只有名字没有城市字段,那种情况正是最需要消歧的:整趟的
     /// 行程项一个坐标都没有,没有任何锚点可依。
-    private static func geocodeHint(for trip: TravelTrip) -> String? {
+    /// 这趟旅行的预期国家/地区(ISO 码)。按"国家字段 → 城市字段 → 旅行名"的顺序找
+    /// 第一个认得出的(城市名里也常带国家,如"东京 · 日本";AI 规划出来的旅行往往
+    /// 只有名字,而「日本关西七日游」这种名字里就写着)。一个都认不出时返回 nil,
+    /// 调用方退回别的判据——**不猜**。
+    static func expectedRegion(for trip: TravelTrip) -> String? {
+        PlaceRegion.isoCode(in: [trip.country, trip.city, trip.title])
+    }
+
+    static func geocodeHint(for trip: TravelTrip) -> String? {
         let parts = [trip.city, trip.country]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         if !parts.isEmpty { return parts.joined(separator: " ") }
         let title = trip.title.trimmingCharacters(in: .whitespacesAndNewlines)
         return title.isEmpty ? nil : title
+    }
+
+    /// 验锚点时拿去搜的城市名:优先城市字段,空着就用旅行名(「东京四日」这种名字
+    /// 里通常带着目的地;验不过就当作没有锚点,不会因此画错点)。
+    private static func anchorCity(for trip: TravelTrip) -> String {
+        let city = trip.city.trimmingCharacters(in: .whitespacesAndNewlines)
+        return city.isEmpty ? trip.title.trimmingCharacters(in: .whitespacesAndNewlines) : city
     }
 
     /// 一次补全最多查几条。够覆盖一趟旅行的常规条数,又不至于一打开详情页就把

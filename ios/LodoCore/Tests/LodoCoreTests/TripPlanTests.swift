@@ -79,6 +79,25 @@ final class TripPlanTests: XCTestCase {
         guard case .create = actions[0] else { return XCTFail("expected create") }
     }
 
+    /// city/country 解出来(地图找坐标要靠国家挡搜岔的结果,见 PlaceRegion)。
+    func testCityAndCountryParsed() throws {
+        var payload = samplePlan
+        payload["city"] = "京都"
+        payload["country"] = " 日本 "
+        let plan = try DeepSeekClient.parseTripPlan(payload)
+        XCTAssertEqual(plan.city, "京都")
+        XCTAssertEqual(plan.country, "日本")
+        XCTAssertEqual(PlaceRegion.isoCode(in: [plan.country]), "JP")
+    }
+
+    /// 模型没给这两个键(老消息、旧模型)时是 nil,不是空串——调用方据此判断
+    /// "有没有这个信息"。
+    func testCityAndCountryOptional() throws {
+        let plan = try DeepSeekClient.parseTripPlan(samplePlan)
+        XCTAssertNil(plan.city)
+        XCTAssertNil(plan.country)
+    }
+
     /// 没给起止日时从安排的时间里推。
     func testDatesInferredFromItems() throws {
         let plan = try DeepSeekClient.parseTripPlan([

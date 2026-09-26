@@ -52,6 +52,9 @@ struct AgentView: View {
     @State private var sendTask: Task<Void, Never>?
     /// 推理模型吐出的思考过程的尾巴,喂给"思考中…"那行;每轮请求结束清空。
     @State private var reasoningTail = ""
+    /// 每轮请求换一个起始词、从这一刻起计时轮换,免得每次都从「处理中」开始。
+    @State private var thinkingSeed = 0
+    @State private var thinkingStart = Date()
 
     @State private var errorText: String?
     @State private var speech = SpeechInput()
@@ -77,7 +80,7 @@ struct AgentView: View {
     @State private var historyWindow = AgentView.historyPageSize
     /// 后台压缩正在跑;防重入(连发两条消息时不重复压同一批)。
     @State private var isCompacting = false
-    static let historyPageSize = 200
+    static let historyPageSize = 60
     /// 一次最多压缩多少条。够覆盖正常节奏下攒出来的量,又不至于让长期离线后的
     /// 第一次压缩把几千条一股脑塞进 prompt。
     static let maxCompressBatch = 200
@@ -139,11 +142,10 @@ struct AgentView: View {
     }
 
     var body: some View {
-        // 右侧栏:对话里产出的页面(规划/调整后的行程)在旁边展示,见 AgentInspector.swift。
-        AgentInspectorHost {
-            chatStack
-        }
-        .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
+        // 对话里产出的内容(规划/调整后的行程)不在旁边开一栏展示:结果卡片下面
+        // 那条 `AgentJumpLink` 小条直接把人送进那个条目所在的页面。
+        chatStack
+            .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
     }
 
     private var chatStack: some View {
@@ -186,7 +188,6 @@ struct AgentView: View {
                 }
             }
             .sidebarToolbarButton()
-            .agentInspectorToolbarButton()
             .sheet(item: $formTarget) { target in
                 TaskEditView(existing: target.existing, parsed: target.parsed,
                              attachment: target.existing?.attachment) { savedParsed in
@@ -319,7 +320,7 @@ struct AgentView: View {
                 // 截图验证用:模拟请求进行中,发送按钮应该变成取消。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-busy") {
                     busy = true
-                    thinkingText = "思考中…"
+                    thinkingText = Self.defaultThinking
                 }
                 // 截图验证用:直接把 isRecording 摆成 true,不真的起录音——
                 // simctl 没有麦克风可触发,用来看麦克风按钮的呼吸动效。
@@ -448,13 +449,31 @@ struct AgentView: View {
 
     // MARK: - ReAct 中间步骤的轻量提示
 
+    /// 处理中的默认提示。不显示推理原文,用一组简短的词轮换。
+    static let defaultThinking = "处理中…"
+    static let thinkingWords = [
+        "处理中…", "作业中…", "批示中…", "摸鱼中…", "996中…", "思考中…", "感悟中…",
+        "琢磨中…", "掐指一算…", "盘算中…", "打工中…", "开会中…",
+    ]
+
     @ViewBuilder
     private var thinkingRow: some View {
         if let thinkingText {
-            ShimmerText(text: thinkingText)
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .transition(.opacity)
+            Group {
+                if thinkingText == Self.defaultThinking {
+                    // 默认态:每 2.5 秒换一个词。ReAct 的具体提示("正在查记忆…")
+                    // 不是默认态,原样显示。
+                    TimelineView(.periodic(from: thinkingStart, by: 2.5)) { context in
+                        let tick = Int(context.date.timeIntervalSince(thinkingStart) / 2.5)
+                        ShimmerText(text: Self.thinkingWords[(thinkingSeed + tick) % Self.thinkingWords.count])
+                    }
+                } else {
+                    ShimmerText(text: thinkingText)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .transition(.opacity)
         }
     }
 
@@ -1360,7 +1379,9 @@ struct AgentView: View {
         // 请求一发出就显示"思考中…";ReAct 工具调用会用更具体的提示
         // (如"正在查记忆…")覆盖它,交换结束后统一在 defer 里清空。
         if AppSettings.thinkingLevel != "off" {
-            thinkingText = "思考中…"
+            thinkingSeed = Int.random(in: 0..<Self.thinkingWords.count)
+            thinkingStart = Date()
+            thinkingText = Self.defaultThinking
         }
         sendTask = Task {
             defer {
@@ -1381,11 +1402,9 @@ struct AgentView: View {
                         streamingAnswer = text.isEmpty ? nil : text
                         if streamingAnswer != nil { thinkingText = nil }
                     },
-                    { chunk in
-                        // 推理模型先吐思考再吐正文,这段空窗期比正文本身还长。
-                        // 只显示尾巴一小截(够看出"它在想什么"),不落库。
-                        reasoningTail = String((reasoningTail + chunk).suffix(40))
-                        if streamingAnswer == nil { thinkingText = reasoningTail }
+                    { _ in
+                        // 推理过程不再露出来:那段原文又长又碎,读不读得懂都没有信息量。
+                        // 空窗期靠 thinkingRow 里轮换的简短词("摸鱼中""996中")撑着。
                     })
                 // 拿到结果时可能已经被用户取消——不再落库/弹表单,避免取消瞬间
                 // 又把回应加回来。
@@ -1605,7 +1624,10 @@ struct AgentView: View {
                              placeName: "天龙寺", price: 800, currency: "JPY"),
                 TripPlanItem(kind: .place, title: "伏见稻荷大社", note: "千本鸟居走到四辻就够了,来回一个半小时。",
                              start: at(2, 7, 30), end: at(2, 9, 30), placeName: "伏见稻荷大社"),
-            ])
+            ],
+            // 真实的 plan_trip 也会带上这两样(tripPlanner skill 里要求必填):
+            // 写进旅行之后,地图按地名找坐标靠国家挡掉搜岔的结果。
+            city: "京都", country: "日本")
     }
 
     private static var demoParsedTask: ParsedTask {
@@ -1888,7 +1910,7 @@ private struct AgentMessageListView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                     if messages.isEmpty {
                         emptyState
                     }
@@ -1933,7 +1955,6 @@ private struct AgentMessageListView: View {
                 // 免得每块各建一个 CABackdropLayer(滚动时是实打实的开销)。
                 // 容器不影响布局,下面的 frame/animation 照旧。
                 .glassGroup()
-                .animation(.lodoAware(.snappy), value: messages.count)
                 // 内容比屏幕短时也把这一坨顶到底部,最后一条消息紧挨着输入栏
                 // ——短对话原来是从顶上开始排,和输入栏之间空出一大片。
                 .frame(maxHeight: .infinity, alignment: .bottom)
@@ -1942,6 +1963,9 @@ private struct AgentMessageListView: View {
             // scrollTo 是兜底:LazyVStack 首帧还没把最后一条建出来时,单靠
             // scrollTo 会落空。
             .defaultScrollAnchor(.bottom)
+            // sheet 是独立呈现宿主,根上那次 softTopScrollEdgeTransition 不一定传得进来,
+            // 这里自己挂一次:消息滚进导航栏时同样是柔和渐隐。
+            .softTopScrollEdgeTransition()
             .onChange(of: messages.count) { _, _ in
                 if let last = messages.first {
                     withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }

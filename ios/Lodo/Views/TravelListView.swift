@@ -8,6 +8,10 @@ import LodoCore
 /// 一次旅行里的航班/住宿/地点本身就是记忆条目(打了「旅行」保留标签),所以订票
 /// 确认单能当附件存、能被记忆搜索和"问 AI"命中。
 struct TravelListView: View {
+    /// 非 nil 时 push 进这次旅行的详情页(AI 对话里那条跳转小条,经外壳的
+    /// `ItemNavigator` 递进来),消费后置回 nil。
+    @Binding var openTripRequest: UUID?
+
     @Environment(\.modelContext) private var context
     @Query(sort: [SortDescriptor(\TravelTrip.startDate, order: .reverse)])
     private var trips: [TravelTrip]
@@ -78,10 +82,16 @@ struct TravelListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .askBar(focus: .travel, isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .travel, isVisible: path.isEmpty)
             .navigationDestination(for: TravelTrip.self) { trip in
                 TravelDetailView(trip: trip)
             }
+            // 从别的页面(目前是 AI 对话里的跳转小条)点进某一次旅行。onAppear 也要
+            // 收一次:请求往往和"切到旅行页"同时到来,而这一页可能是这时才第一次
+            // 构建的(没打开过的页面不构建,见 AppShellView.visited),那一下不会走
+            // onChange。
+            .onChange(of: openTripRequest) { _, _ in consumeOpenRequest() }
+            .onAppear { consumeOpenRequest() }
             .alert("删除这次旅行?", isPresented: Binding(
                 get: { pendingDelete != nil },
                 set: { if !$0 { pendingDelete = nil } }
@@ -105,7 +115,17 @@ struct TravelListView: View {
         #endif
     }
 
-    @Environment(\.sidebarChrome) private var sidebarChrome
+    /// 消费一次"打开某次旅行"的请求。旅行已经被删掉(撤销写入、在别处删了)时
+    /// 什么都不做,只把请求清掉——push 一个不存在的 trip 会直接进到一张空详情页。
+    private func consumeOpenRequest() {
+        guard let uuid = openTripRequest else { return }
+        openTripRequest = nil
+        guard let trip = trips.first(where: { $0.uuid == uuid }) else { return }
+        // 已经站在这次旅行的详情页上就什么都不用做;站在别的二级页上要换过去,
+        // 所以整条 path 直接换掉而不是 append。
+        guard path.last?.uuid != uuid else { return }
+        path = [trip]
+    }
 
     private func tripLink(_ trip: TravelTrip) -> some View {
         NavigationLink(value: trip) {

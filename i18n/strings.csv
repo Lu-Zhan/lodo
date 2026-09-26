@@ -701,8 +701,11 @@ ios_view.trip_plan_caption,%@ · %lld 天 · %lld 项安排,%@ · %lld days · %
 ios_view.trip_plan_other,其他安排,Other Plans,ios_view,
 ios_view.collapse,收起,Show Less,ios_view,
 ios_view.trip_plan_expand,展开其余 %lld 项,Show %lld more,ios_view,
-ios_view.trip_plan_applied,已写入「%@」,Added to “%@”,ios_view,
-ios_view.view,查看,View,ios_view,
+ios_view.trip_plan_applied,已写入行程,Added to trip,ios_view,"AI 规划写入后的卡片状态;旅行名在卡片标题和下面那条跳转小条上,这里不重复"
+ios_view.trip_jump_updated,旅行已更新:%@,Travel updated: %@,ios_view,"AI 结果卡片下面那条跳转小条,点了进到那次旅行里"
+ios_view.open_this_item,打开这个条目,Open this item,ios_view,跳转小条的旁白提示
+ios_view.other_regions,其他地区,Other Regions,ios_view,地点搜索里不在这次旅行国家/地区的那一段
+ios_view.other_regions_footer,"这些不在这次旅行的国家/地区,选了会画到别的地方去。",These are outside this trip's country or region — picking one puts it somewhere else on the map.,ios_view,
 ios_view.trip_plan_reverted,已撤销写入,Removed from trip,ios_view,
 ios_view.trip_plan_reapply,重新写入,Add Again,ios_view,
 ios_view.trip_edit_title,已调整「%@」,Updated “%@”,ios_view,AI 调整行程结果卡片标题

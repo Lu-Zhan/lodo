@@ -12,7 +12,6 @@ struct MenuDetailView: View {
     @Environment(\.modelContext) private var context
     @Query private var dishes: [MenuDish]
 
-    @State private var searchText = ""
     @State private var showOrder = false
     @State private var renaming = false
     @State private var draftTitle = ""
@@ -28,8 +27,7 @@ struct MenuDetailView: View {
     private var selected: [MenuDishEntry] { MenuPlan.selected(entries) }
 
     private var courses: [MenuCourse] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return MenuPlan.group(entries.filter { $0.matches(query) })
+        MenuPlan.group(entries)
     }
 
     private func dish(for entry: MenuDishEntry) -> MenuDish? {
@@ -40,8 +38,6 @@ struct MenuDetailView: View {
         List {
             if dishes.isEmpty {
                 ContentUnavailableView("这张菜单没有菜品", systemImage: "menucard")
-            } else if courses.isEmpty {
-                ContentUnavailableView.search(text: searchText)
             }
             ForEach(courses) { course in
                 Section {
@@ -57,7 +53,6 @@ struct MenuDetailView: View {
                 }
             }
         }
-        .searchable(text: $searchText, prompt: Text("搜索菜品"))
         .navigationTitle(menu.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +85,9 @@ struct MenuDetailView: View {
             }
         }
         .animation(.lodoAware(.snappy), value: selected.isEmpty)
+        // 全局一致的「问问 AI」对话条(找菜、问食材都说一句)。排在已选菜品条**之后**:
+        // safeAreaInset 越靠后越靠外,已选条因此留在对话条上方。
+        .askBar(focus: .menu)
         .sheet(isPresented: $showOrder) {
             MenuOrderView(menu: menu)
                 .presentationDetents([.medium, .fraction(0.9)])

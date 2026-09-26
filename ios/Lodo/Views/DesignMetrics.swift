@@ -15,6 +15,8 @@ enum DesignMetrics {
     static let bubbleRadius: CGFloat = 18
     /// 各展示页底部「问问 AI」与 AI 页面真实输入栏共用的单行高度。
     static let aiInputHeight: CGFloat = 48
+    /// 侧栏导航行的圆角半径,取 48pt 行高的一半,和底部「设置」圆形按钮的半径一致。
+    static let sidebarRowRadius: CGFloat = aiInputHeight / 2
     /// AI 助手输入栏那块玻璃的圆角。取输入栏高度的一半:
     /// 单行时正好是个胶囊,和左边 + 号那颗玻璃圆、右边发送那颗实心圆同高同弧;
     /// 文本多行长高时圆角不跟着变,上下两端仍是半圆。

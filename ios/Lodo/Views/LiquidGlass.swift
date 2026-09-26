@@ -109,6 +109,40 @@ extension View {
     }
 }
 
+/// 列表行"整行一块玻璃"的行背景(侧栏的页面导航行)。和 `glassBackground` 分开是
+/// 因为回退不一样:那个退到 `thinMaterial`(小块 chrome 本来就该有个底),行背景
+/// 退回去的是**原来那套**——选中的行铺一块浅灰底、没选中的什么都不铺,旧系统上
+/// 给每一行都糊一层材质只会让列表变脏。
+///
+/// 选中态在新系统上靠 `tint` 表达(玻璃本身透,不加色的话选中和没选中只差一点点
+/// 反光);旧系统仍是那块浅灰底。「减弱透明度」走回退分支,理由同 `GlassBackground`。
+///
+/// **偏偏这里不能用 `glassGroup()`**:把整个 List 收进 `GlassEffectContainer` 之后,
+/// 行里的图标和文字会被当成玻璃的采样源整个糊掉(实测只剩一排白色圆角块)。
+/// "相邻玻璃共用一个容器"那条规矩在列表行上让位:每行各一块玻璃、各建一个
+/// backdrop 层是已知代价。另外玻璃要垫在**行内容自己的 `background` 上**,
+/// 不能走 `listRowBackground`——那一层画在内容上面,同样会把字糊掉。
+struct GlassRowBackground<Fallback: View>: View {
+    let selected: Bool
+    /// 选中那行的染色(强调色,调用方按 `\.lodoAccent` 传)。
+    let tint: Color
+    let shape: RoundedRectangle
+    @ViewBuilder var fallback: Fallback
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if DesignMetrics.reducesTransparency(reduceTransparency) {
+            fallback
+        } else if #available(iOS 26.0, macOS 26.0, *) {
+            Color.clear
+                .glassEffect(selected ? .regular.tint(tint) : .regular, in: shape)
+        } else {
+            fallback
+        }
+    }
+}
+
 /// 整块面板(侧栏抽屉、AI 右栏)用的玻璃面。和 `glassBackground` 是两个入口:
 /// 那个是给输入栏、悬浮条那种小块 chrome 的,旧系统回退到 `thinMaterial`;面板
 /// 这边回退要落回 `DesignMetrics.panelBackground`——旧系统上「面板和被推开的

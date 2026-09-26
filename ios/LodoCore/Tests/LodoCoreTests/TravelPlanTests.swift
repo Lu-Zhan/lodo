@@ -164,6 +164,15 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertEqual(extras.map(\.title), ["提前到的航班"])
     }
 
+    /// 前一晚入住、第一天早上退房的酒店:退房那天在行程里,不能算"行程之外"。
+    func testCheckoutInsideRangeIsNotOutOfRange() {
+        let hotel = entry(.lodging, "前一晚的酒店", start: date(day: 7, hour: 15), end: date(day: 8, hour: 10))
+        XCTAssertTrue(TravelPlan.outOfRange([hotel], days: days).isEmpty)
+        XCTAssertEqual(TravelPlan.group([hotel], into: days)[0].entries.count, 1)
+        let farBefore = entry(.lodging, "更早的", start: date(day: 5, hour: 15), end: date(day: 6, hour: 10))
+        XCTAssertEqual(TravelPlan.outOfRange([farBefore], days: days).count, 1)
+    }
+
     // MARK: - 价格
 
     func testCostsGroupedByCurrencyDescending() {

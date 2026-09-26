@@ -10,7 +10,6 @@ import LodoCore
 /// AI 也接不了这一棒。文件原样留着,要恢复入口时挂回工具栏即可。
 struct MenuListView: View {
     @Environment(\.modelContext) private var context
-    @Environment(\.sidebarChrome) private var sidebarChrome
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
     private var memoryItems: [MemoryItem]
@@ -51,7 +50,7 @@ struct MenuListView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .askBar(focus: .menu, isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .menu, isVisible: path.isEmpty)
             .navigationDestination(for: MemoryItem.self) { menu in
                 MenuDetailView(menu: menu)
             }

@@ -3,7 +3,8 @@ import SwiftData
 import LodoCore
 
 /// AI 自动规划的行程卡片(`AgentMessageKind.tripPlan`)。按天列出安排,底下一颗
-/// 「写入行程」;写进去之后换成"已写入「xx」"+「查看」「撤销」。
+/// 「写入行程」;写进去之后换成"已写入行程"+「撤销」,并在卡片下面挂一条
+/// `AgentJumpLink` 小条(「旅行已更新:xx ›」)直接进到那次旅行里。
 ///
 /// 写入/撤销由卡片自己做(拿 modelContext 调 `TravelStore`),再把新状态写回
 /// `tripPlanSnapshotData`——不像其他卡片那样把回调一路串过 AgentView:这张卡
@@ -14,8 +15,6 @@ struct AgentTripPlanCard: View {
     let isLatest: Bool
 
     @Environment(\.modelContext) private var context
-    @Environment(\.sidebarChrome) private var sidebarChrome
-    @Environment(\.agentInspector) private var inspector
     @State private var expanded = false
 
     private var plan: TripPlanProposal? {
@@ -28,7 +27,14 @@ struct AgentTripPlanCard: View {
 
     var body: some View {
         if let plan {
-            card(plan)
+            // 跳转小条在卡片**外面**:它没有卡片底色,层级上比卡片轻一档。
+            VStack(alignment: .leading, spacing: 2) {
+                card(plan)
+                if plan.isApplied, let trip = plan.appliedTripUUID {
+                    AgentJumpLink(text: Text("旅行已更新:\(plan.tripTitle)"),
+                                  destination: .trip(trip))
+                }
+            }
         } else {
             Text(message.content)
         }
@@ -97,11 +103,11 @@ struct AgentTripPlanCard: View {
     private func actions(_ plan: TripPlanProposal) -> some View {
         if plan.isApplied {
             HStack(spacing: 8) {
-                Label("已写入「\(plan.tripTitle)」", systemImage: "checkmark.circle.fill")
+                // 旅行名不在这里重复:卡片标题就是它,下面那条跳转小条也带着它。
+                Label("已写入行程", systemImage: "checkmark.circle.fill")
                     .font(.subheadline)
                     .foregroundStyle(Color.accentColor)
                 Spacer(minLength: 8)
-                viewButton
                 Button {
                     TripPlanApplier.revert(plan, on: message, context: context)
                     Haptics.tick()
@@ -123,30 +129,12 @@ struct AgentTripPlanCard: View {
                     .font(.subheadline)
             }
         } else if isLatest {
-            HStack(spacing: 8) {
-                Button { apply(plan) } label: {
-                    Label("写入行程", systemImage: "suitcase.rolling")
-                }
-                .glassProminentButton()
-                Spacer(minLength: 8)
-                // 还没写入时「查看」打开的是右栏里的完整预览(卡片只展开第一天);
-                // 不在 AI 页(没有右栏)时没有可去的地方,不给这颗。
-                if inspector != nil { viewButton }
+            // 还没写入的规划不给跳转小条:库里还没有这次旅行,没有可进的条目
+            // (整份规划就在这张卡上,「展开其余 N 项」看得到全部)。
+            Button { apply(plan) } label: {
+                Label("写入行程", systemImage: "suitcase.rolling")
             }
-        }
-    }
-
-    /// 在 AI 页打开右栏并定位到这张卡;没有右栏时回退成切到旅行页。
-    @ViewBuilder
-    private var viewButton: some View {
-        if let inspector, let target = AgentInspectorTarget.from(message) {
-            Button("查看") { inspector.show(target) }
-                .buttonStyle(.bordered)
-                .font(.subheadline)
-        } else if let chrome = sidebarChrome {
-            Button("查看") { chrome.go(.travel) }
-                .buttonStyle(.bordered)
-                .font(.subheadline)
+            .glassProminentButton()
         }
     }
 

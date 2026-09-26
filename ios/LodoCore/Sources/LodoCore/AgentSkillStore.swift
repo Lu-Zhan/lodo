@@ -285,7 +285,8 @@ public enum AgentSkillStore {
     private static let defaultTripPlanner = """
     额外支持的操作:
     - 规划行程:{"action": "plan_trip", "trip": "旅行名称", "start_date": "YYYY-MM-DD", \
-    "end_date": "YYYY-MM-DD", "summary": "一句给用户的话,见下面的写法", "items": [安排, ...]}
+    "end_date": "YYYY-MM-DD", "city": "主要城市", "country": "国家/地区", \
+    "summary": "一句给用户的话,见下面的写法", "items": [安排, ...]}
       每条安排:{"kind": "place / lodging / flight / train / coach", "title": "简短名称", \
     "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", \
     "place": "地点名,写成地图上搜得到的写法", "note": "怎么玩、怎么过去、要注意什么,一两句", \
@@ -310,6 +311,8 @@ public enum AgentSkillStore {
     trip 原样填那次旅行的名字,start_date/end_date 用它的日期;已经记下的航班、住宿、地点不要\
     重复生成,新安排避开航班落地之前和起飞之后的时间。新的旅行,trip 起一个"目的地+天数"的\
     短名,如"东京四日"。
+    - city / country 一定要填(如 "京都" / "日本"):地图按地名找坐标时靠国家挡掉搜岔的\
+    结果——不填的话「清水寺」会落到同名的另一个地方去。跨城的行程 city 填主要那座。
     - summary 是写在旅行卡片上、用户每次打开这次旅行都会看到的一句话,\
     所以要短(20 字以内)、有人情味,像朋友送行时说的话——\
     "好好享受这趟白雪之旅""慢慢逛,别赶""吃好睡好,把京都的秋天看够"。\

@@ -3,7 +3,8 @@ import SwiftData
 import LodoCore
 
 /// AI 调整已记下行程(`AgentMessageKind.tripEdit`)的结果卡片:列出删了/加了/改了
-/// 哪几项,没动的(航班、带附件的)如实写出来;右下角「查看」「撤销」。
+/// 哪几项,没动的(航班、带附件的)如实写出来;右下角「撤销」,卡片下面挂一条
+/// `AgentJumpLink` 小条(「旅行已更新:xx ›」)直接进到那次旅行里。
 ///
 /// 改动在 route() 里已经落库,这张卡是事后反悔的入口。撤销由卡片自己调
 /// `TravelStore.revertEdit` 并改写 `tripEditSnapshotData`(同 AgentTripPlanCard),
@@ -12,8 +13,6 @@ struct AgentTripEditCard: View {
     let message: AgentMessage
 
     @Environment(\.modelContext) private var context
-    @Environment(\.sidebarChrome) private var sidebarChrome
-    @Environment(\.agentInspector) private var inspector
 
     private var record: TripEditRecord? {
         guard let data = message.tripEditSnapshotData else { return nil }
@@ -22,7 +21,15 @@ struct AgentTripEditCard: View {
 
     var body: some View {
         if let record {
-            card(record)
+            // 跳转小条在卡片**外面**(没有卡片底色);撤销过的不给——那几项已经
+            // 回滚,点过去看到的和卡片上写的对不上。
+            VStack(alignment: .leading, spacing: 2) {
+                card(record)
+                if record.reverted != true {
+                    AgentJumpLink(text: Text("旅行已更新:\(record.tripTitle)"),
+                                  destination: .trip(record.tripUUID))
+                }
+            }
         } else {
             Text(message.content)
         }
@@ -76,15 +83,6 @@ struct AgentTripEditCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                if let inspector, !reverted {
-                    Button("查看") { inspector.show(.trip(record.tripUUID)) }
-                        .buttonStyle(.bordered)
-                        .font(.subheadline)
-                } else if let chrome = sidebarChrome, !reverted {
-                    Button("查看") { chrome.go(.travel) }
-                        .buttonStyle(.bordered)
-                        .font(.subheadline)
-                }
                 if !reverted {
                     Button {
                         let reverted = TravelStore.revertEdit(record, context: context)

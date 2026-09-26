@@ -17,6 +17,12 @@ public struct TripPlanProposal: Codable, Equatable, Sendable {
     /// 一两句规划思路,卡片顶上那行。
     public var summary: String
     public var items: [TripPlanItem]
+    /// 目的地主要城市与国家/地区(如"京都"/"日本")。展示上只是旅行卡片那一行,
+    /// **真正要紧的是地图**:按地名找坐标时靠国家把搜岔的结果挡掉(见
+    /// `PlaceRegion`/`PlaceGeocoder`),没有它的话「清水寺」会搜到国内的同名地方。
+    /// 老消息里没有这两个键,所以是 Optional。
+    public var city: String?
+    public var country: String?
 
     /// 写入到了哪次旅行。nil = 还没写入过。
     public var appliedTripUUID: UUID?
@@ -28,12 +34,14 @@ public struct TripPlanProposal: Codable, Equatable, Sendable {
     public var reverted: Bool?
 
     public init(tripTitle: String, startDate: Date, endDate: Date, summary: String = "",
-                items: [TripPlanItem]) {
+                items: [TripPlanItem], city: String? = nil, country: String? = nil) {
         self.tripTitle = tripTitle
         self.startDate = startDate
         self.endDate = endDate
         self.summary = summary
         self.items = items
+        self.city = city
+        self.country = country
     }
 
     /// 当前是否处于"已写入、没撤销"。

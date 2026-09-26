@@ -190,9 +190,25 @@ public enum TravelPlan {
         _ entries: [TravelEntry], into days: [Date], calendar: Calendar = .current
     ) -> [TravelDay] {
         days.map { day in
-            let inDay = entries.filter { covers($0, day: day, calendar: calendar) }
+            let inDay = entries.filter {
+                covers($0, day: day, calendar: calendar)
+                    || arrivesInRange($0, day: day, days: days, calendar: calendar)
+            }
             return TravelDay(date: day, entries: sortedForDay(inDay))
         }
+    }
+
+    /// 开始在行程区间**之前**、结束(退房/到达)落在区间内的项——前一晚入住、
+    /// 旅行第一天早上退房的酒店,或跨夜到达的航班。按开始日算它们哪一天都不
+    /// 占(酒店的最后一晚在区间外),会被当成"行程之外",可退房/到达明明就在
+    /// 这趟旅行里。所以归到**结束那天**。
+    static func arrivesInRange(
+        _ entry: TravelEntry, day: Date, days: [Date], calendar: Calendar = .current
+    ) -> Bool {
+        guard let start = entry.start, let end = entry.end,
+              !days.contains(where: { covers(entry, day: $0, calendar: calendar) }),
+              calendar.startOfDay(for: start) < (days.first ?? start) else { return false }
+        return calendar.startOfDay(for: end) == day
     }
 
     /// 一天之内的排序:**住宿排在最上面**,其余按时间。
@@ -261,7 +277,10 @@ public enum TravelPlan {
         let covered = Set(days)
         return sorted(entries.filter { entry in
             guard !entry.isUnscheduled else { return false }
-            return !covered.contains { covers(entry, day: $0, calendar: calendar) }
+            return !covered.contains {
+                covers(entry, day: $0, calendar: calendar)
+                    || arrivesInRange(entry, day: $0, days: days, calendar: calendar)
+            }
         })
     }
 

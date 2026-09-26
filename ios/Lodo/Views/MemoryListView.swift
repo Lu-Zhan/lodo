@@ -200,7 +200,7 @@ struct MemoryListView: View {
                 }
             }
             .sidebarToolbarButton()
-            .askBar(focus: .memory, isVisible: path.isEmpty && !(sidebarChrome?.hidesChrome ?? false))
+            .askBar(focus: .memory, isVisible: path.isEmpty)
             .sheet(isPresented: $showTagManage) {
                 MemoryTagManageView()
             }

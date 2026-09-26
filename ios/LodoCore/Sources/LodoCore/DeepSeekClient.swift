@@ -575,7 +575,8 @@ public enum DeepSeekClient {
         return TripPlanProposal(
             tripTitle: text("trip") ?? "旅行规划",
             startDate: startDate, endDate: endDate,
-            summary: text("summary") ?? "", items: items)
+            summary: text("summary") ?? "", items: items,
+            city: text("city"), country: text("country"))
     }
 
     /// 规划/调整里的一条安排。五种类型都认(交通类是用户明确说了车次/航班和时刻时

@@ -209,7 +209,9 @@ struct TravelItemEditView: View {
                 }
             }
             .sheet(item: $searching) { target in
-                PlaceSearchView { name, coordinate in
+                // 把这趟旅行的城市/国家一起带给搜索:不带的话「清水寺」搜出来的
+                // 第一条可能在国内(见 PlaceSearchView 文件头)。
+                PlaceSearchView(onPick: { name, coordinate in
                     switch target {
                     case .place:
                         placeName = name
@@ -218,7 +220,7 @@ struct TravelItemEditView: View {
                         originName = name
                         originCoordinate = coordinate
                     }
-                }
+                }, hint: tripHint, region: tripRegion)
             }
             .onAppear(perform: load)
         }
@@ -245,9 +247,18 @@ struct TravelItemEditView: View {
         }
     }
 
+    /// 这次旅行(用来给地名搜索带上城市/国家消歧)。在 load() 里查一次存下来,
+    /// 表单里其余字段都不依赖它。
+    @State private var tripHint: String?
+    @State private var tripRegion: String?
+
     private func load() {
         guard !didLoad else { return }
         didLoad = true
+        if let trip = TravelStore.trips(in: context).first(where: { $0.uuid == tripUUID }) {
+            tripHint = TravelStore.geocodeHint(for: trip)
+            tripRegion = TravelStore.expectedRegion(for: trip)
+        }
         guard let existing else {
             start = defaultDate
             end = defaultDate

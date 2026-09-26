@@ -12,8 +12,6 @@ struct TravelDetailView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.lodoAccent) private var lodoAccent
-    /// 抽屉推开时把底部那条「问问 AI」一起收起(判据和各平级页面一致)。
-    @Environment(\.sidebarChrome) private var sidebarChrome
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var displayCurrency = "CNY"
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -89,7 +87,8 @@ struct TravelDetailView: View {
         // 把订单/截图交给 OCR——和「编辑旅行」一起收到右上角(同人脉页/记忆页那套
         // "页面自己的操作收在右上角")。
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            // 放在左上角(返回键旁边),不是右上角。
+            ToolbarItem(placement: Self.menuPlacement) {
                 Menu {
                     Button {
                         addingDate = trip.startDate
@@ -116,8 +115,7 @@ struct TravelDetailView: View {
         }
         // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
         // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
-        .askBar(focus: .travel(trip: trip.title),
-                isVisible: !(sidebarChrome?.hidesChrome ?? false))
+        .askBar(focus: .travel(trip: trip.title))
         .sheet(isPresented: $addingItem) {
             TravelItemEditView(tripUUID: trip.uuid, defaultDate: addingDate)
         }
@@ -137,9 +135,10 @@ struct TravelDetailView: View {
             TripEditView(trip: trip)
         }
         // 手打的地名、AI 规划出来的安排都没有坐标,打开这一页时补一遍,地图上才
-        // 有点可画(查不到的照旧留空,见 TravelStore.fillMissingCoordinates)。
+        // 有点可画(查不到的照旧留空,见 TravelStore.fillMissingCoordinates);
+        // 同一轮里先把存错国家的坐标清掉(见 TravelStore.pruneMisplacedCoordinates)。
         .task(id: trip.uuid) {
-            await TravelStore.fillMissingCoordinates(for: trip, context: context)
+            await TravelStore.refreshCoordinates(for: trip, context: context)
         }
         #if DEBUG
         .onAppear {
@@ -165,6 +164,14 @@ struct TravelDetailView: View {
                 viewingFlight = items.first { $0.travelKind == .flight && $0.travelFlightData != nil }
             }
         }
+        #endif
+    }
+
+    private static var menuPlacement: ToolbarItemPlacement {
+        #if os(iOS)
+        .topBarLeading
+        #else
+        .primaryAction
         #endif
     }
 
@@ -212,10 +219,21 @@ struct TravelDetailView: View {
                         Text("这天还没安排")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .dropDestination(for: String.self) { ids, _ in
+                                moveDropped(ids, to: day.date)
+                            }
                     } else {
                         ForEach(day.entries) { entry in
-                            entryRow(entry, showDate: false,
-                                     night: TravelPlan.lodgingNight(entry, day: day.date))
+                            draggable(entry) {
+                                entryRow(entry, showDate: false,
+                                         night: TravelPlan.lodgingNight(entry, day: day.date))
+                            }
+                            // 拖到这天任意一行上都算放进这一天。
+                            .dropDestination(for: String.self) { ids, _ in
+                                moveDropped(ids, to: day.date)
+                            }
                         }
                     }
                 } header: {
@@ -225,6 +243,9 @@ struct TravelDetailView: View {
                     // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
                     // verbatim 的,拼好的字符串进不了字符串目录。
                     Text("第 \(dayIndex(day.date)) 天 · \(Self.dayFormatter.string(from: day.date))")
+                        .dropDestination(for: String.self) { ids, _ in
+                            moveDropped(ids, to: day.date)
+                        }
                 }
             }
             let extras = TravelPlan.outOfRange(entries, days: trip.days)
@@ -244,6 +265,33 @@ struct TravelDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - 拖动改天
+
+    /// 长按拖起一行、放到另一天,就把它挪到那天(几点不变)。
+    /// 交通类(航班/火车/客车)不给拖:班次时刻是订单上的真实数据,
+    /// 拖一下就悄悄改掉太危险,要改走编辑表单。
+    @ViewBuilder
+    private func draggable<Row: View>(_ entry: TravelEntry,
+                                      @ViewBuilder row: () -> Row) -> some View {
+        if entry.kind.isTransport {
+            row()
+        } else {
+            row().draggable(entry.id.uuidString)
+        }
+    }
+
+    private func moveDropped(_ ids: [String], to day: Date) -> Bool {
+        var moved = false
+        for id in ids {
+            guard let uuid = UUID(uuidString: id),
+                  let item = memoryItems.first(where: { $0.uuid == uuid && $0.isTravel }),
+                  item.travelKind?.isTransport != true else { continue }
+            TravelStore.move(item, toDay: day, context: context)
+            moved = true
+        }
+        return moved
     }
 
     // MARK: - 地图

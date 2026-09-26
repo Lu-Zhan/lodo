@@ -8,9 +8,37 @@ enum AppSection: Hashable, CaseIterable {
     case overview, todo, memory, contact, health, travel, menu, agent
 }
 
+// MARK: - 「进到某个条目里」(经 Environment 下发)
+
+/// 应用里某个具体条目的位置。`go(_:)` 只能切到某一页,这个是"切到那一页并且
+/// 打开那一条"——AI 对话里的跳转小条(`AgentJumpLink`)用它。
+/// 目前只有旅行一种,别的条目(任务/记忆)要接的时候按同一个路子往里加。
+enum AppDestination: Hashable {
+    case trip(UUID)
+}
+
+/// 跨页"进到某个条目里"的统一出口。单独一个 Environment 而不是塞进
+/// `SidebarChrome`:「问问 AI」那层 sheet 会把 chrome 覆盖成 nil(抽屉在 sheet
+/// 背后,留着 ☰ 只会在看不见的地方推开一扇门),但跳转在那儿仍然要能用——
+/// 它在 sheet 里的实现是"先收起 sheet,再跳"。
+struct ItemNavigator {
+    let open: (AppDestination) -> Void
+}
+
+private struct ItemNavigatorKey: EnvironmentKey {
+    static let defaultValue: ItemNavigator? = nil
+}
+
+extension EnvironmentValues {
+    var itemNavigator: ItemNavigator? {
+        get { self[ItemNavigatorKey.self] }
+        set { self[ItemNavigatorKey.self] = newValue }
+    }
+}
+
 // MARK: - 导航栏 ☰ 按钮(经 Environment 下发,四个页面共用)
 
-/// 抽屉开关 + 当前是否该藏起导航栏上的自绘按钮。各个页面各自持有自己的
+/// 抽屉开关 + 当前是否该藏起页面的其他工具栏按钮。各个页面各自持有自己的
 /// NavigationStack/toolbar,靠 Environment 拿到这两样东西,不用逐个加 init 参数。
 struct SidebarChrome {
     let open: () -> Void
@@ -19,6 +47,7 @@ struct SidebarChrome {
     let go: (AppSection) -> Void
     /// 收起侧栏(宽屏常驻列也收)。AI 右栏打开时三列挤不下,由它让出位置。
     let collapse: () -> Void
+    /// 页面右侧的其他工具栏按钮在抽屉展开时收起。
     let hidesChrome: Bool
 }
 
@@ -38,7 +67,7 @@ private struct SidebarToolbarButton: ViewModifier {
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if let chrome, !chrome.hidesChrome {
+            if let chrome {
                 ToolbarItem(placement: .navigation) {
                     Button(action: chrome.open) {
                         Image(systemName: "line.3.horizontal")
@@ -51,10 +80,7 @@ private struct SidebarToolbarButton: ViewModifier {
 }
 
 extension View {
-    /// 在导航栏 leading 放一颗 ☰。抽屉推开时**整体移除**这个按钮而不是给它加
-    /// .opacity(0)——工具栏挂在 NavigationStack 上、不跟着内容平移,留着的话
-    /// 汉堡会浮在侧栏上面;而 iOS 26 工具栏按钮的 Liquid Glass 底是系统画的、
-    /// 不跟 label 的透明度走,只调透明度会在顶上留下一个空玻璃圆圈。
+    /// 在导航栏 leading 放一颗 ☰,抽屉展开期间仍保留,可直接点它收起。
     func sidebarToolbarButton() -> some View {
         modifier(SidebarToolbarButton())
     }
@@ -115,6 +141,9 @@ struct AppShellView: View {
     /// 记忆页的 push 栈。提到这里持有有两个用处:深链回记忆页时能弹回根,
     /// 以及下面 swipeGestureEnabled 要知道现在是不是在二级页。
     @State private var memoryPath: [MemoryItem] = []
+    /// 非 nil 时切到旅行页并 push 进这次旅行的详情(AI 对话里那条跳转小条)。
+    /// 旅行页消费掉之后置回 nil。
+    @State private var travelTripRequest: UUID?
 
     /// 窄屏时表示抽屉是否展开,宽屏时表示常驻侧栏是否可见;两种布局共用同一个开关。
     @State private var showSidebar = false
@@ -149,9 +178,8 @@ struct AppShellView: View {
     /// 分叉,那正是想要的结果。
     @State private var windowBottomInset: CGFloat = 0
     /// 收起动画还在播。sidebarProgress 是从 showSidebar 直接算的,点☰/点遮罩
-    /// 关闭时它瞬间变 0,而页面还在往回滑——只看它的话导航栏那颗 ☰ 会提前冒出来,
-    /// 悬在还没滑回去的页面上。收起期间靠这个标记把 chrome 继续压住,动画回调
-    /// 里才放开。
+    /// 关闭时它瞬间变 0,而页面还在往回滑——右上角其他工具栏项要等页面到位
+    /// 再恢复。收起期间靠这个标记压住它们,动画回调里才放开。
     @State private var isClosingSidebar = false
     /// 横向拖拽是否仍在进行。系统中断手势(来电、切后台、被别的手势抢走)时
     /// 不会走 onEnded,只有 @GestureState 会自动复位——用它兜底,否则抽屉会停在
@@ -159,10 +187,11 @@ struct AppShellView: View {
     @GestureState private var isDraggingSidebar = false
     /// 页面里那些横向可滑控件(改期候选、筛选胶囊…)的位置。落在这些矩形里
     /// 起手的拖拽不算唤出抽屉,否则往右看下一个胶囊会顺手把抽屉拖出来。
-    @State private var dragExclusions: [CGRect] = []
-    /// AI 页的右栏(窄屏)拉出来了。这时往右拖是在收右栏,左抽屉的唤出手势要让开。
-    @State private var agentInspectorOpen = false
-
+    /// 横向可滑控件申报的矩形,只在拖拽第一帧读一次。**不能是 @State**:矩形在窗口
+    /// 坐标里,页面纵向滚动时胶囊行/周条跟着走,preference 每帧都变;写 @State 会让
+    /// 整个外壳每帧重算,滚动就一路抖。引用盒改值不触发刷新。
+    private final class ExclusionBox { var rects: [CGRect] = [] }
+    @State private var dragExclusions = ExclusionBox()
     /// 关闭手势(遮罩上左滑)是和内容并行挂着的,哪一方接管这次拖拽在**第一帧**
     /// 就定死、之后不再改判:否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地
     /// 跳出来。
@@ -240,6 +269,7 @@ struct AppShellView: View {
         .environment(\.sidebarChrome,
                      SidebarChrome(open: toggleSidebar, go: go, collapse: closeSidebar,
                                    hidesChrome: hidesToolbarChrome))
+        .environment(\.itemNavigator, ItemNavigator(open: open))
         .sheet(isPresented: $showSettings) { SettingsView() }
         .onChange(of: section) { _, new in visited.insert(new) }
         .onAppear {
@@ -326,7 +356,7 @@ struct AppShellView: View {
         case .health:
             HealthView()
         case .travel:
-            TravelListView()
+            TravelListView(openTripRequest: $travelTripRequest)
         case .menu:
             MenuListView()
         case .agent:
@@ -336,11 +366,18 @@ struct AppShellView: View {
 
     private var sidebarPanel: some View {
         AppSidebarView(
-            section: $section,
+            section: section,
             onOpenSettings: { showSettings = true },
-            onSelect: { if !usesRegularLayout { closeSidebarAfterSelection() } }
+            onSelect: { target in
+                // 目标页先在抽屉背后建立,页面切换不参加接下来的收起弹簧。
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { go(target) }
+                if !usesRegularLayout { closeSidebarAfterSelection() }
+            }
         )
-        .padding(.top, usesRegularLayout ? 0 : deviceTopInset)
+        // 导航栏的 ☰ 在抽屉展开时仍可见;侧栏头部让开这颗按钮的高度。
+        .padding(.top, usesRegularLayout ? 0 : deviceTopInset + DesignMetrics.minimumHitTarget)
         .padding(.bottom, usesRegularLayout ? 0 : deviceBottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 窄屏抽屉里面板自己不铺底色,由 compactLayout 整个容器那层 drawerBackdrop
@@ -370,6 +407,16 @@ struct AppShellView: View {
         visited.insert(target)
     }
 
+    /// 进到某个条目里:切到它所在的页面,再把"打开哪一条"递给那一页。
+    /// 页面自己负责 push(旅行页 `openTripRequest`),消费完把请求置回 nil。
+    private func open(_ destination: AppDestination) {
+        switch destination {
+        case .trip(let uuid):
+            travelTripRequest = uuid
+            go(.travel)
+        }
+    }
+
     private func openAgent(prefill: String) {
         go(.agent)
         agentRequest = prefill
@@ -389,7 +436,7 @@ struct AppShellView: View {
     private func closeSidebar() {
         guard showSidebar else { return }
         isClosingSidebar = true
-        withAnimation(sidebarAnimation, completionCriteria: .removed) {
+        withAnimation(sidebarAnimation, completionCriteria: .logicallyComplete) {
             showSidebar = false
         } completion: {
             isClosingSidebar = false
@@ -400,11 +447,8 @@ struct AppShellView: View {
     /// 新页面跟着推回来),不是硬切——这一下是全 app 位移幅度最大的动画,一个
     /// 页面切换少了它就像界面自己闪了一下。
     ///
-    /// 和 `closeSidebar` 唯一的区别是解除 `isClosingSidebar` 的时机:那边等
-    /// `.removed`(弹簧完全静止),这里用 `.logicallyComplete`(动画逻辑上到位、
-    /// 尾巴上那点回弹还在走)。新页面的 NavigationStack 是在这一下里建立的,
-    /// 工具栏被 hidesChrome 压着不渲染,等到弹簧彻底静止才放开的话,左上角
-    /// 那颗 ☰ 会明显晚一拍才冒出来。
+    /// 目标页面已经在关闭前建立;这里只负责侧栏位移。右上角其他工具栏项
+    /// 在动画到位时恢复,不用等弹簧末尾的回弹完全停止。
     private func closeSidebarAfterSelection() {
         guard showSidebar else { return }
         isClosingSidebar = true
@@ -416,7 +460,7 @@ struct AppShellView: View {
         }
     }
 
-    /// 抽屉推开(或拖到一半、或正在滑回去)时撤掉页面导航栏上的按钮。判据不能
+    /// 抽屉推开(或拖到一半、或正在滑回去)时撤掉页面其他工具栏按钮。判据不能
     /// 只看 showSidebar:拖到一半时它们同样会浮在已经露出来的那截侧栏上面,所以
     /// 拖拽一起手就得撤掉;收起动画播完之前也不能放回来(见 closeSidebar)。
     /// 宽屏常驻列不推移内容,照常显示。
@@ -471,7 +515,7 @@ struct AppShellView: View {
             }
         } else {
             isClosingSidebar = true
-            withAnimation(sidebarAnimation, completionCriteria: .removed) {
+            withAnimation(sidebarAnimation, completionCriteria: .logicallyComplete) {
                 sidebarDragOffset = 0
                 showSidebar = false
             } completion: {
@@ -498,7 +542,7 @@ struct AppShellView: View {
                         ? value.translation.width < 0 : value.translation.width > 0
                     // 起手点落在横向可滑控件上就整个让开(只在收起态判——展开后
                     // 遮罩盖住整页,底下的胶囊行本来就摸不到)。
-                    let excluded = !showSidebar && dragExclusions.contains {
+                    let excluded = !showSidebar && dragExclusions.rects.contains {
                         $0.contains(value.startLocation)
                     }
                     intent = (horizontal && rightDirection && !excluded) ? .sidebar : .ignored
@@ -520,16 +564,17 @@ struct AppShellView: View {
     /// 手势从"只认左边缘窄带"改成整页之后这条更要紧了——不让开的话在详情页里
     /// 往右拖会开抽屉,而不是用户预期的返回。
     private var swipeGestureEnabled: Bool {
-        (section != .memory || memoryPath.isEmpty) && !(section == .agent && agentInspectorOpen)
+        section != .memory || memoryPath.isEmpty
     }
 
-    /// 窄屏(iPhone、紧凑宽度 iPad):侧栏宽度占屏幕一半,页面随之推移变暗。
+    /// 窄屏(iPhone、紧凑宽度 iPad):侧栏占屏幕三分之一(侧栏 : 推开后露出的页面
+    /// = 1:2),页面随之推移变暗。
     /// **整页任意位置**往右拖都能唤出(不再限于左边缘那条窄带);为此全 app 的
     /// 行操作都收在了向左滑那一侧,没有任何 leading action 跟它抢方向。
     /// 收回则是展开后在遮罩上任意位置左滑,或者点一下遮罩。
     private var compactLayout: some View {
         GeometryReader { proxy in
-            compactDrawer(width: proxy.size.width / 2)
+            compactDrawer(width: proxy.size.width / 3)
         }
         // 容器安全区 + 键盘安全区一起忽略:整张页面卡恒等于整块屏幕,键盘弹起时
         // 不再重新布局,背景也就不会跟着变(键盘该让开的那截由 pageBottomRefill
@@ -583,16 +628,12 @@ struct AppShellView: View {
                 // 手势的 startLocation 和横向控件申报的矩形都换算到这个具名空间里
                 // ——具名空间挂在手势所在的这一层,两边的原点才对得上。
                 .coordinateSpace(name: SidebarDragExclusion.spaceName)
-                .onPreferenceChange(SidebarDragExclusionKey.self) { dragExclusions = $0 }
-                .onPreferenceChange(AgentInspectorPresentedKey.self) { agentInspectorOpen = $0 }
+                .onPreferenceChange(SidebarDragExclusionKey.self) { dragExclusions.rects = $0 }
                 // 收起时手势挂在页面内容上,和列表的纵向滚动并行(sidebarDrag 第一帧
                 // 就按"横向为主 + 方向对"定死归属,纵向滚动照常让给底下的视图)。
                 .simultaneousGesture(showSidebar || !swipeGestureEnabled ? nil : sidebarDrag(width: width))
-                // allowsHitTesting 只罩页面内容本身,不能挂到遮罩外面去——遮罩要
-                // 继续吃"点一下关闭"和"左滑收回"这两个手势。
-                // 它只挡触摸,**不挡旁白**:辅助功能树照样能划进被盖住的页面,
-                // 所以还要单独 accessibilityHidden 一次。
-                .allowsHitTesting(!showSidebar)
+                // 遮罩负责拦截页面触摸;这里不能把整棵 sectionStack 的点击关掉,
+                // 否则保留下来的导航栏 ☰ 也无法点按。旁白仍要藏起被盖住的页面。
                 .accessibilityHidden(showSidebar)
                 .overlay {
                     if progress > 0 {

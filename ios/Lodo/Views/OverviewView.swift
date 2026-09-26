@@ -160,7 +160,7 @@ struct OverviewView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
-            .askBar(focus: .overview, isVisible: !(chrome?.hidesChrome ?? false))
+            .askBar(focus: .overview)
             .sheet(item: $editingTask) { task in
                 TaskEditView(existing: task, parsed: nil, attachment: task.attachment) {
                     TaskActions.apply($0, to: task, context: context)

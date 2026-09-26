@@ -21,6 +21,9 @@ private struct AskBarModifier: ViewModifier {
     #endif
 
     @State private var showAgent = false
+    /// 页面所在那一层的"进到某个条目里"(外壳装的那份)。sheet 里的跳转要先收起
+    /// 这一层才看得见目标页面,所以不能直接把它传下去,见下面那份包装。
+    @Environment(\.itemNavigator) private var itemNavigator
     /// 递给 AgentHostView 的预填文本。空串 = "只是把页面打开",不覆盖用户上次
     /// 打了一半的内容(语义同外壳的 agentRequest)。
     @State private var prefill: String?
@@ -34,7 +37,9 @@ private struct AskBarModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if isVisible { bar }
+                if isVisible {
+                    bar
+                }
             }
             #if DEBUG
             // 截图验证用:simctl 点不了这条胶囊,启动参数直接把 sheet 拉起来。
@@ -54,6 +59,15 @@ private struct AskBarModifier: ViewModifier {
                     // 在看不见的地方推开一扇门。把 chrome 覆盖成 nil,
                     // `sidebarToolbarButton()` 那颗按钮自然不渲染。
                     .environment(\.sidebarChrome, nil)
+                    // 跳转小条反过来要留着:点一下**先收起这层 sheet**,再让外壳
+                    // 切页面/push——不收的话目标页面就在 sheet 背后打开,用户只
+                    // 看见对话原地不动。
+                    .environment(\.itemNavigator, itemNavigator.map { outer in
+                        ItemNavigator { destination in
+                            showAgent = false
+                            outer.open(destination)
+                        }
+                    })
                     .tint(accentPalette.accent)
                     .environment(\.lodoAccent, accentPalette)
                     #if os(iOS)
@@ -92,8 +106,8 @@ private struct AskBarModifier: ViewModifier {
 }
 
 extension View {
-    /// 底部「问问 AI」对话条。`isVisible` 的判据和 `floatingAddAction` 一致:
-    /// 二级页(push 进详情)和抽屉推开时都收起来。
+    /// 底部「问问 AI」对话条。`isVisible` 控制页面层级(二级页是否显示),
+    /// 抽屉展开时输入条跟随页面保留。
     /// `focus` 是所在页面:唤出的 AI 默认把含糊指令当成这一页的事。
     func askBar(focus: AgentFocus, isVisible: Bool = true) -> some View {
         modifier(AskBarModifier(isVisible: isVisible, focus: focus))
