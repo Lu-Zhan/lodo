@@ -869,3 +869,26 @@ ios_view.edit_subscription,编辑订阅,Edit Subscription,ios_view,
 ios_view.blog,博客,Blog,ios_view,
 ios_view.include_subscribed_news,带上订阅的新闻,Include Subscribed News,ios_view,
 ios_view.clear_filter_0,清除筛选:{0},Clear Filter: {0},ios_view,
+overview.add_widget,添加小组件,Add Widget,ios_view,总览页
+overview.remove_widget,移除,Remove,ios_view,总览页
+overview.widget_enlarge,放大,Enlarge,ios_view,总览页
+overview.widget_shrink,缩小,Shrink,ios_view,总览页
+overview.gallery_all_shown,所有小组件都已在总览里,All widgets are already in Overview,ios_view,总览页
+overview.gallery_footer,"在总览里点「编辑」:拖动卡片调整位置,拖右下角的手柄放大或缩小。","Tap Edit in Overview: drag a card to move it, and drag the handle at its bottom-right corner to resize.",ios_view,总览页
+overview.empty_hint_edit,"点右上角的「编辑」,再点「+」添加小组件。","Tap Edit in the top-right corner, then + to add widgets.",ios_view,总览页
+overview.widget_activity_rings,活动圆环,Activity Rings,ios_view,总览页
+overview.widget_task_progress,今日进度,Today's Progress,ios_view,总览页
+overview.widget_weekly_done,本周完成,Done This Week,ios_view,总览页
+overview.widget_steps_trend,步数趋势,Steps Trend,ios_view,总览页
+overview.ring_move,活动,Move,ios_view,总览页
+overview.ring_exercise,锻炼,Exercise,ios_view,总览页
+overview.ring_steps,步数,Steps,ios_view,总览页
+overview.ring_tasks_done,任务完成,Tasks Done,ios_view,总览页
+overview.count_items,%lld 件,%lld done,ios_view,总览页
+overview.no_tasks_today_a11y,今天没有任务,No tasks today,ios_view,总览页
+overview.tasks_done_a11y,今天任务完成 %lld/%lld,Today's tasks done: %lld/%lld,ios_view,总览页
+overview.rings_a11y,"活动 %@ 千卡,锻炼 %@ 分钟,步数 %@","Move %@ kcal, exercise %@ min, steps %@",ios_view,总览页
+overview.weekly_done_a11y,本周完成 %lld 件,%lld tasks done this week,ios_view,总览页
+overview.ring_kcal,%@/%lld 千卡,%@/%lld kcal,ios_view,总览页
+overview.ring_minutes,%@/%lld 分钟,%@/%lld min,ios_view,总览页
+overview.chart_goal,目标,Goal,ios_view,总览页

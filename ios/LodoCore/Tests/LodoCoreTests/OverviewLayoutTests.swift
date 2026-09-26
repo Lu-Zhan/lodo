@@ -115,4 +115,35 @@ final class OverviewLayoutTests: XCTestCase {
         XCTAssertEqual(entries.map(\.title), ["进行中", "妈妈", "京都"])
         XCTAssertEqual(entries.map(\.kind), [.trip, .birthday, .trip])
     }
+
+    func testMoveKindOntoTarget() {
+        var layout = OverviewLayout(items: [.init(kind: .clock), .init(kind: .nextUp),
+                                            .init(kind: .due), .init(kind: .today)])
+        // 从前往后拖:落在目标之后。
+        layout.move(.clock, to: .due)
+        XCTAssertEqual(layout.items.map(\.kind), [.nextUp, .due, .clock, .today])
+        // 从后往前拖:落在目标之前。
+        layout.move(.today, to: .nextUp)
+        XCTAssertEqual(layout.items.map(\.kind), [.today, .nextUp, .due, .clock])
+        layout.move(.due, to: .due)
+        XCTAssertEqual(layout.items.map(\.kind), [.today, .nextUp, .due, .clock])
+    }
+
+    func testSetSizeRespectsAllowedSizes() {
+        var layout = OverviewLayout.default
+        layout.setSize(.large, for: .clock)
+        XCTAssertEqual(layout.items.first { $0.kind == .clock }?.size, .small)
+        layout.setSize(.large, for: .nextUp)
+        XCTAssertEqual(layout.items.first { $0.kind == .nextUp }?.size, .large)
+    }
+
+    func testHideAndAddBackGoesToEnd() {
+        var layout = OverviewLayout.default
+        layout.setVisible(false, for: .clock)
+        XCTAssertEqual(layout.hiddenKinds, [.clock])
+        XCTAssertFalse(layout.rows().flatMap { $0 }.contains { $0.kind == .clock })
+        layout.add(.clock)
+        XCTAssertTrue(layout.hiddenKinds.isEmpty)
+        XCTAssertEqual(layout.items.last?.kind, .clock)
+    }
 }

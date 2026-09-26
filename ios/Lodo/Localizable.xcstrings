@@ -2,6 +2,7 @@
   "sourceLanguage" : "zh-Hans",
   "strings" : {
     "" : {},
+    " " : {},
     "#%@" : {},
     "%@" : {},
     "%@ %@" : {
@@ -82,6 +83,22 @@
         }
       }
     },
+    "%@ 根据最近 24 小时的文章整理" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compiled at %@ from the last 24 hours of articles"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 根据最近 24 小时的文章整理"
+          }
+        }
+      }
+    },
     "%@(%@)" : {
       "localizations" : {
         "en" : {
@@ -94,6 +111,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@(%@)"
+          }
+        }
+      }
+    },
+    "%@/%lld 分钟" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/%lld min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/%lld 分钟"
+          }
+        }
+      }
+    },
+    "%@/%lld 千卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/%lld kcal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/%lld 千卡"
           }
         }
       }
@@ -125,6 +174,22 @@
         }
       }
     },
+    "%lld 件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件"
+          }
+        }
+      }
+    },
     "%lld 分钟" : {},
     "%lld 天" : {
       "localizations" : {
@@ -142,6 +207,7 @@
         }
       }
     },
+    "%lld 字" : {},
     "%lld 条" : {},
     "%lld 道菜" : {
       "localizations" : {
@@ -160,6 +226,7 @@
       }
     },
     "%lld 项" : {},
+    "+%lld" : {},
     "14 天" : {
       "localizations" : {
         "en" : {
@@ -224,7 +291,6 @@
         }
       }
     },
-    "AI Agent Skill" : {},
     "AI 个性" : {
       "localizations" : {
         "en" : {
@@ -370,6 +436,22 @@
         }
       }
     },
+    "AI 总结" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 总结"
+          }
+        }
+      }
+    },
     "AI 整理收藏时会自动打标签,也可以在上面手动创建。" : {
       "localizations" : {
         "en" : {
@@ -504,6 +586,7 @@
         }
       }
     },
+    "lodo 键盘" : {},
     "macOS 版暂不支持连接系统日历。" : {
       "localizations" : {
         "en" : {
@@ -524,6 +607,7 @@
     "「%@」实际用了多久?" : {},
     "「%@」改期建议" : {},
     "三日" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -539,7 +623,6 @@
         }
       }
     },
-    "上一周" : {},
     "上一次旅行" : {},
     "上一页" : {
       "localizations" : {
@@ -573,7 +656,6 @@
         }
       }
     },
-    "下一周" : {},
     "下一步" : {
       "localizations" : {
         "en" : {
@@ -835,6 +917,22 @@
         }
       }
     },
+    "今天任务完成 %lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's tasks done: %lld/%lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天任务完成 %lld/%lld"
+          }
+        }
+      }
+    },
     "今天已过" : {
       "localizations" : {
         "en" : {
@@ -884,6 +982,22 @@
       }
     },
     "今天有什么安排" : {},
+    "今天没有任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天没有任务"
+          }
+        }
+      }
+    },
     "今天没有任务 🎉" : {},
     "今天没有日程" : {
       "localizations" : {
@@ -934,6 +1048,7 @@
       }
     },
     "今天的记忆" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -982,6 +1097,7 @@
       }
     },
     "今日例行" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -998,6 +1114,7 @@
       }
     },
     "今日日程" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1009,6 +1126,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今日日程"
+          }
+        }
+      }
+    },
+    "今日简报" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's Briefing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日简报"
+          }
+        }
+      }
+    },
+    "今日进度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's Progress"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日进度"
           }
         }
       }
@@ -1191,6 +1340,38 @@
         }
       }
     },
+    "任务完成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks Done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任务完成"
+          }
+        }
+      }
+    },
+    "会先抓取原文网页,抓不到时只根据摘要总结。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetches the original page first; falls back to the excerpt if it can't be loaded."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会先抓取原文网页,抓不到时只根据摘要总结。"
+          }
+        }
+      }
+    },
     "会自动打上「人脉」标签,记忆列表默认不显示,筛选里选中「人脉」才会看到。" : {
       "localizations" : {
         "en" : {
@@ -1340,6 +1521,7 @@
     "修改" : {},
     "修改这条消息?" : {},
     "倒数日" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1387,6 +1569,38 @@
         }
       }
     },
+    "停用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停用"
+          }
+        }
+      }
+    },
+    "停用的订阅不再抓取新文章,已经抓到的留着。删除订阅会连同它的文章一起删掉,收藏过的除外。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused subscriptions stop fetching new articles but keep existing ones. Deleting a subscription also deletes its articles, except starred ones."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停用的订阅不再抓取新文章,已经抓到的留着。删除订阅会连同它的文章一起删掉,收藏过的除外。"
+          }
+        }
+      }
+    },
     "健康" : {
       "localizations" : {
         "en" : {
@@ -1404,6 +1618,7 @@
       }
     },
     "健康 skills" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1601,6 +1816,7 @@
     "全天事项将在当天 %@ 提醒(可在设置中修改)" : {},
     "全天事项提醒时间" : {},
     "全年" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1660,6 +1876,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全部完成"
+          }
+        }
+      }
+    },
+    "全部来源" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Sources"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部来源"
+          }
+        }
+      }
+    },
+    "全部标为已读" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark All as Read"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部标为已读"
           }
         }
       }
@@ -2055,6 +2303,22 @@
         }
       }
     },
+    "删除这个订阅?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This Subscription?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这个订阅?"
+          }
+        }
+      }
+    },
     "删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。" : {},
     "删除这张菜单?" : {
       "localizations" : {
@@ -2249,6 +2513,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加元"
+          }
+        }
+      }
+    },
+    "博客" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blog"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "博客"
           }
         }
       }
@@ -2483,6 +2764,22 @@
         }
       }
     },
+    "可以直接填 RSS/Atom 订阅地址;订阅博客时填博客首页也行,会自动找到它的订阅地址。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter an RSS/Atom feed URL. For blogs, the homepage works too — the feed address is found automatically."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以直接填 RSS/Atom 订阅地址;订阅博客时填博客首页也行,会自动找到它的订阅地址。"
+          }
+        }
+      }
+    },
     "可能是还没授权,或者这段时间没有记录。可以到系统「设置 → 隐私与安全性 → 健康」里检查 lodo 的权限。" : {
       "localizations" : {
         "en" : {
@@ -2613,6 +2910,7 @@
         }
       }
     },
+    "名称与内置 skill「%@」相同,导入会覆盖它当前的文本(可在编辑页重置)。" : {},
     "启用" : {
       "localizations" : {
         "en" : {
@@ -2818,6 +3116,23 @@
     "在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。" : {},
     "在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。" : {},
     "在底下那条「问问 AI」里说一句要记的资产。" : {},
+    "在总览里点「编辑」:拖动卡片调整位置,拖右下角的手柄放大或缩小。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Edit in Overview: drag a card to move it, and drag the handle at its bottom-right corner to resize."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在总览里点「编辑」:拖动卡片调整位置,拖右下角的手柄放大或缩小。"
+          }
+        }
+      }
+    },
+    "在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。" : {},
     "在菜单里点一下菜品就能选上。" : {
       "localizations" : {
         "en" : {
@@ -2965,6 +3280,7 @@
     },
     "处理中" : {},
     "处理建议" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3014,6 +3330,7 @@
     },
     "复制" : {},
     "大" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3030,6 +3347,7 @@
       }
     },
     "大小" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3125,6 +3443,22 @@
         }
       }
     },
+    "它的文章会一起删掉,收藏过的会留下。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its articles will be deleted too, except starred ones."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它的文章会一起删掉,收藏过的会留下。"
+          }
+        }
+      }
+    },
     "它的运行历史也会一起删除。" : {
       "localizations" : {
         "en" : {
@@ -3177,6 +3511,7 @@
         }
       }
     },
+    "完整 system prompt(共 %lld 字)" : {},
     "定时任务" : {
       "localizations" : {
         "en" : {
@@ -3194,6 +3529,7 @@
       }
     },
     "定时任务 skills" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3205,6 +3541,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "定时任务 skills"
+          }
+        }
+      }
+    },
+    "定时推送" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled Push"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定时推送"
+          }
+        }
+      }
+    },
+    "定时推送:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled Push: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定时推送:%@"
           }
         }
       }
@@ -3244,7 +3612,6 @@
       }
     },
     "导入" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3409,6 +3776,7 @@
       }
     },
     "小" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3524,6 +3892,7 @@
       }
     },
     "已到期提醒" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3606,6 +3975,22 @@
         }
       }
     },
+    "已收藏" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starred"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收藏"
+          }
+        }
+      }
+    },
     "已有同名的外部 skill,导入会覆盖它的内容(启用状态不变)。" : {
       "localizations" : {
         "en" : {
@@ -3667,6 +4052,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已自定义"
+          }
+        }
+      }
+    },
+    "已订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已订阅"
           }
         }
       }
@@ -3763,6 +4164,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "带上今天的任务"
+          }
+        }
+      }
+    },
+    "带上订阅的新闻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Include Subscribed News"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "带上订阅的新闻"
           }
         }
       }
@@ -3945,7 +4362,7 @@
         }
       }
     },
-    "开启后任务页顶部的周视图会把你日历里的日程和任务排在一起。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程默认只读,左滑「转为任务」认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。" : {},
+    "开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。" : {},
     "开始" : {},
     "开始了" : {},
     "开始使用" : {
@@ -4000,6 +4417,7 @@
     "引用" : {},
     "强调色" : {},
     "当日" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4064,6 +4482,22 @@
         }
       }
     },
+    "总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」;新闻简报打开「带上订阅的新闻」。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For summary/review tasks, turn on \"Include today's tasks\"; for weather, market data, etc., turn on \"Allow web search\"; for news briefings, turn on \"Include Subscribed News\"."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」;新闻简报打开「带上订阅的新闻」。"
+          }
+        }
+      }
+    },
     "总花费" : {
       "localizations" : {
         "en" : {
@@ -4114,6 +4548,7 @@
       }
     },
     "我的 skills" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4162,6 +4597,7 @@
       }
     },
     "所有" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4173,6 +4609,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "所有"
+          }
+        }
+      }
+    },
+    "所有小组件都已在总览里" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All widgets are already in Overview"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有小组件都已在总览里"
           }
         }
       }
@@ -4245,6 +4697,22 @@
     "打开 App 后默认进入 AI 助手" : {},
     "打开 lodo 助手" : {},
     "打开 lodo 的全局 AI 助手。" : {},
+    "打开网站" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Website"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开网站"
+          }
+        }
+      }
+    },
     "打开这个条目" : {
       "localizations" : {
         "en" : {
@@ -4328,6 +4796,7 @@
       }
     },
     "拖动右侧手柄调整顺序。两张相邻的小卡会并排显示。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4419,6 +4888,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按币种"
+          }
+        }
+      }
+    },
+    "按来源筛选" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter by Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按来源筛选"
           }
         }
       }
@@ -4517,6 +5002,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "推荐"
+          }
+        }
+      }
+    },
+    "推荐订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggested"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "推荐订阅"
           }
         }
       }
@@ -4682,6 +5183,7 @@
       }
     },
     "搜索菜品" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4698,6 +5200,22 @@
       }
     },
     "搜索记忆" : {},
+    "摘要" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excerpt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要"
+          }
+        }
+      }
+    },
     "撤销" : {
       "localizations" : {
         "en" : {
@@ -4781,6 +5299,22 @@
       }
     },
     "改期失败" : {},
+    "放大" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlarge"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放大"
+          }
+        }
+      }
+    },
     "数值" : {
       "localizations" : {
         "en" : {
@@ -4944,6 +5478,22 @@
         }
       }
     },
+    "新闻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "News"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新闻"
+          }
+        }
+      }
+    },
     "旅行" : {
       "localizations" : {
         "en" : {
@@ -4961,6 +5511,7 @@
       }
     },
     "旅行 skills" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5159,6 +5710,22 @@
         }
       }
     },
+    "昨天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yesterday"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "昨天"
+          }
+        }
+      }
+    },
     "昵称" : {
       "localizations" : {
         "en" : {
@@ -5351,6 +5918,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "更多标签"
+          }
+        }
+      }
+    },
+    "更新于 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新于 %@"
           }
         }
       }
@@ -5581,7 +6164,24 @@
         }
       }
     },
+    "未读" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unread"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未读"
+          }
+        }
+      }
+    },
     "本周" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5593,6 +6193,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "本周"
+          }
+        }
+      }
+    },
+    "本周完成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done This Week"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本周完成"
+          }
+        }
+      }
+    },
+    "本周完成 %lld 件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld tasks done this week"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本周完成 %lld 件"
           }
         }
       }
@@ -5614,6 +6246,7 @@
       }
     },
     "本月" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5694,6 +6327,22 @@
         }
       }
     },
+    "来源" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源"
+          }
+        }
+      }
+    },
     "松绿" : {},
     "查看今天开始或到期的任务。" : {},
     "查看图片" : {},
@@ -5725,6 +6374,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "查看最终 Prompt"
+          }
+        }
+      }
+    },
+    "标为已读" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Read"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标为已读"
+          }
+        }
+      }
+    },
+    "标为未读" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Unread"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标为未读"
           }
         }
       }
@@ -5859,6 +6540,22 @@
         }
       }
     },
+    "正在抓取订阅…下拉可以手动刷新。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetching feeds… Pull down to refresh."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在抓取订阅…下拉可以手动刷新。"
+          }
+        }
+      }
+    },
     "正在搜索…" : {
       "localizations" : {
         "en" : {
@@ -5888,6 +6585,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在整理今天的收藏…"
+          }
+        }
+      }
+    },
+    "正在整理今日简报…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putting together today's briefing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在整理今日简报…"
           }
         }
       }
@@ -5956,6 +6669,22 @@
         }
       }
     },
+    "正在读原文并总结…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading and summarizing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读原文并总结…"
+          }
+        }
+      }
+    },
     "正在读取健康数据…" : {
       "localizations" : {
         "en" : {
@@ -5989,6 +6718,7 @@
       }
     },
     "此刻" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6000,6 +6730,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此刻"
+          }
+        }
+      }
+    },
+    "步数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步数"
+          }
+        }
+      }
+    },
+    "步数趋势" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps Trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步数趋势"
           }
         }
       }
@@ -6232,6 +6994,54 @@
         }
       }
     },
+    "活动" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "活动"
+          }
+        }
+      }
+    },
+    "活动 %@ 千卡,锻炼 %@ 分钟,步数 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move %@ kcal, exercise %@ min, steps %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "活动 %@ 千卡,锻炼 %@ 分钟,步数 %@"
+          }
+        }
+      }
+    },
+    "活动圆环" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activity Rings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "活动圆环"
+          }
+        }
+      }
+    },
     "添加" : {
       "localizations" : {
         "en" : {
@@ -6278,6 +7088,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加定时任务"
+          }
+        }
+      }
+    },
+    "添加小组件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Widget"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加小组件"
           }
         }
       }
@@ -6342,6 +7168,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加行程"
+          }
+        }
+      }
+    },
+    "添加订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Subscription"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加订阅"
           }
         }
       }
@@ -6495,7 +7337,24 @@
         }
       }
     },
+    "点右上角的「编辑」,再点「+」添加小组件。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Edit in the top-right corner, then + to add widgets."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点右上角的「编辑」,再点「+」添加小组件。"
+          }
+        }
+      }
+    },
     "点右上角的按钮选择要显示的模块。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6573,6 +7432,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "瑞士法郎"
+          }
+        }
+      }
+    },
+    "生成今日简报" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generate Today's Briefing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成今日简报"
           }
         }
       }
@@ -6693,7 +7568,39 @@
         }
       }
     },
+    "目标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目标"
+          }
+        }
+      }
+    },
     "目的地" : {},
+    "看看推荐订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse Suggestions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "看看推荐订阅"
+          }
+        }
+      }
+    },
     "石墨" : {},
     "确定" : {
       "localizations" : {
@@ -6791,6 +7698,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移出行程"
+          }
+        }
+      }
+    },
+    "移除" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除"
           }
         }
       }
@@ -6912,7 +7835,6 @@
       }
     },
     "筛选" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6940,6 +7862,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "管理标签"
+          }
+        }
+      }
+    },
+    "管理订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Subscriptions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理订阅"
+          }
+        }
+      }
+    },
+    "类别" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类别"
           }
         }
       }
@@ -7012,6 +7966,7 @@
       }
     },
     "系统 skills" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7131,6 +8086,7 @@
     "编辑事项" : {},
     "编辑偏好" : {},
     "编辑布局" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7178,7 +8134,55 @@
         }
       }
     },
+    "编辑订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Subscription"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑订阅"
+          }
+        }
+      }
+    },
     "编辑记忆" : {},
+    "缩小" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shrink"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "缩小"
+          }
+        }
+      }
+    },
+    "网址,如 sspai.com/feed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL, e.g. sspai.com/feed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网址,如 sspai.com/feed"
+          }
+        }
+      }
+    },
     "美元" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7729,6 +8733,54 @@
         }
       }
     },
+    "订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订阅"
+          }
+        }
+      }
+    },
+    "订阅地址" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feed URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订阅地址"
+          }
+        }
+      }
+    },
+    "订阅新闻网站或博客的 RSS,文章会按天排在这里。AI 可以总结单篇、生成今日简报,也能在订阅里帮你找文章。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe to RSS feeds from news sites or blogs and articles will be listed here by day. AI can summarize an article, write a daily briefing, and find articles in your subscriptions."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订阅新闻网站或博客的 RSS,文章会按天排在这里。AI 可以总结单篇、生成今日简报,也能在订阅里帮你找文章。"
+          }
+        }
+      }
+    },
     "让 AI 在你设定的时间自动跑一件事,比如早上总结今天的任务、看天气给穿搭建议。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7795,6 +8847,7 @@
       }
     },
     "记忆 skills" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8421,6 +9474,22 @@
         }
       }
     },
+    "还没有收藏的文章。左滑文章可以收藏。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No starred articles yet. Swipe left on an article to star it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有收藏的文章。左滑文章可以收藏。"
+          }
+        }
+      }
+    },
     "还没有旅行" : {
       "localizations" : {
         "en" : {
@@ -8472,6 +9541,38 @@
       }
     },
     "还没有行程,点进去添加航班、住宿和想去的地方。" : {},
+    "还没有订阅" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Subscriptions Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有订阅"
+          }
+        }
+      }
+    },
+    "还没有订阅。点右上角添加,或者从下面的推荐里挑几个。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No subscriptions yet. Tap the button at the top right, or pick some from the suggestions below."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有订阅。点右上角添加,或者从下面的推荐里挑几个。"
+          }
+        }
+      }
+    },
     "还没有记过花费" : {
       "localizations" : {
         "en" : {
@@ -8501,6 +9602,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有选菜"
+          }
+        }
+      }
+    },
+    "这个来源下还没有文章。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No articles from this source yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个来源下还没有文章。"
           }
         }
       }
@@ -8554,7 +9671,6 @@
         }
       }
     },
-    "这天没有安排" : {},
     "这天没有日程" : {
       "localizations" : {
         "en" : {
@@ -8636,7 +9752,6 @@
       }
     },
     "进行中" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8860,6 +9975,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。"
+          }
+        }
+      }
+    },
+    "都读完了。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All caught up."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "都读完了。"
           }
         }
       }
@@ -9169,7 +10300,39 @@
         }
       }
     },
+    "锻炼" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exercise"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "锻炼"
+          }
+        }
+      }
+    },
     "问问 AI" : {},
+    "阅读原文" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Original"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读原文"
+          }
+        }
+      }
+    },
     "附件" : {
       "localizations" : {
         "en" : {
@@ -9332,774 +10495,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。"
-          }
-        }
-      }
-    },
-    "新闻" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "News"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新闻"
-          }
-        }
-      }
-    },
-    "昨天" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yesterday"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "昨天"
-          }
-        }
-      }
-    },
-    "还没有订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Subscriptions Yet"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有订阅"
-          }
-        }
-      }
-    },
-    "订阅新闻网站或博客的 RSS,文章会按天排在这里。AI 可以总结单篇、生成今日简报,也能在订阅里帮你找文章。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subscribe to RSS feeds from news sites or blogs and articles will be listed here by day. AI can summarize an article, write a daily briefing, and find articles in your subscriptions."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "订阅新闻网站或博客的 RSS,文章会按天排在这里。AI 可以总结单篇、生成今日简报,也能在订阅里帮你找文章。"
-          }
-        }
-      }
-    },
-    "添加订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Subscription"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加订阅"
-          }
-        }
-      }
-    },
-    "看看推荐订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Browse Suggestions"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "看看推荐订阅"
-          }
-        }
-      }
-    },
-    "未读" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unread"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未读"
-          }
-        }
-      }
-    },
-    "已收藏" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Starred"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已收藏"
-          }
-        }
-      }
-    },
-    "都读完了。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All caught up."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "都读完了。"
-          }
-        }
-      }
-    },
-    "还没有收藏的文章。左滑文章可以收藏。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No starred articles yet. Swipe left on an article to star it."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有收藏的文章。左滑文章可以收藏。"
-          }
-        }
-      }
-    },
-    "正在抓取订阅…下拉可以手动刷新。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fetching feeds… Pull down to refresh."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在抓取订阅…下拉可以手动刷新。"
-          }
-        }
-      }
-    },
-    "这个来源下还没有文章。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No articles from this source yet."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这个来源下还没有文章。"
-          }
-        }
-      }
-    },
-    "今日简报" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Today's Briefing"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今日简报"
-          }
-        }
-      }
-    },
-    "生成今日简报" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Generate Today's Briefing"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "生成今日简报"
-          }
-        }
-      }
-    },
-    "正在整理今日简报…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Putting together today's briefing…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在整理今日简报…"
-          }
-        }
-      }
-    },
-    "%@ 根据最近 24 小时的文章整理" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compiled at %@ from the last 24 hours of articles"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 根据最近 24 小时的文章整理"
-          }
-        }
-      }
-    },
-    "管理订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Manage Subscriptions"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理订阅"
-          }
-        }
-      }
-    },
-    "定时推送" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scheduled Push"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "定时推送"
-          }
-        }
-      }
-    },
-    "定时推送:%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scheduled Push: %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "定时推送:%@"
-          }
-        }
-      }
-    },
-    "按来源筛选" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filter by Source"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按来源筛选"
-          }
-        }
-      }
-    },
-    "来源" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Source"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "来源"
-          }
-        }
-      }
-    },
-    "全部来源" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All Sources"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部来源"
-          }
-        }
-      }
-    },
-    "全部标为已读" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark All as Read"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部标为已读"
-          }
-        }
-      }
-    },
-    "标为未读" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark as Unread"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "标为未读"
-          }
-        }
-      }
-    },
-    "标为已读" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark as Read"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "标为已读"
-          }
-        }
-      }
-    },
-    "摘要" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Excerpt"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "摘要"
-          }
-        }
-      }
-    },
-    "阅读原文" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Read Original"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "阅读原文"
-          }
-        }
-      }
-    },
-    "AI 总结" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI Summary"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI 总结"
-          }
-        }
-      }
-    },
-    "正在读原文并总结…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reading and summarizing…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在读原文并总结…"
-          }
-        }
-      }
-    },
-    "会先抓取原文网页,抓不到时只根据摘要总结。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fetches the original page first; falls back to the excerpt if it can't be loaded."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "会先抓取原文网页,抓不到时只根据摘要总结。"
-          }
-        }
-      }
-    },
-    "已订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subscribed"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已订阅"
-          }
-        }
-      }
-    },
-    "推荐订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suggested"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "推荐订阅"
-          }
-        }
-      }
-    },
-    "还没有订阅。点右上角添加,或者从下面的推荐里挑几个。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No subscriptions yet. Tap the button at the top right, or pick some from the suggestions below."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有订阅。点右上角添加,或者从下面的推荐里挑几个。"
-          }
-        }
-      }
-    },
-    "停用的订阅不再抓取新文章,已经抓到的留着。删除订阅会连同它的文章一起删掉,收藏过的除外。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paused subscriptions stop fetching new articles but keep existing ones. Deleting a subscription also deletes its articles, except starred ones."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停用的订阅不再抓取新文章,已经抓到的留着。删除订阅会连同它的文章一起删掉,收藏过的除外。"
-          }
-        }
-      }
-    },
-    "订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subscribe"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "订阅"
-          }
-        }
-      }
-    },
-    "停用" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pause"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停用"
-          }
-        }
-      }
-    },
-    "删除这个订阅?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete This Subscription?"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除这个订阅?"
-          }
-        }
-      }
-    },
-    "它的文章会一起删掉,收藏过的会留下。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Its articles will be deleted too, except starred ones."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "它的文章会一起删掉,收藏过的会留下。"
-          }
-        }
-      }
-    },
-    "更新于 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updated %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新于 %@"
-          }
-        }
-      }
-    },
-    "网址,如 sspai.com/feed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "URL, e.g. sspai.com/feed"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "网址,如 sspai.com/feed"
-          }
-        }
-      }
-    },
-    "类别" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Category"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "类别"
-          }
-        }
-      }
-    },
-    "可以直接填 RSS/Atom 订阅地址;订阅博客时填博客首页也行,会自动找到它的订阅地址。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter an RSS/Atom feed URL. For blogs, the homepage works too — the feed address is found automatically."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "可以直接填 RSS/Atom 订阅地址;订阅博客时填博客首页也行,会自动找到它的订阅地址。"
-          }
-        }
-      }
-    },
-    "订阅地址" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Feed URL"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "订阅地址"
-          }
-        }
-      }
-    },
-    "打开网站" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Website"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开网站"
-          }
-        }
-      }
-    },
-    "编辑订阅" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit Subscription"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑订阅"
-          }
-        }
-      }
-    },
-    "博客" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Blog"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "博客"
-          }
-        }
-      }
-    },
-    "带上订阅的新闻" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Include Subscribed News"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "带上订阅的新闻"
-          }
-        }
-      }
-    },
-    "总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」;新闻简报打开「带上订阅的新闻」。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "For summary/review tasks, turn on \"Include today's tasks\"; for weather, market data, etc., turn on \"Allow web search\"; for news briefings, turn on \"Include Subscribed News\"."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」;新闻简报打开「带上订阅的新闻」。"
           }
         }
       }

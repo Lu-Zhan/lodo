@@ -4,7 +4,8 @@ import LodoCore
 
 /// 「总览」页:一组和时间相关的 widget 模块(今天/接下来/到期提醒/今天任务/
 /// 今日日程/倒数日/今日例行/AI 处理建议/今天的记忆/健康),两列网格——小卡
-/// 半宽、大卡整宽。顺序、显示与否、大小由用户在右上角「编辑布局」里定
+/// 半宽、大卡整宽。顺序、显示与否、大小由用户点右上角「编辑」就地调整
+/// (参考 iOS 主屏幕编辑小组件,见 OverviewEditing.swift)
 /// (`OverviewLayout`,纯逻辑在 LodoCore,存 `AppSettings.overviewLayoutKey`)。
 /// 任务行:点圆圈完成、点行编辑、长按稍等/删除(卡片里没有 List,用不上
 /// swipeActions)。AI 那几段按天缓存,见 loadSuggestion/loadMemorySummary。
@@ -29,9 +30,12 @@ struct OverviewView: View {
     private var doneTasks: [TaskItem]
     @Query(sort: \TravelTrip.startDate) private var trips: [TravelTrip]
     @Environment(\.scenePhase) private var scenePhase
-    /// widget 布局(顺序/显示/大小),右上角「编辑布局」改。
+    /// widget 布局(顺序/显示/大小),右上角「编辑」就地改。
     @AppStorage(AppSettings.overviewLayoutKey) private var layoutRaw = ""
-    @State private var showLayoutEditor = false
+    @State private var isEditingLayout = false
+    @State private var showWidgetGallery = false
+    /// 编辑态下正在被拖动的那张卡。
+    @State private var draggingWidget: OverviewWidgetKind?
     /// 今明两天的系统日程,「接下来」和「今日日程」共用。
     @State private var upcomingEvents: [CalendarEvent] = []
     #if DEBUG
@@ -45,6 +49,8 @@ struct OverviewView: View {
     @State private var suggestion: String?
     @State private var memorySummary: String?
     @State private var healthTip: String?
+    /// 圆环/步数图用的最近 7 天健康汇总;nil = 健康开关关着(那时一次 HealthKit 都不读)。
+    @State private var healthReport: HealthReport?
     /// 通知"改期"按钮交接的改期候选(横幅展示,与 TaskRowView 内部滑动触发的
     /// 改期各自独立——见 OverviewView+Reschedule.swift 顶部注释)。
     @State var notificationReschedule: (task: TaskItem, candidates: [(label: String, date: Date)])?
@@ -92,7 +98,7 @@ struct OverviewView: View {
                     ForEach(Array(layout.rows().enumerated()), id: \.offset) { _, row in
                         HStack(alignment: .top, spacing: 12) {
                             ForEach(row) { item in
-                                widget(item)
+                                editableWidget(item)
                                     .frame(maxWidth: .infinity)
                             }
                             // 独占半行的小卡:右边留空,不拉成整宽(用户选的是小卡)。
@@ -107,14 +113,17 @@ struct OverviewView: View {
                         ContentUnavailableView {
                             Label("没有显示的模块", systemImage: "square.grid.2x2")
                         } description: {
-                            Text("点右上角的按钮选择要显示的模块。")
+                            Text("点右上角的「编辑」,再点「+」添加小组件。")
                         }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .animation(.lodoAware(.snappy), value: layout)
+                .animation(.lodoAware(.snappy), value: isEditingLayout)
             }
+            // 拖到卡片之间的缝里松手也要清掉"正在拖"。
+            .onDrop(of: [.text], delegate: OverviewDragReset(dragging: $draggingWidget))
             .background(pageBackground.ignoresSafeArea())
             .navigationTitle("总览")
             #if os(iOS)
@@ -123,11 +132,21 @@ struct OverviewView: View {
             .sidebarToolbarButton()
             .toolbar {
                 if !(chrome?.hidesChrome ?? false) {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showLayoutEditor = true
-                        } label: {
-                            Label("编辑布局", systemImage: "square.grid.2x2")
+                    if isEditingLayout {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                showWidgetGallery = true
+                            } label: {
+                                Label("添加小组件", systemImage: "plus")
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("完成") { setEditing(false) }
+                                .fontWeight(.semibold)
+                        }
+                    } else {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button("编辑") { setEditing(true) }
                         }
                     }
                 }
@@ -138,9 +157,13 @@ struct OverviewView: View {
                     TaskActions.apply($0, to: task, context: context)
                 }
             }
-            .sheet(isPresented: $showLayoutEditor) {
-                OverviewLayoutEditor(layout: layoutBinding)
+            .sheet(isPresented: $showWidgetGallery) {
+                OverviewWidgetGallery(layout: layoutBinding)
                     .presentationDetents([.medium, .large])
+            }
+            // 切去别的页面时退出编辑态,回来不该还在抖。
+            .onChange(of: chrome?.hidesChrome ?? false) { _, hidden in
+                if hidden { setEditing(false) }
             }
             .alert("改期失败", isPresented: Binding(
                 get: { rescheduleError != nil },
@@ -157,6 +180,7 @@ struct OverviewView: View {
                 guard phase == .active else { return }
                 now = Date()
                 reloadEvents()
+                Task { await loadHealthReport() }
             }
             #if os(iOS)
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
@@ -178,6 +202,7 @@ struct OverviewView: View {
             }
             .task {
                 now = Date()
+                await loadHealthReport()
                 await loadSuggestion()
                 await loadMemorySummary()
                 await loadHealthTip()
@@ -192,6 +217,7 @@ struct OverviewView: View {
             .refreshable {
                 now = Date()
                 reloadEvents()
+                await loadHealthReport()
                 await loadSuggestion(force: true)
                 await loadMemorySummary(force: true)
                 await loadHealthTip(force: true)
@@ -239,13 +265,43 @@ struct OverviewView: View {
 
     private func bannerCard(@ViewBuilder _ content: () -> some View) -> some View {
         content()
-            .padding(14)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(OverviewWidgetCard<EmptyView>.cardFill,
-                        in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: DesignMetrics.widgetRadius, style: .continuous))
     }
 
     // MARK: - widget
+
+    private func editableWidget(_ item: OverviewWidgetItem) -> some View {
+        OverviewEditableWidget(
+            item: item,
+            seed: layout.items.firstIndex { $0.kind == item.kind } ?? 0,
+            isEditing: isEditingLayout,
+            dragging: $draggingWidget,
+            onRemove: {
+                Haptics.impact(.light)
+                updateLayout { $0.setVisible(false, for: item.kind) }
+            },
+            onResize: { size in updateLayout { $0.setSize(size, for: item.kind) } },
+            onMove: { dragged, target in updateLayout { $0.move(dragged, to: target) } }
+        ) {
+            widget(item)
+        }
+    }
+
+    private func updateLayout(_ change: (inout OverviewLayout) -> Void) {
+        var next = layout
+        change(&next)
+        withAnimation(.lodoAware(.snappy)) { layoutRaw = next.encoded() }
+    }
+
+    private func setEditing(_ editing: Bool) {
+        guard editing != isEditingLayout else { return }
+        if editing { Haptics.impact(.medium) }
+        draggingWidget = nil
+        withAnimation(.lodoAware(.snappy)) { isEditingLayout = editing }
+    }
 
     @ViewBuilder
     private func widget(_ item: OverviewWidgetItem) -> some View {
@@ -281,7 +337,47 @@ struct OverviewView: View {
             OverviewTextWidget(kind: .health, text: healthTip,
                                placeholder: AppSettings.healthEnabled ? "暂无健康数据" : "在设置里开启健康分析后显示",
                                action: { chrome?.go(.health) })
+        case .activityRings:
+            OverviewActivityRingsWidget(size: item.size, report: healthReport, now: now) {
+                chrome?.go(.health)
+            }
+        case .taskProgress:
+            OverviewTaskProgressWidget(size: item.size, done: doneTodayCount,
+                                       remaining: todayRemaining.count, now: now) {
+                chrome?.go(.todo)
+            }
+        case .weeklyDone:
+            OverviewWeeklyDoneWidget(
+                size: item.size,
+                days: OverviewCharts.weeklyDone(doneDates: doneTasks.compactMap(\.doneAt), now: now)) {
+                chrome?.go(.todo)
+            }
+        case .stepsTrend:
+            OverviewStepsTrendWidget(
+                size: item.size,
+                values: healthReport.map { report in
+                    OverviewCharts.recentDays(
+                        points: report.series(.steps)?.points.map { ($0.date, $0.value) } ?? [],
+                        now: now)
+                }) {
+                chrome?.go(.health)
+            }
         }
+    }
+
+    /// 健康开关关着时不读 HealthKit(同 loadHealthTip 的隐私口径),圆环/步数图显示引导。
+    private func loadHealthReport() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--demo-overview-widgets") {
+            healthReport = Self.demoHealthReport()
+            return
+        }
+        #endif
+        guard AppSettings.healthEnabled else {
+            healthReport = nil
+            return
+        }
+        healthReport = await HealthKitBridge.report(days: 7)
     }
 
     private func taskLine(_ task: TaskItem) -> OverviewTaskLine {
@@ -360,6 +456,22 @@ struct OverviewView: View {
     }
 
     #if DEBUG
+    /// 截图用的样板健康数据:最近 7 天,今天走到一半。
+    private static func demoHealthReport() -> HealthReport {
+        let today = Calendar.current.startOfDay(for: Date())
+        func series(_ kind: HealthMetricKind, _ values: [Double]) -> HealthSeries {
+            HealthSeries(kind: kind, points: values.enumerated().map { index, value in
+                HealthDailyPoint(date: today.addingTimeInterval(Double(index - values.count + 1) * 86400),
+                                 value: value)
+            })
+        }
+        return HealthReport(series: [
+            series(.steps, [6200, 9100, 7400, 10300, 5600, 8800, 5200]),
+            series(.activeEnergy, [420, 610, 380, 560, 300, 520, 360]),
+            series(.exerciseMinutes, [25, 42, 18, 35, 10, 31, 22]),
+        ], rangeDays: 7)
+    }
+
     private func applyDemoArguments() {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("--demo-reschedule"), let first = due.first {
@@ -383,7 +495,11 @@ struct OverviewView: View {
             ]
         }
         if args.contains("--demo-overview-layout-editor") {
-            showLayoutEditor = true
+            isEditingLayout = true
+        }
+        if args.contains("--demo-overview-widget-gallery") {
+            isEditingLayout = true
+            showWidgetGallery = true
         }
     }
     #endif

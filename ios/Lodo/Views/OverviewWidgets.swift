@@ -50,11 +50,11 @@ struct OverviewWidgetCard<Content: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Self.cardFill, in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius,
+        .background(Self.cardFill, in: RoundedRectangle(cornerRadius: DesignMetrics.widgetRadius,
                                                          style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: DesignMetrics.widgetRadius, style: .continuous))
     }
 
     static var cardFill: Color {

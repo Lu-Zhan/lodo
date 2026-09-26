@@ -26,6 +26,14 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     case memories
     /// 健康(AI 一句话,健康开关开着才有内容)。
     case health
+    /// 活动圆环:今天的活动能量 / 锻炼时长 / 步数对目标的完成度(健康开关开着才有)。
+    case activityRings
+    /// 今日进度:今天任务完成了几成 + 今天过去了几成,两个圆环。
+    case taskProgress
+    /// 本周完成:周一到周日每天完成了几件任务,柱状图。
+    case weeklyDone
+    /// 步数趋势:最近 7 天步数柱状图(健康开关开着才有)。
+    case stepsTrend
 
     public var title: String {
         switch self {
@@ -39,6 +47,10 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .suggestion: return "处理建议"
         case .memories: return "今天的记忆"
         case .health: return "健康"
+        case .activityRings: return "活动圆环"
+        case .taskProgress: return "今日进度"
+        case .weeklyDone: return "本周完成"
+        case .stepsTrend: return "步数趋势"
         }
     }
 
@@ -54,6 +66,10 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .suggestion: return "sparkles"
         case .memories: return "sparkles.rectangle.stack"
         case .health: return "heart.text.square"
+        case .activityRings: return "circle.circle"
+        case .taskProgress: return "chart.pie"
+        case .weeklyDone: return "chart.bar"
+        case .stepsTrend: return "figure.walk"
         }
     }
 
@@ -62,14 +78,16 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     public var allowedSizes: [OverviewWidgetSize] {
         switch self {
         case .clock: return [.small]
-        case .nextUp, .today, .agenda, .countdown: return [.small, .large]
+        case .nextUp, .today, .agenda, .countdown,
+             .activityRings, .taskProgress, .weeklyDone, .stepsTrend: return [.small, .large]
         case .due, .routines, .suggestion, .memories, .health: return [.large]
         }
     }
 
     public var defaultSize: OverviewWidgetSize {
         switch self {
-        case .clock, .nextUp, .countdown: return .small
+        case .clock, .nextUp, .countdown,
+             .activityRings, .taskProgress, .weeklyDone, .stepsTrend: return .small
         default: return .large
         }
     }
@@ -109,8 +127,11 @@ public struct OverviewLayout: Equatable, Sendable {
     public static let `default` = OverviewLayout(items: [
         .init(kind: .clock), .init(kind: .nextUp),
         .init(kind: .due), .init(kind: .today), .init(kind: .agenda),
-        .init(kind: .countdown), .init(kind: .routines, size: .large),
-        .init(kind: .suggestion), .init(kind: .memories), .init(kind: .health),
+        .init(kind: .countdown), .init(kind: .taskProgress),
+        .init(kind: .weeklyDone), .init(kind: .activityRings),
+        .init(kind: .routines, size: .large),
+        .init(kind: .suggestion), .init(kind: .memories),
+        .init(kind: .stepsTrend), .init(kind: .health),
     ])
 
     /// 从存储的 JSON 恢复。容错:解不开 → 默认布局;重复的种类只留第一个;
@@ -175,6 +196,41 @@ public struct OverviewLayout: Equatable, Sendable {
         }
         if let small = pendingSmall { rows.append([small]) }
         return rows
+    }
+
+    /// 就地编辑时拖着一张卡经过另一张:把它挪到那张卡的位置(从前往后拖落在
+    /// 目标之后、从后往前拖落在目标之前——和主屏幕拖小组件的手感一致)。
+    /// 隐藏的卡也在 items 里,位置按完整数组算,所以隐藏项的相对位置不变。
+    public mutating func move(_ kind: OverviewWidgetKind, to target: OverviewWidgetKind) {
+        guard kind != target,
+              let from = items.firstIndex(where: { $0.kind == kind }),
+              let to = items.firstIndex(where: { $0.kind == target }) else { return }
+        let item = items.remove(at: from)
+        items.insert(item, at: to)
+    }
+
+    /// 改尺寸;不在 `allowedSizes` 里的直接忽略。
+    public mutating func setSize(_ size: OverviewWidgetSize, for kind: OverviewWidgetKind) {
+        guard kind.allowedSizes.contains(size),
+              let index = items.firstIndex(where: { $0.kind == kind }) else { return }
+        items[index].size = size
+    }
+
+    public mutating func setVisible(_ visible: Bool, for kind: OverviewWidgetKind) {
+        guard let index = items.firstIndex(where: { $0.kind == kind }) else { return }
+        items[index].isVisible = visible
+    }
+
+    /// 从「添加小组件」里加回来的卡放到最后面(同主屏幕:新加的出现在末尾)。
+    public mutating func add(_ kind: OverviewWidgetKind) {
+        guard let index = items.firstIndex(where: { $0.kind == kind }) else { return }
+        var item = items.remove(at: index)
+        item.isVisible = true
+        items.append(item)
+    }
+
+    public var hiddenKinds: [OverviewWidgetKind] {
+        items.filter { !$0.isVisible }.map(\.kind)
     }
 
     public mutating func move(fromOffsets source: IndexSet, toOffset destination: Int) {

@@ -12,6 +12,8 @@ import AppKit
 enum DesignMetrics {
     static let chipRadius: CGFloat = 10
     static let cardRadius: CGFloat = 14
+    /// 总览页 widget 卡片的圆角:比普通卡片圆一档,贴近系统主屏幕小组件的观感。
+    static let widgetRadius: CGFloat = 24
     static let bubbleRadius: CGFloat = 18
     /// 各展示页底部「问问 AI」与 AI 页面真实输入栏共用的单行高度。
     static let aiInputHeight: CGFloat = 48
