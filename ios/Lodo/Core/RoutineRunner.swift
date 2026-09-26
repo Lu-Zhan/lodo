@@ -180,7 +180,8 @@ enum RoutineRunner {
                 history.append((role: "assistant", content: "思考:\(thought);抓取链接:\(urlString)"))
                 history.append((role: "user", content: "链接内容:\n\(observation)"))
                 currentText = "(请基于以上链接内容完成最初的任务:\(instruction))"
-            case .toolCall(_, .searchMemory), .toolCall(_, .readHealth), .toolCall(_, .readTrip):
+            case .toolCall(_, .searchMemory), .toolCall(_, .readHealth), .toolCall(_, .readTrip),
+                 .toolCall(_, .loadSkill):
                 // 定时任务的 prompt 里没给过查记忆/读健康数据/读行程这几个工具,
                 // 模型幻觉出来直接当没有
                 throw DeepSeekError.parse("返回格式异常:定时任务不支持这个工具")

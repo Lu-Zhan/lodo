@@ -310,4 +310,32 @@ final class BackupDataTests: XCTestCase {
         let messages = json["agentMessages"] as! [[String: Any]]
         XCTAssertNotNil(messages[0]["threadUUID"])
     }
+
+    func testCustomSkillsRoundTripAndOldFormatDefaults() throws {
+        let payload = BackupPayload(
+            tasks: [], memoryItems: [], memoryTags: [], agentMessages: [],
+            skillOverrides: [], settings: BackupSettings(
+                snoozeMinutes: 15, allDayTime: "09:00", digestEnabled: true,
+                digestTime: "21:00", digestTimes: "09:00", digestRepeatType: "daily",
+                digestDays: "0", hapticsEnabled: true, insightEnabled: true,
+                agentSilenceTimeoutSeconds: 3,
+                agentPersonaStyle: "默认", agentPersonaCustom: "", aiProvider: "DeepSeek",
+                aiModel: "", aiCustomEndpoint: "", icloudSyncEnabled: true),
+            customSkills: [BackupCustomSkill(slug: "a", content: "---\nname: a\ndescription: d\n---\nb", enabled: true)],
+            disabledSkills: ["travel"])
+        let decoded = try JSONDecoder().decode(BackupPayload.self, from: JSONEncoder().encode(payload))
+        XCTAssertEqual(decoded.customSkills.first?.slug, "a")
+        XCTAssertEqual(decoded.customSkills.first?.enabled, true)
+        XCTAssertEqual(decoded.disabledSkills, ["travel"])
+
+        // 老格式没有这两个 key ⇒ 空兜底
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(payload)) as? [String: Any])
+        json.removeValue(forKey: "customSkills")
+        json.removeValue(forKey: "disabledSkills")
+        let old = try JSONDecoder().decode(
+            BackupPayload.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertTrue(old.customSkills.isEmpty)
+        XCTAssertTrue(old.disabledSkills.isEmpty)
+    }
 }

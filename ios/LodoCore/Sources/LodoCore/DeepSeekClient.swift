@@ -116,6 +116,8 @@ public enum AITool {
     /// 读某次旅行的行程,回答"我下周去东京的航班几点"这类问题。
     /// name 为空表示"当前/最近的那次旅行",由调用方决定挑哪一趟。
     case readTrip(name: String)
+    /// 按名字取回一条用户自己添加的外部 skill 的完整内容(目录常驻 prompt,正文按需)。
+    case loadSkill(name: String)
 }
 
 /// 定时任务(`AIRoutine`)跑一次的返回:最终要展示给用户的文字,或
@@ -220,20 +222,6 @@ public enum DeepSeekClient {
         """
     }
 
-    /// project 复用规则,拼在 `.todo` skill 内容后面;与 memorize() 的 tagRule
-    /// 同一个套路——existingProjects 非空才提示,鼓励复用已有项目名而不是随口
-    /// 造新的。默认空数组时不追加任何文字,调用方(如 Watch)行为不变。
-    private static func projectRule(_ existingProjects: [String]) -> String {
-        guard !existingProjects.isEmpty else { return "" }
-        return """
-
-
-        - 已有项目:\(existingProjects.prefix(50).joined(separator: "、"))。\
-        project 优先从已有项目中选用语义相近的,都不合适时才创建新项目;\
-        实在看不出属于哪个项目就留空字符串,不要瞎猜。
-        """
-    }
-
     /// 自然语言 → 新事项字段。existingProjects:当前已使用过的项目名,AI 优先
     /// 复用相近的已有项目,和 memorize() 的 existingTags 同一个思路。
     public static func parse(
@@ -246,7 +234,7 @@ public enum DeepSeekClient {
         \(timeContext)
 
         返回格式(不适用的字段用默认值):
-        \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))
+        \(AgentSkillStore.todoContent(existingProjects: existingProjects))
         """
         return try parseTask(await payload(system: system, user: text))
     }
@@ -266,7 +254,7 @@ public enum DeepSeekClient {
         \(json(taskFields(of: current)))
 
         返回格式(不适用的字段用默认值):
-        \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))
+        \(AgentSkillStore.todoContent(existingProjects: existingProjects))
         """
         return try parseTask(await payload(system: system, user: instruction))
     }
@@ -298,28 +286,18 @@ public enum DeepSeekClient {
         /// 推理模型先吐的思考过程,喂给"思考中…"那条轻量提示。
         onReasoning: ((String) -> Void)? = nil
     ) async throws -> AICommandResult {
-        // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
-        let tasks = Array(allTasks.prefix(50))
-        let list = tasks.map { entry -> [String: Any] in
-            var fields = taskFields(of: entry.task)
-            fields["uuid"] = entry.uuid
-            return fields
-        }
-        let system = """
-        \(AgentSkillStore.content(for: .agent))
-
-        \(AgentSkillStore.content(for: .todo))\(projectRule(existingProjects))\
-        \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
-        \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")\
-        \(healthEnabled ? "\n\n" + AgentSkillStore.content(for: .health) : "")\
-        \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")\
-        \(tripPlanEnabled ? "\n\n" + AgentSkillStore.content(for: .tripPlanner) : "")
-
-        \(timeContext)\(preferencesBlock)\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")
-
-        当前待办列表:
-        \(json(list))\(personaBlock)\(summaryBlock(summary))\(historyBlock(history))
-        """
+        let caps = CommandCapabilities(
+            memory: memoryEnabled, webSearch: webSearchEnabled, health: healthEnabled,
+            travel: travelEnabled, tripPlan: tripPlanEnabled)
+        let (system, tasks) = commandSystemPrompt(
+            tasks: allTasks, capabilities: caps, pageFocus: pageFocus, history: history,
+            summary: summary, existingProjects: existingProjects)
+        let memoryEnabled = caps.memory && AgentSkillStore.isEnabled(.memory)
+        let webSearchEnabled = caps.webSearch && AgentSkillStore.isEnabled(.webSearch)
+        let healthEnabled = caps.health && AgentSkillStore.isEnabled(.health)
+        let travelEnabled = caps.travel && AgentSkillStore.isEnabled(.travel)
+        let tripPlanEnabled = caps.tripPlan && AgentSkillStore.isEnabled(.tripPlanner)
+        let hasCatalog = AgentSkillStore.catalogBlock() != nil
         // 模型按 prompt 约定用 {"error": "原因"} 表示"这句话里没有我能执行的操作"
         // (带了张照片却没说要拿它干什么就是最常见的一种),decodePayload 会把那句
         // 原因抛成 parse 错误。它是模型想对用户说的话,不是故障——聊天入口渲染成
@@ -342,7 +320,70 @@ public enum DeepSeekClient {
             webSearchEnabled: webSearchEnabled,
             healthEnabled: healthEnabled,
             travelEnabled: travelEnabled,
-            tripPlanEnabled: tripPlanEnabled)
+            tripPlanEnabled: tripPlanEnabled,
+            loadSkillEnabled: hasCatalog)
+    }
+
+    /// 调用方声明的能力(app 层按数据/权限/配置决定)。真正生效还要再与设置里各 skill 的
+    /// 启用开关相与——`command` 与「查看最终 Prompt」调试页共用 `commandSystemPrompt`。
+    public struct CommandCapabilities {
+        public var memory = false
+        public var webSearch = false
+        public var health = false
+        public var travel = false
+        public var tripPlan = false
+
+        public init(memory: Bool = false, webSearch: Bool = false, health: Bool = false,
+                    travel: Bool = false, tripPlan: Bool = false) {
+            self.memory = memory
+            self.webSearch = webSearch
+            self.health = health
+            self.travel = travel
+            self.tripPlan = tripPlan
+        }
+    }
+
+    /// `command` 实际发给模型的 system prompt,以及截断到 50 条之后带进去的待办。
+    /// 能力开关 ∧ skill 开关:设置里停用某个 skill,prompt 不拼这一块,
+    /// 对应的 action/工具也不认(parseCommand 用同一组值门控)。
+    public static func commandSystemPrompt(
+        tasks allTasks: [(uuid: String, task: ParsedTask)],
+        capabilities: CommandCapabilities,
+        pageFocus: AgentFocus? = nil,
+        history: [(role: String, content: String)] = [],
+        summary: String? = nil,
+        existingProjects: [String] = []
+    ) -> (system: String, tasks: [(uuid: String, task: ParsedTask)]) {
+        // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
+        let tasks = Array(allTasks.prefix(50))
+        let list = tasks.map { entry -> [String: Any] in
+            var fields = taskFields(of: entry.task)
+            fields["uuid"] = entry.uuid
+            return fields
+        }
+        let memoryEnabled = capabilities.memory && AgentSkillStore.isEnabled(.memory)
+        let webSearchEnabled = capabilities.webSearch && AgentSkillStore.isEnabled(.webSearch)
+        let healthEnabled = capabilities.health && AgentSkillStore.isEnabled(.health)
+        let travelEnabled = capabilities.travel && AgentSkillStore.isEnabled(.travel)
+        let tripPlanEnabled = capabilities.tripPlan && AgentSkillStore.isEnabled(.tripPlanner)
+        let catalog = AgentSkillStore.catalogBlock()
+        let system = """
+        \(AgentSkillStore.content(for: .agent))
+
+        \(AgentSkillStore.todoContent(existingProjects: existingProjects))\
+        \(memoryEnabled ? "\n\n" + AgentSkillStore.content(for: .memory) : "")\
+        \(webSearchEnabled ? "\n\n" + AgentSkillStore.content(for: .webSearch) : "")\
+        \(healthEnabled ? "\n\n" + AgentSkillStore.content(for: .health) : "")\
+        \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")\
+        \(tripPlanEnabled ? "\n\n" + AgentSkillStore.content(for: .tripPlanner) : "")\
+        \(catalog.map { "\n\n" + $0 } ?? "")
+
+        \(timeContext)\(preferencesBlock)\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")
+
+        当前待办列表:
+        \(json(list))\(personaBlock)\(summaryBlock(summary))\(historyBlock(history))
+        """
+        return (system, tasks)
     }
 
     /// 从 payload 里解析总入口结果(单测入口)。
@@ -354,19 +395,19 @@ public enum DeepSeekClient {
         _ payload: [String: Any], validUUIDs: [String],
         memoryEnabled: Bool, webSearchEnabled: Bool = false,
         healthEnabled: Bool = false, travelEnabled: Bool = false,
-        tripPlanEnabled: Bool = false
+        tripPlanEnabled: Bool = false, loadSkillEnabled: Bool = false
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
             return .ask(try parseAsk(rawAsk))
         }
         // ReAct 中间步骤:对应开关关闭时 prompt 里根本没提过这个选项,
         // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
-        if (memoryEnabled || webSearchEnabled || healthEnabled || travelEnabled),
+        if (memoryEnabled || webSearchEnabled || healthEnabled || travelEnabled || loadSkillEnabled),
            let toolName = payload["tool"] as? String {
             guard let call = try parseToolCall(
                 payload, name: toolName, memoryEnabled: memoryEnabled,
                 webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
-                travelEnabled: travelEnabled) else {
+                travelEnabled: travelEnabled, loadSkillEnabled: loadSkillEnabled) else {
                 throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
             }
             return call
@@ -400,7 +441,7 @@ public enum DeepSeekClient {
            let call = try parseToolCall(
                rawActions[0], name: toolName, memoryEnabled: memoryEnabled,
                webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
-               travelEnabled: travelEnabled) {
+               travelEnabled: travelEnabled, loadSkillEnabled: loadSkillEnabled) {
             return call
         }
         var actions: [AIAction] = []
@@ -509,7 +550,7 @@ public enum DeepSeekClient {
     private static func parseToolCall(
         _ raw: [String: Any], name: String,
         memoryEnabled: Bool, webSearchEnabled: Bool,
-        healthEnabled: Bool, travelEnabled: Bool
+        healthEnabled: Bool, travelEnabled: Bool, loadSkillEnabled: Bool = false
     ) throws -> AICommandResult? {
         let thought = (raw["thought"] as? String) ?? ""
         switch name {
@@ -544,6 +585,12 @@ public enum DeepSeekClient {
             let name = (raw["name"] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             return .toolCall(thought: thought, tool: .readTrip(name: name))
+        case "load_skill" where loadSkillEnabled:
+            guard let skill = (raw["name"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !skill.isEmpty else {
+                throw DeepSeekError.parse("返回格式异常:load_skill 缺少 name")
+            }
+            return .toolCall(thought: thought, tool: .loadSkill(name: skill))
         default:
             return nil
         }
@@ -696,17 +743,8 @@ public enum DeepSeekClient {
     /// 用户明确表示不需要时长、或记忆无相近类型时返回 0。
     public static func suggestDuration(text: String, title: String,
                                        memory: String) async throws -> Int {
-        let system = """
-        你是提醒事项应用 lodo 的时长建议助手。下面是"事项类型 → 典型时长"的记忆文件、\
-        用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。
-
-        判断规则:
-        - 用户原话明确表示不需要时长,或记忆中没有类型相近的条目 → {"duration_minutes": 0}
-        - 否则参考记忆中相近类型的典型时长 → {"duration_minutes": 分钟数}
-
-        记忆文件:
-        \(memory)
-        """
+        // skill 停用 = 不建议时长,连请求都不发。
+        guard let system = AgentSkillStore.durationPrompt(memory: memory) else { return 0 }
         let payload = try await payload(system: system, user: "原话:\(text)\n标题:\(title)")
         return payload["duration_minutes"] as? Int ?? 0
     }
@@ -1039,16 +1077,7 @@ public enum DeepSeekClient {
         locationContext: String? = nil, webSearchEnabled: Bool = false,
         history: [(role: String, content: String)] = []
     ) async throws -> AIRoutineOutcome {
-        let tools = webSearchEnabled ? """
-
-
-        如果需要最新/实时信息(天气、行情、新闻等)才能完成任务,先返回:
-        {"thought": "为什么需要查", "tool": "web_search", "query": "要搜索的关键词"}
-        指令里给了具体链接、需要看链接内容本身时,改为返回:
-        {"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "链接原样"}
-        两者合计最多用两次,拿到结果后必须在下一轮给出最终的 {"text": ...},\
-        不能一直用工具占位不给结果。
-        """ : ""
+        let tools = webSearchEnabled ? AgentSkillStore.routineWebTools() : ""
         let tasks = taskContext.map { "\n\n今天的待办:\n\($0)" } ?? ""
         let location = locationContext.map { "\n\n当前城市:\($0)" } ?? ""
         let system = """
@@ -1195,6 +1224,7 @@ public enum DeepSeekClient {
             tags 优先从已有标签中选用语义相近的,都不合适时才创建新标签。
             """
         }
+        let assetRules = AgentSkillStore.assetRules()
         let system = """
         你是提醒事项应用 lodo 的收藏整理助手。用户收藏了一段内容\
         (可能是网页正文、PDF/图片提取的文字、纯文本,或只有文件名),\
@@ -1204,17 +1234,7 @@ public enum DeepSeekClient {
         规则:
         - 标题概括内容主旨,不要照抄第一句。
         - 内容为空、只有文件名时,基于文件名与类型推断,summary 注明"(基于文件名整理)"。
-        - 完全无法整理时返回 {"error": "原因"}。
-        - 如果内容记录的是一项资产/资金的价值(比如"存折里还有5000美元"、\
-        "工资卡余额12000"、"这套房子值300万"),额外返回 "asset_value"(数字金额)\
-        和 "asset_currency"(ISO 4217 三位货币代码,如 CNY/USD/EUR;没有明确说\
-        是外币就用 CNY),并确保 tags 里包含"资产"这个标签。不是资产内容时\
-        不要返回 asset_value/asset_currency 这两个字段。
-        - 如果内容还提到负债/贷款/欠款(比如"房贷100万利率4.5%"、"车贷还剩8万"),\
-        额外返回 "liability_value"(数字,负债本金,与 asset_value 同币种)和/或\
-        "interest_rate"(数字,年化利率的百分比数值,如 4.5 表示 4.5%),两者不要求\
-        成对出现,只返回内容里明确提到的那个;同样要确保 tags 里包含"资产"这个\
-        标签。不是负债内容时不要返回 liability_value/interest_rate。\(tagRule)
+        - 完全无法整理时返回 {"error": "原因"}。\(assetRules.map { "\n" + $0 } ?? "")\(tagRule)
 
         \(context)
         """

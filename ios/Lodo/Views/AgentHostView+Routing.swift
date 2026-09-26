@@ -35,6 +35,7 @@ extension AgentHostView {
         // 冻结的是已经花掉的那部分,如实。
         AIUsageMonitor.shared.beginTurn()
         defer { AIUsageMonitor.shared.endTurn() }
+        AgentSkillLoadLog.shared.beginTurn()
 
         let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         var reasoningHistory = history
@@ -114,6 +115,14 @@ extension AgentHostView {
                                          content: "思考:\(thought);读行程:\(name.isEmpty ? "当前旅行" : name)"))
                 reasoningHistory.append((role: "user", content: "行程:\n\(observation)"))
                 currentText = "(请基于以上行程继续处理最初的请求:\(text))"
+            case .toolCall(let thought, .loadSkill(let name)):
+                onThought(thought)
+                // 只有已启用的外部 skill 取得到;取不到如实告诉模型,别让它凭空编内容。
+                let body = AgentSkillStore.loadCustomBody(named: name)
+                if body != nil { AgentSkillLoadLog.shared.record(name) }
+                reasoningHistory.append((role: "assistant", content: "思考:\(thought);加载 skill:\(name)"))
+                reasoningHistory.append((role: "user", content: "skill 内容:\n\(body ?? "没有这个 skill")"))
+                currentText = "(请基于以上 skill 内容继续处理最初的请求:\(text))"
             case .actions(let rawActions):
                 // 偏好、自动记录的重点事实都是副作用,不是待办的增删改:先摘出来
                 // 静默落盘,剩下的动作才走后面的路径。这样 pendingActions/确认清单/

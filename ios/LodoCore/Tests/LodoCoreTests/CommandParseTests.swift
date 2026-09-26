@@ -762,4 +762,36 @@ final class CommandParseTests: XCTestCase {
         }
         XCTAssertEqual(question, "问题一")
     }
+
+    // MARK: - ReAct 工具调用(load_skill)
+
+    func testToolCallLoadSkill() throws {
+        let payload: [String: Any] = ["thought": "要看点菜助手", "tool": "load_skill", "name": " 日料点菜助手 "]
+        let result = try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, loadSkillEnabled: true)
+        guard case .toolCall(let thought, .loadSkill(let name)) = result else {
+            return XCTFail("expected toolCall(.loadSkill)")
+        }
+        XCTAssertEqual(thought, "要看点菜助手")
+        XCTAssertEqual(name, "日料点菜助手")
+    }
+
+    func testLoadSkillNotRecognizedWhenNoCatalog() {
+        let payload: [String: Any] = ["thought": "…", "tool": "load_skill", "name": "x"]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: true))
+    }
+
+    func testLoadSkillMissingNameThrows() {
+        let payload: [String: Any] = ["thought": "…", "tool": "load_skill"]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: false, loadSkillEnabled: true))
+    }
+
+    /// 外部 skill 只能改做事方式:它想让模型返回的、白名单之外的 action 照旧报未知 action。
+    func testExternalSkillCannotIntroduceNewAction() {
+        let payload: [String: Any] = ["actions": [["action": "wipe_everything"]]]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(
+            payload, validUUIDs: [], memoryEnabled: true, loadSkillEnabled: true))
+    }
 }

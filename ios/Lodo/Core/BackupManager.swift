@@ -56,6 +56,12 @@ enum BackupManager {
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
+        let customSkills = AgentSkillStore.customSkills().map {
+            BackupCustomSkill(slug: $0.slug, content: $0.file.render(),
+                              enabled: AgentSkillStore.isCustomEnabled(slug: $0.slug))
+        }
+        let disabledSkills = AgentSkillID.allCases
+            .filter { $0.isTogglable && !AgentSkillStore.isEnabled($0) }.map(\.rawValue)
 
         let payload = BackupPayload(
             tasks: tasks.map { $0.backup },
@@ -66,7 +72,8 @@ enum BackupManager {
             settings: currentSettings(),
             contactRelationships: contactRelationships.map { $0.backup },
             travelTrips: travelTrips.map { $0.backup },
-            menuDishes: menuDishes.map { $0.backup })
+            menuDishes: menuDishes.map { $0.backup },
+            customSkills: customSkills, disabledSkills: disabledSkills)
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -220,6 +227,14 @@ enum BackupManager {
         for override in payload.skillOverrides {
             guard let id = AgentSkillID(rawValue: override.id) else { continue }
             AgentSkillStore.save(override.content, for: id)
+        }
+        for backup in payload.customSkills {
+            guard case .success(let file) = AgentSkillFile.parse(backup.content) else { continue }
+            AgentSkillStore.saveCustom(file, slug: backup.slug)
+            AgentSkillStore.setCustomEnabled(backup.enabled, slug: backup.slug)
+        }
+        for id in AgentSkillID.allCases where id.isTogglable {
+            AgentSkillStore.setEnabled(!payload.disabledSkills.contains(id.rawValue), for: id)
         }
 
         applySettings(payload.settings)

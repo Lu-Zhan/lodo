@@ -616,6 +616,20 @@ extension BackupAgentMessage {
     }
 }
 
+/// 用户导入/新建的外部 skill:`content` 是完整的分享格式文本(含 frontmatter),
+/// 恢复时按 slug 写回,启用状态一并带上。
+public struct BackupCustomSkill: Codable {
+    public var slug: String
+    public var content: String
+    public var enabled: Bool
+
+    public init(slug: String, content: String, enabled: Bool) {
+        self.slug = slug
+        self.content = content
+        self.enabled = enabled
+    }
+}
+
 /// 只收用户实际编辑过的 skill(`AgentSkillStore.isCustomized(_:) == true`),
 /// 默认内容不用导出——恢复时按内置默认值就能重新算出来。
 public struct BackupSkillOverride: Codable {
@@ -798,6 +812,10 @@ public struct BackupPayload: Codable {
     public var travelTrips: [BackupTravelTrip] = []
     /// 菜品。菜单那条记忆条目已经在 memoryItems 里,这里补它下面的菜。
     public var menuDishes: [BackupMenuDish] = []
+    /// 外部 skill 与内置 skill 的启用状态。都是新增字段,老备份缺 key 时兜底为空。
+    /// skillEnabled 只记被停用的内置 skill(默认就是开,不用存)。
+    public var customSkills: [BackupCustomSkill] = []
+    public var disabledSkills: [String] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
@@ -805,7 +823,9 @@ public struct BackupPayload: Codable {
         skillOverrides: [BackupSkillOverride], settings: BackupSettings,
         contactRelationships: [BackupContactRelationship] = [],
         travelTrips: [BackupTravelTrip] = [],
-        menuDishes: [BackupMenuDish] = []
+        menuDishes: [BackupMenuDish] = [],
+        customSkills: [BackupCustomSkill] = [],
+        disabledSkills: [String] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -816,6 +836,8 @@ public struct BackupPayload: Codable {
         self.contactRelationships = contactRelationships
         self.travelTrips = travelTrips
         self.menuDishes = menuDishes
+        self.customSkills = customSkills
+        self.disabledSkills = disabledSkills
     }
 
     /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
@@ -835,5 +857,8 @@ public struct BackupPayload: Codable {
             [BackupTravelTrip].self, forKey: .travelTrips) ?? []
         menuDishes = try c.decodeIfPresent(
             [BackupMenuDish].self, forKey: .menuDishes) ?? []
+        customSkills = try c.decodeIfPresent(
+            [BackupCustomSkill].self, forKey: .customSkills) ?? []
+        disabledSkills = try c.decodeIfPresent([String].self, forKey: .disabledSkills) ?? []
     }
 }

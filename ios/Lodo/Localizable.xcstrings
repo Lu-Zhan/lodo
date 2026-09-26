@@ -199,22 +199,6 @@
         }
       }
     },
-    "agent.md 是总则,任务/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "agent.md is the general rules; task/memory are separately editable skills. Edits directly change the instructions sent to the AI; reset restores the defaults."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "agent.md 是总则,任务/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。"
-          }
-        }
-      }
-    },
     "AI" : {
       "localizations" : {
         "en" : {
@@ -8403,6 +8387,454 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。"
+          }
+        }
+      }
+    },
+    "agent.md 是总则,其余是可分别编辑、可停用的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "agent.md is the general rules; the rest are skills you can edit or turn off individually. Edits directly change the instructions sent to the AI; reset restores the defaults."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "agent.md 是总则,其余是可分别编辑、可停用的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。"
+          }
+        }
+      }
+    },
+    "从文件导入…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import from File…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从文件导入…"
+          }
+        }
+      }
+    },
+    "以下按「全部能力都可用、没有待办、没有历史」渲染;实际请求里还会随配置增减。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rendered as if every capability is available, with no tasks and no history; a real request varies with your setup."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以下按「全部能力都可用、没有待办、没有历史」渲染;实际请求里还会随配置增减。"
+          }
+        }
+      }
+    },
+    "健康 skills" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Health Skills"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "健康 skills"
+          }
+        }
+      }
+    },
+    "分享" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享"
+          }
+        }
+      }
+    },
+    "各 skill 字数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Characters per Skill"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "各 skill 字数"
+          }
+        }
+      }
+    },
+    "名称" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        }
+      }
+    },
+    "定时任务 skills" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routine Skills"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定时任务 skills"
+          }
+        }
+      }
+    },
+    "导入 skill" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Skill"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入 skill"
+          }
+        }
+      }
+    },
+    "导入别人分享的 .md 文件即可加载外部 skill。外部 skill 默认停用,启用后 AI 只在需要时按名字取回内容。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a shared .md file to load an external skill. External skills are off by default; once enabled, the AI fetches one by name only when needed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入别人分享的 .md 文件即可加载外部 skill。外部 skill 默认停用,启用后 AI 只在需要时按名字取回内容。"
+          }
+        }
+      }
+    },
+    "已停用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已停用"
+          }
+        }
+      }
+    },
+    "已有同名的外部 skill,导入会覆盖它的内容(启用状态不变)。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An external skill with this name already exists; importing replaces its content (enabled state is kept)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已有同名的外部 skill,导入会覆盖它的内容(启用状态不变)。"
+          }
+        }
+      }
+    },
+    "已经有同名的 skill 了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A skill with this name already exists"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经有同名的 skill 了"
+          }
+        }
+      }
+    },
+    "我的 skills" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My Skills"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我的 skills"
+          }
+        }
+      }
+    },
+    "描述" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Description"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述"
+          }
+        }
+      }
+    },
+    "描述要写清楚「什么时候该用」——AI 只看到名称和描述,靠它决定要不要加载正文。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Say clearly when it should be used — the AI only sees the name and description and uses them to decide whether to load the content."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "描述要写清楚「什么时候该用」——AI 只看到名称和描述,靠它决定要不要加载正文。"
+          }
+        }
+      }
+    },
+    "新建 skill" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Skill"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建 skill"
+          }
+        }
+      }
+    },
+    "旅行 skills" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Travel Skills"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旅行 skills"
+          }
+        }
+      }
+    },
+    "无法导入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't Import"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法导入"
+          }
+        }
+      }
+    },
+    "最终 Prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Final Prompt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最终 Prompt"
+          }
+        }
+      }
+    },
+    "最近一次对话加载的外部 skill" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "External Skills Loaded in the Last Turn"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近一次对话加载的外部 skill"
+          }
+        }
+      }
+    },
+    "查看最终 Prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Final Prompt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看最终 Prompt"
+          }
+        }
+      }
+    },
+    "正文" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Content"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正文"
+          }
+        }
+      }
+    },
+    "没有加载过" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None loaded"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有加载过"
+          }
+        }
+      }
+    },
+    "确定删除这个 skill 吗?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this skill?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确定删除这个 skill 吗?"
+          }
+        }
+      }
+    },
+    "系统 skills" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Skills"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统 skills"
+          }
+        }
+      }
+    },
+    "记忆 skills" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory Skills"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记忆 skills"
+          }
+        }
+      }
+    },
+    "这是一个外部 skill,导入后默认停用。请先看完下面的内容,确认可信再启用。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is an external skill and will be off after import. Read the content below and only enable it if you trust it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是一个外部 skill,导入后默认停用。请先看完下面的内容,确认可信再启用。"
           }
         }
       }

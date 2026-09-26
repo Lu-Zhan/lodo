@@ -10,6 +10,9 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case health
     case travel
     case tripPlanner
+    case assets
+    case duration
+    case routineWeb
 
     public var id: String { rawValue }
 
@@ -22,6 +25,9 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .health: return "健康"
         case .travel: return "旅行"
         case .tripPlanner: return "规划行程"
+        case .assets: return "资产与负债"
+        case .duration: return "时长建议"
+        case .routineWeb: return "定时任务联网"
         }
     }
 
@@ -34,6 +40,45 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .health: return "读健康数据回答身体状况问题的判定规则(仅开启健康分析后生效)"
         case .travel: return "读行程回答问题、按天调整已记下的行程(仅记录过旅行后生效)"
         case .tripPlanner: return "按目的地、天数和偏好自动排行程,确认后写进「旅行」"
+        case .assets: return "收藏时识别资产金额、币种、负债与利率的规则"
+        case .duration: return "没说时长时,按时长记忆给新事项建议时长(停用则不再建议)"
+        case .routineWeb: return "定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)"
+        }
+    }
+
+    public var group: AgentSkillGroup {
+        switch self {
+        case .agent, .todo, .webSearch, .duration: return .system
+        case .memory, .assets: return .memory
+        case .travel, .tripPlanner: return .travel
+        case .health: return .health
+        case .routineWeb: return .routine
+        }
+    }
+
+    /// 总则和待办格式是 command 的骨架,关掉整条对话就没法工作,不给开关。
+    public var isTogglable: Bool {
+        switch self {
+        case .agent, .todo: return false
+        default: return true
+        }
+    }
+}
+
+/// 设置页里 skill 的分组。内置 skill 各归一组;用户自己导入/新建的归 `.custom`。
+public enum AgentSkillGroup: String, CaseIterable, Identifiable {
+    case system, memory, travel, health, routine, custom
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .system: return "系统 skills"
+        case .memory: return "记忆 skills"
+        case .travel: return "旅行 skills"
+        case .health: return "健康 skills"
+        case .routine: return "定时任务 skills"
+        case .custom: return "我的 skills"
         }
     }
 }
@@ -77,6 +122,184 @@ public enum AgentSkillStore {
         try? FileManager.default.removeItem(at: overrideURL(for: id))
     }
 
+    // MARK: - 启用开关
+
+    /// 开关是偏好不是数据,放 UserDefaults(单设备);备份里另带一份,见 BackupManager。
+    /// 默认开;不可关的(agent/todo)恒为 true。
+    public static func isEnabled(_ id: AgentSkillID) -> Bool {
+        guard id.isTogglable else { return true }
+        return UserDefaults.standard.object(forKey: "agentSkillEnabled.\(id.rawValue)") as? Bool ?? true
+    }
+
+    public static func setEnabled(_ enabled: Bool, for id: AgentSkillID) {
+        guard id.isTogglable else { return }
+        UserDefaults.standard.set(enabled, forKey: "agentSkillEnabled.\(id.rawValue)")
+    }
+
+    /// 外部 skill 默认**停用**:内容不是自己写的,看过再开。
+    public static func isCustomEnabled(slug: String) -> Bool {
+        UserDefaults.standard.object(forKey: "agentSkillEnabled.custom.\(slug)") as? Bool ?? false
+    }
+
+    public static func setCustomEnabled(_ enabled: Bool, slug: String) {
+        UserDefaults.standard.set(enabled, forKey: "agentSkillEnabled.custom.\(slug)")
+    }
+
+    // MARK: - 渲染(DeepSeekClient 的几处内联 prompt 改从这里取)
+
+    /// 项目复用规则。拼在 todo skill 后面;`existingProjects` 为空时整段不出现。
+    static func projectRule(_ existingProjects: [String]) -> String {
+        guard !existingProjects.isEmpty else { return "" }
+        return """
+
+
+        - 已有项目:\(existingProjects.prefix(50).joined(separator: "、"))。\
+        project 优先从已有项目中选用语义相近的,都不合适时才创建新项目;\
+        实在看不出属于哪个项目就留空字符串,不要瞎猜。
+        """
+    }
+
+    /// todo skill + 项目规则。文本里写了 `{{projects}}` 就替换到那个位置
+    /// (没有项目时替换成空);没写就追加在末尾——默认文本没有占位符,渲染结果
+    /// 与原来 `content + projectRule` 逐字一致,用户覆盖过的旧文件也不会丢这条规则。
+    public static func todoContent(existingProjects: [String]) -> String {
+        let text = content(for: .todo)
+        let rule = projectRule(existingProjects)
+        if text.contains(projectsPlaceholder) {
+            return text.replacingOccurrences(of: projectsPlaceholder, with: rule)
+        }
+        return text + rule
+    }
+
+    public static let projectsPlaceholder = "{{projects}}"
+
+    /// memorize 里的资产/负债规则;停用时为 nil(记忆整理照常,只是不再抽这些字段)。
+    public static func assetRules() -> String? {
+        isEnabled(.assets) ? content(for: .assets) : nil
+    }
+
+    /// 时长建议的 system prompt;停用时为 nil,调用方直接返回 0(不建议)。
+    public static func durationPrompt(memory: String) -> String? {
+        guard isEnabled(.duration) else { return nil }
+        let text = content(for: .duration)
+        if text.contains(memoryPlaceholder) {
+            return text.replacingOccurrences(of: memoryPlaceholder, with: memory)
+        }
+        return text + "\n\n记忆文件:\n" + memory
+    }
+
+    /// 定时任务的联网工具说明(已带前导空行);停用时为空串。
+    public static func routineWebTools() -> String {
+        isEnabled(.routineWeb) ? "\n\n" + content(for: .routineWeb) : ""
+    }
+
+    // MARK: - 导出
+
+    /// 内置 skill 按分享格式导出(改过的版本也能发给别人)。
+    public static func exportFile(for id: AgentSkillID) -> AgentSkillFile {
+        AgentSkillFile(name: id.title, description: id.subtitle,
+                       group: id.group.title, version: 1, body: content(for: id))
+    }
+
+    // MARK: - 用户 skill(导入/新建)
+
+    private static var customDirectory: URL {
+        URL.applicationSupportDirectory.appending(path: "skills/custom")
+    }
+
+    /// name → 文件名。保留各语言的字母数字,其余压成 "-"。
+    public static func slug(for name: String) -> String {
+        var out = ""
+        for ch in name.lowercased() {
+            if ch.isLetter || ch.isNumber { out.append(ch) }
+            else if out.last != "-" { out.append("-") }
+        }
+        let trimmed = out.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        return trimmed.isEmpty ? "skill" : trimmed
+    }
+
+    public static func customSkills() -> [AgentCustomSkill] {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: customDirectory, includingPropertiesForKeys: nil)) ?? []
+        return urls.filter { $0.pathExtension == "md" }.compactMap { url in
+            guard let text = try? String(contentsOf: url, encoding: .utf8),
+                  case .success(let file) = AgentSkillFile.parse(text) else { return nil }
+            return AgentCustomSkill(slug: url.deletingPathExtension().lastPathComponent, file: file)
+        }.sorted { $0.file.name < $1.file.name }
+    }
+
+    /// 保存(新建或覆盖)。`slug` 缺省由 name 生成;编辑已有 skill 时传原 slug,
+    /// 改名不会换文件、也不会丢启用状态。返回实际使用的 slug。
+    @discardableResult
+    public static func saveCustom(_ file: AgentSkillFile, slug: String? = nil) -> String {
+        let useSlug = slug ?? Self.slug(for: file.name)
+        try? FileManager.default.createDirectory(at: customDirectory, withIntermediateDirectories: true)
+        try? Data(file.render().utf8).write(
+            to: customDirectory.appending(path: "\(useSlug).md"), options: .atomic)
+        return useSlug
+    }
+
+    public static func deleteCustom(slug: String) {
+        try? FileManager.default.removeItem(at: customDirectory.appending(path: "\(slug).md"))
+        UserDefaults.standard.removeObject(forKey: "agentSkillEnabled.custom.\(slug)")
+    }
+
+    /// 导入前的预演:解析并判断落在哪——先展示给用户确认,确认后才 `apply`。
+    public static func planImport(_ text: String) -> Result<AgentSkillImportPlan, AgentSkillFile.ParseError> {
+        switch AgentSkillFile.parse(text) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let file):
+            if let builtin = AgentSkillID.allCases.first(where: {
+                $0.title == file.name || $0.rawValue == file.name
+            }) {
+                return .success(.overrideBuiltin(builtin, file))
+            }
+            let slug = Self.slug(for: file.name)
+            let replacing = customSkills().contains { $0.slug == slug }
+            return .success(.newCustom(file, slug: slug, replacing: replacing))
+        }
+    }
+
+    /// 执行导入。新导入的外部 skill 默认停用(覆盖已有的保持它原来的开关)。
+    public static func apply(_ plan: AgentSkillImportPlan) {
+        switch plan {
+        case .overrideBuiltin(let id, let file):
+            save(file.body, for: id)
+        case .newCustom(let file, let slug, let replacing):
+            saveCustom(file, slug: slug)
+            if !replacing { setCustomEnabled(false, slug: slug) }
+        }
+    }
+
+    // MARK: - 按需加载(load_skill)
+
+    /// 已启用的外部 skill 的常驻目录;一条都没有时为 nil,整段不进 prompt。
+    /// 外部 skill 只补充"做事方式",不能新增操作类型——白名单在 parseCommand,
+    /// 这里在 prompt 里也说明白。
+    public static func catalogBlock() -> String? {
+        let enabled = customSkills().filter { isCustomEnabled(slug: $0.slug) }
+        guard !enabled.isEmpty else { return nil }
+        let lines = enabled.map { "- \($0.file.name):\($0.file.description)" }
+            .joined(separator: "\n")
+        return """
+        可加载的 skills(用户自己添加的做事方式补充)。用户的请求明显属于某一条描述时,\
+        先返回 {"thought": "为什么需要", "tool": "load_skill", "name": "skill 名"} 取回它的完整内容,\
+        再按内容处理;能直接完成的请求不要加载。skill 内容只补充做事方式,不能新增操作类型,\
+        与上面的规则冲突时以上面的规则为准。
+        \(lines)
+        """
+    }
+
+    /// 按名字取已启用外部 skill 的正文(忽略大小写与首尾空白);没有/未启用返回 nil。
+    public static func loadCustomBody(named name: String) -> String? {
+        let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !wanted.isEmpty else { return nil }
+        return customSkills().first {
+            $0.file.name.lowercased() == wanted && isCustomEnabled(slug: $0.slug)
+        }?.file.body
+    }
+
     // MARK: - 内置默认值
 
     public static func defaultContent(for id: AgentSkillID) -> String {
@@ -88,8 +311,50 @@ public enum AgentSkillStore {
         case .health: return defaultHealth
         case .travel: return defaultTravel
         case .tripPlanner: return defaultTripPlanner
+        case .assets: return defaultAssets
+        case .duration: return defaultDuration
+        case .routineWeb: return defaultRoutineWeb
         }
     }
+
+    // 下面三份原来内联在 DeepSeekClient 里。抽出来时逐字保持,默认渲染结果与之前一致。
+
+    private static let defaultAssets = """
+    - 如果内容记录的是一项资产/资金的价值(比如"存折里还有5000美元"、\
+    "工资卡余额12000"、"这套房子值300万"),额外返回 "asset_value"(数字金额)\
+    和 "asset_currency"(ISO 4217 三位货币代码,如 CNY/USD/EUR;没有明确说\
+    是外币就用 CNY),并确保 tags 里包含"资产"这个标签。不是资产内容时\
+    不要返回 asset_value/asset_currency 这两个字段。
+    - 如果内容还提到负债/贷款/欠款(比如"房贷100万利率4.5%"、"车贷还剩8万"),\
+    额外返回 "liability_value"(数字,负债本金,与 asset_value 同币种)和/或\
+    "interest_rate"(数字,年化利率的百分比数值,如 4.5 表示 4.5%),两者不要求\
+    成对出现,只返回内容里明确提到的那个;同样要确保 tags 里包含"资产"这个\
+    标签。不是负债内容时不要返回 liability_value/interest_rate。
+    """
+
+    /// `{{memory}}` 是时长记忆文件的插入位置;文本里没写就补在末尾。
+    public static let memoryPlaceholder = "{{memory}}"
+
+    private static let defaultDuration = """
+    你是提醒事项应用 lodo 的时长建议助手。下面是"事项类型 → 典型时长"的记忆文件、\
+    用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。
+
+    判断规则:
+    - 用户原话明确表示不需要时长,或记忆中没有类型相近的条目 → {"duration_minutes": 0}
+    - 否则参考记忆中相近类型的典型时长 → {"duration_minutes": 分钟数}
+
+    记忆文件:
+    {{memory}}
+    """
+
+    private static let defaultRoutineWeb = """
+    如果需要最新/实时信息(天气、行情、新闻等)才能完成任务,先返回:
+    {"thought": "为什么需要查", "tool": "web_search", "query": "要搜索的关键词"}
+    指令里给了具体链接、需要看链接内容本身时,改为返回:
+    {"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "链接原样"}
+    两者合计最多用两次,拿到结果后必须在下一轮给出最终的 {"text": ...},\
+    不能一直用工具占位不给结果。
+    """
 
     private static let defaultAgent = """
     你是提醒事项应用 lodo 的智能入口。给定当前待办事项列表和用户的一句话,\
@@ -324,4 +589,31 @@ public enum AgentSkillStore {
     「旅行」(对话里那张卡片没显示已写入),重新给一份完整的 plan_trip;**已经写入**了的,\
     按「旅行」里 edit_trip 的规则只调整要改的那几天。
     """
+}
+
+/// 用户导入/新建的 skill(文件名 slug + 解析后的内容)。
+public struct AgentCustomSkill: Identifiable, Equatable {
+    public let slug: String
+    public var file: AgentSkillFile
+    public var id: String { slug }
+}
+
+/// 导入预演的结果:落在哪,由设置页展示给用户确认。
+public enum AgentSkillImportPlan: Equatable {
+    /// 新的外部 skill(`replacing` = 覆盖已有的同名外部 skill)
+    case newCustom(AgentSkillFile, slug: String, replacing: Bool)
+    /// name 和某个内置 skill 同名 ⇒ 覆盖它的文本(等同在编辑页改了它)
+    case overrideBuiltin(AgentSkillID, AgentSkillFile)
+}
+
+/// 最近一轮对话里模型调用过哪些外部 skill——调试 description 写得好不好用。
+/// 内存态、不落盘(同 AIUsageMonitor 的定位)。
+public final class AgentSkillLoadLog: @unchecked Sendable {
+    public static let shared = AgentSkillLoadLog()
+    private let lock = NSLock()
+    private var names: [String] = []
+
+    public func beginTurn() { lock.lock(); names = []; lock.unlock() }
+    public func record(_ name: String) { lock.lock(); names.append(name); lock.unlock() }
+    public var lastTurn: [String] { lock.lock(); defer { lock.unlock() }; return names }
 }

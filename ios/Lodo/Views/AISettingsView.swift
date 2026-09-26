@@ -200,34 +200,7 @@ struct AISettingsView: View {
                 Text("AI 助手是一条持续的对话,不会分段。清空后从头开始,已经执行过的事项和收藏不受影响。")
             }
 
-            Section {
-                ForEach(AgentSkillID.allCases) { id in
-                    NavigationLink {
-                        AgentSkillEditView(id: id)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(id.title)
-                                if AgentSkillStore.isCustomized(id) {
-                                    Text("已自定义")
-                                        .font(.caption)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(.tint.opacity(0.15), in: Capsule())
-                                        .foregroundStyle(.tint)
-                                }
-                            }
-                            Text(id.subtitle)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            } header: {
-                Text("AI Agent Skill")
-            } footer: {
-                Text("agent.md 是总则,任务/记忆是可分别编辑的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。")
-            }
+            AgentSkillsSections()
         }
         .formStyle(.grouped)
         .navigationTitle("AI 设置")
