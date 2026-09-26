@@ -152,8 +152,8 @@ enum RoutineRunner {
             await NewsStore.refreshAll(context: context, force: false)
             try Task.checkCancellation()
             newsContext = NewsStore.digestContext(context: context)
-                ?? (NewsStore.feeds(in: context).isEmpty
-                    ? "(用户还没有订阅任何新闻或博客)" : "(最近 24 小时订阅里没有新文章)")
+                ?? (!NewsStore.feeds(in: context).contains(where: \.enabled)
+                    ? "(用户没有启用中的新闻或博客订阅)" : "(最近 24 小时订阅里没有新文章)")
         }
         // 定位只在联网型任务上尝试——只有能查资料的任务才用得上"当前城市"这个
         // 上下文,未授权/超时静默返回 nil,不影响任务正常执行。

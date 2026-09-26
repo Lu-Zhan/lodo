@@ -290,9 +290,14 @@ enum NewsStore {
         return NewsPlan.promptLines(hits)
     }
 
-    /// 定时推送 / 今日简报的素材;没订阅或没有近期文章时为 nil。
+    /// 定时推送 / 今日简报的素材;没有启用中的订阅或没有近期文章时为 nil。
+    /// **停用的订阅不参与**:停用不只是"不再抓",它已经抓到的近期文章也不进简报——
+    /// 用户停用一个源,就是不想再在推送里看到它。(`search_news` 不受影响,
+    /// 问 AI 找文章时照样能搜到停用源里已有的文章。)
     static func digestContext(context: ModelContext) -> String? {
-        let picked = NewsPlan.digestCandidates(articles(in: context).map(\.entry))
+        let enabled = Set(feeds(in: context).filter(\.enabled).map(\.uuid))
+        let picked = NewsPlan.digestCandidates(
+            articles(in: context).filter { enabled.contains($0.feedUUID) }.map(\.entry))
         guard !picked.isEmpty else { return nil }
         return NewsPlan.promptLines(picked, summaryLength: 80)
     }
