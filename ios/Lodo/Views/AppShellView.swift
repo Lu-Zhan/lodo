@@ -138,8 +138,7 @@ struct AppShellView: View {
     /// 已经去掉(理由见 `AppSidebarView` 文件头),按标签筛选的机制原样留在
     /// `MemoryListView` 里,要恢复入口时把这个 State 接回去即可。
     @State private var memoryTagFilter: String?
-    /// 记忆页的 push 栈。提到这里持有有两个用处:深链回记忆页时能弹回根,
-    /// 以及下面 swipeGestureEnabled 要知道现在是不是在二级页。
+    /// 记忆页的 push 栈。提到这里持有:深链回记忆页时能弹回根。
     @State private var memoryPath: [MemoryItem] = []
     /// 非 nil 时切到旅行页并 push 进这次旅行的详情(AI 对话里那条跳转小条)。
     /// 旅行页消费掉之后置回 nil。
@@ -150,12 +149,6 @@ struct AppShellView: View {
     /// 宽屏默认展开常驻侧栏,窄屏默认收起。sizeClass 在 init 阶段读不到,
     /// 只能挂在第一次 onAppear 上做一次。
     @State private var didSetInitialSidebar = false
-    /// 抽屉横向拖拽的实时位移。
-    @State private var sidebarDragOffset: CGFloat = 0
-    /// 本次拖拽的起点 + 归属判定;起点变了就说明换了一次新拖拽,重新判定。
-    /// 不只靠 onEnded 复位:手势被系统中断时 onEnded 不一定会来,只靠它复位会让
-    /// 下一次右滑整个失灵。
-    @State private var dragSession: (start: CGPoint, intent: DragIntent)?
     /// 设备物理安全区顶部高度(灵动岛/状态栏),不含 NavigationStack 内部给导航栏
     /// 额外预留的那截——挂在最外层的 background 上量,量到的是原始安全区,
     /// 不会被页面内部的导航栏放大。窄屏抽屉拉到物理顶部时(sidebarPanel 忽略了
@@ -177,26 +170,10 @@ struct AppShellView: View {
     /// 时,这里量到的就一直是 home indicator**,页面自然一动不动——不需要按版本
     /// 分叉,那正是想要的结果。
     @State private var windowBottomInset: CGFloat = 0
-    /// 收起动画还在播。sidebarProgress 是从 showSidebar 直接算的,点☰/点遮罩
+    /// 收起动画还在播。抽屉进度是从 showSidebar 直接算的,点☰/点遮罩
     /// 关闭时它瞬间变 0,而页面还在往回滑——右上角其他工具栏项要等页面到位
     /// 再恢复。收起期间靠这个标记压住它们,动画回调里才放开。
     @State private var isClosingSidebar = false
-    /// 横向拖拽是否仍在进行。系统中断手势(来电、切后台、被别的手势抢走)时
-    /// 不会走 onEnded,只有 @GestureState 会自动复位——用它兜底,否则抽屉会停在
-    /// 半开位置且再也回不去。
-    @GestureState private var isDraggingSidebar = false
-    /// 页面里那些横向可滑控件(改期候选、筛选胶囊…)的位置。落在这些矩形里
-    /// 起手的拖拽不算唤出抽屉,否则往右看下一个胶囊会顺手把抽屉拖出来。
-    /// 横向可滑控件申报的矩形,只在拖拽第一帧读一次。**不能是 @State**:矩形在窗口
-    /// 坐标里,页面纵向滚动时胶囊行/周条跟着走,preference 每帧都变;写 @State 会让
-    /// 整个外壳每帧重算,滚动就一路抖。引用盒改值不触发刷新。
-    private final class ExclusionBox { var rects: [CGRect] = [] }
-    @State private var dragExclusions = ExclusionBox()
-    /// 关闭手势(遮罩上左滑)是和内容并行挂着的,哪一方接管这次拖拽在**第一帧**
-    /// 就定死、之后不再改判:否则先纵向滚一段、中途拐个横向,侧栏会毫无预兆地
-    /// 跳出来。
-    private enum DragIntent { case sidebar, ignored }
-
     init() {
         let initial: AppSection = Self.shouldOpenAgentOnLaunch() ? .agent : .overview
         _section = State(initialValue: initial)
@@ -444,7 +421,7 @@ struct AppShellView: View {
         #endif
     }
 
-    /// 收起要带完成回调:showSidebar 一置 false,sidebarProgress 立刻就是 0,
+    /// 收起要带完成回调:showSidebar 一置 false,抽屉进度立刻就是 0,
     /// 而页面还在往回滑三百点——只看 progress 的话工具栏会在页面滑到位之前
     /// 提前冒出来。isClosingSidebar 把这段动画时间盖住。
     private func closeSidebar() {
@@ -457,7 +434,7 @@ struct AppShellView: View {
         }
     }
 
-    /// 选中页面后的收起:和点遮罩/拖拽/☰ 一样**照常播收起动画**(侧栏往左滑走、
+    /// 选中页面后的收起:和点遮罩/☰ 一样**照常播收起动画**(侧栏往左滑走、
     /// 新页面跟着推回来),不是硬切——这一下是全 app 位移幅度最大的动画,一个
     /// 页面切换少了它就像界面自己闪了一下。
     ///
@@ -467,25 +444,23 @@ struct AppShellView: View {
         guard showSidebar else { return }
         isClosingSidebar = true
         withAnimation(sidebarAnimation, completionCriteria: .logicallyComplete) {
-            sidebarDragOffset = 0
             showSidebar = false
         } completion: {
             isClosingSidebar = false
         }
     }
 
-    /// 抽屉推开(或拖到一半、或正在滑回去)时撤掉页面其他工具栏按钮。判据不能
-    /// 只看 showSidebar:拖到一半时它们同样会浮在已经露出来的那截侧栏上面,所以
-    /// 拖拽一起手就得撤掉;收起动画播完之前也不能放回来(见 closeSidebar)。
+    /// 抽屉推开(或正在滑回去)时撤掉页面其他工具栏按钮。判据不能只看
+    /// showSidebar:收起动画播完之前也不能放回来(见 closeSidebar)。
     /// 宽屏常驻列不推移内容,照常显示。
     private var hidesToolbarChrome: Bool {
-        !usesRegularLayout && (showSidebar || sidebarDragOffset > 0 || isClosingSidebar)
+        !usesRegularLayout && (showSidebar || isClosingSidebar)
     }
 
     /// 侧栏推开时盖在页面上的那层遮罩:日间压一层半透明**白**——内容被洗淡、
     /// 卡片比侧栏更白,"这块暂时不能操作"的意思出来了,又不会像灰黑遮罩那样把
     /// 整张卡压成一块灰框;夜间白色反而刺眼,仍用半透明黑压暗。这层遮罩同时是
-    /// "点一下关闭"和展开后"左滑收回"的手势承载层,不能省掉。
+    /// "点一下关闭"的承载层,不能省掉。
     private var sidebarScrim: some View {
         (colorScheme == .dark ? Color.black.opacity(0.35) : Color.white.opacity(0.5))
     }
@@ -508,86 +483,11 @@ struct AppShellView: View {
         deviceBottomInset + keyboardOverlap
     }
 
-    /// 0 = 完全收起,1 = 完全展开;拖拽期间取中间值,松手后回到 0/1。
-    /// 抽屉的所有视觉量(推移/圆角/变暗)都从这一个进度插值出来,
-    /// 开合两个方向才能同样跟手。
-    private func sidebarProgress(width: CGFloat) -> CGFloat {
-        let base: CGFloat = showSidebar ? 1 : 0
-        return min(1, max(0, base + sidebarDragOffset / max(width, 1)))
-    }
-
-    /// 松手后按"已拖过 30% 宽 或 甩动预测能到 50% 宽"判定落到哪一端,开合对称。
-    private func settleSidebar(_ value: DragGesture.Value, opening: Bool, width: CGFloat) {
-        let sign: CGFloat = opening ? 1 : -1
-        let passed = value.translation.width * sign > width * 0.3
-            || value.predictedEndTranslation.width * sign > width * 0.5
-        let target = passed ? opening : showSidebar
-        if target {
-            withAnimation(sidebarAnimation) {
-                sidebarDragOffset = 0
-                showSidebar = true
-            }
-        } else {
-            isClosingSidebar = true
-            withAnimation(sidebarAnimation, completionCriteria: .logicallyComplete) {
-                sidebarDragOffset = 0
-                showSidebar = false
-            } completion: {
-                isClosingSidebar = false
-            }
-        }
-    }
-
-    /// 唤出 / 收回的手势本体:收起时挂在页面内容上,展开后挂在遮罩上。
-    private func sidebarDrag(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 12)
-            // 只为拿"手势还在不在"这一个信号:系统中断(来电、切后台、被别的
-            // 手势抢走)时不走 onEnded,@GestureState 却一定会复位。
-            .updating($isDraggingSidebar) { _, state, _ in state = true }
-            .onChanged { value in
-                let intent: DragIntent
-                if let session = dragSession, session.start == value.startLocation {
-                    intent = session.intent
-                } else {
-                    // 一次拖拽的第一帧:横向为主 + 方向对(收起时向右开、展开时
-                    // 向左关)才接管;纵向滚动和反方向的横滑一律让给底下的视图。
-                    let horizontal = abs(value.translation.width) > abs(value.translation.height)
-                    let rightDirection = showSidebar
-                        ? value.translation.width < 0 : value.translation.width > 0
-                    // 起手点落在横向可滑控件上就整个让开(只在收起态判——展开后
-                    // 遮罩盖住整页,底下的胶囊行本来就摸不到)。
-                    let excluded = !showSidebar && dragExclusions.rects.contains {
-                        $0.contains(value.startLocation)
-                    }
-                    intent = (horizontal && rightDirection && !excluded) ? .sidebar : .ignored
-                    dragSession = (value.startLocation, intent)
-                    // 往右拖开抽屉一接管就收键盘(拖回去不用管,抽屉开着时键盘本来就收了)。
-                    if intent == .sidebar && !showSidebar { dismissKeyboard() }
-                }
-                guard intent == .sidebar else { return }
-                sidebarDragOffset = showSidebar
-                    ? min(0, value.translation.width) : max(0, value.translation.width)
-            }
-            .onEnded { value in
-                let wasSidebar = dragSession?.intent == .sidebar
-                dragSession = nil
-                if wasSidebar { settleSidebar(value, opening: !showSidebar, width: width) }
-            }
-    }
-
-    /// 记忆页是四个页面里唯一能 push 二级页的(条目详情)。二级页里屏幕左边缘
-    /// 归系统的返回手势,唤出手势必须整个让开,否则两者互抢、返回手势失灵。
-    /// 手势从"只认左边缘窄带"改成整页之后这条更要紧了——不让开的话在详情页里
-    /// 往右拖会开抽屉,而不是用户预期的返回。
-    private var swipeGestureEnabled: Bool {
-        section != .memory || memoryPath.isEmpty
-    }
-
     /// 窄屏(iPhone、紧凑宽度 iPad):侧栏占屏幕三分之一(侧栏 : 推开后露出的页面
     /// = 1:2),页面随之推移变暗。
-    /// **整页任意位置**往右拖都能唤出(不再限于左边缘那条窄带);为此全 app 的
-    /// 行操作都收在了向左滑那一侧,没有任何 leading action 跟它抢方向。
-    /// 收回则是展开后在遮罩上任意位置左滑,或者点一下遮罩。
+    /// **没有滑动手势**:只能点左上角 ☰ 打开;收回是再点 ☰、点一下遮罩,或在
+    /// 侧栏里选一个页面。滑动唤出曾经做过(整页右滑),和列表横滑、日历翻页、
+    /// 系统返回手势处处抢方向,已整个去掉。
     private var compactLayout: some View {
         GeometryReader { proxy in
             compactDrawer(width: proxy.size.width / 3)
@@ -599,22 +499,18 @@ struct AppShellView: View {
     }
 
     private func compactDrawer(width: CGFloat) -> some View {
-        let progress = sidebarProgress(width: width)
+        // 0 = 收起,1 = 展开。推移/圆角/变暗都从它插值,动画由 showSidebar 驱动。
+        let progress: CGFloat = showSidebar ? 1 : 0
         return ZStack(alignment: .leading) {
             // 侧栏排在前面 = 画在底下:页面盖在它上面,页面的投影才能落到侧栏上。
-            // 面板自己因此不带投影。面板常驻渲染,靠 offset 推到屏幕外表示收起
-            // ——这样拖拽中间态才有东西可跟手(条件渲染 + transition 做不到跟手,
-            // 只能播一段固定动画)。
+            // 面板自己因此不带投影。面板常驻渲染,靠 offset 推到屏幕外表示收起,
+            // 和页面的推移由同一个弹簧驱动,两者严丝合缝。
             compactSidebarPanel
                 // 拉到屏幕物理顶部,不吃页面 NavigationStack 给导航栏预留的那截
                 // 安全区(展开时导航栏内容已经撤空,留着那截空白没意义)。
                 .ignoresSafeArea(.container, edges: .top)
                 .frame(width: width)
                 .offset(x: -(1 - progress) * width)
-                // 这里**不挂**关闭拖拽。面板里那个 List 自己就有向左滑的行操作
-                // (删除对话、标签常驻),挂一个不判方向归属的 DragGesture 会和
-                // 它们抢同一个方向。收回抽屉靠右边遮罩那一层(左滑或点一下),
-                // 那里没有任何行操作要让。
 
             // 顺序要紧:先叠手势层和遮罩、再 clipShape 圆角,最后才推移。
             // clipShape 必须排在 offset 前面——offset 是布局中立的渲染位移,排在
@@ -641,13 +537,6 @@ struct AppShellView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
-                // 手势的 startLocation 和横向控件申报的矩形都换算到这个具名空间里
-                // ——具名空间挂在手势所在的这一层,两边的原点才对得上。
-                .coordinateSpace(name: SidebarDragExclusion.spaceName)
-                .onPreferenceChange(SidebarDragExclusionKey.self) { dragExclusions.rects = $0 }
-                // 收起时手势挂在页面内容上,和列表的纵向滚动并行(sidebarDrag 第一帧
-                // 就按"横向为主 + 方向对"定死归属,纵向滚动照常让给底下的视图)。
-                .simultaneousGesture(showSidebar || !swipeGestureEnabled ? nil : sidebarDrag(width: width))
                 // 遮罩负责拦截页面触摸;这里不能把整棵 sectionStack 的点击关掉,
                 // 否则保留下来的导航栏 ☰ 也无法点按。旁白仍要藏起被盖住的页面。
                 .accessibilityHidden(showSidebar)
@@ -657,7 +546,6 @@ struct AppShellView: View {
                             .opacity(progress)
                             .contentShape(Rectangle())
                             .onTapGesture { closeSidebar() }
-                            .gesture(sidebarDrag(width: width))
                             // 对旁白来说这层不是装饰,是"点一下关掉导航"的按钮。
                             .accessibilityElement()
                             .accessibilityLabel("关闭导航")
@@ -673,9 +561,9 @@ struct AppShellView: View {
                 .clipShape(RoundedRectangle(
                     cornerRadius: progress > 0 ? DesignMetrics.deviceCornerRadius : 0,
                     style: .continuous))
-                // 拖拽/弹簧动画期间这块阴影每帧都要重算,compositingGroup 先把整页
+                // 弹簧动画期间这块阴影每帧都要重算,compositingGroup 先把整页
                 // 拍平成一张位图再算阴影,不然 SwiftUI 会对一整棵视图树逐层算阴影,
-                // 内容一多拖拽就跟不上手、animation 收尾那截也容易掉帧。
+                // 内容一多 animation 收尾那截容易掉帧。
                 .compositingGroup()
                 .shadow(color: .black.opacity(0.18 * progress), radius: 14, x: -3)
                 // 只平移不缩放:页面保持原大小整块推出去(右侧推出屏幕外),
@@ -692,15 +580,6 @@ struct AppShellView: View {
         // 窗口上(≈30)亮,侧栏右边缘会出现一道竖直的明暗分界,圆角看上去像压在一块
         // 方角暗色底板上。日间是不透明色,叠几层都一样,所以只有夜间露馅。
         .background { drawerBackdrop }
-        // 手势被系统中断时没有 onEnded,拖到一半的抽屉会卡住;@GestureState
-        // 一定会复位,借它把位移归零。
-        .onChange(of: isDraggingSidebar) { _, active in
-            guard !active, sidebarDragOffset != 0 else { return }
-            dragSession = nil
-            withAnimation(sidebarAnimation) { sidebarDragOffset = 0 }
-        }
-        // 只对 showSidebar 挂动画:拖拽中 sidebarDragOffset 的变化要 1:1 跟手,
-        // 不能被动画平滑掉(松手归位那下由 settleSidebar 里的 withAnimation 负责)。
         .animation(sidebarAnimation, value: showSidebar)
         // 整个抽屉容器铺到物理屏幕边缘。**必须挂在这一层**,不能只挂在 sectionStack
         // 上:挂在里面时 clipShape 仍按"安全区之内"那个 frame 裁切,推开的卡上下

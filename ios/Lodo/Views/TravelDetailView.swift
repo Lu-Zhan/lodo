@@ -332,8 +332,7 @@ struct TravelDetailView: View {
 
     /// 地图左边那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
     /// 并缩放到把那一天完整框进来(`focusCamera`)。
-    /// 天数多了能上下滑,所以它经 `SidebarDragExclusionKey` 申报排除区——
-    /// 理由同 `HorizontalChipRow`,只是方向反过来,避免和抽屉手势抢。
+    /// 天数多了能上下滑。
     private var dayFilterRail: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 6) {

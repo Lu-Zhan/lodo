@@ -448,20 +448,9 @@ extension CalendarViewMode {
 }
 
 extension View {
-    /// 左右滑翻页(左滑下一页)。整块内容区向抽屉申报排除——理由同
-    /// `HorizontalChipRow`:往右滑看上一页会顺手把抽屉拖出来。抽屉在这一页
-    /// 靠左上角的 ☰ 打开。
+    /// 左右滑翻页(左滑下一页)。
     func pagingSwipe(isActive: Bool, onPage: @escaping (Int) -> Void) -> some View {
         self
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: SidebarDragExclusionKey.self,
-                        value: isActive
-                            ? [proxy.frame(in: .named(SidebarDragExclusion.spaceName))]
-                            : [])
-                }
-            )
             .simultaneousGesture(
                 DragGesture(minimumDistance: 30)
                     .onEnded { value in
