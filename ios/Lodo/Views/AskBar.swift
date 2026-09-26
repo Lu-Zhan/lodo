@@ -84,7 +84,9 @@ private struct AskBarModifier: ViewModifier {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
                     .font(.body.weight(.medium))
-                    .foregroundStyle(Color.accentColor)
+                    // 直接读强调色设置,不靠 .tint:挂在 sheet 里(旅行详情的行程面板)
+                    // 时 safeAreaInset 这一层拿不到外面下发的 tint,会退回系统蓝。
+                    .foregroundStyle(accentPalette.accent)
                 Text("问问 AI")
                     .font(.body)
                     .foregroundStyle(.secondary)

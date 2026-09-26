@@ -3,8 +3,11 @@ import SwiftData
 import MapKit
 import LodoCore
 
-/// 一次旅行:顶部是旅行本身的信息(名字/城市·国家/日期),下面按天 / 地图 / 价格
-/// 三个视图分段切换。
+/// 一次旅行:**整屏是地图**,行程放在底部一张常驻的半高面板里(系统 sheet 的
+/// 分档:露个头 / 半高 / 全屏,半高以下地图照常能拖能点,同系统地图 app)。
+/// 面板里是旅行信息 + 按天 / 价格两个视图;点行程里的一条,地图就飞到那个地点。
+/// 右上角:显示路线开关(真实路线 ⇄ 直线)和「⋯」菜单(手动添加 / 从订单导入 /
+/// 刷新地点位置 / 编辑旅行)。
 /// 行程项是打了「旅行」标签的记忆条目,所以这里用 @Query 盯全部 MemoryItem
 /// 再按 tripUUID 过滤——增删改能自动刷新(@Query 盯的是条目本身)。
 struct TravelDetailView: View {
@@ -14,6 +17,8 @@ struct TravelDetailView: View {
     @Environment(\.lodoAccent) private var lodoAccent
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var displayCurrency = "CNY"
+    /// 地图上画真实路线(`MKDirections`)还是直线。纯展示偏好,存本机。
+    @AppStorage("travelMapShowsRoutes") private var showsRoutes = true
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
 
     @Query private var memoryItems: [MemoryItem]
@@ -24,21 +29,32 @@ struct TravelDetailView: View {
     @State private var viewingItem: MemoryItem?
     /// 地图上正在看哪一天(nil = 全部)。
     @State private var mapDay: Date?
-    /// 地图镜头。选了某一天就缩放到把那一天框完整。
+    /// 地图镜头。选了某一天就缩放到把那一天框完整,点了某一条就飞到那个点。
     @State private var camera: MapCameraPosition = .automatic
+    /// 地图上选中的那个点(`MapPin.id`)。点列表里的行、或者直接点地图上的点都会改它。
+    @State private var selectedPin: String?
     @State private var viewingFlight: MemoryItem?
     @State private var addingItem = false
     @State private var addingDate: Date = .now
     @State private var importing = false
     @State private var editingTrip = false
+    /// 底部行程面板。页面出现时弹出、离开时收回(返回上一页前必须先收掉)。
+    @State private var showsPanel = false
+    @State private var panelDetent: PresentationDetent = .medium
+    /// 路线加载完一批就 +1,让地图按新缓存重画。
+    @State private var routeRevision = 0
+    @State private var relocating = false
+    /// 地图顶上停留一会儿的提示(刷新地点位置的结果)。
+    @State private var mapNotice: String?
+
+    private static let peekDetent = PresentationDetent.height(200)
 
     enum Mode: String, CaseIterable, Identifiable {
-        case days, map, cost
+        case days, cost
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
             case .days: return "按天"
-            case .map: return "地图"
             case .cost: return "价格"
             }
         }
@@ -57,9 +73,93 @@ struct TravelDetailView: View {
     }
 
     var body: some View {
+        ZStack(alignment: .topLeading) {
+            mapLayer
+                .ignoresSafeArea()
+            mapOverlays
+        }
+        #if os(iOS)
+        // 名字在面板顶上大字显示,导航栏不再重复一遍;导航栏浮在地图上。
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        #else
+        .navigationTitle(trip.title.isEmpty ? "未命名旅行" : trip.title)
+        #endif
+        // 页面自己的操作收在右上角(原来「⋯」在左上角、紧挨着返回键)。
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    withAnimation(.lodoAware(.snappy)) { showsRoutes.toggle() }
+                } label: {
+                    Label(showsRoutes ? "显示直线" : "显示路线",
+                          systemImage: showsRoutes ? "point.topleft.down.to.point.bottomright.curvepath.fill"
+                                                   : "point.topleft.down.to.point.bottomright.curvepath")
+                }
+                .accessibilityHint("在真实路线和直线之间切换")
+                actionMenu
+            }
+        }
+        .sheet(isPresented: $showsPanel) { panel }
+        .onAppear { showsPanel = true }
+        .onDisappear { showsPanel = false }
+        // 手打的地名、AI 规划出来的安排都没有坐标,打开这一页时补一遍,地图上才
+        // 有点可画(查不到的照旧留空,见 TravelStore.fillMissingCoordinates);
+        // 同一轮里先把存错国家的坐标清掉(见 TravelStore.pruneMisplacedCoordinates)。
+        .task(id: trip.uuid) {
+            await TravelStore.refreshCoordinates(for: trip, context: context)
+        }
+        // 真实路线:点或开关变了就把缺的那几段规划一遍(缓存过的不再请求)。
+        .task(id: routeLoadKey) {
+            guard showsRoutes else { return }
+            if await TravelRouteLoader.load(allLegs) { routeRevision += 1 }
+        }
+        .onChange(of: pinSignature) { _, _ in
+            if selectedPin == nil { focusCamera(animated: true) }
+        }
+        #if DEBUG
+        .onAppear(perform: applyDemoArguments)
+        #endif
+    }
+
+    private var actionMenu: some View {
+        Menu {
+            Button {
+                addingDate = trip.startDate
+                addingItem = true
+            } label: {
+                Label("手动添加", systemImage: "plus")
+            }
+            Button {
+                importing = true
+            } label: {
+                Label("从订单导入", systemImage: "sparkles")
+            }
+            Button {
+                relocate()
+            } label: {
+                Label("刷新地点位置", systemImage: "location.magnifyingglass")
+            }
+            .disabled(relocating)
+            Divider()
+            Button {
+                editingTrip = true
+            } label: {
+                Label("编辑旅行", systemImage: "pencil")
+            }
+        } label: {
+            Label("行程操作", systemImage: "ellipsis.circle")
+        }
+    }
+
+    // MARK: - 底部面板
+
+    /// 常驻的行程面板。三档:露个头(只看旅行名和日期,地图几乎整屏)、半高(默认)、
+    /// 全屏。半高及以下地图照常可以操作。面板是独立的呈现宿主,所以强调色、
+    /// 「问问 AI」和面板里要弹的那几张表单都挂在它里面。
+    private var panel: some View {
         VStack(spacing: 0) {
             header
-
             Picker("视图", selection: $mode) {
                 ForEach(Mode.allCases) { mode in
                     Text(mode.title).tag(mode)
@@ -71,51 +171,20 @@ struct TravelDetailView: View {
 
             switch mode {
             case .days: dayList
-            case .map: mapView
             case .cost: costList
             }
         }
-        #if os(iOS)
-        // 名字已经在页面顶部大字显示,导航栏不再重复一遍(同系统通讯录详情页)。
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        #else
-        .navigationTitle(trip.title.isEmpty ? "未命名旅行" : trip.title)
-        #endif
-        // 右下角那颗「+」去掉了:底下常驻的「问问 AI」就是这一页的新建入口
-        // (说一句"第二天加个锦市场"走 edit_trip)。AI 接不了的两条——手动填一条、
-        // 把订单/截图交给 OCR——和「编辑旅行」一起收到右上角(同人脉页/记忆页那套
-        // "页面自己的操作收在右上角")。
-        .toolbar {
-            // 放在左上角(返回键旁边),不是右上角。
-            ToolbarItem(placement: Self.menuPlacement) {
-                Menu {
-                    Button {
-                        addingDate = trip.startDate
-                        addingItem = true
-                    } label: {
-                        Label("手动添加", systemImage: "plus")
-                    }
-                    Button {
-                        importing = true
-                    } label: {
-                        Label("从订单导入", systemImage: "sparkles")
-                    }
-                    Divider()
-                    Button {
-                        editingTrip = true
-                    } label: {
-                        Label("编辑旅行", systemImage: "pencil")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .accessibilityLabel("行程操作")
-            }
-        }
+        .padding(.top, 14)
         // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
         // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
         .askBar(focus: .travel(trip: trip.title))
+        .presentationDetents([Self.peekDetent, .medium, .large], selection: $panelDetent)
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        .presentationDragIndicator(.visible)
+        .interactiveDismissDisabled()
+        // sheet 是独立呈现宿主,不继承根上的 tint(同 SettingsView)。
+        .tint(lodoAccent.accent)
+        .environment(\.lodoAccent, lodoAccent)
         .sheet(isPresented: $addingItem) {
             TravelItemEditView(tripUUID: trip.uuid, defaultDate: addingDate)
         }
@@ -134,46 +203,36 @@ struct TravelDetailView: View {
         .sheet(isPresented: $editingTrip) {
             TripEditView(trip: trip)
         }
-        // 手打的地名、AI 规划出来的安排都没有坐标,打开这一页时补一遍,地图上才
-        // 有点可画(查不到的照旧留空,见 TravelStore.fillMissingCoordinates);
-        // 同一轮里先把存错国家的坐标清掉(见 TravelStore.pruneMisplacedCoordinates)。
-        .task(id: trip.uuid) {
-            await TravelStore.refreshCoordinates(for: trip, context: context)
-        }
-        #if DEBUG
-        .onAppear {
-            // 截图验证用:simctl 点不了分段控件,启动参数直接切到对应视图。
-            let args = ProcessInfo.processInfo.arguments
-            if args.contains("--demo-travel-day") { mode = .days }
-            if args.contains("--demo-travel-map") { mode = .map }
-            // 截图验证用:simctl 点不了地图左边那条按天胶囊,直接选中第 2 天
-            // (镜头会缩放到那一天,见 focusCamera)。
-            if args.contains("--demo-travel-map-day") {
-                mode = .map
-                mapDay = trip.days.count > 1 ? trip.days[1] : trip.days.first
-            }
-            if args.contains("--demo-travel-cost") { mode = .cost }
-            if args.contains("--demo-travel-add") { addingItem = true }
-            if args.contains("--demo-travel-import") { importing = true }
-            // 截图验证用:simctl 点不了行,直接打开第一条非航班项的详情 / 编辑旅行。
-            if args.contains("--demo-travel-item") {
-                viewingItem = items.first { $0.travelKind != .flight }
-            }
-            if args.contains("--demo-travel-trip-edit") { editingTrip = true }
-            if args.contains("--demo-travel-flight") {
-                viewingFlight = items.first { $0.travelKind == .flight && $0.travelFlightData != nil }
-            }
-        }
-        #endif
     }
 
-    private static var menuPlacement: ToolbarItemPlacement {
-        #if os(iOS)
-        .topBarLeading
-        #else
-        .primaryAction
-        #endif
+    #if DEBUG
+    private func applyDemoArguments() {
+        // 截图验证用:simctl 点不了分段控件/行/面板,启动参数直接摆状态。
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--demo-travel-day") { mode = .days }
+        if args.contains("--demo-travel-cost") { mode = .cost }
+        if args.contains("--demo-travel-map-day") {
+            mapDay = trip.days.count > 1 ? trip.days[1] : trip.days.first
+        }
+        if args.contains("--demo-travel-panel-peek") { panelDetent = Self.peekDetent }
+        if args.contains("--demo-travel-panel-large") { panelDetent = .large }
+        if args.contains("--demo-travel-straight") { showsRoutes = false }
+        if args.contains("--demo-travel-focus"),
+           let entry = entries.first(where: { $0.coordinate != nil && $0.kind == .place }) {
+            select(entry)
+        }
+        if args.contains("--demo-travel-add") { addingItem = true }
+        if args.contains("--demo-travel-import") { importing = true }
+        // 截图验证用:simctl 点不了行,直接打开第一条非航班项的详情 / 编辑旅行。
+        if args.contains("--demo-travel-item") {
+            viewingItem = items.first { $0.travelKind != .flight }
+        }
+        if args.contains("--demo-travel-trip-edit") { editingTrip = true }
+        if args.contains("--demo-travel-flight") {
+            viewingFlight = items.first { $0.travelKind == .flight && $0.travelFlightData != nil }
+        }
     }
+    #endif
 
     // MARK: - 旅行信息
 
@@ -198,6 +257,7 @@ struct TravelDetailView: View {
                 }
                 .font(.body)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -205,7 +265,6 @@ struct TravelDetailView: View {
         .pressableCard()
         .accessibilityHint("编辑旅行")
         .padding(.horizontal)
-        .padding(.top, 4)
         .padding(.bottom, 12)
     }
 
@@ -298,41 +357,83 @@ struct TravelDetailView: View {
 
     /// MapKit 的 SwiftUI `Map` 是系统框架,和 Swift Charts 同理——不算自绘、不算第三方。
     /// 只画有坐标的点。坐标要么来自表单里的「搜索」选点(`PlaceSearchView`),要么来自
-/// 打开这一页时按地名自动补的那一遍(`TravelStore.fillMissingCoordinates`);
-/// 两条路都没搜到的项不上地图——不编一个大概的位置。
-    @ViewBuilder
-    private var mapView: some View {
-        let pins = mapPins(for: mapDay)
-        if mapPins(for: nil).isEmpty {
-            ContentUnavailableView {
-                Label("地图上还没有点", systemImage: "map")
-            } description: {
-                Text("填了地点的行程项会自动找坐标画到地图上;这里空着,说明还没填地点,或者按名字没搜到。")
+    /// 打开这一页时按地名自动补的那一遍(`TravelStore.fillMissingCoordinates`),要么是
+    /// 右上角「刷新地点位置」手动重查的;都没搜到的项不上地图——不编一个大概的位置。
+    ///
+    /// 每天把当天的地点按时间连起来,一天一个颜色。开着「显示路线」时每一段用
+    /// `MKDirections` 规划真实路线(`TravelRouteLoader`),规划不出来的那段退回虚线直线;
+    /// 关掉就全部画直线。
+    private var mapLayer: some View {
+        Map(position: $camera, selection: $selectedPin) {
+            ForEach(mapPins(for: mapDay)) { pin in
+                Marker(pin.title, systemImage: pin.systemImage, coordinate: pin.coordinate)
+                    .tint(pin.color)
+                    .tag(pin.id)
             }
-            .frame(maxHeight: .infinity)
-        } else {
-            Map(position: $camera) {
-                ForEach(pins) { pin in
-                    Marker(pin.title, systemImage: pin.systemImage, coordinate: pin.coordinate)
-                        .tint(pin.color)
-                }
-                // 每天一条线、一个颜色:一眼看出哪几个点是同一天串起来的。
-                ForEach(routes(for: mapDay)) { route in
-                    MapPolyline(coordinates: route.coordinates)
-                        .stroke(route.color,
-                                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-                }
+            ForEach(mapLegs(for: mapDay)) { leg in
+                MapPolyline(coordinates: leg.coordinates)
+                    .stroke(leg.color, style: StrokeStyle(
+                        lineWidth: 4, lineCap: .round, lineJoin: .round,
+                        dash: leg.isStraightFallback ? [6, 6] : []))
             }
-            .ignoresSafeArea(edges: .bottom)
-            .overlay(alignment: .leading) { dayFilterRail }
-            .onAppear { focusCamera(animated: false) }
-            .onChange(of: mapDay) { _, _ in focusCamera(animated: true) }
+        }
+        .mapControls {
+            MapCompass()
+            MapScaleView()
+        }
+        .onAppear { focusCamera(animated: false) }
+        .onChange(of: mapDay) { _, _ in
+            selectedPin = nil
+            focusCamera(animated: true)
+        }
+        // 直接点地图上的点也一样飞过去(和点列表里那一行同一个效果)。
+        .onChange(of: selectedPin) { _, id in
+            guard let id, let pin = mapPins(for: nil).first(where: { $0.id == id }) else { return }
+            focus(on: [pin], animated: true)
+        }
+        .onChange(of: panelDetent) { _, _ in
+            // 面板高度变了,露出来的那截地图也变了,重新取一次景。
+            if let id = selectedPin, let pin = mapPins(for: nil).first(where: { $0.id == id }) {
+                focus(on: [pin], animated: true)
+            } else {
+                focusCamera(animated: true)
+            }
         }
     }
 
-    /// 地图左边那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
-    /// 并缩放到把那一天完整框进来(`focusCamera`)。
-    /// 天数多了能上下滑。
+    /// 地图上浮着的东西:左上角按天筛选、顶上一条提示。都在安全区之内(导航栏下面)。
+    private var mapOverlays: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                if trip.days.count > 1 { dayFilterRail }
+                Spacer(minLength: 0)
+            }
+            if let notice = mapNotice ?? emptyMapNotice {
+                HStack(spacing: 8) {
+                    if relocating { ProgressView().controlSize(.small) }
+                    Text(notice)
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .glassBackground(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .frame(maxWidth: .infinity)
+                .transition(.opacity)
+            }
+        }
+        .padding(12)
+        .animation(.lodoAware(.snappy), value: mapNotice)
+    }
+
+    private var emptyMapNotice: String? {
+        mapPins(for: nil).isEmpty
+            ? String(localized: "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。")
+            : nil
+    }
+
+    /// 地图左上角那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
+    /// 并缩放到把那一天完整框进来(`focusCamera`)。天数多了能上下滑。
     private var dayFilterRail: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 6) {
@@ -345,13 +446,10 @@ struct TravelDetailView: View {
             }
             .padding(6)
         }
-        // 高度按条目数算,不要让 ScrollView 贪满整屏(4 天的旅行配一条顶天立地的
-        // 长条很怪);天多了才滚,上限约 8 个。
-        .frame(maxHeight: CGFloat(min(trip.days.count + 1, 8)) * 40 + 12)
+        // 高度按条目数算,天多了才滚;面板半高时地图只露出上半截,上限压到 6 个。
+        .frame(maxHeight: CGFloat(min(trip.days.count + 1, 6)) * 40 + 12)
         .fixedSize(horizontal: true, vertical: false)
         .glassBackground(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.leading, 12)
-        .padding(.vertical, 12)
     }
 
     private func railButton(title: LocalizedStringKey, selected: Bool,
@@ -373,39 +471,128 @@ struct TravelDetailView: View {
         .pressable()
     }
 
+    /// 地图底部被面板盖住的比例:取景只往露出来的那截里放。
+    private var coveredFraction: Double {
+        switch panelDetent {
+        case Self.peekDetent: return 0.25
+        default: return 0.55
+        }
+    }
+
     /// 选中那一天(或全部)时把镜头挪过去。切换是用户主动点的,给个动画;
     /// 首次出现时直接定位,不要从世界地图飞过来。
     private func focusCamera(animated: Bool) {
-        let pins = mapPins(for: mapDay)
         // 这一天没有任何带坐标的点时不动镜头——把地图甩到 (0,0) 比留在原处更糟。
-        guard !pins.isEmpty else { return }
-        let region = region(for: pins)
+        // 取景只看目的地:回程航班的出发机场在北京、东京的行程就会被拉成半个东亚,
+        // 所以有别的点时交通类的点不参与取景(照样画在地图上)。
+        let pins = mapPins(for: mapDay)
+        let destinations = pins.filter { !$0.isTransport }
+        focus(on: destinations.isEmpty ? pins : destinations, animated: animated)
+    }
+
+    private func focus(on pins: [MapPin], animated: Bool) {
+        let points = pins.map { TravelCoordinate(latitude: $0.coordinate.latitude,
+                                                 longitude: $0.coordinate.longitude) }
+        guard let frame = TravelMapFraming.frame(
+            points, coveredFraction: coveredFraction,
+            // 顶上还有状态栏 + 导航栏按钮和按天胶囊,点落在那一截会被挡住。
+            topCoveredFraction: 0.14,
+            minimumSpan: pins.count == 1 ? 0.012 : 0.05) else { return }
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: frame.center.latitude,
+                                           longitude: frame.center.longitude),
+            span: MKCoordinateSpan(latitudeDelta: frame.latitudeDelta,
+                                   longitudeDelta: frame.longitudeDelta))
         if animated {
-            withAnimation(.lodoAware(.easeInOut(duration: 0.4))) { camera = .region(region) }
+            withAnimation(.lodoAware(.easeInOut(duration: 0.45))) { camera = .region(region) }
         } else {
             camera = .region(region)
         }
     }
 
-    /// 某一天(nil = 全部)的路线:当天按时间串起来的地点连线 + 那天的颜色。
-    private func routes(for day: Date?) -> [MapRoute] {
+    /// 点列表里的一行:有坐标就让地图飞过去并选中那个点(面板在全屏时降回半高,
+    /// 不然看不见地图);没坐标就直接打开详情。
+    private func select(_ entry: TravelEntry) {
+        guard let pin = mapPins(for: nil).first(where: { $0.entryID == entry.id }) else {
+            open(entry)
+            return
+        }
+        // 当前按天筛选看不到这个点时,先退回「全部」。
+        if !mapPins(for: mapDay).contains(where: { $0.id == pin.id }) { mapDay = nil }
+        if panelDetent == .large { panelDetent = .medium }
+        selectedPin = pin.id
+        focus(on: [pin], animated: true)
+    }
+
+    private func relocate() {
+        relocating = true
+        mapNotice = String(localized: "正在按地名重新查找位置…")
+        Task {
+            let result = await TravelStore.relocateAll(for: trip, context: context)
+            relocating = false
+            if result.updated == 0 && result.missed == 0 {
+                mapNotice = String(localized: "这次旅行里没有可以查位置的地点。")
+            } else if result.missed == 0 {
+                mapNotice = String(localized: "已更新 \(result.updated) 个地点的位置。")
+            } else {
+                mapNotice = String(localized: "已更新 \(result.updated) 个地点,\(result.missed) 个没搜到(保留原来的位置)。")
+            }
+            selectedPin = nil
+            focusCamera(animated: true)
+            try? await Task.sleep(for: .seconds(3))
+            if !relocating { mapNotice = nil }
+        }
+    }
+
+    // MARK: - 路线
+
+    /// 某一天(nil = 全部)要连线的点:当天按时间排的地点(`TravelPlan.route`,
+    /// 住宿和交通只画点不连线——傍晚才入住的酒店连到早上的景点会画出折返线)。
+    private func routeDays(for day: Date?) -> [(index: Int, date: Date, points: [TravelCoordinate])] {
         TravelPlan.group(entries, into: trip.days)
             .enumerated()
             .filter { day == nil || $0.element.date == day }
-            .compactMap { index, grouped in
-                let coordinates = TravelPlan.route(grouped).compactMap(\.coordinate).map {
-                    CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-                }
-                guard coordinates.count >= 2 else { return nil }
-                return MapRoute(id: grouped.date, coordinates: coordinates,
-                                color: Self.dayColor(index))
+            .map { index, grouped in
+                (index, grouped.date, TravelPlan.route(grouped).compactMap(\.coordinate))
             }
     }
 
-    private struct MapRoute: Identifiable {
-        let id: Date
+    private var allLegs: [(from: TravelCoordinate, to: TravelCoordinate)] {
+        routeDays(for: nil).flatMap { TravelMapFraming.legs($0.points) }
+    }
+
+    private var routeLoadKey: String {
+        "\(showsRoutes)|" + allLegs.map { TravelMapFraming.legKey($0.from, $0.to) }.joined(separator: ";")
+    }
+
+    /// 点的集合变了(补上了坐标、增删了行程项)就重新取景。
+    private var pinSignature: String {
+        mapPins(for: mapDay).map(\.id).joined(separator: ",")
+    }
+
+    /// 地图上的每一段线。开着路线时优先用规划出来的真实路线,没有就画虚线直线。
+    private func mapLegs(for day: Date?) -> [MapLeg] {
+        _ = routeRevision  // 路线缓存更新后借它触发重画
+        return routeDays(for: day).flatMap { index, date, points in
+            TravelMapFraming.legs(points).enumerated().map { offset, leg in
+                let straight = [leg.from, leg.to].map {
+                    CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                }
+                let road = showsRoutes ? TravelRouteLoader.cached(leg.from, leg.to) : nil
+                return MapLeg(id: "\(date.timeIntervalSince1970)-\(offset)",
+                              coordinates: road ?? straight,
+                              color: Self.dayColor(index),
+                              isStraightFallback: showsRoutes && road == nil)
+            }
+        }
+    }
+
+    private struct MapLeg: Identifiable {
+        let id: String
         let coordinates: [CLLocationCoordinate2D]
         let color: Color
+        /// 想要真实路线但没规划出来(或还在规划)的那一段,画成虚线以示区别。
+        let isStraightFallback: Bool
     }
 
     /// 第几天用哪个颜色。**只是区分第几天,不承载语义**(不是 `LodoColor` 那套
@@ -426,6 +613,8 @@ struct TravelDetailView: View {
 
     private struct MapPin: Identifiable {
         let id: String
+        let entryID: UUID
+        let isTransport: Bool
         let title: String
         let systemImage: String
         let coordinate: CLLocationCoordinate2D
@@ -452,7 +641,7 @@ struct TravelDetailView: View {
             var pins: [MapPin] = []
             if let coordinate = entry.coordinate {
                 pins.append(MapPin(
-                    id: "\(entry.id)-place",
+                    id: "\(entry.id)-place", entryID: entry.id, isTransport: entry.kind.isTransport,
                     title: entry.placeName ?? entry.title,
                     systemImage: entry.kind.systemImage,
                     coordinate: CLLocationCoordinate2D(latitude: coordinate.latitude,
@@ -461,7 +650,7 @@ struct TravelDetailView: View {
             }
             if let origin = entry.originCoordinate {
                 pins.append(MapPin(
-                    id: "\(entry.id)-origin",
+                    id: "\(entry.id)-origin", entryID: entry.id, isTransport: true,
                     title: entry.originName ?? entry.title,
                     systemImage: entry.kind == .flight ? "airplane.departure" : entry.kind.systemImage,
                     coordinate: CLLocationCoordinate2D(latitude: origin.latitude,
@@ -470,24 +659,6 @@ struct TravelDetailView: View {
             }
             return pins
         }
-    }
-
-    /// 把所有点框进来。只有一个点时给个固定跨度,否则 span 会算成 0、地图缩到最深。
-    private func region(for pins: [MapPin]) -> MKCoordinateRegion {
-        let lats = pins.map(\.coordinate.latitude)
-        let lons = pins.map(\.coordinate.longitude)
-        guard let minLat = lats.min(), let maxLat = lats.max(),
-              let minLon = lons.min(), let maxLon = lons.max() else {
-            return MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: 0, longitude: 0),
-                span: MKCoordinateSpan(latitudeDelta: 60, longitudeDelta: 60))
-        }
-        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2,
-                                            longitude: (minLon + maxLon) / 2)
-        let span = MKCoordinateSpan(
-            latitudeDelta: max((maxLat - minLat) * 1.4, 0.05),
-            longitudeDelta: max((maxLon - minLon) * 1.4, 0.05))
-        return MKCoordinateRegion(center: center, span: span)
     }
 
     // MARK: - 价格
@@ -568,8 +739,9 @@ struct TravelDetailView: View {
     /// `night` 只有按天视图里的住宿才传:那一晚是入住当晚 / 最后一晚时各挂一枚标签。
     private func entryRow(_ entry: TravelEntry, showDate: Bool = true,
                           night: LodgingNight? = nil) -> some View {
+        HStack(spacing: 8) {
         Button {
-            open(entry)
+            select(entry)
         } label: {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: entry.kind.systemImage)
@@ -611,6 +783,18 @@ struct TravelDetailView: View {
             .contentShape(Rectangle())
         }
         .pressableCard()
+            // 点行是在地图上定位;详情从右边这颗进(没坐标的行点整行也直接进详情)。
+            Button {
+                open(entry)
+            } label: {
+                Image(systemName: "info.circle")
+                    .font(.body)
+                    .foregroundStyle(.tint)
+            }
+            .pressable()
+            .accessibilityLabel("详情")
+        }
+        .listRowBackground(isSelected(entry) ? lodoAccent.accent.opacity(0.12) : nil)
         // 行操作一律收在向左滑那一侧(全 app 没有 leading swipeActions,见 CLAUDE.md)。
         .swipeActions(edge: .trailing) {
             if let item = item(for: entry) {
@@ -627,6 +811,11 @@ struct TravelDetailView: View {
                 .tint(LodoColor.neutralAction)
             }
         }
+    }
+
+    private func isSelected(_ entry: TravelEntry) -> Bool {
+        guard let selectedPin else { return false }
+        return selectedPin.hasPrefix(entry.id.uuidString)
     }
 
     /// 航班行进航班详情(补充信息、导入截图更新都在那里),其余进行程项详情

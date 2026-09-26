@@ -2484,6 +2484,22 @@
         }
       }
     },
+    "刷新地点位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Place Locations"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新地点位置"
+          }
+        }
+      }
+    },
     "前往系统设置" : {
       "localizations" : {
         "en" : {
@@ -3148,6 +3164,22 @@
         }
       }
     },
+    "在真实路线和直线之间切换" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switches between real routes and straight lines"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在真实路线和直线之间切换"
+          }
+        }
+      }
+    },
     "在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。" : {},
     "在菜单里点一下菜品就能选上。" : {
       "localizations" : {
@@ -3274,6 +3306,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。"
+          }
+        }
+      }
+    },
+    "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items with a place are located and drawn on the map automatically. Use Refresh Place Locations in the top-right menu to look them up again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。"
           }
         }
       }
@@ -4019,6 +4067,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已收藏"
+          }
+        }
+      }
+    },
+    "已更新 %lld 个地点,%lld 个没搜到(保留原来的位置)。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated %lld places; %lld weren't found (kept their previous locations)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新 %lld 个地点,%lld 个没搜到(保留原来的位置)。"
+          }
+        }
+      }
+    },
+    "已更新 %lld 个地点的位置。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated %lld place locations."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新 %lld 个地点的位置。"
           }
         }
       }
@@ -5791,6 +5871,22 @@
       }
     },
     "显示人脉" : {},
+    "显示直线" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Straight Lines"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示直线"
+          }
+        }
+      }
+    },
     "显示资产" : {
       "localizations" : {
         "en" : {
@@ -5803,6 +5899,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "显示资产"
+          }
+        }
+      }
+    },
+    "显示路线" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Routes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示路线"
           }
         }
       }
@@ -6616,6 +6728,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在抓取订阅…下拉可以手动刷新。"
+          }
+        }
+      }
+    },
+    "正在按地名重新查找位置…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking up places again…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在按地名重新查找位置…"
           }
         }
       }
@@ -9026,6 +9154,22 @@
         }
       }
     },
+    "详情" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "详情"
+          }
+        }
+      }
+    },
     "语气温柔体贴,像关心你的朋友,多一点鼓励。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -9843,6 +9987,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这次旅行下面的航班、住宿、地点会一起删掉(它们同时是记忆条目)。"
+          }
+        }
+      }
+    },
+    "这次旅行里没有可以查位置的地点。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This trip has no places to look up."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次旅行里没有可以查位置的地点。"
           }
         }
       }

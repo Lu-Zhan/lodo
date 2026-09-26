@@ -899,3 +899,13 @@ news.expand_full,展开全文,Show Full Text,ios_view,新闻页
 news.fetching_full,正在抓取全文…,Fetching full text…,ios_view,新闻页
 news.summary_only,"这个订阅只提供了摘要,原网页也没能抓到全文。","This feed only provides a summary, and the full text couldn't be fetched from the original page.",ios_view,新闻页
 news.digest_item,%lld. %@,%lld. %@,ios_view,新闻页
+travel.show_straight,显示直线,Show Straight Lines,ios_view,旅行详情
+travel.show_routes,显示路线,Show Routes,ios_view,旅行详情
+travel.route_toggle_hint,在真实路线和直线之间切换,Switches between real routes and straight lines,ios_view,旅行详情
+travel.relocate,刷新地点位置,Refresh Place Locations,ios_view,旅行详情
+travel.item_info,详情,Details,ios_view,旅行详情
+travel.map_empty_hint,填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。,Items with a place are located and drawn on the map automatically. Use Refresh Place Locations in the top-right menu to look them up again.,ios_view,旅行详情
+travel.relocating,正在按地名重新查找位置…,Looking up places again…,ios_view,旅行详情
+travel.relocate_none,这次旅行里没有可以查位置的地点。,This trip has no places to look up.,ios_view,旅行详情
+travel.relocate_done,已更新 %lld 个地点的位置。,Updated %lld place locations.,ios_view,旅行详情
+travel.relocate_partial,"已更新 %lld 个地点,%lld 个没搜到(保留原来的位置)。",Updated %lld places; %lld weren't found (kept their previous locations).,ios_view,旅行详情
