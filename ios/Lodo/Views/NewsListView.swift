@@ -242,18 +242,13 @@ struct NewsListView: View {
                         Text(digest.overview)
                             .font(.body.weight(.medium))
                     }
-                    ForEach(Array(digest.items.enumerated()), id: \.offset) { _, item in
+                    ForEach(Array(digest.items.enumerated()), id: \.offset) { index, item in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(item.title).font(.body)
+                            Text("\(index + 1). \(item.title)").font(.body.weight(.medium))
                             if !item.detail.isEmpty {
                                 Text(item.detail)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                            }
-                            if !item.source.isEmpty {
-                                Text(item.source)
-                                    .font(.footnote)
-                                    .foregroundStyle(.tertiary)
                             }
                         }
                     }

@@ -885,14 +885,17 @@ public enum DeepSeekClient {
                                   language: String = "中文") async throws -> NewsDigest {
         let system = """
         你是新闻编辑。下面是用户订阅的新闻和博客里最近的文章清单(来源、标题、时间、摘要)。\
-        挑出最值得看的几件事,写成一份简报。
+        只挑出今天**最重要**的几件事,写成一份简报。
 
-        只返回 JSON:{"overview": "一句话概括今天的整体情况,不超过 40 字", \
-        "items": [{"title": "这件事的一句话标题", "detail": "为什么值得关注,不超过 60 字", \
-        "source": "来源名"}]},不要任何其他文字。
+        只返回 JSON:{"overview": "一句话概括今天最重要的事,不超过 40 字", \
+        "items": [{"title": "这件事本身,一句话说清发生了什么", \
+        "detail": "关键事实和影响,不超过 60 字"}]},不要任何其他文字。
 
         规则:
-        - items 3 到 6 条,按重要程度排;多个来源讲同一件事的合并成一条。
+        - items 3 到 5 条,按重要程度排,最重要的放第一条;多个来源讲同一件事的合并成一条。
+        - 只写事情本身,**不写来源、媒体名、作者**,也不写"某某报道""据某某"。
+        - 重要程度看影响面和新鲜度:政策、市场、行业大事、重大发布优先;软文、清单、\
+        个人随笔、周刊目录这类没有"事"的内容不要选。
         - 用\(language)写,别的语言的标题翻译过来;只根据清单里的内容写,不编造清单里没有的细节。
         - 清单里只有零星几条时就照实少写,不要凑数。\(personaBlock)
         """
@@ -900,6 +903,7 @@ public enum DeepSeekClient {
     }
 
     /// 简报的解析(单测入口)。缺标题的条目丢掉,一条都没有时报错。
+    /// `source` 已不再要求模型输出(简报只讲事,不讲来源),字段留着兼容旧缓存,UI 不显示。
     static func parseNewsDigest(_ payload: [String: Any]) throws -> NewsDigest {
         let items = (payload["items"] as? [[String: Any]] ?? []).compactMap { raw -> NewsDigest.Item? in
             guard let title = (raw["title"] as? String)?
