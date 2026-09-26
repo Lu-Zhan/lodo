@@ -447,9 +447,11 @@ struct NewsListView: View {
             (blog, "科技爱好者周刊(第 380 期):个人知识库怎么整理", "这里记录每周值得分享的科技内容,周五发布。", 90000, false),
             (kr, "AI 手机渗透率首次超过三成", "端侧大模型成为中高端机型的标配卖点。", 100000, true),
         ]
-        for (feed, title, summary, ago, read) in samples {
+        for (index, (feed, title, summary, ago, read)) in samples.enumerated() {
+            // 第一篇挂一个真实文章链接,截图时能看到全文抓取的效果。
+            let link = index == 0 ? "https://sspai.com/post/114958" : feed.siteURL
             let article = NewsArticle(feedUUID: feed.uuid, feedTitle: feed.title, guid: title,
-                                      link: feed.siteURL, title: title, summary: summary,
+                                      link: link, title: title, summary: summary,
                                       publishedAt: now.addingTimeInterval(-ago), fetchedAt: now)
             article.isRead = read
             context.insert(article)

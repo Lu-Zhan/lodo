@@ -2,9 +2,10 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// 一篇文章:标题、来源、feed 里的摘要,「AI 总结」和「阅读原文」。
-/// 打开即标为已读;AI 总结做过一次就存在文章上(`NewsArticle.aiSummary`),
-/// 再打开不再花一次请求。
+/// 一篇文章:标题、来源、AI 总结、正文和「阅读原文」。
+/// 打开即标为已读,并且**自动**做两件事:去原网页抓全文(很多 RSS 只给一两句
+/// 摘要,见 `NewsStore.fullText`)、没总结过就总结一次。AI 总结做过一次就存在
+/// 文章上(`NewsArticle.aiSummary`),再打开不再花一次请求;全文只在内存里缓存。
 struct NewsArticleView: View {
     let article: NewsArticle
 
@@ -14,6 +15,10 @@ struct NewsArticleView: View {
 
     @State private var summarizeTask: Task<Void, Never>?
     @State private var summaryError: String?
+    /// 抓到的全文;nil = 还在抓或没抓到(那时显示 feed 摘要)。
+    @State private var fullText: String?
+    @State private var isFetchingText = false
+    @State private var showsWholeText = false
 
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
     private var link: URL? {
@@ -44,13 +49,7 @@ struct NewsArticleView: View {
 
             aiSection
 
-            if !article.summary.isEmpty {
-                Section("摘要") {
-                    Text(article.summary)
-                        .font(.body)
-                        .textSelection(.enabled)
-                }
-            }
+            bodySection
 
             if let link {
                 Section {
@@ -86,6 +85,7 @@ struct NewsArticleView: View {
             }
         }
         .onAppear { NewsStore.setRead(article, true, context: context) }
+        .task { await loadOnOpen() }
         .onDisappear { summarizeTask?.cancel() }
     }
 
@@ -110,27 +110,71 @@ struct NewsArticleView: View {
             }
         } else if DeepSeekClient.isConfigured {
             Section {
-                Button {
-                    summarize()
-                } label: {
-                    if summarizeTask != nil {
-                        HStack {
-                            ProgressView().controlSize(.small)
-                            Text("正在读原文并总结…")
-                        }
-                    } else {
-                        Label("AI 总结", systemImage: "sparkles")
+                if summarizeTask != nil || summaryError == nil {
+                    HStack {
+                        ProgressView().controlSize(.small)
+                        Text(isFetchingText ? "正在读原文…" : "正在总结…")
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .disabled(summarizeTask != nil)
                 if let summaryError {
                     Text(summaryError)
                         .font(.subheadline)
                         .foregroundStyle(LodoColor.critical)
+                    Button {
+                        summarize()
+                    } label: {
+                        Label("重试", systemImage: "arrow.clockwise")
+                    }
                 }
-            } footer: {
-                Text("会先抓取原文网页,抓不到时只根据摘要总结。")
+            } header: {
+                Label("AI 总结", systemImage: "sparkles")
             }
+        }
+    }
+
+    /// 正文:抓到全文就显示全文(太长先折叠),没抓到显示 feed 摘要。
+    @ViewBuilder
+    private var bodySection: some View {
+        let text = fullText ?? article.summary
+        if !text.isEmpty || isFetchingText {
+            Section {
+                if !text.isEmpty {
+                    Text(text)
+                        .font(.body)
+                        .lineLimit(showsWholeText ? nil : 12)
+                        .textSelection(.enabled)
+                    if !showsWholeText, text.count > 400 {
+                        Button("展开全文") {
+                            withAnimation(.lodoAware(.snappy)) { showsWholeText = true }
+                        }
+                    }
+                }
+                if isFetchingText {
+                    HStack {
+                        ProgressView().controlSize(.small)
+                        Text("正在抓取全文…").foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text(fullText == nil ? "摘要" : "正文")
+            } footer: {
+                if fullText == nil, !isFetchingText, !article.summary.isEmpty {
+                    Text("这个订阅只提供了摘要,原网页也没能抓到全文。")
+                }
+            }
+        }
+    }
+
+    /// 打开时:先抓全文,再用它总结(总结过的只抓全文)。
+    private func loadOnOpen() async {
+        if fullText == nil {
+            isFetchingText = true
+            fullText = await NewsStore.fullText(article)
+            isFetchingText = false
+        }
+        if article.aiSummary == nil, DeepSeekClient.isConfigured, summarizeTask == nil {
+            summarize()
         }
     }
 

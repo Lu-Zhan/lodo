@@ -226,6 +226,22 @@
       }
     },
     "%lld 项" : {},
+    "%lld. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld. %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld. %@"
+          }
+        }
+      }
+    },
     "+%lld" : {},
     "14 天" : {
       "localizations" : {
@@ -3792,6 +3808,22 @@
         }
       }
     },
+    "展开全文" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Full Text"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开全文"
+          }
+        }
+      }
+    },
     "展开其余 %lld 项" : {
       "localizations" : {
         "en" : {
@@ -6540,6 +6572,38 @@
         }
       }
     },
+    "正在总结…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarizing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在总结…"
+          }
+        }
+      }
+    },
+    "正在抓取全文…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetching full text…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在抓取全文…"
+          }
+        }
+      }
+    },
     "正在抓取订阅…下拉可以手动刷新。" : {
       "localizations" : {
         "en" : {
@@ -6665,6 +6729,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在识别截图里的文字…"
+          }
+        }
+      }
+    },
+    "正在读原文…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the original…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读原文…"
           }
         }
       }
@@ -9623,6 +9703,22 @@
       }
     },
     "这个筛选下还没有收藏" : {},
+    "这个订阅只提供了摘要,原网页也没能抓到全文。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This feed only provides a summary, and the full text couldn't be fetched from the original page."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个订阅只提供了摘要,原网页也没能抓到全文。"
+          }
+        }
+      }
+    },
     "这些不在这次旅行的国家/地区,选了会画到别的地方去。" : {
       "localizations" : {
         "en" : {
@@ -10232,6 +10328,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重置记忆"
+          }
+        }
+      }
+    },
+    "重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
           }
         }
       }

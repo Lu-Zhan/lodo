@@ -257,14 +257,66 @@ enum NewsStore {
 
     // MARK: - AI
 
-    /// 文章正文(给 AI 总结用):抓原文网页抽正文,抓不到或太短就退回 feed 摘要。
-    static func articleText(_ article: NewsArticle) async -> String {
-        if let url = URL(string: article.link), url.scheme?.hasPrefix("http") == true {
-            let extraction = await ContentExtractor.extract(url: url)
-            if extraction.text.count > max(200, article.summary.count) {
-                return extraction.text
-            }
+    /// 本次运行里抓过的正文(按文章 uuid)。**不落库**:正文量大、还要走 CloudKit,
+    /// 文章只存标题/摘要/链接(见 `NewsArticle`),重开 app 再抓一次。
+    private static var fullTextCache: [UUID: String] = [:]
+
+    /// 文章全文。很多 RSS 只给一两句摘要,这里去原网页抓,逐级退路:
+    /// 1. 自己抓 HTML(带浏览器 UA,不少站对默认 UA 直接回 403/精简页),用
+    ///    `ArticleExtractor` 挑正文;
+    /// 2. 抽出来太短(常见于前端渲染的页面)时,在本机用不上屏的 WKWebView 把页面
+    ///    真正渲染一遍再抽(`RenderedPageLoader`,非持久化数据存储);
+    /// 3. 还不行就走公开的阅读服务 r.jina.ai——只把**文章链接**发过去,不带任何
+    ///    用户数据;它对部分网络会拒绝匿名请求,失败就算了;
+    /// 4. 都不行就用 feed 里的摘要。
+    /// 只有比摘要长得多才算抓到,否则照样显示摘要。
+    static func fullText(_ article: NewsArticle) async -> String? {
+        if let cached = fullTextCache[article.uuid] { return cached }
+        guard let url = URL(string: article.link), url.scheme?.hasPrefix("http") == true else { return nil }
+        let threshold = max(ArticleExtractor.minimumLength, article.summary.count + 80)
+        var text: String?
+        if let html = await fetchHTML(url), let extracted = ArticleExtractor.mainText(fromHTML: html),
+           extracted.count >= threshold {
+            text = extracted
+        } else if let html = await RenderedPageLoader.html(for: url),
+                  let extracted = ArticleExtractor.mainText(fromHTML: html), extracted.count >= threshold {
+            text = extracted
+        } else if let reader = await fetchReader(url), reader.count >= threshold {
+            text = reader
         }
+        if let text { fullTextCache[article.uuid] = text }
+        return text
+    }
+
+    nonisolated private static let browserUserAgent =
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
+        + "(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+
+    nonisolated private static func fetchHTML(_ url: URL) async -> String? {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue(browserUserAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue("zh-CN,zh;q=0.9,en;q=0.8", forHTTPHeaderField: "Accept-Language")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return nil }
+        return ArticleExtractor.decode(data.prefix(3_000_000),
+                                       contentType: http.value(forHTTPHeaderField: "Content-Type"))
+    }
+
+    nonisolated private static func fetchReader(_ url: URL) async -> String? {
+        guard let reader = URL(string: "https://r.jina.ai/" + url.absoluteString) else { return nil }
+        var request = URLRequest(url: reader)
+        request.timeoutInterval = 25
+        request.setValue("text/plain", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        let text = ArticleExtractor.cleanReaderMarkdown(String(decoding: data, as: UTF8.self))
+        return text.isEmpty ? nil : text
+    }
+
+    /// 给 AI 总结用的正文:能抓到全文用全文,否则退回 feed 摘要。
+    static func articleText(_ article: NewsArticle) async -> String {
+        if let text = await fullText(article) { return MemorySearch.truncate(text) }
         return article.summary.isEmpty ? article.title : article.summary
     }
 
@@ -272,6 +324,7 @@ enum NewsStore {
                           context: ModelContext) async throws -> NewsArticleSummary {
         if let cached = article.aiSummary { return cached }
         let text = await articleText(article)
+        try Task.checkCancellation()
         let result = try await DeepSeekClient.summarizeArticle(
             title: article.title, source: article.feedTitle, text: text,
             language: MenuStore.targetLanguageName(language))

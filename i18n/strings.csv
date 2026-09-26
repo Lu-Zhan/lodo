@@ -892,3 +892,10 @@ overview.weekly_done_a11y,本周完成 %lld 件,%lld tasks done this week,ios_vi
 overview.ring_kcal,%@/%lld 千卡,%@/%lld kcal,ios_view,总览页
 overview.ring_minutes,%@/%lld 分钟,%@/%lld min,ios_view,总览页
 overview.chart_goal,目标,Goal,ios_view,总览页
+news.reading_original,正在读原文…,Reading the original…,ios_view,新闻页
+news.summarizing,正在总结…,Summarizing…,ios_view,新闻页
+news.retry,重试,Retry,ios_view,新闻页
+news.expand_full,展开全文,Show Full Text,ios_view,新闻页
+news.fetching_full,正在抓取全文…,Fetching full text…,ios_view,新闻页
+news.summary_only,"这个订阅只提供了摘要,原网页也没能抓到全文。","This feed only provides a summary, and the full text couldn't be fetched from the original page.",ios_view,新闻页
+news.digest_item,%lld. %@,%lld. %@,ios_view,新闻页
