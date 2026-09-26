@@ -430,8 +430,18 @@ struct AppShellView: View {
         if showSidebar {
             closeSidebar()
         } else {
+            dismissKeyboard()
             withAnimation(sidebarAnimation) { showSidebar = true }
         }
+    }
+
+    /// 推开抽屉时收起键盘:否则 AI 页的输入框还聚焦着,键盘盖在推开的页面和
+    /// 侧栏底部上面。直接走 responder 链,不用每个页面各自把焦点状态交上来。
+    private func dismissKeyboard() {
+        #if os(iOS)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                        to: nil, from: nil, for: nil)
+        #endif
     }
 
     /// 收起要带完成回调:showSidebar 一置 false,sidebarProgress 立刻就是 0,
@@ -551,6 +561,8 @@ struct AppShellView: View {
                     }
                     intent = (horizontal && rightDirection && !excluded) ? .sidebar : .ignored
                     dragSession = (value.startLocation, intent)
+                    // 往右拖开抽屉一接管就收键盘(拖回去不用管,抽屉开着时键盘本来就收了)。
+                    if intent == .sidebar && !showSidebar { dismissKeyboard() }
                 }
                 guard intent == .sidebar else { return }
                 sidebarDragOffset = showSidebar
