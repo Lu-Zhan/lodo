@@ -42,6 +42,8 @@ public enum AppSettings {
     /// lodo 自己那本日历的标识符(EKCalendar.calendarIdentifier)。只在写开关
     /// 开着时才会有;用户在系统日历里把它删了,下次同步会新建一本并覆盖这里。
     public static let calendarIdentifierKey = "calendarIdentifier"
+    /// 日历页上次用的视图(`CalendarViewMode.rawValue`),纯展示偏好。
+    public static let calendarViewModeKey = "calendarViewMode"
 
     /// 健康分析总开关。**默认关**:读健康数据要系统授权,而且开了之后汇总统计
     /// 会发给所选 AI 服务商——这种事不该替用户默认打开。关着时健康页只画本地
@@ -51,7 +53,7 @@ public enum AppSettings {
     }
 
     /// 系统日历总开关(读)。**默认关**:读日历要系统授权,不该替用户默认打开。
-    /// 关着时任务页顶部的周条照常显示,只是上面只有 lodo 自己的任务。
+    /// 关着时日历页只显示一个「连接日历」的引导,一次 EventKit 调用都不发。
     public static var calendarEnabled: Bool {
         UserDefaults.standard.bool(forKey: calendarEnabledKey)
     }

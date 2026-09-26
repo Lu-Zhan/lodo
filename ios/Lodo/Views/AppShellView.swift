@@ -5,7 +5,7 @@ import LodoCore
 /// app 的八个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
 enum AppSection: Hashable, CaseIterable {
-    case overview, todo, memory, contact, health, travel, menu, agent
+    case overview, todo, calendar, memory, contact, health, travel, menu, agent
 }
 
 // MARK: - 「进到某个条目里」(经 Environment 下发)
@@ -348,6 +348,8 @@ struct AppShellView: View {
             OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
         case .todo:
             TodoListView(convertToTodoRequest: $convertToTodoRequest)
+        case .calendar:
+            CalendarView()
         case .memory:
             MemoryListView(onConvertToTodo: convertToTodo,
                            path: $memoryPath, tagFilter: $memoryTagFilter)
@@ -789,7 +791,8 @@ struct AppShellView: View {
             (.menu, ["--demo-menu"]),
             (.todo, ["--demo-done-tab", "--demo-seed-data", "--demo-filter-all",
                      "--demo-filter-done", "--demo-ask-duration",
-                     "--demo-convert-to-todo", "--demo-calendar"]),
+                     "--demo-convert-to-todo"]),
+            (.calendar, ["--demo-calendar"]),
             (.agent, ["--demo-agent", "--demo-agent-hascontent", "--demo-agent-busy",
                       "--demo-agent-recording", "--demo-easter-egg",
                       "--demo-easter-egg-anniversary", "--demo-agent-quote-preview",

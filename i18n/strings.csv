@@ -770,3 +770,24 @@ skills.prompt_footer,以下按「全部能力都可用、没有待办、没有�
 skills.load_log,最近一次对话加载的外部 skill,External Skills Loaded in the Last Turn,ios_view,
 skills.load_log_none,没有加载过,None loaded,ios_view,
 skills.disabled,已停用,Off,ios_view,
+calendar.page,日历,Calendar,ios_view,日历页
+calendar.mode_agenda,所有,All,ios_view,日历页
+calendar.mode_day,当日,Day,ios_view,日历页
+calendar.mode_three_day,三日,3 Days,ios_view,日历页
+calendar.mode_week,本周,Week,ios_view,日历页
+calendar.mode_month,本月,Month,ios_view,日历页
+calendar.mode_year,全年,Year,ios_view,日历页
+calendar.switch_mode,切换视图,Switch View,ios_view,日历页
+calendar.prev_page,上一页,Previous,ios_view,日历页
+calendar.next_page,下一页,Next,ios_view,日历页
+calendar.day_empty,这天没有日程,No events on this day,ios_view,日历页
+calendar.agenda_empty,近期没有日程,No upcoming events,ios_view,日历页
+calendar.connect_title,连接系统日历,Connect Calendar,ios_view,日历页
+calendar.connect,连接日历,Connect,ios_view,日历页
+calendar.open_settings,前往系统设置,Open Settings,ios_view,日历页
+calendar.tomorrow,明天,Tomorrow,ios_view,日历页
+calendar.day_event_count,%lld 个日程,%lld events,ios_view,日历页
+calendar.denied,"日历访问权限已关闭。到系统「设置 → 隐私与安全性 → 日历」里允许 lodo 访问后,这里会显示你的日程。",Calendar access is off. Allow lodo in Settings → Privacy & Security → Calendars to see your events here.,ios_view,日历页
+calendar.connect_hint,"授权后这里会显示你日历里的日程,点开任意一条可以直接修改。lodo 不会替你改任何内容,改动都要你在编辑界面里确认。","After you grant access, your calendar events appear here and you can tap any of them to edit. lodo never changes anything on its own—every edit needs your confirmation.",ios_view,日历页
+calendar.mac_unsupported,macOS 版暂不支持连接系统日历。,Connecting to Calendar isn't supported on macOS yet.,ios_view,日历页
+calendar.today,今天,Today,ios_view,日历页/任务页

@@ -8,14 +8,17 @@ import EventKit
 /// 系统日历的读写桥接。纯逻辑(周计算、事件归日、任务→事件的取值规则)在
 /// `LodoCore/CalendarPlan.swift`,这里只负责和 EventKit 打交道。
 ///
-/// 三条约定,和 `HealthKitBridge` 一脉相承:
+/// 几条约定,和 `HealthKitBridge` 一脉相承:
 /// 1. **两个开关、默认都关**——`AppSettings.calendarEnabled` 管读,
 ///    `calendarWriteEnabled` 管写且是前者的下级。关着时一次 EventKit 调用都不发。
-/// 2. **静默降级**——没授权/查不到/存不进一律当"没有日历数据",不抛错打断任务页。
+/// 2. **静默降级**——没授权/查不到/存不进一律当"没有日历数据",不抛错打断日历页。
 /// 3. **写只写自己那本**——lodo 任务镜像进一本自己建的日历(名字就叫 lodo),
 ///    读事件时把这本排除掉,否则自己写进去的任务会当成"系统事件"再读回来显示两遍;
 ///    删除时也只动这本里带 lodo URL 的事件,绝不碰用户自己的日程。
-/// 4. **双向**——日历那边改了时间/标题会回写进任务,在日历里删掉事件会连任务一起
+/// 4. **用户自己的日程可以在日历页里改**——但不经这个文件写:点开一条事件时
+///    `ekEvent(for:)` 取回那一次发生,交给系统的 `EKEventViewController`
+///    (带编辑/删除,保存要用户自己点),lodo 不替用户改任何一个字段。
+/// 5. **双向**——日历那边改了时间/标题会回写进任务,在日历里删掉事件会连任务一起
 ///    删掉(用户确认过的语义)。谁改了、冲突算谁的、什么时候算"被删",全部由
 ///    `CalendarSyncPlanner` 这个纯函数判断,这里只负责执行它算出来的 plan。
 ///
@@ -31,6 +34,13 @@ enum CalendarBridge {
 
     static var isAuthorized: Bool {
         EKEventStore.authorizationStatus(for: .event) == .fullAccess
+    }
+
+    /// 用户明确拒绝过(或被家长控制限制)。这时再请求也不会弹窗,日历页改为
+    /// 引导去系统设置。
+    static var isDenied: Bool {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        return status == .denied || status == .restricted || status == .writeOnly
     }
 
     /// 请求完整访问(要写事件,writeOnly 不够——回读自己写过的事件也需要读权限)。
@@ -49,16 +59,26 @@ enum CalendarBridge {
         let calendars = store.calendars(for: .event).filter { $0.title != ownCalendarTitle }
         guard !calendars.isEmpty else { return [] }
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
-        return store.events(matching: predicate).map { event in
-            CalendarEvent(
-                id: event.eventIdentifier ?? UUID().uuidString,
-                title: event.title ?? "(无标题)",
-                start: event.startDate,
-                end: event.endDate,
-                isAllDay: event.isAllDay,
-                calendarTitle: event.calendar?.title ?? "")
-        }
+        return store.events(matching: predicate).map(snapshot)
     }
+
+    /// 日历页点开一条事件时,取回**那一次发生**的 EKEvent 交给系统的详情/编辑界面。
+    /// 不能直接 `event(withIdentifier:)`:重复事件的每一次发生共用同一个 id,
+    /// 那样取回来的永远是第一次,改的也就是第一次。按开始时间所在的那一天查
+    /// 一遍,再用 id + 开始时间认出是哪一次。
+    static func ekEvent(for event: CalendarEvent) -> EKEvent? {
+        guard AppSettings.calendarEnabled, isAuthorized else { return nil }
+        let dayStart = Calendar.current.startOfDay(for: event.start)
+        let predicate = store.predicateForEvents(
+            withStart: dayStart.addingTimeInterval(-86400),
+            end: dayStart.addingTimeInterval(2 * 86400), calendars: nil)
+        return store.events(matching: predicate).first {
+            $0.eventIdentifier == event.id && $0.startDate == event.start
+        } ?? store.event(withIdentifier: event.id)
+    }
+
+    /// 系统详情/编辑界面要拿同一个 store(EKEventViewController 用它保存)。
+    static var eventStore: EKEventStore { store }
 
     // MARK: - 写
 
@@ -97,7 +117,17 @@ enum CalendarBridge {
         CalendarEvent(id: event.eventIdentifier ?? UUID().uuidString,
                       title: event.title ?? "(无标题)", start: event.startDate,
                       end: event.endDate, isAllDay: event.isAllDay,
-                      calendarTitle: event.calendar?.title ?? "")
+                      calendarTitle: event.calendar?.title ?? "",
+                      calendarColor: color(of: event.calendar),
+                      location: event.location)
+    }
+
+    private static func color(of calendar: EKCalendar?) -> CalendarEventColor? {
+        guard let cgColor = calendar?.cgColor,
+              let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let converted = cgColor.converted(to: srgb, intent: .defaultIntent, options: nil),
+              let parts = converted.components, parts.count >= 3 else { return nil }
+        return CalendarEventColor(red: Double(parts[0]), green: Double(parts[1]), blue: Double(parts[2]))
     }
 
     /// 执行 plan 的**事件那一侧**(新建/更新/删除),返回新建出来的事件 id,
@@ -187,6 +217,7 @@ enum CalendarBridge {
     // macOS:EventKit 这条路不做,留同名空实现,调用方不写平台判断。
     static let ownCalendarTitle = "lodo"
     static var isAuthorized: Bool { false }
+    static var isDenied: Bool { false }
     @discardableResult
     static func requestAccess() async -> Bool { false }
     static func events(from start: Date, to end: Date) -> [CalendarEvent] { [] }

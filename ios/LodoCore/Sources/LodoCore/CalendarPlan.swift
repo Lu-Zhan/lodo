@@ -49,11 +49,25 @@ public enum CalendarWeek {
     }
 }
 
+/// 事件所属日历的颜色(sRGB 分量,0...1)。LodoCore 不 import SwiftUI/CoreGraphics,
+/// 由 app 层换成 `Color`。
+public struct CalendarEventColor: Equatable, Sendable {
+    public let red: Double
+    public let green: Double
+    public let blue: Double
+
+    public init(red: Double, green: Double, blue: Double) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+}
+
 /// 系统日历里的一条事件,只留展示要用的几项。
 ///
-/// **不带可编辑性**:这一版日历是只读展示(写方向是把 lodo 任务镜像成事件,
-/// 见 `CalendarBridge`),系统事件在 app 里点不动也改不了,所以不需要把
-/// EKEvent 整个搬过来。
+/// **修改不经过这个值类型**:日历页点开一条事件时,`CalendarBridge` 按
+/// `id` + `start` 重新取回那一次发生的 EKEvent,交给系统的事件详情/编辑界面,
+/// 所以这里不需要把 EKEvent 整个搬过来。
 public struct CalendarEvent: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String
@@ -62,15 +76,39 @@ public struct CalendarEvent: Identifiable, Equatable, Sendable {
     public let isAllDay: Bool
     /// 事件所属日历的名字(「工作」「家庭」这类),行尾灰字展示,用来区分来源。
     public let calendarTitle: String
+    /// 所属日历的颜色,日历页的色块/圆点用;取不到时 nil,UI 退回强调色。
+    public let calendarColor: CalendarEventColor?
+    /// 地点,列表行第二行展示。
+    public let location: String?
 
     public init(id: String, title: String, start: Date, end: Date,
-                isAllDay: Bool, calendarTitle: String) {
+                isAllDay: Bool, calendarTitle: String,
+                calendarColor: CalendarEventColor? = nil, location: String? = nil) {
         self.id = id
         self.title = title
         self.start = start
         self.end = end
         self.isAllDay = isAllDay
         self.calendarTitle = calendarTitle
+        self.calendarColor = calendarColor
+        let trimmed = location?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.location = (trimmed?.isEmpty == false) ? trimmed : nil
+    }
+
+    /// 某一次发生的唯一键。**重复事件的每一次发生 `id`(eventIdentifier)都相同**,
+    /// 直接拿 `id` 当 ForEach 的键会让一周里的五次例会互相顶掉;日历页一律用这个。
+    public var occurrenceKey: String {
+        "\(id)@\(Int(start.timeIntervalSince1970))"
+    }
+
+    /// 在某一天的时间轴上要不要放进顶部的「全天」那一行:真正的全天事件,
+    /// 以及把这一整天都盖住的定时事件(三天的会议、跨夜航班的中间那天)——
+    /// 后者画进时间轴就是一根从零点到二十四点的柱子,把当天别的事全挤窄了。
+    public func showsInAllDayRow(on day: Date, calendar: Calendar = .current) -> Bool {
+        if isAllDay { return true }
+        let dayStart = calendar.startOfDay(for: day)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return false }
+        return start <= dayStart && end >= dayEnd
     }
 
     /// 这条事件是否落在某一天里。**按区间相交判断**,不是"开始时间是不是那天"——
