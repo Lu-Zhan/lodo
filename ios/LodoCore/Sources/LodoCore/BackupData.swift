@@ -521,6 +521,48 @@ extension BackupMenuDish {
     }
 }
 
+/// 新闻订阅源。**只备份订阅本身,不备份文章**——文章随时能从订阅源重新抓,
+/// 把几百篇摘要塞进备份只是撑大 zip。
+public struct BackupNewsFeed: Codable {
+    public var uuid: UUID
+    public var title: String
+    public var url: String
+    public var siteURL: String
+    public var kind: String
+    public var enabled: Bool
+    public var createdAt: Date
+
+    public init(uuid: UUID, title: String, url: String, siteURL: String, kind: String,
+                enabled: Bool, createdAt: Date) {
+        self.uuid = uuid
+        self.title = title
+        self.url = url
+        self.siteURL = siteURL
+        self.kind = kind
+        self.enabled = enabled
+        self.createdAt = createdAt
+    }
+}
+
+extension NewsFeed {
+    public var backup: BackupNewsFeed {
+        BackupNewsFeed(uuid: uuid, title: title, url: url, siteURL: siteURL, kind: kindRaw,
+                       enabled: enabled, createdAt: createdAt)
+    }
+}
+
+extension BackupNewsFeed {
+    public func apply(to feed: NewsFeed) {
+        feed.uuid = uuid
+        feed.title = title
+        feed.url = url
+        feed.siteURL = siteURL
+        feed.kindRaw = kind
+        feed.enabled = enabled
+        feed.createdAt = createdAt
+    }
+}
+
 public struct BackupMemoryTag: Codable {
     public var name: String
     public var createdAt: Date
@@ -812,6 +854,8 @@ public struct BackupPayload: Codable {
     public var travelTrips: [BackupTravelTrip] = []
     /// 菜品。菜单那条记忆条目已经在 memoryItems 里,这里补它下面的菜。
     public var menuDishes: [BackupMenuDish] = []
+    /// 新闻订阅源(不含文章)。新增字段,老备份缺 key 时兜底为空。
+    public var newsFeeds: [BackupNewsFeed] = []
     /// 外部 skill 与内置 skill 的启用状态。都是新增字段,老备份缺 key 时兜底为空。
     /// skillEnabled 只记被停用的内置 skill(默认就是开,不用存)。
     public var customSkills: [BackupCustomSkill] = []
@@ -824,6 +868,7 @@ public struct BackupPayload: Codable {
         contactRelationships: [BackupContactRelationship] = [],
         travelTrips: [BackupTravelTrip] = [],
         menuDishes: [BackupMenuDish] = [],
+        newsFeeds: [BackupNewsFeed] = [],
         customSkills: [BackupCustomSkill] = [],
         disabledSkills: [String] = []
     ) {
@@ -836,6 +881,7 @@ public struct BackupPayload: Codable {
         self.contactRelationships = contactRelationships
         self.travelTrips = travelTrips
         self.menuDishes = menuDishes
+        self.newsFeeds = newsFeeds
         self.customSkills = customSkills
         self.disabledSkills = disabledSkills
     }
@@ -857,6 +903,8 @@ public struct BackupPayload: Codable {
             [BackupTravelTrip].self, forKey: .travelTrips) ?? []
         menuDishes = try c.decodeIfPresent(
             [BackupMenuDish].self, forKey: .menuDishes) ?? []
+        newsFeeds = try c.decodeIfPresent(
+            [BackupNewsFeed].self, forKey: .newsFeeds) ?? []
         customSkills = try c.decodeIfPresent(
             [BackupCustomSkill].self, forKey: .customSkills) ?? []
         disabledSkills = try c.decodeIfPresent([String].self, forKey: .disabledSkills) ?? []

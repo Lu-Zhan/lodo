@@ -45,6 +45,8 @@ extension AgentHostView {
         // 旅行没有隐私开关(数据本来就是用户自己在本机记的),但仍然按"能力开关传参"
         // 走:库里一次旅行都没有时不给这个工具,省下 prompt 里那一段。
         let travelEnabled = !TravelStore.trips(in: context).isEmpty
+        // 新闻同理:一个订阅都没有时不给 search_news。
+        let newsEnabled = !NewsStore.feeds(in: context).isEmpty
 
         for _ in 0..<3 {
             switch try await DeepSeekClient.command(
@@ -52,7 +54,8 @@ extension AgentHostView {
                 webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
                 travelEnabled: travelEnabled,
                 // 规划行程不看库里有没有旅行:"帮我规划东京四天"本来就是从零开始的。
-                tripPlanEnabled: true, pageFocus: pageFocus, history: reasoningHistory,
+                tripPlanEnabled: true, newsEnabled: newsEnabled,
+                pageFocus: pageFocus, history: reasoningHistory,
                 // 窗口之外的历史压成的常驻摘要。ReAct 每轮都带同一份——它不像
                 // history 那样随轮次增长。
                 summary: AgentConversationSummary.content,
@@ -115,6 +118,14 @@ extension AgentHostView {
                                          content: "思考:\(thought);读行程:\(name.isEmpty ? "当前旅行" : name)"))
                 reasoningHistory.append((role: "user", content: "行程:\n\(observation)"))
                 currentText = "(请基于以上行程继续处理最初的请求:\(text))"
+            case .toolCall(let thought, .searchNews(let query)):
+                onThought(thought)
+                // 只在本机已经抓到的文章里找,不联网;要全文模型可以再 web_fetch 链接。
+                let observation = NewsStore.searchObservation(query, context: context)
+                reasoningHistory.append((role: "assistant",
+                                         content: "思考:\(thought);找订阅文章:\(query.isEmpty ? "最新" : query)"))
+                reasoningHistory.append((role: "user", content: "订阅文章:\n\(observation)"))
+                currentText = "(请基于以上订阅文章继续处理最初的请求:\(text))"
             case .toolCall(let thought, .loadSkill(let name)):
                 onThought(thought)
                 // 只有已启用的外部 skill 取得到;取不到如实告诉模型,别让它凭空编内容。

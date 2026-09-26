@@ -31,6 +31,8 @@ public final class AIRoutine {
     public var includeTasks: Bool = false
     /// 允许 AI 联网搜索(实际是否可用还要看有没有配 Tavily key)。
     public var useWebSearch: Bool = false
+    /// 把订阅源里最近的文章清单一起给 AI(新闻简报类任务;跑之前先刷新一遍订阅)。
+    public var includeNews: Bool = false
     /// 结果发系统通知;关掉就只在 app 里看。
     public var notify: Bool = true
     public var createdAt: Date = Date.now
@@ -41,6 +43,7 @@ public final class AIRoutine {
     public init(name: String = "", prompt: String = "", times: [String] = ["08:00"],
                 repeatType: RepeatType = .daily, days: [Int] = Array(0...6),
                 includeTasks: Bool = false, useWebSearch: Bool = false,
+                includeNews: Bool = false,
                 notify: Bool = true, enabled: Bool = true) {
         self.uuid = UUID()
         self.name = name
@@ -51,6 +54,7 @@ public final class AIRoutine {
         self.daysRaw = days.sorted().map(String.init).joined(separator: ",")
         self.includeTasks = includeTasks
         self.useWebSearch = useWebSearch
+        self.includeNews = includeNews
         self.notify = notify
         self.createdAt = Date()
     }
@@ -99,6 +103,7 @@ extension AIRoutine {
         public let time: String
         public let includeTasks: Bool
         public let useWebSearch: Bool
+        public var includeNews: Bool = false
         public let symbol: String
 
         public var id: String { name }
@@ -121,12 +126,20 @@ extension AIRoutine {
                prompt: "回顾我今天完成和没完成的事,用一句话点评,并给明天一个具体的小改进建议。",
                time: "21:30", includeTasks: true, useWebSearch: false,
                symbol: "moon.stars"),
+        Preset(name: "今日新闻简报",
+               prompt: "从我订阅的新闻和博客里挑出最值得看的三件事,每件一句话说清是什么,标上来源。",
+               time: "08:00", includeTasks: false, useWebSearch: false, includeNews: true,
+               symbol: "newspaper"),
     ]
+
+    /// 新闻页「定时推送」一键套用的那条模板。
+    public static var newsDigestPreset: Preset { presets.first { $0.includeNews }! }
 
     public convenience init(preset: Preset) {
         self.init(name: preset.name, prompt: preset.prompt, times: [preset.time],
                   repeatType: .daily, days: Array(0...6),
-                  includeTasks: preset.includeTasks, useWebSearch: preset.useWebSearch)
+                  includeTasks: preset.includeTasks, useWebSearch: preset.useWebSearch,
+                  includeNews: preset.includeNews)
     }
 }
 

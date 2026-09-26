@@ -18,6 +18,7 @@ struct RoutineEditView: View {
     @State private var days: Set<Int>
     @State private var includeTasks: Bool
     @State private var useWebSearch: Bool
+    @State private var includeNews: Bool
     @State private var notify: Bool
 
     @State private var previewText: String?
@@ -35,6 +36,7 @@ struct RoutineEditView: View {
         _days = State(initialValue: Set(routine.days))
         _includeTasks = State(initialValue: routine.includeTasks)
         _useWebSearch = State(initialValue: routine.useWebSearch)
+        _includeNews = State(initialValue: routine.includeNews)
         _notify = State(initialValue: routine.notify)
     }
 
@@ -164,6 +166,7 @@ struct RoutineEditView: View {
     private var optionsSection: some View {
         Section {
             Toggle("带上今天的任务", isOn: $includeTasks)
+            Toggle("带上订阅的新闻", isOn: $includeNews)
             // 没配 Tavily key 也让开——运行时自会退回不联网(见 RoutineRunner.generate),
             // 禁用一个模板默认打开的开关反而让用户既关不掉也不知道为什么。
             Toggle("允许联网搜索", isOn: $useWebSearch)
@@ -172,7 +175,7 @@ struct RoutineEditView: View {
             Text("选项")
         } footer: {
             VStack(alignment: .leading, spacing: 2) {
-                Text("总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」。")
+                Text("总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」;新闻简报打开「带上订阅的新闻」。")
                 if !WebSearchClient.isConfigured {
                     Text("联网搜索需要先在「AI 设置」里配置 Tavily API key。")
                 }
@@ -219,7 +222,8 @@ struct RoutineEditView: View {
             do {
                 let text = try await RoutineRunner.preview(
                     name: name.isEmpty ? "定时任务" : name, prompt: prompt,
-                    includeTasks: includeTasks, useWebSearch: useWebSearch, context: context)
+                    includeTasks: includeTasks, useWebSearch: useWebSearch,
+                    includeNews: includeNews, context: context)
                 previewText = text
             } catch is CancellationError {
                 // 取消/关页面,不提示
@@ -242,6 +246,7 @@ struct RoutineEditView: View {
         routine.days = Array(days)
         routine.includeTasks = includeTasks
         routine.useWebSearch = useWebSearch
+        routine.includeNews = includeNews
         routine.notify = notify
         if isNew { context.insert(routine) }
         try? context.save()

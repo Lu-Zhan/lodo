@@ -53,6 +53,7 @@ enum BackupManager {
         let contactRelationships = ((try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [])
         let travelTrips = ((try? context.fetch(FetchDescriptor<TravelTrip>())) ?? [])
         let menuDishes = ((try? context.fetch(FetchDescriptor<MenuDish>())) ?? [])
+        let newsFeeds = ((try? context.fetch(FetchDescriptor<NewsFeed>())) ?? [])
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -73,6 +74,7 @@ enum BackupManager {
             contactRelationships: contactRelationships.map { $0.backup },
             travelTrips: travelTrips.map { $0.backup },
             menuDishes: menuDishes.map { $0.backup },
+            newsFeeds: newsFeeds.map { $0.backup },
             customSkills: customSkills, disabledSkills: disabledSkills)
 
         let manifest = BackupManifest(
@@ -222,6 +224,19 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: dish)
+        }
+
+        // 新闻订阅:只恢复订阅本身,文章下次打开新闻页时重新抓。按 uuid 去重合并。
+        for dto in payload.newsFeeds {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<NewsFeed>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let feed = existing ?? {
+                let created = NewsFeed(uuid: dto.uuid, title: dto.title, url: dto.url)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: feed)
         }
 
         for override in payload.skillOverrides {

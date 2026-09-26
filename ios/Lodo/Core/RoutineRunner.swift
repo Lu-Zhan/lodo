@@ -111,7 +111,8 @@ enum RoutineRunner {
         do {
             let text = try await generate(
                 name: routine.name, prompt: routine.prompt, includeTasks: routine.includeTasks,
-                useWebSearch: routine.useWebSearch, context: context)
+                useWebSearch: routine.useWebSearch, includeNews: routine.includeNews,
+                context: context)
             context.insert(AIRoutineRun(routineUUID: uuid, routineName: name,
                                         text: text, manual: manual))
             try? context.save()
@@ -131,17 +132,29 @@ enum RoutineRunner {
     /// 编辑页的"试运行":跑一次拿结果给用户看效果,不落库、不推通知、不占槽位。
     /// 任务还没保存(新建中)也能用——所以按字段传参而不是传模型。
     static func preview(name: String, prompt: String, includeTasks: Bool,
-                        useWebSearch: Bool, context: ModelContext) async throws -> String {
+                        useWebSearch: Bool, includeNews: Bool = false,
+                        context: ModelContext) async throws -> String {
         try await generate(name: name, prompt: prompt, includeTasks: includeTasks,
-                           useWebSearch: useWebSearch, context: context)
+                           useWebSearch: useWebSearch, includeNews: includeNews, context: context)
     }
 
     /// 一次完整的 ReAct 循环:模型要联网就先执行工具,把结果喂回去再问一轮。
     /// 工具只有联网搜索/抓链接两个只读操作——定时任务只产出文字,不碰待办数据。
     private static func generate(name: String, prompt: String, includeTasks: Bool,
-                                 useWebSearch: Bool, context: ModelContext) async throws -> String {
+                                 useWebSearch: Bool, includeNews: Bool = false,
+                                 context: ModelContext) async throws -> String {
         let webSearchEnabled = useWebSearch && WebSearchClient.isConfigured
         let taskContext = includeTasks ? todayTaskSummary(context: context) : nil
+        // 新闻简报:先把订阅刷一遍(半小时内抓过的源会跳过),再取最近 24 小时的文章。
+        // 一篇都没有时如实告诉模型,别让它凭空编今天的新闻。
+        var newsContext: String?
+        if includeNews {
+            await NewsStore.refreshAll(context: context, force: false)
+            try Task.checkCancellation()
+            newsContext = NewsStore.digestContext(context: context)
+                ?? (NewsStore.feeds(in: context).isEmpty
+                    ? "(用户还没有订阅任何新闻或博客)" : "(最近 24 小时订阅里没有新文章)")
+        }
         // 定位只在联网型任务上尝试——只有能查资料的任务才用得上"当前城市"这个
         // 上下文,未授权/超时静默返回 nil,不影响任务正常执行。
         let locationContext = webSearchEnabled ? await LocationHelper.requestCity() : nil
@@ -153,7 +166,7 @@ enum RoutineRunner {
             switch try await DeepSeekClient.runRoutine(
                 name: name, instruction: currentText, taskContext: taskContext,
                 locationContext: locationContext,
-                webSearchEnabled: webSearchEnabled, history: history) {
+                webSearchEnabled: webSearchEnabled, newsContext: newsContext, history: history) {
             case .text(let text):
                 return text
             case .toolCall(let thought, .webSearch(let query)):
@@ -181,7 +194,7 @@ enum RoutineRunner {
                 history.append((role: "user", content: "链接内容:\n\(observation)"))
                 currentText = "(请基于以上链接内容完成最初的任务:\(instruction))"
             case .toolCall(_, .searchMemory), .toolCall(_, .readHealth), .toolCall(_, .readTrip),
-                 .toolCall(_, .loadSkill):
+                 .toolCall(_, .loadSkill), .toolCall(_, .searchNews):
                 // 定时任务的 prompt 里没给过查记忆/读健康数据/读行程这几个工具,
                 // 模型幻觉出来直接当没有
                 throw DeepSeekError.parse("返回格式异常:定时任务不支持这个工具")

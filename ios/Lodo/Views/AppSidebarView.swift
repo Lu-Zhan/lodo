@@ -32,6 +32,8 @@ struct AppSidebarView: View {
                 navRow(.health, title: "健康", systemImage: "heart.text.square")
                 navRow(.travel, title: "旅行", systemImage: "suitcase.rolling")
                 navRow(.menu, title: "菜单", systemImage: "menucard")
+                // 新闻不建在记忆库上,排在那一组后面、AI 助手前面。
+                navRow(.news, title: "新闻", systemImage: "newspaper")
                 // AI 助手也是个平级页面,排在最后一行;图标常驻主题色——
                 // 它是这一排里唯一带色的图标,一眼能找到(见 navRow 的 tinted)。
                 navRow(.agent, title: "AI 助手", systemImage: "sparkles", tinted: true)

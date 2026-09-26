@@ -3,7 +3,7 @@ import Foundation
 /// 用户是从哪一页唤出 AI 助手的(底部「问问 AI」条)。只影响含糊指令的默认领域,
 /// 不收窄也不放宽任何工具/能力开关;侧栏里的全局 AI 页不传,各领域优先级一致。
 public enum AgentPageFocus: String, CaseIterable, Sendable {
-    case overview, todo, calendar, memory, contact, health, travel, menu
+    case overview, todo, calendar, memory, contact, health, travel, menu, news
 
     /// 页面名(和侧栏一致)。
     public var pageName: String {
@@ -16,6 +16,7 @@ public enum AgentPageFocus: String, CaseIterable, Sendable {
         case .health: return "健康"
         case .travel: return "旅行"
         case .menu: return "菜单"
+        case .news: return "新闻"
         }
     }
 
@@ -30,6 +31,7 @@ public enum AgentPageFocus: String, CaseIterable, Sendable {
         case .health: return "健康数据(需要时先 read_health)"
         case .travel: return "旅行与行程(需要时先 read_trip)"
         case .menu: return "菜单与点菜"
+        case .news: return "订阅的新闻与博客(需要时先 search_news)"
         }
     }
 
@@ -67,6 +69,7 @@ public struct AgentFocus: Equatable, Sendable {
     public static let health = AgentFocus(page: .health)
     public static let travel = AgentFocus(page: .travel)
     public static let menu = AgentFocus(page: .menu)
+    public static let news = AgentFocus(page: .news)
 
     /// 旅行详情页:带上这次旅行的名字。名字为空(还没命名)时退回整页。
     public static func travel(trip: String) -> AgentFocus {

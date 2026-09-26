@@ -10,6 +10,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case health
     case travel
     case tripPlanner
+    case news
     case assets
     case duration
     case routineWeb
@@ -25,6 +26,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .health: return "健康"
         case .travel: return "旅行"
         case .tripPlanner: return "规划行程"
+        case .news: return "新闻"
         case .assets: return "资产与负债"
         case .duration: return "时长建议"
         case .routineWeb: return "定时任务联网"
@@ -40,6 +42,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .health: return "读健康数据回答身体状况问题的判定规则(仅开启健康分析后生效)"
         case .travel: return "读行程回答问题、按天调整已记下的行程(仅记录过旅行后生效)"
         case .tripPlanner: return "按目的地、天数和偏好自动排行程,确认后写进「旅行」"
+        case .news: return "在订阅的新闻与博客里找文章、回答最近发生了什么(仅有订阅后生效)"
         case .assets: return "收藏时识别资产金额、币种、负债与利率的规则"
         case .duration: return "没说时长时,按时长记忆给新事项建议时长(停用则不再建议)"
         case .routineWeb: return "定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)"
@@ -52,6 +55,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .memory, .assets: return .memory
         case .travel, .tripPlanner: return .travel
         case .health: return .health
+        case .news: return .news
         case .routineWeb: return .routine
         }
     }
@@ -67,7 +71,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
 
 /// 设置页里 skill 的分组。内置 skill 各归一组;用户自己导入/新建的归 `.custom`。
 public enum AgentSkillGroup: String, CaseIterable, Identifiable {
-    case system, memory, travel, health, routine, custom
+    case system, memory, travel, health, news, routine, custom
 
     public var id: String { rawValue }
 
@@ -77,6 +81,7 @@ public enum AgentSkillGroup: String, CaseIterable, Identifiable {
         case .memory: return "记忆 skills"
         case .travel: return "旅行 skills"
         case .health: return "健康 skills"
+        case .news: return "新闻 skills"
         case .routine: return "定时任务 skills"
         case .custom: return "我的 skills"
         }
@@ -311,6 +316,7 @@ public enum AgentSkillStore {
         case .health: return defaultHealth
         case .travel: return defaultTravel
         case .tripPlanner: return defaultTripPlanner
+        case .news: return defaultNews
         case .assets: return defaultAssets
         case .duration: return defaultDuration
         case .routineWeb: return defaultRoutineWeb
@@ -499,6 +505,22 @@ public enum AgentSkillStore {
     - 没有可用数据时(未授权或没有记录)如实告诉用户去"设置 → 健康分析"里开启,不要猜数字。
     - 你不是医生:只描述趋势、给生活作息上的建议,不做诊断、不推荐药物;\
     数据明显异常时建议用户去看医生。
+    """
+
+    private static let defaultNews = """
+    额外支持的工具:
+    - 在用户订阅的新闻与博客里找文章:{"thought": "为什么需要找", "tool": "search_news", \
+    "query": "关键词"}(query 用文章里可能出现的词,中英文都行;问"最近有什么新闻""今天\
+    订阅里说了啥"这类不带主题的,把 query 留空,拿到的是最新的文章)
+
+    额外判断规则:
+    - 用户问的是**自己订阅的**内容(如"我订阅的博客最近写了什么""今天科技新闻有啥"\
+    "少数派那篇讲键盘的文章说了什么")时用 search_news;泛泛的时事问题订阅里没有的,\
+    该联网搜就联网搜。
+    - 拿到结果后在下一轮给最终答案(answer),不要连续再找;要看某篇的全文可以对它的\
+    链接用 web_fetch(联网搜索可用时)。
+    - 回答时说清每条是哪个来源、大概什么时间,并把链接原样带上;没找到就如实说订阅里\
+    没有相关文章,不要编。
     """
 
     private static let defaultTravel = """

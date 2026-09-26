@@ -118,6 +118,9 @@ public enum AITool {
     case readTrip(name: String)
     /// 按名字取回一条用户自己添加的外部 skill 的完整内容(目录常驻 prompt,正文按需)。
     case loadSkill(name: String)
+    /// 在订阅的新闻/博客文章里按关键词找(本机已抓到的那些,不联网)。
+    /// query 为空 = 最新的几条。
+    case searchNews(query: String)
 }
 
 /// 定时任务(`AIRoutine`)跑一次的返回:最终要展示给用户的文字,或
@@ -274,6 +277,8 @@ public enum DeepSeekClient {
         healthEnabled: Bool = false,
         travelEnabled: Bool = false,
         tripPlanEnabled: Bool = false,
+        /// 订阅过新闻/博客才开;默认 false ⇒ prompt 逐字不变(Watch 等调用方)。
+        newsEnabled: Bool = false,
         /// 从哪一页唤出;nil ⇒ 整段不出现(侧栏 AI 页、Watch)。
         pageFocus: AgentFocus? = nil,
         history: [(role: String, content: String)] = [],
@@ -288,7 +293,7 @@ public enum DeepSeekClient {
     ) async throws -> AICommandResult {
         let caps = CommandCapabilities(
             memory: memoryEnabled, webSearch: webSearchEnabled, health: healthEnabled,
-            travel: travelEnabled, tripPlan: tripPlanEnabled)
+            travel: travelEnabled, tripPlan: tripPlanEnabled, news: newsEnabled)
         let (system, tasks) = commandSystemPrompt(
             tasks: allTasks, capabilities: caps, pageFocus: pageFocus, history: history,
             summary: summary, existingProjects: existingProjects)
@@ -297,6 +302,7 @@ public enum DeepSeekClient {
         let healthEnabled = caps.health && AgentSkillStore.isEnabled(.health)
         let travelEnabled = caps.travel && AgentSkillStore.isEnabled(.travel)
         let tripPlanEnabled = caps.tripPlan && AgentSkillStore.isEnabled(.tripPlanner)
+        let newsEnabled = caps.news && AgentSkillStore.isEnabled(.news)
         let hasCatalog = AgentSkillStore.catalogBlock() != nil
         // 模型按 prompt 约定用 {"error": "原因"} 表示"这句话里没有我能执行的操作"
         // (带了张照片却没说要拿它干什么就是最常见的一种),decodePayload 会把那句
@@ -321,6 +327,7 @@ public enum DeepSeekClient {
             healthEnabled: healthEnabled,
             travelEnabled: travelEnabled,
             tripPlanEnabled: tripPlanEnabled,
+            newsEnabled: newsEnabled,
             loadSkillEnabled: hasCatalog)
     }
 
@@ -332,14 +339,16 @@ public enum DeepSeekClient {
         public var health = false
         public var travel = false
         public var tripPlan = false
+        public var news = false
 
         public init(memory: Bool = false, webSearch: Bool = false, health: Bool = false,
-                    travel: Bool = false, tripPlan: Bool = false) {
+                    travel: Bool = false, tripPlan: Bool = false, news: Bool = false) {
             self.memory = memory
             self.webSearch = webSearch
             self.health = health
             self.travel = travel
             self.tripPlan = tripPlan
+            self.news = news
         }
     }
 
@@ -366,6 +375,7 @@ public enum DeepSeekClient {
         let healthEnabled = capabilities.health && AgentSkillStore.isEnabled(.health)
         let travelEnabled = capabilities.travel && AgentSkillStore.isEnabled(.travel)
         let tripPlanEnabled = capabilities.tripPlan && AgentSkillStore.isEnabled(.tripPlanner)
+        let newsEnabled = capabilities.news && AgentSkillStore.isEnabled(.news)
         let catalog = AgentSkillStore.catalogBlock()
         let system = """
         \(AgentSkillStore.content(for: .agent))
@@ -376,6 +386,7 @@ public enum DeepSeekClient {
         \(healthEnabled ? "\n\n" + AgentSkillStore.content(for: .health) : "")\
         \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")\
         \(tripPlanEnabled ? "\n\n" + AgentSkillStore.content(for: .tripPlanner) : "")\
+        \(newsEnabled ? "\n\n" + AgentSkillStore.content(for: .news) : "")\
         \(catalog.map { "\n\n" + $0 } ?? "")
 
         \(timeContext)\(preferencesBlock)\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")
@@ -395,19 +406,22 @@ public enum DeepSeekClient {
         _ payload: [String: Any], validUUIDs: [String],
         memoryEnabled: Bool, webSearchEnabled: Bool = false,
         healthEnabled: Bool = false, travelEnabled: Bool = false,
-        tripPlanEnabled: Bool = false, loadSkillEnabled: Bool = false
+        tripPlanEnabled: Bool = false, newsEnabled: Bool = false,
+        loadSkillEnabled: Bool = false
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
             return .ask(try parseAsk(rawAsk))
         }
         // ReAct 中间步骤:对应开关关闭时 prompt 里根本没提过这个选项,
         // 模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions",无害。
-        if (memoryEnabled || webSearchEnabled || healthEnabled || travelEnabled || loadSkillEnabled),
+        if (memoryEnabled || webSearchEnabled || healthEnabled || travelEnabled || newsEnabled
+            || loadSkillEnabled),
            let toolName = payload["tool"] as? String {
             guard let call = try parseToolCall(
                 payload, name: toolName, memoryEnabled: memoryEnabled,
                 webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
-                travelEnabled: travelEnabled, loadSkillEnabled: loadSkillEnabled) else {
+                travelEnabled: travelEnabled, newsEnabled: newsEnabled,
+                loadSkillEnabled: loadSkillEnabled) else {
                 throw DeepSeekError.parse("返回格式异常:未知工具 \(toolName)")
             }
             return call
@@ -441,7 +455,8 @@ public enum DeepSeekClient {
            let call = try parseToolCall(
                rawActions[0], name: toolName, memoryEnabled: memoryEnabled,
                webSearchEnabled: webSearchEnabled, healthEnabled: healthEnabled,
-               travelEnabled: travelEnabled, loadSkillEnabled: loadSkillEnabled) {
+               travelEnabled: travelEnabled, newsEnabled: newsEnabled,
+               loadSkillEnabled: loadSkillEnabled) {
             return call
         }
         var actions: [AIAction] = []
@@ -550,7 +565,8 @@ public enum DeepSeekClient {
     private static func parseToolCall(
         _ raw: [String: Any], name: String,
         memoryEnabled: Bool, webSearchEnabled: Bool,
-        healthEnabled: Bool, travelEnabled: Bool, loadSkillEnabled: Bool = false
+        healthEnabled: Bool, travelEnabled: Bool, newsEnabled: Bool = false,
+        loadSkillEnabled: Bool = false
     ) throws -> AICommandResult? {
         let thought = (raw["thought"] as? String) ?? ""
         switch name {
@@ -585,6 +601,11 @@ public enum DeepSeekClient {
             let name = (raw["name"] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             return .toolCall(thought: thought, tool: .readTrip(name: name))
+        case "search_news" where newsEnabled:
+            // query 缺省 = "最近有什么",给最新的几条;不当成错误。
+            let query = (raw["query"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return .toolCall(thought: thought, tool: .searchNews(query: query))
         case "load_skill" where loadSkillEnabled:
             guard let skill = (raw["name"] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines), !skill.isEmpty else {
@@ -822,6 +843,78 @@ public enum DeepSeekClient {
             throw DeepSeekError.parse("返回格式异常:缺少 note")
         }
         return note
+    }
+
+    /// 新闻页「AI 总结」:一篇文章 → 一段话 + 最多 5 条要点。正文由调用方抓
+    /// (抓不到就只给 feed 里的摘要),这里不联网。
+    public static func summarizeArticle(title: String, source: String, text: String,
+                                        language: String = "中文") async throws -> NewsArticleSummary {
+        let system = """
+        你是阅读助手。用户给你一篇文章(标题、来源和正文,正文可能是网页抽出来的纯文本,\
+        夹着导航、广告、评论等无关文字,忽略它们),用\(language)总结。
+
+        只返回 JSON:{"summary": "两三句话讲清这篇文章说了什么、结论是什么", \
+        "points": ["要点", ...]},不要任何其他文字。
+
+        规则:
+        - summary 不超过 120 字;points 3 到 5 条,每条不超过 40 字,讲具体事实、数字、观点,\
+        不写"文章介绍了…"这种空话。
+        - 原文是别的语言时照样用\(language)总结,专有名词第一次出现可以括号带原文。
+        - 只根据给的内容总结,不补充文章里没有的信息;正文只有一两句时就照实简短总结。
+        """
+        let user = "标题:\(title)\n来源:\(source)\n\n正文:\n\(text)"
+        return try parseArticleSummary(await payload(system: system, user: user, timeout: 60))
+    }
+
+    /// 文章总结的解析(单测入口)。points 缺失/为空都不算错——短文章本来就只有一句话。
+    static func parseArticleSummary(_ payload: [String: Any]) throws -> NewsArticleSummary {
+        guard let summary = (payload["summary"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 summary")
+        }
+        let points = (payload["points"] as? [Any] ?? [])
+            .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return NewsArticleSummary(summary: summary, points: Array(points.prefix(5)))
+    }
+
+    /// 新闻页顶部的「今日简报」:把最近的文章清单浓缩成几条要闻。
+    /// 和定时推送不是同一条路径——定时推送走用户自己的定时任务(`runRoutine` 带
+    /// newsContext),字数受通知限制;这里是页面里看的,可以多几条。
+    public static func newsDigest(headlines: String,
+                                  language: String = "中文") async throws -> NewsDigest {
+        let system = """
+        你是新闻编辑。下面是用户订阅的新闻和博客里最近的文章清单(来源、标题、时间、摘要)。\
+        挑出最值得看的几件事,写成一份简报。
+
+        只返回 JSON:{"overview": "一句话概括今天的整体情况,不超过 40 字", \
+        "items": [{"title": "这件事的一句话标题", "detail": "为什么值得关注,不超过 60 字", \
+        "source": "来源名"}]},不要任何其他文字。
+
+        规则:
+        - items 3 到 6 条,按重要程度排;多个来源讲同一件事的合并成一条。
+        - 用\(language)写,别的语言的标题翻译过来;只根据清单里的内容写,不编造清单里没有的细节。
+        - 清单里只有零星几条时就照实少写,不要凑数。\(personaBlock)
+        """
+        return try parseNewsDigest(await payload(system: system, user: headlines, timeout: 60))
+    }
+
+    /// 简报的解析(单测入口)。缺标题的条目丢掉,一条都没有时报错。
+    static func parseNewsDigest(_ payload: [String: Any]) throws -> NewsDigest {
+        let items = (payload["items"] as? [[String: Any]] ?? []).compactMap { raw -> NewsDigest.Item? in
+            guard let title = (raw["title"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else { return nil }
+            return NewsDigest.Item(
+                title: title,
+                detail: ((raw["detail"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                source: ((raw["source"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        let overview = ((payload["overview"] as? String) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !items.isEmpty || !overview.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 items")
+        }
+        return NewsDigest(overview: overview, items: items)
     }
 
     /// "总览" tab 用:给一句今天待办的处理建议(到期未处理的 + 今天该做的都算,
@@ -1075,10 +1168,13 @@ public enum DeepSeekClient {
     public static func runRoutine(
         name: String, instruction: String, taskContext: String? = nil,
         locationContext: String? = nil, webSearchEnabled: Bool = false,
+        /// 订阅源里最近的文章清单(`NewsPlan.promptLines`);nil ⇒ 整段不出现。
+        newsContext: String? = nil,
         history: [(role: String, content: String)] = []
     ) async throws -> AIRoutineOutcome {
         let tools = webSearchEnabled ? AgentSkillStore.routineWebTools() : ""
         let tasks = taskContext.map { "\n\n今天的待办:\n\($0)" } ?? ""
+        let news = newsContext.map { "\n\n用户订阅的新闻与博客(最近的文章):\n\($0)" } ?? ""
         let location = locationContext.map { "\n\n当前城市:\($0)" } ?? ""
         let system = """
         你是提醒事项应用 lodo 的定时任务助手。用户预先设定了一条会自动执行的例行任务,\
@@ -1094,7 +1190,7 @@ public enum DeepSeekClient {
 
         \(timeContext)\(preferencesBlock)
 
-        任务名:\(name)\(tasks)\(location)\(personaBlock)\(historyBlock(history))
+        任务名:\(name)\(tasks)\(news)\(location)\(personaBlock)\(historyBlock(history))
         """
         return try parseRoutine(await payload(system: system, user: instruction, timeout: 60),
                                 webSearchEnabled: webSearchEnabled)
