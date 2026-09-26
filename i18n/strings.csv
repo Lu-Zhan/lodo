@@ -791,3 +791,34 @@ calendar.denied,"日历访问权限已关闭。到系统「设置 → 隐私与�
 calendar.connect_hint,"授权后这里会显示你日历里的日程,点开任意一条可以直接修改。lodo 不会替你改任何内容,改动都要你在编辑界面里确认。","After you grant access, your calendar events appear here and you can tap any of them to edit. lodo never changes anything on its own—every edit needs your confirmation.",ios_view,日历页
 calendar.mac_unsupported,macOS 版暂不支持连接系统日历。,Connecting to Calendar isn't supported on macOS yet.,ios_view,日历页
 calendar.today,今天,Today,ios_view,日历页/任务页
+overview.widget_now,此刻,Now,ios_view,总览页
+overview.widget_next_up,接下来,Up Next,ios_view,总览页
+overview.widget_agenda,今日日程,Today's Events,ios_view,总览页
+overview.widget_countdown,倒数日,Countdown,ios_view,总览页
+overview.edit_layout,编辑布局,Edit Layout,ios_view,总览页
+overview.size_small,小,S,ios_view,总览页
+overview.size_large,大,L,ios_view,总览页
+overview.size,大小,Size,ios_view,总览页
+overview.snooze,稍等,Snooze,ios_view,总览页
+overview.reset_layout,恢复默认布局,Reset to Default Layout,ios_view,总览页
+overview.layout_footer,拖动右侧手柄调整顺序。两张相邻的小卡会并排显示。,Drag the handles to reorder. Two adjacent small cards sit side by side.,ios_view,总览页
+overview.no_widgets,没有显示的模块,No Widgets Shown,ios_view,总览页
+overview.no_widgets_hint,点右上角的按钮选择要显示的模块。,Tap the button at the top right to choose widgets.,ios_view,总览页
+overview.next_up_empty,接下来没有安排,Nothing coming up,ios_view,总览页
+overview.due_empty,没有到期未处理的提醒,No overdue reminders,ios_view,总览页
+overview.today_all_done,今天的任务都完成了,All of today's tasks are done,ios_view,总览页
+overview.all_done,全部完成,All done,ios_view,总览页
+overview.agenda_empty,今天没有日程,No events today,ios_view,总览页
+overview.agenda_connect,连接系统日历后显示今天的日程,Connect Calendar to see today's events,ios_view,总览页
+overview.countdown_empty,两个月内没有旅行或生日,No trips or birthdays in the next two months,ios_view,总览页
+overview.routines_empty,今天还没有定时任务的结果,No routine results yet today,ios_view,总览页
+overview.suggestion_empty,今天没有需要处理的任务,Nothing to handle today,ios_view,总览页
+overview.suggestion_needs_ai,配置 AI 后显示处理建议,Set up AI to see suggestions,ios_view,总览页
+overview.memories_empty,今天还没有新收藏,No new saves today,ios_view,总览页
+overview.memories_loading,正在整理今天的收藏…,Summarizing today's saves…,ios_view,总览页
+overview.health_disabled,在设置里开启健康分析后显示,Turn on Health Insights in Settings,ios_view,总览页
+overview.day_passed,今天已过,Day elapsed,ios_view,总览页
+overview.more_items,还有 %lld 项,%lld more,ios_view,总览页
+overview.remaining,还剩 %lld 件,%lld left,ios_view,总览页
+overview.days,%lld 天,%lld d,ios_view,总览页
+overview.day_progress,今天已过 %lld%% · 第 %lld 周,%lld%% of today · Week %lld,ios_view,总览页

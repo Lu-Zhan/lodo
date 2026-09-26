@@ -126,6 +126,22 @@
       }
     },
     "%lld 分钟" : {},
+    "%lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 天"
+          }
+        }
+      }
+    },
     "%lld 条" : {},
     "%lld 道菜" : {
       "localizations" : {
@@ -639,6 +655,22 @@
         }
       }
     },
+    "两个月内没有旅行或生日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No trips or birthdays in the next two months"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两个月内没有旅行或生日"
+          }
+        }
+      }
+    },
     "严格教练" : {
       "localizations" : {
         "en" : {
@@ -792,13 +824,45 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Today"
+            "value" : "Today's Tasks"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "今天任务"
+          }
+        }
+      }
+    },
+    "今天已过" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day elapsed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天已过"
+          }
+        }
+      }
+    },
+    "今天已过 %lld%% · 第 %lld 周" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%% of today · Week %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天已过 %lld%% · 第 %lld 周"
           }
         }
       }
@@ -821,6 +885,54 @@
     },
     "今天有什么安排" : {},
     "今天没有任务 🎉" : {},
+    "今天没有日程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No events today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天没有日程"
+          }
+        }
+      }
+    },
+    "今天没有需要处理的任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to handle today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天没有需要处理的任务"
+          }
+        }
+      }
+    },
+    "今天的任务都完成了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All of today's tasks are done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天的任务都完成了"
+          }
+        }
+      }
+    },
     "今天的记忆" : {
       "localizations" : {
         "en" : {
@@ -837,6 +949,38 @@
         }
       }
     },
+    "今天还没有定时任务的结果" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No routine results yet today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天还没有定时任务的结果"
+          }
+        }
+      }
+    },
+    "今天还没有新收藏" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No new saves today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天还没有新收藏"
+          }
+        }
+      }
+    },
     "今日例行" : {
       "localizations" : {
         "en" : {
@@ -849,6 +993,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今日例行"
+          }
+        }
+      }
+    },
+    "今日日程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's Events"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日日程"
           }
         }
       }
@@ -1179,6 +1339,22 @@
     },
     "修改" : {},
     "修改这条消息?" : {},
+    "倒数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Countdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倒数日"
+          }
+        }
+      }
+    },
     "值机 %@" : {
       "localizations" : {
         "en" : {
@@ -1468,6 +1644,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全部任务"
+          }
+        }
+      }
+    },
+    "全部完成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部完成"
           }
         }
       }
@@ -2643,6 +2835,22 @@
         }
       }
     },
+    "在设置里开启健康分析后显示" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Health Insights in Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在设置里开启健康分析后显示"
+          }
+        }
+      }
+    },
     "地图" : {
       "localizations" : {
         "en" : {
@@ -2790,6 +2998,38 @@
       }
     },
     "复制" : {},
+    "大" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大"
+          }
+        }
+      }
+    },
+    "大小" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大小"
+          }
+        }
+      }
+    },
     "好" : {
       "localizations" : {
         "en" : {
@@ -3149,6 +3389,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "导航"
+          }
+        }
+      }
+    },
+    "小" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小"
           }
         }
       }
@@ -3842,6 +4098,22 @@
       }
     },
     "总负债" : {},
+    "恢复默认布局" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Default Layout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复默认布局"
+          }
+        }
+      }
+    },
     "我的 skills" : {
       "localizations" : {
         "en" : {
@@ -4056,6 +4328,22 @@
         }
       }
     },
+    "拖动右侧手柄调整顺序。两张相邻的小卡会并排显示。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag the handles to reorder. Two adjacent small cards sit side by side."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动右侧手柄调整顺序。两张相邻的小卡会并排显示。"
+          }
+        }
+      }
+    },
     "指令原样发给 AI,写清楚要什么内容;每次只会返回一段不超过 120 字的文字。" : {
       "localizations" : {
         "en" : {
@@ -4170,7 +4458,38 @@
         }
       }
     },
-    "接下来" : {},
+    "接下来" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up Next"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接下来"
+          }
+        }
+      }
+    },
+    "接下来没有安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing coming up"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接下来没有安排"
+          }
+        }
+      }
+    },
     "接口地址(…/chat/completions)" : {
       "localizations" : {
         "en" : {
@@ -5558,6 +5877,22 @@
       }
     },
     "正在改期" : {},
+    "正在整理今天的收藏…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarizing today's saves…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在整理今天的收藏…"
+          }
+        }
+      }
+    },
     "正在生成…" : {
       "localizations" : {
         "en" : {
@@ -5650,6 +5985,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正文"
+          }
+        }
+      }
+    },
+    "此刻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此刻"
           }
         }
       }
@@ -5767,6 +6118,22 @@
         }
       }
     },
+    "没有到期未处理的提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No overdue reminders"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有到期未处理的提醒"
+          }
+        }
+      }
+    },
     "没有加载过" : {
       "localizations" : {
         "en" : {
@@ -5813,6 +6180,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有改动:%@"
+          }
+        }
+      }
+    },
+    "没有显示的模块" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Widgets Shown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有显示的模块"
           }
         }
       }
@@ -6094,6 +6477,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "点「搜索」选地点才会记下坐标,地图上才画得出这个点;只手打名字也能存,只是不上地图。"
+          }
+        }
+      }
+    },
+    "点右上角的按钮选择要显示的模块。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the button at the top right to choose widgets."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点右上角的按钮选择要显示的模块。"
           }
         }
       }
@@ -6383,7 +6782,22 @@
       }
     },
     "移除图片" : {},
-    "稍等" : {},
+    "稍等" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snooze"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍等"
+          }
+        }
+      }
+    },
     "稍等 %lld 分钟" : {},
     "稍等或忽略提醒后,间隔多久再次提醒,直到完成。" : {
       "extractionState" : "stale",
@@ -6702,6 +7116,22 @@
     },
     "编辑事项" : {},
     "编辑偏好" : {},
+    "编辑布局" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Layout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑布局"
+          }
+        }
+      }
+    },
     "编辑旅行" : {
       "localizations" : {
         "en" : {
@@ -7861,7 +8291,39 @@
         }
       }
     },
+    "还剩 %lld 件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld left"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还剩 %lld 件"
+          }
+        }
+      }
+    },
     "还有 %lld 天出发" : {},
+    "还有 %lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld more"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %lld 项"
+          }
+        }
+      }
+    },
     "还没有人脉" : {},
     "还没有人脉。" : {
       "localizations" : {
@@ -8194,6 +8656,22 @@
       }
     },
     "连接系统日历" : {},
+    "连接系统日历后显示今天的日程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Calendar to see today's events"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接系统日历后显示今天的日程"
+          }
+        }
+      }
+    },
     "退房" : {
       "localizations" : {
         "en" : {
@@ -8368,6 +8846,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。"
+          }
+        }
+      }
+    },
+    "配置 AI 后显示处理建议" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up AI to see suggestions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配置 AI 后显示处理建议"
           }
         }
       }

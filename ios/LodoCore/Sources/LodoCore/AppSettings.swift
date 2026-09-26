@@ -44,6 +44,8 @@ public enum AppSettings {
     public static let calendarIdentifierKey = "calendarIdentifier"
     /// 日历页上次用的视图(`CalendarViewMode.rawValue`),纯展示偏好。
     public static let calendarViewModeKey = "calendarViewMode"
+    /// 总览页的 widget 布局(`OverviewLayout.encoded()` 的 JSON),纯展示偏好、只存本机。
+    public static let overviewLayoutKey = "overviewLayout"
 
     /// 健康分析总开关。**默认关**:读健康数据要系统授权,而且开了之后汇总统计
     /// 会发给所选 AI 服务商——这种事不该替用户默认打开。关着时健康页只画本地

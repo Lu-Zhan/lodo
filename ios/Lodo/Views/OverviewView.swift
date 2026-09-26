@@ -2,10 +2,12 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// "总览" tab:待办/记忆之外新增的第三个 tab,默认打开。聚合到期提醒+今天
-/// 待办(可直接滑动完成/改期/稍等/删除、点击编辑,和待办 tab 同一套
-/// TaskRowView)、AI 给的今天待办处理建议、AI 给的今天新收藏记忆总结
-/// (后两者按天缓存,见 loadSuggestion/loadMemorySummary)。
+/// 「总览」页:一组和时间相关的 widget 模块(今天/接下来/到期提醒/今天任务/
+/// 今日日程/倒数日/今日例行/AI 处理建议/今天的记忆/健康),两列网格——小卡
+/// 半宽、大卡整宽。顺序、显示与否、大小由用户在右上角「编辑布局」里定
+/// (`OverviewLayout`,纯逻辑在 LodoCore,存 `AppSettings.overviewLayoutKey`)。
+/// 任务行:点圆圈完成、点行编辑、长按稍等/删除(卡片里没有 List,用不上
+/// swipeActions)。AI 那几段按天缓存,见 loadSuggestion/loadMemorySummary。
 struct OverviewView: View {
     /// 非 nil 时跳到该事项并自动发起改期请求(通知"改期"按钮交接,见 ContentView)。
     @Binding var rescheduleRequestUUID: String?
@@ -21,9 +23,22 @@ struct OverviewView: View {
     private var memoryItems: [MemoryItem]
     @Query(sort: [SortDescriptor(\AIRoutineRun.createdAt, order: .reverse)])
     private var routineRuns: [AIRoutineRun]
+    /// 今天完成了几件(重复事项完成一次也会插一条 done 历史,正好算进来)。
+    @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "done" },
+           sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
+    private var doneTasks: [TaskItem]
+    @Query(sort: \TravelTrip.startDate) private var trips: [TravelTrip]
+    @Environment(\.scenePhase) private var scenePhase
+    /// widget 布局(顺序/显示/大小),右上角「编辑布局」改。
+    @AppStorage(AppSettings.overviewLayoutKey) private var layoutRaw = ""
+    @State private var showLayoutEditor = false
+    /// 今明两天的系统日程,「接下来」和「今日日程」共用。
+    @State private var upcomingEvents: [CalendarEvent] = []
+    #if DEBUG
+    @State private var demoEvents = false
+    #endif
 
-    /// 只在进入这个 tab 时刷新一次,不像待办 tab 那样搭一套精确唤醒——总览是
-    /// "打开看一眼"的仪表盘,不需要那么实时。
+    /// 每分钟刷新一次(「接下来」的倒计时要走),回前台/下拉时也刷新。
     @State private var now = Date()
     @State private var editingTask: TaskItem?
     @State private var askDurationQueue: [(title: String, planned: Int)] = []
@@ -71,100 +86,61 @@ struct OverviewView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if let notificationReschedule {
-                    notificationRescheduleSection(notificationReschedule)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                } else if notificationRescheduleLoading != nil {
-                    Section {
-                        HStack {
-                            ProgressView().controlSize(.small)
-                            Text("正在获取改期建议…").foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                if let ask = askDurationQueue.first {
-                    Section {
-                        AskDurationBanner(
-                            title: ask.title, planned: ask.planned,
-                            onPick: { _ in popAskDuration() },
-                            onSkip: { popAskDuration() })
-                    }
-                }
-                if due.isEmpty && todayUpcoming.isEmpty {
-                    Section {
-                        ContentUnavailableView("今天暂无任务", systemImage: "checkmark.circle")
-                    }
-                } else {
-                    if !due.isEmpty {
-                        Section("已到期提醒") {
-                            ForEach(due) { task in
-                                taskRow(task)
+            ScrollView {
+                VStack(spacing: 12) {
+                    banners
+                    ForEach(Array(layout.rows().enumerated()), id: \.offset) { _, row in
+                        HStack(alignment: .top, spacing: 12) {
+                            ForEach(row) { item in
+                                widget(item)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            // 独占半行的小卡:右边留空,不拉成整宽(用户选的是小卡)。
+                            if row.count == 1, row[0].size == .small {
+                                Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
                             }
                         }
+                        // 并排的两张小卡等高(内容多的那张决定),看上去才是一排。
+                        .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !todayUpcoming.isEmpty {
-                        Section("今天任务") {
-                            ForEach(todayUpcoming) { task in
-                                taskRow(task)
-                            }
+                    if layout.rows().isEmpty {
+                        ContentUnavailableView {
+                            Label("没有显示的模块", systemImage: "square.grid.2x2")
+                        } description: {
+                            Text("点右上角的按钮选择要显示的模块。")
                         }
                     }
                 }
-                if !todayRoutineRuns.isEmpty {
-                    Section("今日例行") {
-                        ForEach(todayRoutineRuns) { run in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(run.routineName).font(.body.weight(.medium))
-                                Text(run.text).font(.subheadline)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                }
-                if let suggestion {
-                    Section("处理建议") {
-                        Label(suggestion, systemImage: "sparkles")
-                            .font(.body)
-                    }
-                }
-                if let memorySummary {
-                    Section("今天的记忆") {
-                        Label(memorySummary, systemImage: "sparkles.rectangle.stack")
-                            .font(.body)
-                    }
-                }
-                if let healthTip {
-                    Section("健康") {
-                        // 点一下去健康页看完整趋势;跨页跳转走 sidebarChrome.go,
-                        // 不为这一处再串一路闭包(见 AppShellView 的 SidebarChrome)。
-                        Button {
-                            chrome?.go(.health)
-                        } label: {
-                            HStack {
-                                Label(healthTip, systemImage: "heart.text.square")
-                                    .font(.body)
-                                    .foregroundStyle(.primary)
-                                Spacer(minLength: 8)
-                                Image(systemName: "chevron.right")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .pressableCard()
-                    }
-                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .animation(.lodoAware(.snappy), value: layout)
             }
+            .background(pageBackground.ignoresSafeArea())
             .navigationTitle("总览")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sidebarToolbarButton()
+            .toolbar {
+                if !(chrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showLayoutEditor = true
+                        } label: {
+                            Label("编辑布局", systemImage: "square.grid.2x2")
+                        }
+                    }
+                }
+            }
             .askBar(focus: .overview)
             .sheet(item: $editingTask) { task in
                 TaskEditView(existing: task, parsed: nil, attachment: task.attachment) {
                     TaskActions.apply($0, to: task, context: context)
                 }
+            }
+            .sheet(isPresented: $showLayoutEditor) {
+                OverviewLayoutEditor(layout: layoutBinding)
+                    .presentationDetents([.medium, .large])
             }
             .alert("改期失败", isPresented: Binding(
                 get: { rescheduleError != nil },
@@ -177,17 +153,27 @@ struct OverviewView: View {
             .onChange(of: rescheduleRequestUUID) { _, uuid in
                 consumeReschedule(uuid)
             }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                now = Date()
+                reloadEvents()
+            }
+            #if os(iOS)
+            .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
+                reloadEvents()
+            }
+            #endif
+            // "接下来"的倒计时要跟着走;一分钟一跳足够(卡片上最细只到分钟)。
+            .task(id: now) {
+                try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                now = Date()
+            }
             .onAppear {
                 consumeReschedule(rescheduleRequestUUID)
+                reloadEvents()
                 #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("--demo-reschedule"),
-                   let first = due.first {
-                    notificationReschedule = (first, [
-                        (label: "今晚 20:00", date: Date().addingTimeInterval(6 * 3600)),
-                        (label: "明早 9:00", date: Date().addingTimeInterval(19 * 3600)),
-                        (label: "周六上午", date: Date().addingTimeInterval(48 * 3600)),
-                    ])
-                }
+                applyDemoArguments()
                 #endif
             }
             .task {
@@ -204,6 +190,8 @@ struct OverviewView: View {
                 #endif
             }
             .refreshable {
+                now = Date()
+                reloadEvents()
                 await loadSuggestion(force: true)
                 await loadMemorySummary(force: true)
                 await loadHealthTip(force: true)
@@ -214,19 +202,197 @@ struct OverviewView: View {
         #endif
     }
 
-    private func taskRow(_ task: TaskItem) -> some View {
-        TaskRowView(task: task, now: now,
-                    onEdit: { editingTask = task },
-                    onAskDuration: { title, planned in
-                        askDurationQueue.append((title, planned))
-                    })
+    private var pageBackground: Color {
+        #if os(iOS)
+        Color(uiColor: .systemGroupedBackground)
+        #elseif os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color.clear
+        #endif
     }
 
+    // MARK: - 顶部横幅(改期候选 / 实际耗时)
+
+    @ViewBuilder
+    private var banners: some View {
+        if let notificationReschedule {
+            bannerCard { notificationRescheduleBanner(notificationReschedule) }
+                .transition(.move(edge: .top).combined(with: .opacity))
+        } else if notificationRescheduleLoading != nil {
+            bannerCard {
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("正在获取改期建议…").foregroundStyle(.secondary)
+                }
+            }
+        }
+        if let ask = askDurationQueue.first {
+            bannerCard {
+                AskDurationBanner(
+                    title: ask.title, planned: ask.planned,
+                    onPick: { _ in popAskDuration() },
+                    onSkip: { popAskDuration() })
+            }
+        }
+    }
+
+    private func bannerCard(@ViewBuilder _ content: () -> some View) -> some View {
+        content()
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(OverviewWidgetCard<EmptyView>.cardFill,
+                        in: RoundedRectangle(cornerRadius: DesignMetrics.cardRadius, style: .continuous))
+    }
+
+    // MARK: - widget
+
+    @ViewBuilder
+    private func widget(_ item: OverviewWidgetItem) -> some View {
+        switch item.kind {
+        case .clock:
+            OverviewClockWidget()
+        case .nextUp:
+            OverviewNextUpWidget(size: item.size, items: upcoming, now: now) {
+                chrome?.go(upcomingIsEvent ? .calendar : .todo)
+            }
+        case .due:
+            OverviewDueWidget(tasks: due, now: now, line: taskLine) { chrome?.go(.todo) }
+        case .today:
+            OverviewTodayWidget(size: item.size, remaining: todayRemaining,
+                                doneCount: doneTodayCount, now: now, line: taskLine) {
+                chrome?.go(.todo)
+            }
+        case .agenda:
+            OverviewAgendaWidget(size: item.size, events: calendarConnected ? todayEvents : nil,
+                                 now: now) { chrome?.go(.calendar) }
+        case .countdown:
+            OverviewCountdownWidget(size: item.size, entries: countdownEntries, now: now)
+        case .routines:
+            OverviewRoutinesWidget(runs: todayRoutineRuns)
+        case .suggestion:
+            OverviewTextWidget(kind: .suggestion, text: suggestion,
+                               placeholder: DeepSeekClient.isConfigured ? "今天没有需要处理的任务" : "配置 AI 后显示处理建议")
+        case .memories:
+            OverviewTextWidget(kind: .memories, text: memorySummary,
+                               placeholder: todayMemories.isEmpty ? "今天还没有新收藏" : "正在整理今天的收藏…")
+        case .health:
+            // 点一下去健康页看完整趋势;跨页跳转走 sidebarChrome.go。
+            OverviewTextWidget(kind: .health, text: healthTip,
+                               placeholder: AppSettings.healthEnabled ? "暂无健康数据" : "在设置里开启健康分析后显示",
+                               action: { chrome?.go(.health) })
+        }
+    }
+
+    private func taskLine(_ task: TaskItem) -> OverviewTaskLine {
+        OverviewTaskLine(
+            task: task, now: now,
+            onComplete: {
+                withAnimation(.lodoAware(.snappy)) {
+                    if let ask = TaskActions.complete(task, context: context) {
+                        askDurationQueue.append(ask)
+                    }
+                }
+            },
+            onEdit: { editingTask = task },
+            onSnooze: { TaskActions.snooze(task, context: context) },
+            onDelete: { TaskActions.delete(task, context: context) })
+    }
+
+    // MARK: - 数据
+
+    private var layout: OverviewLayout { OverviewLayout.decode(layoutRaw) }
+
+    private var layoutBinding: Binding<OverviewLayout> {
+        Binding(get: { layout }, set: { layoutRaw = $0.encoded() })
+    }
+
+    private var calendarConnected: Bool {
+        #if DEBUG
+        if demoEvents { return true }
+        #endif
+        return AppSettings.calendarEnabled && CalendarBridge.isAuthorized
+    }
+
+    /// 今天剩下的:到期未处理的 + 今天之内还没到时间的。
+    private var todayRemaining: [TaskItem] {
+        pending.filter { $0.nextRemindAt <= now || Calendar.current.isDateInToday($0.nextRemindAt) }
+    }
+
+    private var doneTodayCount: Int {
+        doneTasks.filter { $0.doneAt.map(Calendar.current.isDateInToday) ?? false }.count
+    }
+
+    private var todayEvents: [CalendarEvent] {
+        CalendarViewPlan.events(upcomingEvents, on: now)
+    }
+
+    /// 接下来:还没到时间的任务 + 还没开始的日程(不含全天),取最近的几件。
+    private var upcoming: [OverviewUpcoming] {
+        let tasks = pending.filter { $0.nextRemindAt > now }.prefix(5).map {
+            OverviewUpcoming(id: $0.uuid.uuidString, title: $0.title, date: $0.nextRemindAt, isEvent: false)
+        }
+        let events = upcomingEvents.filter { !$0.isAllDay && $0.start > now }.map {
+            OverviewUpcoming(id: $0.occurrenceKey, title: $0.title, date: $0.start, isEvent: true)
+        }
+        return (tasks + events).sorted { $0.date < $1.date }
+    }
+
+    private var upcomingIsEvent: Bool { upcoming.first?.isEvent ?? false }
+
+    private var countdownEntries: [OverviewCountdownEntry] {
+        OverviewCountdownEntry.build(
+            trips: trips.map { ($0.uuid.uuidString, $0.title, $0.startDate, $0.endDate) },
+            birthdays: memoryItems.compactMap { item in
+                guard item.isContact, let birthday = item.contactBirthday else { return nil }
+                return (item.uuid.uuidString, item.title, birthday)
+            },
+            now: now)
+    }
+
+    /// 今明两天的系统日程("接下来"要能看到明早的会)。没连日历时为空。
+    private func reloadEvents() {
+        #if DEBUG
+        if demoEvents { return }
+        #endif
+        let today = Calendar.current.startOfDay(for: Date())
+        upcomingEvents = CalendarBridge.events(from: today, to: today.addingTimeInterval(2 * 86400))
+    }
+
+    #if DEBUG
+    private func applyDemoArguments() {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--demo-reschedule"), let first = due.first {
+            notificationReschedule = (first, [
+                (label: "今晚 20:00", date: Date().addingTimeInterval(6 * 3600)),
+                (label: "明早 9:00", date: Date().addingTimeInterval(19 * 3600)),
+                (label: "周六上午", date: Date().addingTimeInterval(48 * 3600)),
+            ])
+        }
+        // 截图用:塞两条今天的样板日程(只落 @State,不碰真实日历)。
+        if args.contains("--demo-overview-widgets") {
+            demoEvents = true
+            let now = Date()
+            upcomingEvents = [
+                CalendarEvent(id: "o1", title: "产品评审", start: now.addingTimeInterval(40 * 60),
+                              end: now.addingTimeInterval(100 * 60), isAllDay: false, calendarTitle: "工作",
+                              calendarColor: CalendarEventColor(red: 0.2, green: 0.47, blue: 0.96)),
+                CalendarEvent(id: "o2", title: "接孩子", start: now.addingTimeInterval(5 * 3600),
+                              end: now.addingTimeInterval(5.5 * 3600), isAllDay: false, calendarTitle: "家庭",
+                              calendarColor: CalendarEventColor(red: 0.85, green: 0.35, blue: 0.62)),
+            ]
+        }
+        if args.contains("--demo-overview-layout-editor") {
+            showLayoutEditor = true
+        }
+    }
+    #endif
+
     /// 通知"改期"按钮交接的改期候选横幅(见 OverviewView+Reschedule.swift)。
-    private func notificationRescheduleSection(
+    private func notificationRescheduleBanner(
         _ reschedule: (task: TaskItem, candidates: [(label: String, date: Date)])
     ) -> some View {
-        Section {
+        Group {
             VStack(alignment: .leading, spacing: 8) {
                 Text("「\(reschedule.task.title)」改期建议").font(.body)
                 HorizontalChipRow {
@@ -251,7 +417,6 @@ struct OverviewView: View {
                     .accessibilityLabel("收起改期候选")
                 }
             }
-            .padding(.vertical, 2)
         }
     }
 
