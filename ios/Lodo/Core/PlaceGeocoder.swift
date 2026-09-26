@@ -25,6 +25,12 @@ enum PlaceGeocoder {
     /// 混用一个键会让换了旅行之后的查询被上一趟的失败挡掉。
     private static var missed: Set<String> = []
 
+    /// 手动「刷新地点位置」时清掉:用户主动要求重查,上一轮没搜到的也该再试一次。
+    static func resetMisses() {
+        missed.removeAll()
+        regionCache.removeAll()
+    }
+
     /// 反查过的坐标 → 国家码(反查失败的不记,下次还能再试)。`prune` 那条路径
     /// 每打开一次旅行都会把全部行程项过一遍,同一个坐标没必要问系统两次。
     private static var regionCache: [String: String] = [:]

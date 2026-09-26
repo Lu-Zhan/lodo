@@ -330,6 +330,52 @@ enum TravelStore {
     /// 这一轮验过、确认在目标国家里的行程项。
     private static var verifiedCoordinates: Set<UUID> = []
 
+    /// 详情页右上角「刷新地点位置」:把这次旅行里**所有**非交通类行程项按地名重新
+    /// 查一遍坐标(打开详情页时那一遍只补缺的、清错国家的,已经有坐标的不再动;
+    /// 地点改名、当初搜到的是同名的另一家时,只能靠这里手动重来)。
+    ///
+    /// 查到了就覆盖旧坐标,**查不到就留着旧的**——宁可停在原来的位置,也不把一个
+    /// 好好的点清掉。判据和自动补全同一套(旅行的国家 / 验过的城市锚点),
+    /// 上一轮记下的"查不到"和"已验证"一并清掉重来。
+    /// 交通类不查:起降点、车站来自订单和表单,不拿地名搜索去猜。
+    static func relocateAll(for trip: TravelTrip,
+                            context: ModelContext) async -> (updated: Int, missed: Int) {
+        PlaceGeocoder.resetMisses()
+        verifiedCoordinates.removeAll()
+        let targets = items(for: trip.uuid, in: context).filter {
+            $0.travelKind?.isTransport != true && !geocodeQuery(for: $0).isEmpty
+        }
+        guard !targets.isEmpty else { return (0, 0) }
+        let hint = geocodeHint(for: trip)
+        let region = expectedRegion(for: trip)
+        var anchor: CLLocationCoordinate2D?
+        if region == nil {
+            anchor = await PlaceGeocoder.verifiedAnchor(city: anchorCity(for: trip), hint: hint)
+            guard anchor != nil else { return (0, targets.count) }
+        } else if let hint {
+            anchor = await PlaceGeocoder.coordinate(for: hint, region: region)
+        }
+        var updated = 0
+        var missed = 0
+        for item in targets.prefix(geocodeBudget) {
+            guard let coordinate = await PlaceGeocoder.coordinate(
+                for: geocodeQuery(for: item), hint: hint, anchor: anchor, region: region) else {
+                missed += 1
+                continue
+            }
+            if item.travelLatitude != coordinate.latitude || item.travelLongitude != coordinate.longitude {
+                item.travelLatitude = coordinate.latitude
+                item.travelLongitude = coordinate.longitude
+                if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
+            }
+            verifiedCoordinates.insert(item.uuid)
+            updated += 1
+        }
+        missed += max(0, targets.count - geocodeBudget)
+        try? context.save()
+        return (updated, missed)
+    }
+
     /// 把"有地名、没坐标"的行程项补上坐标,让它们能画到地图上。
     ///
     /// 坐标原本只有一条来路:用户在表单里点「搜索」选点(`PlaceSearchView`)。
