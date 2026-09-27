@@ -98,10 +98,7 @@ struct AgentTripEditCard: View {
                 }
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.quaternary,
-                    in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+        .agentCard()
     }
 
     private func row(symbol: String, tint: Color, title: String, start: Date?,

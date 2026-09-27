@@ -2,17 +2,21 @@ import SwiftUI
 import SwiftData
 import LodoCore
 
-/// 结构化消息卡片(confirm/answer/executed/memorizeSuggestion)统一的卡片容器语言,
-/// 和 askContent/AgentTaskCard/memoryResultContent 已有的卡片视觉一致——纯文本 .text
-/// 消息不套这层,保留"对话文字 vs. 结构化内容"的区分(参考 Claude 对话里散文与
-/// 工具/卡片类内容的分野)。
-private extension View {
-    func agentCard() -> some View {
+/// AI 这一侧每条回复统一的卡片容器:一块 Liquid Glass(`glassBackground`,旧系统
+/// 退 thinMaterial、「减弱透明度」退不透明面色)。纯文字、结构化卡片、询问卡、
+/// 行程卡一律套这一层——AI 的回复和用户那侧的强调色实心气泡一眼分得开。
+///
+/// **卡片里面不能再垫玻璃**:玻璃采样不到玻璃,卡中卡(事项卡、收藏条目卡、
+/// 输入框)一律用 `.fill.tertiary` 这类填充色分层。卡片里的按钮照旧是
+/// bordered / glassProminent——消息列整列在 `glassGroup()` 里,共享采样。
+extension View {
+    /// `hugsContent` 给纯文字回复用:气泡按字数收缩(「好的。」不该撑满一整行),
+    /// 和用户那侧的气泡对称;结构化卡片仍然铺满,里面的行才对得齐。
+    func agentCard(padding: CGFloat = 14, hugsContent: Bool = false) -> some View {
         self
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.fill.quaternary,
-                        in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+            .padding(padding)
+            .frame(maxWidth: hugsContent ? nil : .infinity, alignment: .leading)
+            .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
     }
 }
 
@@ -156,6 +160,7 @@ struct AgentMessageBubble: View {
             TypewriterText(fullText: message.content, animates: message.createdAt > typingBaseline)
                 .font(.body)
                 .textSelection(.enabled)
+                .agentCard(padding: 12, hugsContent: true)
         case .confirm:
             confirmContent
         case .ask:
@@ -201,8 +206,9 @@ struct AgentMessageBubble: View {
                     }
                 }
             }
+            .agentCard()
         } else {
-            Text(message.content).font(.body)
+            Text(message.content).font(.body).agentCard(padding: 12, hugsContent: true)
         }
     }
 
@@ -217,7 +223,7 @@ struct AgentMessageBubble: View {
                 AgentAskRecordCard(snapshot: askSnapshot)
             }
         } else {
-            Text(message.content).font(.body)
+            Text(message.content).font(.body).agentCard(padding: 12, hugsContent: true)
         }
     }
 
@@ -226,7 +232,7 @@ struct AgentMessageBubble: View {
         if let askSnapshot {
             AgentAskRecordCard(snapshot: askSnapshot)
         } else {
-            Text(message.content).font(.body)
+            Text(message.content).font(.body).agentCard(padding: 12, hugsContent: true)
         }
     }
 
@@ -266,8 +272,9 @@ struct AgentMessageBubble: View {
                     AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
                 }
             }
+            .agentCard()
         } else {
-            Text(message.content).font(.body)
+            Text(message.content).font(.body).agentCard(padding: 12, hugsContent: true)
         }
     }
 
@@ -301,8 +308,9 @@ struct AgentMessageBubble: View {
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .glassBackground(
-                        RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+                    // 外面整条回复已经是玻璃卡,卡中卡用填充色分层(玻璃采样不到玻璃)。
+                    .background(.fill.tertiary,
+                                in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
                     // 收藏/自动记录也是默认就存,这颗 ✕ 是事后反悔的入口,
                     // 和新建待办那张卡同一个位置、同一个图标。
                     if isLatest {
@@ -317,6 +325,7 @@ struct AgentMessageBubble: View {
                 }
             }
         }
+        .agentCard()
     }
 
     private var memorizeSuggestionContent: some View {
@@ -488,7 +497,9 @@ private struct AgentTaskCard: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+            // 外面那层玻璃卡由调用方套(agentCard),这里是卡中卡,用填充色。
+            .background(.fill.tertiary,
+                        in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             .contentShape(Rectangle())
         }
         .pressableCard()

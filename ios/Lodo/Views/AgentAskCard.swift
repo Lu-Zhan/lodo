@@ -45,10 +45,7 @@ struct AgentAskCard: View {
             otherField
             footer
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.quaternary,
-                    in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+        .agentCard(padding: 16)
     }
 
     /// 「‹ 第 N / M 题 ›」;到头的方向直接禁用,不做循环翻页。
@@ -238,10 +235,6 @@ struct AgentAskRecordCard: View {
                 }
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous)
-                .stroke(.separator))
+        .agentCard()
     }
 }

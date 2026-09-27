@@ -84,10 +84,7 @@ struct AgentTripPlanCard: View {
 
             actions(plan)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.quaternary,
-                    in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+        .agentCard()
     }
 
     private func dayBlock(title: Text, entries: [TravelEntry]) -> some View {
