@@ -222,12 +222,15 @@ struct TravelDetailView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 8)
 
-            switch mode {
-            case .overview: overviewList
-            case .days: dayList
-            case .packing: TravelPackingList(trip: trip)
-            case .cost: costList
-            case .files: filesList
+            // 经 PanelModeContent 读 mode(见它的注释),不在这里直接 switch。
+            PanelModeContent(mode: $mode) { mode in
+                switch mode {
+                case .overview: overviewList
+                case .days: dayList
+                case .packing: TravelPackingList(trip: trip)
+                case .cost: costList
+                case .files: filesList
+                }
             }
         }
         .padding(.top, 14)
@@ -1397,6 +1400,16 @@ struct TravelDetailView: View {
     private func dayIndex(_ date: Date) -> Int {
         (trip.days.firstIndex(of: date) ?? 0) + 1
     }
+}
+
+/// 面板正文按 mode 切换。**必须经这一层 `@Binding` 读 mode**:面板是 sheet 的内容,
+/// 页面 body 本身不读 mode,切换时 sheet 内容不一定重算——切换条(自己拿着 binding)
+/// 已经滑到「清单」,下面还是日程的列表,要等拉一下面板之类别的状态变了才换过来。
+private struct PanelModeContent<Content: View>: View {
+    @Binding var mode: TravelDetailView.Mode
+    @ViewBuilder let content: (TravelDetailView.Mode) -> Content
+
+    var body: some View { content(mode) }
 }
 
 /// 按天视图里住宿行上的那两枚小标签(「入住」/「明日离开」)。
