@@ -260,12 +260,19 @@ struct TravelDetailView: View {
                 selectDay(trip.days.count > 1 ? trip.days[1] : trip.days.first)
             }
         }
-        // 截图验证用:--demo-travel-rail-select N 直接在左侧胶囊里选第 N 天。
+        // 截图验证用:--demo-travel-rail-select N 直接在左侧胶囊里选第 N 天;
+        // N = 0 表示先选第 5 天、再切回「全部」(看回到顶上时有没有往上窜)。
         if let index = args.firstIndex(of: "--demo-travel-rail-select"), index + 1 < args.count,
-           let n = Int(args[index + 1]), trip.days.indices.contains(n - 1) {
+           let n = Int(args[index + 1]) {
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(1.5))
-                selectDay(trip.days[n - 1])
+                if n == 0, trip.days.count >= 5 {
+                    selectDay(trip.days[4])
+                    try? await Task.sleep(for: .seconds(1.5))
+                    selectDay(nil)
+                } else if trip.days.indices.contains(n - 1) {
+                    selectDay(trip.days[n - 1])
+                }
             }
         }
         if args.contains("--demo-travel-panel-peek") { panelDetent = Self.peekDetent }
@@ -570,25 +577,32 @@ struct TravelDetailView: View {
     /// 胶囊宽度和左上角返回键一样(48pt),里面的按钮一律 36pt 圆。
     private static let railWidth: CGFloat = 48
     private static let railButtonSize: CGFloat = 36
-    private static let railSpacing: CGFloat = 6
+    private static let railSpacing: CGFloat = 4
     private static var railInset: CGFloat { (railWidth - railButtonSize) / 2 }
-    /// 一次最多露出几格(「全部」+ 天数),再多就滚。
-    private static let railVisibleSlots = 7
+    /// 一次最多露出几格(「全部」+ 1…5 天),再多就滚。
+    private static let railVisibleSlots = 6
+    /// 内容最顶/最底的零高度定位点。滚到「全部」或最后一天时对准它们,而不是对准那颗
+    /// 按钮本身——对准按钮会把它外侧那截内边距滚掉,选「全部」时整条会往上窜一点。
+    private static let railTopAnchor = -2
+    private static let railBottomAnchor = -3
 
     private var dayFilterRail: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: Self.railSpacing) {
-                    railButton(title: "全部", selected: mapDay == nil) { selectDay(nil) }
-                        .id(-1)
-                    ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
-                        railButton(title: "\(index + 1)", selected: mapDay == day) {
-                            selectDay(mapDay == day ? nil : day)
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: 0).id(Self.railTopAnchor)
+                    VStack(spacing: Self.railSpacing) {
+                        railButton(title: "全部", selected: mapDay == nil) { selectDay(nil) }
+                        ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
+                            railButton(title: "\(index + 1)", selected: mapDay == day) {
+                                selectDay(mapDay == day ? nil : day)
+                            }
+                            .id(index)
                         }
-                        .id(index)
                     }
+                    .padding(Self.railInset)
+                    Color.clear.frame(height: 0).id(Self.railBottomAnchor)
                 }
-                .padding(Self.railInset)
             }
             .frame(width: Self.railWidth,
                    height: CGFloat(min(trip.days.count + 1, Self.railVisibleSlots))
@@ -600,9 +614,14 @@ struct TravelDetailView: View {
                 guard trip.days.count + 1 > Self.railVisibleSlots else { return }
                 withAnimation(.lodoAware(.snappy)) {
                     if let day, let index = trip.days.firstIndex(of: day) {
-                        proxy.scrollTo(min(index + 2, trip.days.count - 1), anchor: .bottom)
+                        let target = index + 2
+                        if target >= trip.days.count - 1 {
+                            proxy.scrollTo(Self.railBottomAnchor, anchor: .bottom)
+                        } else {
+                            proxy.scrollTo(target, anchor: .bottom)
+                        }
                     } else {
-                        proxy.scrollTo(-1, anchor: .top)
+                        proxy.scrollTo(Self.railTopAnchor, anchor: .top)
                     }
                 }
             }
