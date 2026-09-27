@@ -24,6 +24,12 @@ import LodoCore
 /// 名字校验(`OSMGeocode.nameScore`)。发出去的只有地名本身 + 国家码(+ 锚点附近的
 /// 范围),不带任何用户信息;遵守它的使用规定——带可识别的 User-Agent、串行、
 /// 每秒最多 1 次(`osmThrottle`)。
+///
+/// **必须 `@MainActor`**:下面几张内存缓存(`missed`/`osmMissed`/`regionCache`)和限速时间戳
+/// 都是静态可变量。不隔离的话这些 async 方法跑在全局线程池上,打开详情页的自动补全和
+/// 「刷新地点位置」(先 `resetMisses()` 清空再查)同时改同一个 Set,真机上直接
+/// EXC_BAD_ACCESS 崩在 `Set.insert` 里。网络请求照样 `await` 挂起,不占主线程。
+@MainActor
 enum PlaceGeocoder {
     /// 这次运行里查过、并且没找到的地名。找不到的地方(用户随手写的"朋友家")
     /// 每次打开详情页都重查一遍纯属浪费,记下来这一轮不再问;重开 app 会再试一次
