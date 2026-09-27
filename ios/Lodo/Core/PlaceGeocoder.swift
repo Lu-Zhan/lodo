@@ -143,6 +143,22 @@ enum PlaceGeocoder {
         return code
     }
 
+    /// 验过的锚点:坐标 + 它所在的国家/地区码(查不出国家时为 nil)。
+    struct Anchor {
+        let coordinate: CLLocationCoordinate2D
+        let region: String?
+    }
+
+    /// 按候选城市名逐个验,第一个验得出来的就用(候选来自 `TravelDestination.cityCandidates`:
+    /// 城市字段、旅行名去掉「四日」「三日游」之类尾巴后的样子)。
+    static func verifiedAnchor(cities: [String], hint: String? = nil,
+                               region: String? = nil) async -> Anchor? {
+        for city in cities {
+            if let anchor = await verifiedAnchor(city: city, hint: hint, region: region) { return anchor }
+        }
+        return nil
+    }
+
     /// 按城市名找一个**验过的**锚点:结果所属的行政区划要和城市名对得上才认。
     ///
     /// 用在"认不出这趟旅行在哪个国家"的时候(AI 规划出来的旅行常常只有「京都三日」
@@ -154,7 +170,7 @@ enum PlaceGeocoder {
     /// **不认店名**:「京都水饺王」的名字里也有「京都」,拿名字比对等于没比。
     /// 验不出来就返回 nil,调用方据此**整步跳过**——没有判据时宁可不画点。
     static func verifiedAnchor(city: String, hint: String? = nil,
-                               region: String? = nil) async -> CLLocationCoordinate2D? {
+                               region: String? = nil) async -> Anchor? {
         let name = city.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
         var queries = [name]
@@ -177,13 +193,31 @@ enum PlaceGeocoder {
                     area.localizedCaseInsensitiveContains(name)
                         || name.localizedCaseInsensitiveContains(area)
                 }
-                if matched { return placemark.coordinate }
+                if matched {
+                    return Anchor(coordinate: placemark.coordinate,
+                                  region: placemark.isoCountryCode?.uppercased())
+                }
             }
         }
         // 苹果那边验不出来时同样退到 Nominatim,只认城市级的结果(不认店名)。
-        if let places = await osmSearch(name, region: region, anchor: nil),
-           let picked = OSMGeocode.pick(places, query: name, region: region, anchor: nil, areasOnly: true) {
-            return CLLocationCoordinate2D(latitude: picked.latitude, longitude: picked.longitude)
+        // 国内网络上查国外城市只能走这条,国家码也是从这里带回来的。
+        // OSM 里城市条目常带着「市」(「京都」只查得到京都站,「京都市」才是城市本身),
+        // 中日文名字没有行政后缀时补一个「市」再查一次。
+        var osmQueries = [name]
+        // 不含「都」:「京都」本身就以「都」结尾,算成带后缀就查不到「京都市」了
+        // (「东京」不带后缀也直接查得到「東京都」)。
+        let hasAdminSuffix = ["市", "府", "县", "縣", "県", "省", "州", "区", "區"]
+            .contains { name.hasSuffix($0) }
+        if !hasAdminSuffix, name.unicodeScalars.contains(where: { $0.properties.isIdeographic }) {
+            osmQueries.append(name + "市")
+        }
+        for query in osmQueries {
+            if let places = await osmSearch(query, region: region, anchor: nil),
+               let picked = OSMGeocode.pick(places, query: query, region: region, anchor: nil, areasOnly: true) {
+                return Anchor(coordinate: CLLocationCoordinate2D(latitude: picked.latitude,
+                                                                 longitude: picked.longitude),
+                              region: picked.countryCode)
+            }
         }
         return nil
     }

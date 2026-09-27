@@ -26,6 +26,10 @@ public enum OSMGeocode {
         public let names: [String]
         /// Nominatim 的 addresstype:city / town / suburb / amenity / railway …
         public let addressType: String
+        /// Nominatim 的知名度(0...1,越有名越高;缺省 0)。同名地点里挑哪个就看它:
+        /// 日本有十几座「清水寺」,Nominatim 自己的排序第一条是福冈那座(0.1 左右),
+        /// 京都那座是 0.5 以上。
+        public var importance: Double = 0
     }
 
     /// 同一趟请求里名字对上的最低分(查询词里的字有多少出现在结果名字里)。
@@ -91,7 +95,8 @@ public enum OSMGeocode {
                          latitude: lat, longitude: lon,
                          countryCode: (address?["country_code"] as? String)?.uppercased(),
                          names: names,
-                         addressType: raw["addresstype"] as? String ?? "")
+                         addressType: raw["addresstype"] as? String ?? "",
+                         importance: (raw["importance"] as? Double) ?? 0)
         }
     }
 
@@ -140,7 +145,14 @@ public enum OSMGeocode {
         return unique.filter(isNear) + unique.filter { !isNear($0) }
     }
 
-    /// 挑一条:国家对得上、名字对得上;有锚点时取最近的。
+    /// 离锚点多近算"就在这趟旅行附近"。
+    public static let nearbyDistance: Double = 200_000
+
+    /// 挑一条。先过国家和名字校验,再:
+    /// - 有锚点时,锚点 `nearbyDistance` 以内有候选就在其中取最有名的(同城的连锁店、
+    ///   同名小寺,取离行程最近那片里最出名的);附近一个都没有就在全部候选里取最有名的;
+    ///   `maxDistance` 给了(国家未知时的兜底)就再卡一道距离。
+    /// - 没有锚点时直接取最有名的——**不取 Nominatim 返回的第一条**,那条经常是冷门的同名地方。
     public static func pick(_ places: [Place], query: String, region: String?,
                             anchor: TravelCoordinate?, maxDistance: Double? = nil,
                             areasOnly: Bool = false) -> Place? {
@@ -149,13 +161,20 @@ public enum OSMGeocode {
                 && nameScore(query: query, names: place.names) >= minimumNameScore
                 && (!areasOnly || areaTypes.contains(place.addressType))
         }
-        guard let anchor else { return candidates.first }
-        let ranked = candidates
-            .map { ($0, TravelMapFraming.distance(anchor, TravelCoordinate(latitude: $0.latitude,
-                                                                             longitude: $0.longitude))) }
-            .sorted { $0.1 < $1.1 }
-        guard let nearest = ranked.first else { return nil }
-        if let maxDistance, nearest.1 > maxDistance { return nil }
-        return nearest.0
+        let mostImportant: ([Place]) -> Place? = { list in
+            // 知名度相同时保留原顺序(max(by:) 遇到相等取后者,所以用 reduce 显式取先出现的)。
+            list.reduce(nil) { best, place in
+                guard let best else { return place }
+                return place.importance > best.importance ? place : best
+            }
+        }
+        guard let anchor else { return mostImportant(candidates) }
+        let distance: (Place) -> Double = {
+            TravelMapFraming.distance(anchor, TravelCoordinate(latitude: $0.latitude, longitude: $0.longitude))
+        }
+        let near = candidates.filter { distance($0) <= nearbyDistance }
+        guard let chosen = mostImportant(near.isEmpty ? candidates : near) else { return nil }
+        if let maxDistance, distance(chosen) > maxDistance { return nil }
+        return chosen
     }
 }

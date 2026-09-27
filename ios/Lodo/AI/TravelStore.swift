@@ -330,102 +330,147 @@ enum TravelStore {
     /// 这一轮验过、确认在目标国家里的行程项。
     private static var verifiedCoordinates: Set<UUID> = []
 
+    /// 一轮地名查询的判据:这趟旅行在哪个国家、大致在哪儿(锚点)、消歧用的城市词。
+    struct GeocodeContext {
+        let region: String?
+        var anchor: CLLocationCoordinate2D?
+        let hint: String?
+    }
+
+    /// 定这一轮的判据。
+    /// - 认得出国家(`expectedRegion`):锚点优先用调用方给的(已有行程项的坐标),
+    ///   没有就按候选城市名验一个——原来拿「东京 日本」这串去查,苹果只给中国数据、
+    ///   OSM 又过不了名字校验,锚点永远是 nil,同名地点只能听天由命。
+    /// - 认不出国家(老旅行、AI 规划的旅行常常只有「东京四日」这么个名字):按候选城市名
+    ///   (`TravelDestination.cityCandidates`,「东京四日」→「东京」)验一个城市锚点,
+    ///   **国家就用锚点所在的国家**。原来拿整个旅行名去验,一条都验不出来,整轮直接跳过,
+    ///   「刷新地点位置」点了地图纹丝不动。推出来的国家只用于这一轮,**不写回
+    ///   `trip.country`**(那是用户手填、纯展示的字段)。
+    /// 验不出城市时返回 nil——没有判据,宁可不画点。
+    static func geocodeContext(for trip: TravelTrip,
+                               existingAnchor: CLLocationCoordinate2D? = nil) async -> GeocodeContext? {
+        let hint = geocodeHint(for: trip)
+        let cities = TravelDestination.cityCandidates(city: trip.city, title: trip.title)
+        if let region = expectedRegion(for: trip) {
+            var anchor = existingAnchor
+            if anchor == nil {
+                anchor = await PlaceGeocoder.verifiedAnchor(cities: cities, region: region)?.coordinate
+            }
+            return GeocodeContext(region: region, anchor: anchor, hint: hint)
+        }
+        guard let verified = await PlaceGeocoder.verifiedAnchor(cities: cities) else { return nil }
+        return GeocodeContext(region: verified.region, anchor: verified.coordinate, hint: hint)
+    }
+
+    /// 「刷新地点位置」的结果,分开数才看得出发生了什么:位置真的变了几个、
+    /// 查到了但和原来一样的几个、没查到的几个。
+    struct RelocateResult {
+        var moved = 0
+        var unchanged = 0
+        var missed = 0
+        /// 认不出这趟旅行在哪个城市,一个都没查。
+        var destinationUnknown = false
+        var total: Int { moved + unchanged + missed }
+    }
+
     /// 详情页右上角「刷新地点位置」:把这次旅行里**所有**非交通类行程项按地名重新
     /// 查一遍坐标(打开详情页时那一遍只补缺的、清错国家的,已经有坐标的不再动;
     /// 地点改名、当初搜到的是同名的另一家时,只能靠这里手动重来)。
     ///
     /// 查到了就覆盖旧坐标,**查不到就留着旧的**——宁可停在原来的位置,也不把一个
-    /// 好好的点清掉。判据和自动补全同一套(旅行的国家 / 验过的城市锚点),
-    /// 上一轮记下的"查不到"和"已验证"一并清掉重来。
+    /// 好好的点清掉。判据见 `geocodeContext`,上一轮记下的"查不到"和"已验证"一并清掉重来。
     /// 交通类不查:起降点、车站来自订单和表单,不拿地名搜索去猜。
-    static func relocateAll(for trip: TravelTrip,
-                            context: ModelContext) async -> (updated: Int, missed: Int) {
+    static func relocateAll(for trip: TravelTrip, context: ModelContext) async -> RelocateResult {
         PlaceGeocoder.resetMisses()
         verifiedCoordinates.removeAll()
+        var result = RelocateResult()
         let targets = items(for: trip.uuid, in: context).filter {
             $0.travelKind?.isTransport != true && !geocodeQuery(for: $0).isEmpty
         }
-        guard !targets.isEmpty else { return (0, 0) }
-        let hint = geocodeHint(for: trip)
-        let region = expectedRegion(for: trip)
-        var anchor: CLLocationCoordinate2D?
-        if region == nil {
-            anchor = await PlaceGeocoder.verifiedAnchor(city: anchorCity(for: trip), hint: hint)
-            guard anchor != nil else { return (0, targets.count) }
-        } else if let hint {
-            anchor = await PlaceGeocoder.coordinate(for: hint, region: region)
+        guard !targets.isEmpty else { return result }
+        guard let geo = await geocodeContext(for: trip) else {
+            result.destinationUnknown = true
+            result.missed = targets.count
+            return result
         }
-        var updated = 0
-        var missed = 0
         for item in targets.prefix(geocodeBudget) {
             guard let coordinate = await PlaceGeocoder.coordinate(
-                for: geocodeQuery(for: item), hint: hint, anchor: anchor, region: region) else {
-                missed += 1
+                for: geocodeQuery(for: item), hint: geo.hint, anchor: geo.anchor, region: geo.region) else {
+                result.missed += 1
                 continue
             }
-            if item.travelLatitude != coordinate.latitude || item.travelLongitude != coordinate.longitude {
+            let moved = item.travelLatitude.map { abs($0 - coordinate.latitude) > 1e-5 } ?? true
+                || item.travelLongitude.map { abs($0 - coordinate.longitude) > 1e-5 } ?? true
+            if moved {
                 item.travelLatitude = coordinate.latitude
                 item.travelLongitude = coordinate.longitude
                 if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
+                result.moved += 1
+            } else {
+                result.unchanged += 1
             }
             verifiedCoordinates.insert(item.uuid)
-            updated += 1
         }
-        missed += max(0, targets.count - geocodeBudget)
+        result.missed += max(0, targets.count - geocodeBudget)
         try? context.save()
-        return (updated, missed)
+        return result
+    }
+
+    /// 查一条行程项的位置(按天列表里点了一个还没坐标的地点时用),查到就写进去。
+    static func locate(_ item: MemoryItem, in trip: TravelTrip, context: ModelContext) async -> Bool {
+        let query = geocodeQuery(for: item)
+        guard !query.isEmpty, item.travelKind?.isTransport != true,
+              let geo = await geocodeContext(for: trip, existingAnchor: anchorCoordinate(for: trip, context: context)),
+              let coordinate = await PlaceGeocoder.coordinate(
+                for: query, hint: geo.hint, anchor: geo.anchor, region: geo.region) else { return false }
+        item.travelLatitude = coordinate.latitude
+        item.travelLongitude = coordinate.longitude
+        if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
+        try? context.save()
+        return true
+    }
+
+    /// 已有行程项里的一个坐标(交通类除外——起降机场分处两地,拿它当锚点会把整趟偏到出发地去)。
+    private static func anchorCoordinate(for trip: TravelTrip, context: ModelContext) -> CLLocationCoordinate2D? {
+        items(for: trip.uuid, in: context)
+            .first { $0.travelKind?.isTransport != true && $0.travelLatitude != nil }
+            .flatMap { item in item.travelLatitude.flatMap { lat in
+                item.travelLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
+            } }
     }
 
     /// 把"有地名、没坐标"的行程项补上坐标,让它们能画到地图上。
     ///
     /// 坐标原本只有一条来路:用户在表单里点「搜索」选点(`PlaceSearchView`)。
     /// 手打的地名、AI 规划/调整生成的安排都没有坐标,地图那一页于是常年是空的。
-    /// 这里在打开旅行详情时补一遍:按地名(带上旅行的城市/国家消歧)查一次
-    /// `MKLocalSearch`,**查得到就记下来,查不到就留空**——留空的项照旧不上地图,
+    /// 这里在打开旅行详情时补一遍:按地名(带上旅行的城市/国家消歧)查一次,
+    /// **查得到就记下来,查不到就留空**——留空的项照旧不上地图,
     /// 不编一个大概的位置糊弄(画错位置比不画更糟)。
     ///
     /// 航班不在此列:它的起降点是机场,名字来自订单解析,不拿地名搜索去猜。
-    /// 一次最多补 `geocodeBudget` 条,逐条串行——`MKLocalSearch` 有限流,
-    /// 并发打一堆只会集体拿到 throttled。
+    /// 一次最多补 `geocodeBudget` 条,逐条串行——`MKLocalSearch`/Nominatim 都有限流。
     static func fillMissingCoordinates(
         for trip: TravelTrip, context: ModelContext, limit: Int = geocodeBudget
     ) async {
-        let all = items(for: trip.uuid, in: context)
-        let pending = all.filter { item in
+        let pending = items(for: trip.uuid, in: context).filter { item in
             item.travelLatitude == nil && item.travelLongitude == nil
                 && item.travelKind != .flight && !geocodeQuery(for: item).isEmpty
         }
         guard !pending.isEmpty else { return }
-        let hint = geocodeHint(for: trip)
-        // 这趟旅行该在哪个国家。有它就只认那个国家的结果(见 PlaceGeocoder 文件头);
-        // 认不出来(只填了城市名、旅行名里也看不出国家)时退回按锚点距离兜底。
-        let region = expectedRegion(for: trip)
-        // 先定一个锚点:这趟旅行大致在地球上的哪儿。有已经带坐标的行程项就用它
-        // (航班除外——起降机场分处两地,拿它当锚点会把整趟偏到出发地去),
-        // 否则按城市名单独搜一次。
-        var anchor = all.first { $0.travelKind != .flight && $0.travelLatitude != nil }
-            .flatMap { item in item.travelLatitude.flatMap { lat in
-                item.travelLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) }
-            } }
-        if region == nil {
-            // **认不出国家时,判据只能是一个验过的城市锚点**。这里不敢用现有行程项的
-            // 坐标:没有国家判据的旅行正是当初最容易搜岔的那批,拿它自己存下的错坐标
-            // 当锚点只会把错误坐实。验不出城市就整步跳过——不画点,也不乱画。
-            anchor = await PlaceGeocoder.verifiedAnchor(city: anchorCity(for: trip), hint: hint)
-            guard anchor != nil else { return }
-        } else if anchor == nil, let hint {
-            anchor = await PlaceGeocoder.coordinate(for: hint, region: region)
-        }
+        // 认得出国家时可以拿已有行程项的坐标当锚点;认不出国家时 geocodeContext 不用它
+        // ——没有国家判据的旅行正是当初最容易搜岔的那批,拿它自己存下的坐标当锚点只会把错误坐实。
+        guard var geo = await geocodeContext(
+            for: trip, existingAnchor: anchorCoordinate(for: trip, context: context)) else { return }
         var filled = false
         for item in pending.prefix(limit) {
             guard let coordinate = await PlaceGeocoder.coordinate(
-                for: geocodeQuery(for: item), hint: hint, anchor: anchor, region: region)
+                for: geocodeQuery(for: item), hint: geo.hint, anchor: geo.anchor, region: geo.region)
             else { continue }
             item.travelLatitude = coordinate.latitude
             item.travelLongitude = coordinate.longitude
             // 地名原来空着(用标题搜到的)时顺手补上,详情页那行才显示得出地点。
             if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
-            anchor = anchor ?? coordinate
+            geo.anchor = geo.anchor ?? coordinate
             filled = true
         }
         if filled { try? context.save() }
@@ -450,15 +495,8 @@ enum TravelStore {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         if !parts.isEmpty { return parts.joined(separator: " ") }
-        let title = trip.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return title.isEmpty ? nil : title
-    }
-
-    /// 验锚点时拿去搜的城市名:优先城市字段,空着就用旅行名(「东京四日」这种名字
-    /// 里通常带着目的地;验不过就当作没有锚点,不会因此画错点)。
-    private static func anchorCity(for trip: TravelTrip) -> String {
-        let city = trip.city.trimmingCharacters(in: .whitespacesAndNewlines)
-        return city.isEmpty ? trip.title.trimmingCharacters(in: .whitespacesAndNewlines) : city
+        // 两栏都空时用旅行名去掉「四日」「三日游」之类尾巴后的城市名,拼进搜索词才有用。
+        return TravelDestination.cityCandidates(city: "", title: trip.title).first
     }
 
     /// 一次补全最多查几条。够覆盖一趟旅行的常规条数,又不至于一打开详情页就把

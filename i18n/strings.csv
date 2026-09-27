@@ -915,3 +915,10 @@ place_search.osm_failed,"OpenStreetMap 搜索失败,检查一下网络再试。"
 place_search.osm_hint,"苹果地图在当前网络下可能只有中国大陆的数据,找不到国外地点时可以试试这里。",On this network Apple Maps may only have mainland China data. Try here if a place abroad can't be found.,ios_view,选地点
 place_search.osm_attribution,地图数据 © OpenStreetMap 贡献者,Map data © OpenStreetMap contributors,ios_view,选地点
 place_search.osm_header,OpenStreetMap,OpenStreetMap,ios_view,选地点
+travel.relocate_unknown,"认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。",Couldn't tell which city this trip is in. Add a city or country in Edit Trip.,ios_view,旅行详情
+travel.relocate_nochange,"已重新查找 %lld 个地点,位置都没有变化。",Looked up %lld places again; none of their locations changed.,ios_view,旅行详情
+travel.relocate_moved,已重新查找 %lld 个地点:%lld 个位置有更新。,Looked up %lld places again: %lld moved.,ios_view,旅行详情
+travel.relocate_moved_same,"已重新查找 %lld 个地点:%lld 个位置有更新,%lld 个没变。","Looked up %lld places again: %lld moved, %lld unchanged.",ios_view,旅行详情
+travel.relocate_moved_same_missed,"已重新查找 %lld 个地点:%lld 个位置有更新,%lld 个没变,%lld 个没搜到(保留原来的位置)。","Looked up %lld places again: %lld moved, %lld unchanged, %lld not found (kept their previous locations).",ios_view,旅行详情
+travel.locating,正在查找「%@」的位置…,Looking up “%@”…,ios_view,旅行详情
+travel.locate_failed,"没找到「%@」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。",Couldn't find “%@”. Tap ⓘ to edit it and pick the place with Search.,ios_view,旅行详情

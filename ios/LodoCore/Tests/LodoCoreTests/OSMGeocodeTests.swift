@@ -75,4 +75,33 @@ final class OSMGeocodeTests: XCTestCase {
         XCTAssertEqual(arranged.map(\.id), ["yokohama", "kyoto", "fukuoka"])
         XCTAssertEqual(OSMGeocode.arrangeForPicker([kyoto, fukuoka], anchor: nil).map(\.id), ["kyoto", "fukuoka"])
     }
+
+    func testPickPrefersImportanceAndNearbyAnchor() {
+        func place(_ id: String, _ lat: Double, _ lon: Double, _ importance: Double) -> OSMGeocode.Place {
+            OSMGeocode.Place(id: id, name: "清水寺", displayName: "", latitude: lat, longitude: lon,
+                             countryCode: "JP", names: ["清水寺"], addressType: "amenity",
+                             importance: importance)
+        }
+        let fukuoka = place("fukuoka", 33.15, 130.52, 0.10)
+        let kyoto = place("kyoto", 34.9949, 135.7850, 0.55)
+        let yokohama = place("yokohama", 35.43, 139.64, 0.08)
+        let all = [fukuoka, kyoto, yokohama]
+        // 没有锚点:取最有名的,不取 Nominatim 的第一条。
+        XCTAssertEqual(OSMGeocode.pick(all, query: "清水寺", region: "JP", anchor: nil)?.id, "kyoto")
+        // 锚点在京都:附近那座。
+        let kyotoAnchor = TravelCoordinate(latitude: 35.01, longitude: 135.77)
+        XCTAssertEqual(OSMGeocode.pick(all, query: "清水寺", region: "JP", anchor: kyotoAnchor)?.id, "kyoto")
+        // 锚点在福冈附近:取附近的,哪怕不如京都那座有名。
+        let fukuokaAnchor = TravelCoordinate(latitude: 33.59, longitude: 130.40)
+        XCTAssertEqual(OSMGeocode.pick(all, query: "清水寺", region: "JP", anchor: fukuokaAnchor)?.id, "fukuoka")
+        // 附近一个都没有:全部里最有名的;再给距离上限就拒绝。
+        let sapporo = TravelCoordinate(latitude: 43.06, longitude: 141.35)
+        XCTAssertEqual(OSMGeocode.pick(all, query: "清水寺", region: "JP", anchor: sapporo)?.id, "kyoto")
+        XCTAssertNil(OSMGeocode.pick(all, query: "清水寺", region: nil, anchor: sapporo, maxDistance: 300_000))
+    }
+
+    func testParseImportance() {
+        let data = #"[{"lat":"1","lon":"2","name":"x","importance":0.42}]"#.data(using: .utf8)!
+        XCTAssertEqual(OSMGeocode.parse(data).first?.importance, 0.42)
+    }
 }

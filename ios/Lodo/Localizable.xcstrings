@@ -4319,6 +4319,70 @@
         }
       }
     },
+    "已重新查找 %lld 个地点,位置都没有变化。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looked up %lld places again; none of their locations changed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重新查找 %lld 个地点,位置都没有变化。"
+          }
+        }
+      }
+    },
+    "已重新查找 %lld 个地点:%lld 个位置有更新,%lld 个没变,%lld 个没搜到(保留原来的位置)。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looked up %lld places again: %lld moved, %lld unchanged, %lld not found (kept their previous locations)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重新查找 %lld 个地点:%lld 个位置有更新,%lld 个没变,%lld 个没搜到(保留原来的位置)。"
+          }
+        }
+      }
+    },
+    "已重新查找 %lld 个地点:%lld 个位置有更新,%lld 个没变。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looked up %lld places again: %lld moved, %lld unchanged."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重新查找 %lld 个地点:%lld 个位置有更新,%lld 个没变。"
+          }
+        }
+      }
+    },
+    "已重新查找 %lld 个地点:%lld 个位置有更新。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looked up %lld places again: %lld moved."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重新查找 %lld 个地点:%lld 个位置有更新。"
+          }
+        }
+      }
+    },
     "币种" : {
       "localizations" : {
         "en" : {
@@ -6885,6 +6949,22 @@
         }
       }
     },
+    "正在查找「%@」的位置…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking up “%@”…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查找「%@」的位置…"
+          }
+        }
+      }
+    },
     "正在生成…" : {
       "localizations" : {
         "en" : {
@@ -7157,6 +7237,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没从这段文字里读出行程项。换一段更完整的订单内容试试,或者直接手动添加。"
+          }
+        }
+      }
+    },
+    "没找到「%@」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't find “%@”. Tap ⓘ to edit it and pick the place with Search."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没找到「%@」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。"
           }
         }
       }
@@ -9092,6 +9188,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "订阅新闻网站或博客的 RSS,文章会按天排在这里。AI 可以总结单篇、生成今日简报,也能在订阅里帮你找文章。"
+          }
+        }
+      }
+    },
+    "认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't tell which city this trip is in. Add a city or country in Edit Trip."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。"
           }
         }
       }

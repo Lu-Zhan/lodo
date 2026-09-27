@@ -283,7 +283,11 @@ struct TravelListView: View {
         guard args.contains("--demo-travel") else { return }
         // 种子只在空库时铺,但"直接 push 进详情"每次都要生效——第二次启动时库里
         // 已经有旅行了,不能连 push 一起挡掉。
-        let trip = trips.first ?? seedDemoTrip()
+        var trip = trips.first ?? seedDemoTrip()
+        // 验证"认不出国家时刷新地点位置"用:一趟只有名字、城市国家都空、行程项都没坐标的旅行。
+        if args.contains("--demo-travel-unknown-country") {
+            trip = trips.first { $0.title == "京都三日" } ?? seedUnknownCountryTrip()
+        }
         if args.contains("--demo-travel-flight") {
             attachDemoFlight(to: trip)
         }
@@ -296,6 +300,23 @@ struct TravelListView: View {
         if args.contains("--demo-travel-past-expanded") {
             showsPast = true
         }
+    }
+
+    /// AI 规划出来的老旅行的样子:只有「京都三日」这个名字,城市国家都空,行程项都没坐标。
+    private func seedUnknownCountryTrip() -> TravelTrip {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: 10, to: calendar.startOfDay(for: Date()))!
+        let trip = TravelTrip(title: "京都三日", startDate: start,
+                              endDate: calendar.date(byAdding: .day, value: 2, to: start)!)
+        context.insert(trip)
+        for (offset, name) in [(0, "清水寺"), (1, "金阁寺"), (1, "岚山"), (2, "伏见稻荷大社")] {
+            TravelStore.create(
+                tripUUID: trip.uuid, kind: .place, title: name,
+                start: calendar.date(byAdding: .hour, value: 24 * offset + 10, to: start),
+                placeName: name, context: context)
+        }
+        try? context.save()
+        return trip
     }
 
     /// 看"其他旅行"与"已结束"折叠栏的排版:一次更远的出发 + 两次已结束的,只铺一遍。

@@ -46,6 +46,15 @@ struct TravelDetailView: View {
     @State private var relocating = false
     /// 地图顶上停留一会儿的提示(刷新地点位置的结果)。
     @State private var mapNotice: String?
+    @State private var noticeTask: Task<Void, Never>?
+    /// 切换 mapDay 后要选中的点。行选中需要先把按天筛选退回「全部」,而 mapDay 的
+    /// onChange 默认会清掉选中、框全部点——有这个就改成飞到这个点。
+    @State private var pendingPin: String?
+    /// 左侧按天胶囊点了哪一天,面板列表滚过去(nil 且 token 变了 = 滚到第一天)。
+    @State private var panelScrollDay: Date?
+    @State private var panelScrollToken = 0
+    /// 正在按地名查位置的那一条(点了还没坐标的地点)。
+    @State private var locatingEntry: UUID?
 
     private static let peekDetent = PresentationDetent.height(200)
 
@@ -212,7 +221,11 @@ struct TravelDetailView: View {
         if args.contains("--demo-travel-day") { mode = .days }
         if args.contains("--demo-travel-cost") { mode = .cost }
         if args.contains("--demo-travel-map-day") {
-            mapDay = trip.days.count > 1 ? trip.days[1] : trip.days.first
+            // 走左侧胶囊同一条路(连面板滚动一起);等面板弹出来、列表建好再点。
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
+                selectDay(trip.days.count > 1 ? trip.days[1] : trip.days.first)
+            }
         }
         if args.contains("--demo-travel-panel-peek") { panelDetent = Self.peekDetent }
         if args.contains("--demo-travel-panel-large") { panelDetent = .large }
@@ -278,6 +291,7 @@ struct TravelDetailView: View {
     // MARK: - 按天
 
     private var dayList: some View {
+        ScrollViewReader { proxy in
         List {
             ForEach(TravelPlan.group(entries, into: trip.days)) { day in
                 Section {
@@ -313,6 +327,9 @@ struct TravelDetailView: View {
                             moveDropped(ids, to: day.date)
                         }
                 }
+                // 左侧按天胶囊选中某一天时滚到这里(见 selectDay)。List 的分区标题不能当
+                // scrollTo 的目标,实际对准的是分区第一行,锚点因此往下让出一截标题。
+                .id(day.date)
             }
             let extras = TravelPlan.outOfRange(entries, days: trip.days)
             if !extras.isEmpty {
@@ -330,6 +347,17 @@ struct TravelDetailView: View {
                     ForEach(pending) { entry in entryRow(entry) }
                 }
             }
+        }
+        .onChange(of: panelScrollToken) { _, _ in
+            guard let target = panelScrollDay ?? trip.days.first else { return }
+            // 等面板从露头升到半高、分段切回「按天」这一帧布局完再滚。
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(60))
+                withAnimation(.lodoAware(.snappy)) {
+                    proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.14))
+                }
+            }
+        }
         }
     }
 
@@ -372,7 +400,9 @@ struct TravelDetailView: View {
     /// 关掉就全部画直线。
     private var mapLayer: some View {
         Map(position: $camera, selection: $selectedPin) {
-            ForEach(mapPins(for: mapDay)) { pin in
+            // 以 renderKey(id + 坐标)做标识:刷新地点位置后同一个点换了坐标,
+            // 按 id 不变的话不保证 MapKit 会把标记挪过去。选中仍按 tag(pin.id)。
+            ForEach(mapPins(for: mapDay), id: \.renderKey) { pin in
                 Marker(pin.title, systemImage: pin.systemImage, coordinate: pin.coordinate)
                     .tint(pin.color)
                     .tag(pin.id)
@@ -390,8 +420,14 @@ struct TravelDetailView: View {
         }
         .onAppear { focusCamera(animated: false) }
         .onChange(of: mapDay) { _, _ in
-            selectedPin = nil
-            focusCamera(animated: true)
+            if let pin = pendingPin.flatMap({ id in mapPins(for: nil).first { $0.id == id } }) {
+                pendingPin = nil
+                selectedPin = pin.id
+                focus(on: [pin], animated: true)
+            } else {
+                selectedPin = nil
+                focusCamera(animated: true)
+            }
         }
         // 直接点地图上的点也一样飞过去(和点列表里那一行同一个效果)。
         .onChange(of: selectedPin) { _, id in
@@ -444,10 +480,10 @@ struct TravelDetailView: View {
     private var dayFilterRail: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 6) {
-                railButton(title: "全部", selected: mapDay == nil) { mapDay = nil }
+                railButton(title: "全部", selected: mapDay == nil) { selectDay(nil) }
                 ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
                     railButton(title: "\(index + 1)", selected: mapDay == day) {
-                        mapDay = (mapDay == day) ? nil : day
+                        selectDay(mapDay == day ? nil : day)
                     }
                 }
             }
@@ -517,38 +553,105 @@ struct TravelDetailView: View {
         }
     }
 
+    /// 左侧按天胶囊选了某一天(nil = 全部):地图只画那天,面板列表也滚到那一天
+    /// (面板在「价格」时切回「按天」,露头时升到半高,不然看不见列表)。
+    /// 只有胶囊触发滚动——点列表里的行引起的切天不滚,列表不该在手指底下跳走。
+    private func selectDay(_ day: Date?) {
+        mapDay = day
+        if mode != .days { mode = .days }
+        if panelDetent == Self.peekDetent { panelDetent = .medium }
+        panelScrollDay = day
+        panelScrollToken += 1
+    }
+
     /// 点列表里的一行:有坐标就让地图飞过去并选中那个点(面板在全屏时降回半高,
-    /// 不然看不见地图);没坐标就直接打开详情。
+    /// 不然看不见地图);地点还没坐标就当场按地名查一次,查到了再飞过去;
+    /// 交通类(起降点来自订单)没坐标就直接打开详情。
     private func select(_ entry: TravelEntry) {
         guard let pin = mapPins(for: nil).first(where: { $0.entryID == entry.id }) else {
-            open(entry)
+            if entry.kind.isTransport { open(entry) } else { locateAndFocus(entry) }
             return
         }
-        // 当前按天筛选看不到这个点时,先退回「全部」。
-        if !mapPins(for: mapDay).contains(where: { $0.id == pin.id }) { mapDay = nil }
         if panelDetent == .large { panelDetent = .medium }
-        selectedPin = pin.id
-        focus(on: [pin], animated: true)
+        if mapPins(for: mapDay).contains(where: { $0.id == pin.id }) {
+            selectedPin = pin.id
+            focus(on: [pin], animated: true)
+        } else {
+            // 当前按天筛选看不到这个点:退回「全部」,由 mapDay 的 onChange 接着飞过去。
+            pendingPin = pin.id
+            mapDay = nil
+        }
+    }
+
+    private func locateAndFocus(_ entry: TravelEntry) {
+        guard locatingEntry == nil, let item = item(for: entry) else { return }
+        locatingEntry = entry.id
+        showNotice(String(localized: "正在查找「\(entry.placeName ?? entry.title)」的位置…"), sticky: true)
+        Task {
+            let found = await TravelStore.locate(item, in: trip, context: context)
+            locatingEntry = nil
+            if found, let pin = mapPins(for: nil).first(where: { $0.entryID == entry.id }) {
+                showNotice(nil)
+                if panelDetent == .large { panelDetent = .medium }
+                if mapPins(for: mapDay).contains(where: { $0.id == pin.id }) {
+                    selectedPin = pin.id
+                    focus(on: [pin], animated: true)
+                } else {
+                    pendingPin = pin.id
+                    mapDay = nil
+                }
+            } else {
+                showNotice(String(localized: "没找到「\(entry.placeName ?? entry.title)」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。"))
+            }
+        }
+    }
+
+    /// 地图顶上的提示。sticky 的一直挂着(进行中),否则几秒后自己消失。
+    private func showNotice(_ text: String?, sticky: Bool = false) {
+        noticeTask?.cancel()
+        mapNotice = text
+        guard text != nil, !sticky else { return }
+        noticeTask = Task {
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            mapNotice = nil
+        }
     }
 
     private func relocate() {
         relocating = true
-        mapNotice = String(localized: "正在按地名重新查找位置…")
+        showNotice(String(localized: "正在按地名重新查找位置…"), sticky: true)
         Task {
             let result = await TravelStore.relocateAll(for: trip, context: context)
             relocating = false
-            if result.updated == 0 && result.missed == 0 {
-                mapNotice = String(localized: "这次旅行里没有可以查位置的地点。")
-            } else if result.missed == 0 {
-                mapNotice = String(localized: "已更新 \(result.updated) 个地点的位置。")
+            showNotice(Self.relocateMessage(result))
+            // 选中的点还在就飞到它的新位置,否则把全部点重新框一遍。
+            if let id = selectedPin, let pin = mapPins(for: nil).first(where: { $0.id == id }) {
+                focus(on: [pin], animated: true)
             } else {
-                mapNotice = String(localized: "已更新 \(result.updated) 个地点,\(result.missed) 个没搜到(保留原来的位置)。")
+                selectedPin = nil
+                focusCamera(animated: true)
             }
-            selectedPin = nil
-            focusCamera(animated: true)
-            try? await Task.sleep(for: .seconds(3))
-            if !relocating { mapNotice = nil }
         }
+    }
+
+    /// 分开说"变了几个 / 没变 / 没搜到",看得出刷新到底有没有生效。
+    private static func relocateMessage(_ result: TravelStore.RelocateResult) -> String {
+        if result.destinationUnknown {
+            return String(localized: "认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。")
+        }
+        if result.total == 0 {
+            return String(localized: "这次旅行里没有可以查位置的地点。")
+        }
+        if result.moved == 0 && result.missed == 0 {
+            return String(localized: "已重新查找 \(result.total) 个地点,位置都没有变化。")
+        }
+        if result.missed == 0 {
+            return result.unchanged == 0
+                ? String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新。")
+                : String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变。")
+        }
+        return String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变,\(result.missed) 个没搜到(保留原来的位置)。")
     }
 
     // MARK: - 路线
@@ -626,6 +729,10 @@ struct TravelDetailView: View {
         let systemImage: String
         let coordinate: CLLocationCoordinate2D
         let color: Color
+
+        var renderKey: String {
+            String(format: "%@|%.5f,%.5f", id, coordinate.latitude, coordinate.longitude)
+        }
     }
 
     /// 地图上的点。`day` 为 nil = 全部(含未排期和日期之外的);给了某一天就只要那天的。
