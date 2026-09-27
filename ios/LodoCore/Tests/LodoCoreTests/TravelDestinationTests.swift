@@ -20,4 +20,11 @@ final class TravelDestinationTests: XCTestCase {
         XCTAssertEqual(TravelDestination.cityCandidates(city: "大阪", title: "关西五日游"), ["大阪", "关西"])
         XCTAssertEqual(TravelDestination.cityCandidates(city: " ", title: ""), [])
     }
+
+    func testLodgingQuery() {
+        XCTAssertEqual(TravelDestination.lodgingQuery("住新宿一带"), "新宿")
+        XCTAssertEqual(TravelDestination.lodgingQuery("入住京都站附近"), "京都站")
+        XCTAssertEqual(TravelDestination.lodgingQuery("新宿王子酒店"), "新宿王子酒店")
+        XCTAssertEqual(TravelDestination.lodgingQuery("住"), "住")
+    }
 }

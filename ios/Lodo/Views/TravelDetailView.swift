@@ -754,14 +754,15 @@ struct TravelDetailView: View {
 
     // MARK: - 路线
 
-    /// 某一天(nil = 全部)要连线的点:当天按时间排的地点(`TravelPlan.route`,
-    /// 住宿和交通只画点不连线——傍晚才入住的酒店连到早上的景点会画出折返线)。
+    /// 某一天(nil = 全部)要连线的点:前一晚的酒店出发 → 当天按时间排的地点 → 当晚的酒店
+    /// (`TravelPlan.dayRoute`);交通类照旧只画点不连线(两头分处两地)。
     private func routeDays(for day: Date?) -> [(index: Int, date: Date, points: [TravelCoordinate])] {
         TravelPlan.group(entries, into: trip.days)
             .enumerated()
             .filter { day == nil || $0.element.date == day }
             .map { index, grouped in
-                (index, grouped.date, TravelPlan.route(grouped).compactMap(\.coordinate))
+                (index, grouped.date,
+                 TravelPlan.dayRoute(grouped, entries: entries).compactMap(\.coordinate))
             }
     }
 

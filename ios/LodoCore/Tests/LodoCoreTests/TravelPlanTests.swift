@@ -128,6 +128,31 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertEqual(TravelPlan.route(day).map(\.title), ["筑地市场", "午餐"])
     }
 
+    /// 一天的完整路线:前一晚的酒店出发 → 当天景点(按时间)→ 当晚的酒店;
+    /// 换酒店那天是旧酒店 → 新酒店;第一天没有前一晚、最后一天没有当晚。
+    func testDayRouteStartsAndEndsAtHotels() {
+        func placed(_ kind: TravelItemKind, _ title: String, day: Int, hour: Int,
+                    end: Date? = nil) -> TravelEntry {
+            TravelEntry(id: UUID(), kind: kind, title: title, start: date(day: day, hour: hour), end: end,
+                        coordinate: TravelCoordinate(latitude: 35 + Double(day) / 100, longitude: 139))
+        }
+        // 7/8、7/9 住 A,7/10 住 B,7/11 退房回家。
+        let hotelA = placed(.lodging, "酒店A", day: 8, hour: 16, end: date(day: 10, hour: 10))
+        let hotelB = placed(.lodging, "酒店B", day: 10, hour: 18, end: date(day: 11, hour: 10))
+        let sights = [placed(.place, "8日景点", day: 8, hour: 10),
+                      placed(.place, "9日上午", day: 9, hour: 9),
+                      placed(.place, "9日下午", day: 9, hour: 15),
+                      placed(.place, "10日景点", day: 10, hour: 11),
+                      placed(.place, "11日景点", day: 11, hour: 12)]
+        let all = [hotelA, hotelB] + sights
+        let grouped = TravelPlan.group(all, into: days)
+        let routes = grouped.map { TravelPlan.dayRoute($0, entries: all).map(\.title) }
+        XCTAssertEqual(routes[0], ["8日景点", "酒店A"])
+        XCTAssertEqual(routes[1], ["酒店A", "9日上午", "9日下午", "酒店A"])
+        XCTAssertEqual(routes[2], ["酒店A", "10日景点", "酒店B"])
+        XCTAssertEqual(routes[3], ["酒店B", "11日景点"])
+    }
+
     /// 火车/客车和航班一样只落在出发那天,也和航班一样算"交通"。
     func testTransportKindsLandOnStartDay() {
         let train = entry(.train, "新干线 のぞみ", start: date(day: 9, hour: 7))

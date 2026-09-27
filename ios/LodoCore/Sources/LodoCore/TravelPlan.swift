@@ -229,6 +229,23 @@ public enum TravelPlan {
         sorted(day.entries.filter { $0.kind == .place && $0.coordinate != nil })
     }
 
+    /// 某一天完整的路线:**从前一晚住的酒店出发 → 按时间串起当天的地点 → 回到当晚住的酒店**。
+    ///
+    /// 住宿不再只画点:出门、回来都是从酒店,只连景点的话看不出一天是怎么走的。
+    /// 前一晚/当晚是否住在某处按 `lodgingNight` 判(`entries` 要传全部行程项——第一天
+    /// 早上的酒店可能是行程开始前一晚入住的,不在任何一天的分组里)。换酒店那天自然是
+    /// 旧酒店 → 景点 → 新酒店;第一天没有前一晚、最后一天没有当晚,那一头就从景点起止。
+    /// 只收有坐标的;交通类照旧不进线(两头分处两地)。首尾同一家酒店时就是一个闭环。
+    public static func dayRoute(_ day: TravelDay, entries: [TravelEntry],
+                                calendar: Calendar = .current) -> [TravelEntry] {
+        let lodgings = entries.filter { $0.kind == .lodging && $0.coordinate != nil }
+        let tonight = lodgings.first { lodgingNight($0, day: day.date, calendar: calendar) != nil }
+        let morning = calendar.date(byAdding: .day, value: -1, to: day.date).flatMap { previous in
+            lodgings.first { lodgingNight($0, day: previous, calendar: calendar) != nil }
+        }
+        return [morning].compactMap { $0 } + route(day) + [tonight].compactMap { $0 }
+    }
+
     /// 住宿在某一天的位置:是不是入住当晚、是不是最后一晚(第二天就退房走了)。
     /// 只住一晚时两个都为 true。不是住宿、或这一晚不住这儿时返回 nil。
     ///

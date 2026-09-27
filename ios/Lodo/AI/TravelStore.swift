@@ -394,8 +394,7 @@ enum TravelStore {
             return result
         }
         for item in targets.prefix(geocodeBudget) {
-            guard let coordinate = await PlaceGeocoder.coordinate(
-                for: geocodeQuery(for: item), hint: geo.hint, anchor: geo.anchor, region: geo.region) else {
+            guard let coordinate = await lookUp(item, with: geo) else {
                 result.missed += 1
                 continue
             }
@@ -418,11 +417,9 @@ enum TravelStore {
 
     /// 查一条行程项的位置(按天列表里点了一个还没坐标的地点时用),查到就写进去。
     static func locate(_ item: MemoryItem, in trip: TravelTrip, context: ModelContext) async -> Bool {
-        let query = geocodeQuery(for: item)
-        guard !query.isEmpty, item.travelKind?.isTransport != true,
+        guard !geocodeQuery(for: item).isEmpty, item.travelKind?.isTransport != true,
               let geo = await geocodeContext(for: trip, existingAnchor: anchorCoordinate(for: trip, context: context)),
-              let coordinate = await PlaceGeocoder.coordinate(
-                for: query, hint: geo.hint, anchor: geo.anchor, region: geo.region) else { return false }
+              let coordinate = await lookUp(item, with: geo) else { return false }
         item.travelLatitude = coordinate.latitude
         item.travelLongitude = coordinate.longitude
         if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
@@ -463,9 +460,7 @@ enum TravelStore {
             for: trip, existingAnchor: anchorCoordinate(for: trip, context: context)) else { return }
         var filled = false
         for item in pending.prefix(limit) {
-            guard let coordinate = await PlaceGeocoder.coordinate(
-                for: geocodeQuery(for: item), hint: geo.hint, anchor: geo.anchor, region: geo.region)
-            else { continue }
+            guard let coordinate = await lookUp(item, with: geo) else { continue }
             item.travelLatitude = coordinate.latitude
             item.travelLongitude = coordinate.longitude
             // 地名原来空着(用标题搜到的)时顺手补上,详情页那行才显示得出地点。
@@ -507,6 +502,32 @@ enum TravelStore {
     private static func geocodeQuery(for item: MemoryItem) -> String {
         let place = (item.travelPlaceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return place.isEmpty ? item.title.trimmingCharacters(in: .whitespacesAndNewlines) : place
+    }
+
+    /// 依次去查的词。**住宿先查酒店本身**(标题,「住新宿一带」这类 AI 写法先去掉
+    /// 「住/一带」,见 `TravelDestination.lodgingQuery`),查不到再退回它填的地点(多半是
+    /// 所在地区)——每天的路线从酒店出发、回到酒店,酒店钉在地区中心也比不上地图强。
+    /// 其余行程项只查一个词。
+    private static func geocodeQueries(for item: MemoryItem) -> [String] {
+        guard item.travelKind == .lodging else { return [geocodeQuery(for: item)] }
+        let candidates = [TravelDestination.lodgingQuery(item.title),
+                          (item.travelPlaceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)]
+        var result: [String] = []
+        for candidate in candidates where !candidate.isEmpty && !result.contains(candidate) {
+            result.append(candidate)
+        }
+        return result
+    }
+
+    /// 按 `geocodeQueries` 的顺序查,第一个查到的就用。
+    private static func lookUp(_ item: MemoryItem, with geo: GeocodeContext) async -> CLLocationCoordinate2D? {
+        for query in geocodeQueries(for: item) {
+            if let coordinate = await PlaceGeocoder.coordinate(
+                for: query, hint: geo.hint, anchor: geo.anchor, region: geo.region) {
+                return coordinate
+            }
+        }
+        return nil
     }
 
     // MARK: - AI 调整

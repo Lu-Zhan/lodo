@@ -52,4 +52,19 @@ public enum TravelDestination {
         }
         return text
     }
+
+    /// 住宿拿去查位置的名字:AI 规划的住宿写成「住新宿一带」「入住京都站附近」,
+    /// 去掉「住/入住/住在」和「一带/附近/周边」才是能查的地名。去完为空就原样返回。
+    public static func lodgingQuery(_ title: String) -> String {
+        var text = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in ["入住", "住在", "住"] where text.hasPrefix(prefix) && text.count > prefix.count {
+            text.removeFirst(prefix.count)
+            break
+        }
+        for suffix in ["一带", "附近", "周边", "周围", "区域"] where text.hasSuffix(suffix) && text.count > suffix.count {
+            text.removeLast(suffix.count)
+            break
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
