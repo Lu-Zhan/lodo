@@ -119,6 +119,16 @@ struct PlaceSearchView: View {
                 query = args[index + 1]
                 try? await Task.sleep(for: .seconds(4))
                 searchOSM()
+                // 再加 --demo-place-pick:OSM 结果回来后自动选第一条(simctl 点不了行)。
+                guard args.contains("--demo-place-pick") else { return }
+                for _ in 0..<20 where osmResults.isEmpty {
+                    try? await Task.sleep(for: .milliseconds(500))
+                }
+                if let place = osmResults.first {
+                    onPick(place.name, CLLocationCoordinate2D(latitude: place.latitude,
+                                                              longitude: place.longitude))
+                    dismiss()
+                }
             }
             #endif
         }

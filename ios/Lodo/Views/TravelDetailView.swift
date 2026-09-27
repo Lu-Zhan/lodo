@@ -229,6 +229,11 @@ struct TravelDetailView: View {
         if args.contains("--demo-travel-item") {
             viewingItem = items.first { $0.travelKind != .flight }
         }
+        // 截图验证用:编辑第一条有地名的地点(配 --demo-place-search <词> --demo-place-pick
+        // 复现"选了搜索结果、坐标却被清掉"那个问题)。
+        if args.contains("--demo-travel-edit-place") {
+            editingItem = items.first { $0.travelKind == .place && !($0.travelPlaceName ?? "").isEmpty }
+        }
         if args.contains("--demo-travel-trip-edit") { editingTrip = true }
         if args.contains("--demo-travel-flight") {
             viewingFlight = items.first { $0.travelKind == .flight && $0.travelFlightData != nil }

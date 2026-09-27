@@ -32,6 +32,11 @@ struct TravelItemEditView: View {
     @State private var originName = ""
     @State private var originCoordinate: CLLocationCoordinate2D?
     @State private var searching: SearchTarget?
+    /// 刚从搜索结果里选中的名字。选中时名字和坐标是一起写的,下面 placeRow 的
+    /// onChange 会把"名字变了"误当成用户手动改名、顺手清掉刚选的坐标——OSM 结果
+    /// 的名字(「Kiyomizu-dera」「淺草寺」)几乎总和输入框里原来那几个字不一样,
+    /// 选完坐标就没了,地图上自然没有点。记下来,等于这个名字的变化不算手动改名。
+    @State private var pickedNames: [SearchTarget: String] = [:]
     @State private var didLoad = false
     /// 已存的航班补充信息(多半来自导入的截图)。表单只露出最常手改的几项,
     /// 其余字段(状态、预计时刻、三字码…)保存时原样带回去。
@@ -212,6 +217,7 @@ struct TravelItemEditView: View {
                 // 把这趟旅行的城市/国家一起带给搜索:不带的话「清水寺」搜出来的
                 // 第一条可能在国内(见 PlaceSearchView 文件头)。
                 PlaceSearchView(onPick: { name, coordinate in
+                    pickedNames[target] = name
                     switch target {
                     case .place:
                         placeName = name
@@ -252,7 +258,8 @@ struct TravelItemEditView: View {
         }
         // 手打名字就说明用户不想用刚才搜到的那个点了,旧坐标留着会把地图钉在错的地方。
         .onChange(of: name.wrappedValue) { old, new in
-            if old != new, !old.isEmpty { coordinate.wrappedValue = nil }
+            // 从搜索结果选来的名字不算手动改名(见 pickedNames);选完再手改照样清。
+            if old != new, !old.isEmpty, new != pickedNames[target] { coordinate.wrappedValue = nil }
         }
     }
 
