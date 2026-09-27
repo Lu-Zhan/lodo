@@ -288,6 +288,10 @@ struct TravelListView: View {
         if args.contains("--demo-travel-unknown-country") {
             trip = trips.first { $0.title == "京都三日" } ?? seedUnknownCountryTrip()
         }
+        // 验证按天胶囊超过 6 格时的滚动:一趟 8 天的旅行。
+        if args.contains("--demo-travel-long") {
+            trip = trips.first { $0.title == "北海道八日" } ?? seedLongTrip()
+        }
         // 验证"没填城市国家时提醒去填"用:名字里也看不出目的地。
         if args.contains("--demo-travel-no-location") {
             trip = trips.first { $0.title == "毕业旅行" } ?? seedUnknownCountryTrip(title: "毕业旅行")
@@ -307,6 +311,24 @@ struct TravelListView: View {
     }
 
     /// AI 规划出来的老旅行的样子:只有「京都三日」这个名字,城市国家都空,行程项都没坐标。
+    private func seedLongTrip() -> TravelTrip {
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: 20, to: calendar.startOfDay(for: Date()))!
+        let trip = TravelTrip(title: "北海道八日", startDate: start,
+                              endDate: calendar.date(byAdding: .day, value: 7, to: start)!,
+                              city: "札幌", country: "日本")
+        context.insert(trip)
+        let places = ["大通公园", "小樽运河", "二世古", "洞爷湖", "登别地狱谷", "富良野", "美瑛", "旭山动物园"]
+        for (offset, name) in places.enumerated() {
+            TravelStore.create(
+                tripUUID: trip.uuid, kind: .place, title: name,
+                start: calendar.date(byAdding: .hour, value: 24 * offset + 10, to: start),
+                placeName: name, context: context)
+        }
+        try? context.save()
+        return trip
+    }
+
     private func seedUnknownCountryTrip(title: String = "京都三日") -> TravelTrip {
         let calendar = Calendar.current
         let start = calendar.date(byAdding: .day, value: 10, to: calendar.startOfDay(for: Date()))!

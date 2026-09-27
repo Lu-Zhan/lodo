@@ -239,6 +239,14 @@ struct TravelDetailView: View {
                 selectDay(trip.days.count > 1 ? trip.days[1] : trip.days.first)
             }
         }
+        // 截图验证用:--demo-travel-rail-select N 直接在左侧胶囊里选第 N 天。
+        if let index = args.firstIndex(of: "--demo-travel-rail-select"), index + 1 < args.count,
+           let n = Int(args[index + 1]), trip.days.indices.contains(n - 1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
+                selectDay(trip.days[n - 1])
+            }
+        }
         if args.contains("--demo-travel-panel-peek") { panelDetent = Self.peekDetent }
         if args.contains("--demo-travel-panel-large") { panelDetent = .large }
         if args.contains("--demo-travel-straight") { showsRoutes = false }
@@ -536,22 +544,46 @@ struct TravelDetailView: View {
 
     /// 地图左上角那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
     /// 并缩放到把那一天完整框进来(`focusCamera`)。天数多了能上下滑。
+    /// 胶囊宽度和左上角返回键一样(48pt),里面的按钮 36pt。
+    private static let railWidth: CGFloat = 48
+    private static let railButtonSize: CGFloat = 36
+    private static let railSpacing: CGFloat = 6
+    /// 一次最多露出几格(「全部」+ 天数),再多就滚。面板半高时地图只露出上半截。
+    private static let railVisibleSlots = 6
+
     private var dayFilterRail: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 6) {
-                railButton(title: "全部", selected: mapDay == nil) { selectDay(nil) }
-                ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
-                    railButton(title: "\(index + 1)", selected: mapDay == day) {
-                        selectDay(mapDay == day ? nil : day)
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: Self.railSpacing) {
+                    railButton(title: "全部", selected: mapDay == nil) { selectDay(nil) }
+                        .id(-1)
+                    ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
+                        railButton(title: "\(index + 1)", selected: mapDay == day) {
+                            selectDay(mapDay == day ? nil : day)
+                        }
+                        .id(index)
+                    }
+                }
+                .padding((Self.railWidth - Self.railButtonSize) / 2)
+            }
+            .frame(width: Self.railWidth,
+                   height: CGFloat(min(trip.days.count + 1, Self.railVisibleSlots))
+                       * (Self.railButtonSize + Self.railSpacing) - Self.railSpacing
+                       + (Self.railWidth - Self.railButtonSize))
+            .glassBackground(RoundedRectangle(cornerRadius: Self.railWidth / 2, style: .continuous))
+            // 天数比能露出的格数多时,选中某天后让它后面两天也露出来(选 4 看得到 6、
+            // 选 5 看得到 7),往后翻不用自己拖;选「全部」回到顶上。
+            .onChange(of: mapDay) { _, day in
+                guard trip.days.count + 1 > Self.railVisibleSlots else { return }
+                withAnimation(.lodoAware(.snappy)) {
+                    if let day, let index = trip.days.firstIndex(of: day) {
+                        proxy.scrollTo(min(index + 2, trip.days.count - 1), anchor: .bottom)
+                    } else {
+                        proxy.scrollTo(-1, anchor: .top)
                     }
                 }
             }
-            .padding(6)
         }
-        // 高度按条目数算,天多了才滚;面板半高时地图只露出上半截,上限压到 6 个。
-        .frame(maxHeight: CGFloat(min(trip.days.count + 1, 6)) * 40 + 12)
-        .fixedSize(horizontal: true, vertical: false)
-        .glassBackground(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func railButton(title: LocalizedStringKey, selected: Bool,
@@ -560,15 +592,15 @@ struct TravelDetailView: View {
             Text(title)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(selected ? lodoAccent.onFill : .primary)
-                .frame(minWidth: 34, minHeight: 34)
-                .padding(.horizontal, 4)
-                // 胶囊而不是圆:「全部」两个字比数字宽,套圆会被撑成椭圆。
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(width: Self.railButtonSize, height: Self.railButtonSize)
                 .background {
                     if selected {
-                        Capsule().fill(lodoAccent.fill)
+                        Circle().fill(lodoAccent.fill)
                     }
                 }
-                .contentShape(Capsule())
+                .contentShape(Circle())
         }
         .pressable()
     }
