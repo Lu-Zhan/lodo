@@ -29,9 +29,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.MemoryEntity
 import com.lodo.app.data.MemoryStatus
+import com.lodo.app.ui.localizedDateTimeLabel
 
 /** 收藏详情/编辑,对应 iOS MemoryDetailView 的核心子集:标题、标签可编辑,
  * 原文只读展示,整理失败可重试,支持删除。 */
@@ -114,7 +114,7 @@ fun MemoryDetailSheet(
                 Text(item.sourceText, style = MaterialTheme.typography.bodyMedium)
             }
             Text(
-                TimeFormat.format(item.createdAt),
+                localizedDateTimeLabel(item.createdAt),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

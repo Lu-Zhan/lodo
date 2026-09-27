@@ -41,22 +41,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.lodo.app.ai.ParsedTask
 import com.lodo.app.core.RepeatType
 import com.lodo.app.core.Scheduler
 import com.lodo.app.core.TaskData
 import com.lodo.app.core.TimeFormat
-import com.lodo.app.core.weekdayNames
 import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.LodoTimePickerDialog
 import com.lodo.app.ui.SectionHeader
+import com.lodo.app.ui.localizedWeekdayChipLabel
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-
-private val dayFormatter = DateTimeFormatter.ofPattern("yyyy年M月d日")
+import java.time.format.FormatStyle
 
 /**
  * 创建/编辑表单的字段值与校验、转换逻辑,
@@ -147,6 +147,10 @@ fun TaskFormFields(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var editingTimeIndex by remember { mutableStateOf<Int?>(null) }
+    val locale = LocalConfiguration.current.locales[0]
+    val formattedDay = remember(state.day, locale) {
+        state.day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
+    }
 
     Column {
         if (header != null || aiFilled) {
@@ -161,7 +165,7 @@ fun TaskFormFields(
                         modifier = Modifier.size(16.dp).padding(top = 4.dp),
                     )
                     Text(
-                        "AI 已填写",
+                        stringResource(R.string.android_ui_ai_filled),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = 12.dp, start = 2.dp),
@@ -180,7 +184,11 @@ fun TaskFormFields(
 
         SectionHeader(stringResource(R.string.shared_repeat))
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            listOf(RepeatType.NONE to "不重复", RepeatType.DAILY to "每天", RepeatType.WEEKLY to "每周")
+            listOf(
+                RepeatType.NONE to stringResource(R.string.android_ui_never),
+                RepeatType.DAILY to stringResource(R.string.shared_daily),
+                RepeatType.WEEKLY to stringResource(R.string.shared_weekly),
+            )
                 .forEachIndexed { index, (type, label) ->
                     SegmentedButton(
                         selected = state.repeatType == type,
@@ -197,7 +205,7 @@ fun TaskFormFields(
         }
 
         if (state.repeatType == RepeatType.NONE) {
-            FormValueRow("日期", state.day.format(dayFormatter)) { showDatePicker = true }
+            FormValueRow(stringResource(R.string.android_ui_date), formattedDay) { showDatePicker = true }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -206,9 +214,9 @@ fun TaskFormFields(
                 Switch(checked = state.allDay, onCheckedChange = { state.allDay = it })
             }
             if (!state.allDay) {
-                FormValueRow("时间", TimeFormat.hhmm(state.time)) { showTimePicker = true }
+                FormValueRow(stringResource(R.string.android_ui_time), TimeFormat.hhmm(state.time)) { showTimePicker = true }
             } else {
-                FooterText("全天事项将在当天 $allDayTime 提醒(可在设置中修改)")
+                FooterText(stringResource(R.string.android_ui_all_day_reminder_footer_0, allDayTime))
             }
         } else {
             if (state.repeatType == RepeatType.WEEKLY) {
@@ -221,7 +229,7 @@ fun TaskFormFields(
                                 state.weekdays =
                                     if (i in state.weekdays) state.weekdays - i else state.weekdays + i
                             },
-                            label = { Text(weekdayNames[i].drop(1)) },
+                            label = { Text(localizedWeekdayChipLabel(i)) },
                         )
                     }
                 }
@@ -270,7 +278,11 @@ fun TaskFormFields(
                 Spacer(Modifier.width(4.dp))
             }
             Text(
-                "时长:" + if (state.duration == 0) "无" else "${state.duration} 分钟",
+                stringResource(
+                    R.string.android_ui_duration_label_0,
+                    if (state.duration == 0) stringResource(R.string.android_ui_no_duration)
+                    else stringResource(R.string.android_ui_0_min, state.duration),
+                ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (suggestedDuration) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurface,
@@ -280,9 +292,9 @@ fun TaskFormFields(
             TextButton(onClick = { state.duration = (state.duration + 5).coerceAtMost(480) }) { Text("+") }
         }
         if (suggestedDuration) {
-            FooterText("时长为 AI 参考历史类似事项的建议")
+            FooterText(stringResource(R.string.android_ui_duration_ai_footer))
         }
-        FooterText("有时长的事项会在开始和结束各提醒一次")
+        FooterText(stringResource(R.string.android_ui_duration_phase_footer))
     }
 
     if (showDatePicker) {

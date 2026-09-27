@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lodo.app.ui.FooterText
@@ -89,6 +90,8 @@ fun AgentSheet(
     /** 反问时保留的原话,选候选后拼接重新提交。 */
     var clarifyBase by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val voiceNotSupportedText = stringResource(R.string.android_ui_voice_not_supported)
+    val voiceLanguageTag = LocalConfiguration.current.locales[0].toLanguageTag()
 
     fun parse(override: String? = null) {
         val trimmed = (override ?: text).trim()
@@ -143,8 +146,9 @@ fun AgentSheet(
 
     LaunchedEffect(Unit) {
         if (autoStart) {
-            runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
-                .onFailure { errorText = "设备不支持语音输入" }
+            runCatching {
+                speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds, voiceLanguageTag))
+            }.onFailure { errorText = voiceNotSupportedText }
         }
     }
 
@@ -296,14 +300,15 @@ fun AgentSheet(
                 }
             }
 
-            FooterText("一句话新增/修改/完成/删除任务,可一次说多件事;输入内容和当前任务列表会发送给 DeepSeek 解析。")
+            FooterText(stringResource(R.string.android_ui_agent_footer))
 
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
                 Spacer(Modifier.weight(1f))
                 // 右下角:语音输入,讲完自动提交
                 FloatingActionButton(onClick = {
-                    runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
-                        .onFailure { errorText = "设备不支持语音输入" }
+                    runCatching {
+                        speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds, voiceLanguageTag))
+                    }.onFailure { errorText = voiceNotSupportedText }
                 }) {
                     Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.android_ui_voice_input))
                 }
@@ -315,10 +320,10 @@ fun AgentSheet(
 }
 
 private fun iconFor(line: String): ImageVector = when {
-    line.startsWith("新建") -> Icons.Filled.AddCircleOutline
-    line.startsWith("修改") -> Icons.Filled.EditNote
-    line.startsWith("完成") -> Icons.Filled.CheckCircleOutline
-    line.startsWith("删除") -> Icons.Filled.DeleteOutline
-    line.startsWith("收藏") -> Icons.Filled.BookmarkBorder
+    line.startsWith("新建") || line.startsWith("Create:") -> Icons.Filled.AddCircleOutline
+    line.startsWith("修改") || line.startsWith("Update:") -> Icons.Filled.EditNote
+    line.startsWith("完成") || line.startsWith("Complete:") -> Icons.Filled.CheckCircleOutline
+    line.startsWith("删除") || line.startsWith("Delete:") -> Icons.Filled.DeleteOutline
+    line.startsWith("收藏") || line.startsWith("Save:") -> Icons.Filled.BookmarkBorder
     else -> Icons.Filled.AutoAwesome
 }

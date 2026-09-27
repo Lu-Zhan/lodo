@@ -52,19 +52,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lodo.app.core.Lang
+import com.lodo.app.core.Strings
 import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.aiProviderPresets
 import com.lodo.app.data.personaPresets
-import com.lodo.app.core.weekdayNames
 import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.LodoTimePickerDialog
 import com.lodo.app.ui.SectionHeader
 import com.lodo.app.ui.StepperRow
+import com.lodo.app.ui.localizedWeekdayChipLabel
 import com.lodo.app.ui.routine.RoutineListScreen
 
 /** 设置页,分节与文案对应 iOS SettingsView(钥匙串改为本机加密存储)。 */
@@ -157,10 +160,10 @@ fun SettingsScreen(
                 onDecrement = { vm.setSnoozeMinutes(settings.snoozeMinutes - 5) },
                 onIncrement = { vm.setSnoozeMinutes(settings.snoozeMinutes + 5) },
             )
-            TimeRow("全天事项提醒时间", settings.allDayTime) { showAllDayPicker = true }
+            TimeRow(stringResource(R.string.android_ui_all_day_reminder_time), settings.allDayTime) { showAllDayPicker = true }
             FooterText(stringResource(R.string.android_ui_repeat_reminder_footer))
             FooterText(stringResource(R.string.android_ui_repeat_reminder_off_footer))
-            FooterText("只有日期、没有时间的事项,当天几点提醒。")
+            FooterText(stringResource(R.string.android_ui_date_only_reminder_hint))
 
             SectionHeader(stringResource(R.string.android_ui_quiet_hours))
             Row(
@@ -190,7 +193,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "每日任务汇总",
+                    stringResource(R.string.android_ui_daily_task_summary),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -200,7 +203,10 @@ fun SettingsScreen(
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 ) {
-                    listOf("daily" to "每天", "weekly" to "每周").forEachIndexed { index, (type, label) ->
+                    listOf(
+                        "daily" to stringResource(R.string.shared_daily),
+                        "weekly" to stringResource(R.string.shared_weekly),
+                    ).forEachIndexed { index, (type, label) ->
                         SegmentedButton(
                             selected = settings.digestRepeatType == type,
                             onClick = { vm.setDigestRepeatType(type) },
@@ -224,7 +230,7 @@ fun SettingsScreen(
                                     }
                                     vm.setDigestDays(days)
                                 },
-                                label = { Text(weekdayNames[i].drop(1)) },
+                                label = { Text(localizedWeekdayChipLabel(i)) },
                             )
                         }
                     }
@@ -256,7 +262,7 @@ fun SettingsScreen(
                     Text(stringResource(R.string.shared_add_a_time))
                 }
             }
-            FooterText("在设定时间提醒今天开始或到期的事项。")
+            FooterText(stringResource(R.string.android_ui_scheduled_reminder_footer))
 
             SectionHeader(stringResource(R.string.shared_haptic_feedback))
             Row(
@@ -269,7 +275,7 @@ fun SettingsScreen(
                 )
                 Switch(checked = settings.hapticsEnabled, onCheckedChange = vm::setHapticsEnabled)
             }
-            FooterText("滑动完成、删除等操作时轻微振动。")
+            FooterText(stringResource(R.string.android_ui_haptic_footer))
 
             SectionHeader(stringResource(R.string.android_ui_start_voice_input_when_adding))
             Row(
@@ -285,7 +291,7 @@ fun SettingsScreen(
                     onCheckedChange = vm::setAgentAutoRecordOnOpen,
                 )
             }
-            FooterText("点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。")
+            FooterText(stringResource(R.string.android_ui_auto_voice_input_footer))
             StepperRow(
                 label = stringResource(
                     R.string.android_ui_auto_stop_after_silence_0_s, settings.agentSilenceTimeoutSeconds),
@@ -296,7 +302,7 @@ fun SettingsScreen(
                     vm.setAgentSilenceTimeoutSeconds(settings.agentSilenceTimeoutSeconds + 1)
                 },
             )
-            FooterText("语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。")
+            FooterText(stringResource(R.string.android_ui_voice_silence_timeout_hint))
 
             // ---- AI:服务 → 个性 → 洞察 → 记忆 ----
             SectionHeader(stringResource(R.string.shared_ai_service))
@@ -305,7 +311,7 @@ fun SettingsScreen(
                     FilterChip(
                         selected = settings.aiProvider == name,
                         onClick = { vm.setAiProvider(name) },
-                        label = { Text(name) },
+                        label = { Text(localizedProviderName(name)) },
                     )
                 }
             }
@@ -323,8 +329,11 @@ fun SettingsScreen(
                 onValueChange = vm::setAiModel,
                 placeholder = {
                     Text(
-                        if (settings.aiProvider == "自定义") "模型名称"
-                        else "模型(默认 ${aiProviderPresets.firstOrNull { it.name == settings.aiProvider }?.model ?: ""})"
+                        if (settings.aiProvider == "自定义") stringResource(R.string.android_ui_model_name)
+                        else stringResource(
+                            R.string.android_ui_model_default_0,
+                            aiProviderPresets.firstOrNull { it.name == settings.aiProvider }?.model.orEmpty(),
+                        )
                     )
                 },
                 singleLine = true,
@@ -343,9 +352,12 @@ fun SettingsScreen(
                 enabled = !vm.keySaved,
                 modifier = Modifier.padding(top = 8.dp),
             ) {
-                Text(if (vm.keySaved) "已保存" else "保存 API Key")
+                Text(
+                    if (vm.keySaved) stringResource(R.string.android_ui_saved)
+                    else stringResource(R.string.android_ui_save_api_key),
+                )
             }
-            FooterText("默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。")
+            FooterText(stringResource(R.string.android_ui_ai_provider_storage_footer))
 
             SectionHeader(stringResource(R.string.android_ui_on_device_ai))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -370,7 +382,12 @@ fun SettingsScreen(
 
             SectionHeader(stringResource(R.string.shared_ai_thinking))
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                listOf("off" to "关闭", "low" to "低", "medium" to "中", "high" to "高")
+                listOf(
+                    "off" to stringResource(R.string.android_ui_thinking_off),
+                    "low" to stringResource(R.string.android_ui_thinking_low),
+                    "medium" to stringResource(R.string.android_ui_thinking_medium),
+                    "high" to stringResource(R.string.android_ui_thinking_high),
+                )
                     .forEachIndexed { index, (level, label) ->
                         SegmentedButton(
                             selected = settings.thinkingLevel == level,
@@ -379,13 +396,13 @@ fun SettingsScreen(
                         ) { Text(label) }
                     }
             }
-            FooterText("思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置。")
+            FooterText(stringResource(R.string.android_ui_thinking_footer))
 
             SectionHeader(stringResource(R.string.shared_web_search))
             OutlinedTextField(
                 value = vm.tavilyKey,
                 onValueChange = vm::onTavilyKeyChange,
-                placeholder = { Text("Tavily API Key") },
+                placeholder = { Text(stringResource(R.string.android_ui_tavily_api_key)) },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -395,9 +412,12 @@ fun SettingsScreen(
                 enabled = !vm.tavilyKeySaved,
                 modifier = Modifier.padding(top = 8.dp),
             ) {
-                Text(if (vm.tavilyKeySaved) "已保存" else "保存")
+                Text(
+                    if (vm.tavilyKeySaved) stringResource(R.string.android_ui_saved)
+                    else stringResource(R.string.android_ui_save),
+                )
             }
-            FooterText("配置后 AI 助手能在需要最新信息或回答一般问题时联网搜索;免费在 tavily.com 注册获取 API Key,不填则不启用联网搜索。")
+            FooterText(stringResource(R.string.android_ui_tavily_setup_footer))
 
             SectionHeader(stringResource(R.string.shared_ai_personality))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -405,7 +425,7 @@ fun SettingsScreen(
                     FilterChip(
                         selected = settings.personaStyle == name,
                         onClick = { vm.setPersonaStyle(name) },
-                        label = { Text(name) },
+                        label = { Text(localizedPersonaName(name)) },
                     )
                 }
             }
@@ -420,10 +440,10 @@ fun SettingsScreen(
                 )
             } else {
                 personaPresets.firstOrNull { it.first == settings.personaStyle }?.let { preset ->
-                    FooterText(preset.second)
+                    FooterText(localizedPersonaDescription(preset.second))
                 }
             }
-            FooterText("影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。")
+            FooterText(stringResource(R.string.android_ui_persona_footer))
 
             SectionHeader(stringResource(R.string.android_ui_completion_insight))
             Row(
@@ -436,12 +456,12 @@ fun SettingsScreen(
                 )
                 Switch(checked = settings.insightEnabled, onCheckedChange = vm::setInsightEnabled)
             }
-            FooterText("每周在已完成页生成一句正向回顾,不会推送通知。")
+            FooterText(stringResource(R.string.android_ui_completion_insight_footer))
 
 
             SectionHeader(stringResource(R.string.shared_ai_memory))
             Text(
-                "编辑记忆",
+                stringResource(R.string.android_ui_edit_ai_memory),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -460,7 +480,7 @@ fun SettingsScreen(
                     .clickable { confirmMemoryReset = true }
                     .padding(vertical = 12.dp),
             )
-            FooterText("AI 会在事项完成后归纳\"类型 → 典型时长\",新建没说时长的事项时据此建议。")
+            FooterText(stringResource(R.string.android_ui_duration_memory_footer))
 
             SectionHeader(stringResource(R.string.android_ui_backup))
             Text(
@@ -502,9 +522,9 @@ fun SettingsScreen(
             if (Build.VERSION.SDK_INT in 31..32) {
                 val alarmManager = context.getSystemService(AlarmManager::class.java)
                 if (!alarmManager.canScheduleExactAlarms()) {
-                    SectionHeader("权限")
+                    SectionHeader(stringResource(R.string.android_ui_permissions))
                     Text(
-                        "开启「闹钟和提醒」权限",
+                        stringResource(R.string.android_ui_enable_alarm_permission),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
@@ -516,7 +536,7 @@ fun SettingsScreen(
                             }
                             .padding(vertical = 12.dp),
                     )
-                    FooterText("未开启时提醒可能延迟最多 10 分钟。")
+                    FooterText(stringResource(R.string.android_ui_alarm_permission_delay))
                 }
             }
 
@@ -587,7 +607,7 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     vm.saveMemory()
                     showMemoryEditor = false
-                }) { Text("保存") }
+                }) { Text(stringResource(R.string.android_ui_save)) }
             },
             dismissButton = {
                 TextButton(onClick = { showMemoryEditor = false }) { Text(stringResource(R.string.shared_cancel)) }
@@ -598,7 +618,7 @@ fun SettingsScreen(
     if (confirmMemoryReset) {
         AlertDialog(
             onDismissRequest = { confirmMemoryReset = false },
-            title = { Text("确定清空 AI 记忆吗?") },
+            title = { Text(stringResource(R.string.android_ui_clear_ai_memory_question)) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.resetMemory()
@@ -625,4 +645,29 @@ private fun TimeRow(label: String, hhmm: String, onClick: () -> Unit) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Text(hhmm, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
     }
+}
+
+@Composable
+private fun localizedProviderName(name: String): String = when (name) {
+    "通义千问" -> stringResource(R.string.shared_tongyi_qianwen)
+    "智谱" -> stringResource(R.string.shared_zhipu)
+    "自定义" -> stringResource(R.string.shared_custom)
+    else -> name
+}
+
+@Composable
+private fun localizedPersonaName(name: String): String = when (name) {
+    "默认" -> stringResource(R.string.shared_default)
+    "高效秘书" -> stringResource(R.string.shared_efficient_secretary)
+    "温柔陪伴" -> stringResource(R.string.shared_gentle_companion)
+    "严格教练" -> stringResource(R.string.shared_strict_coach)
+    "幽默轻松" -> stringResource(R.string.shared_playful_witty)
+    "自定义" -> stringResource(R.string.shared_custom)
+    else -> name
+}
+
+@Composable
+private fun localizedPersonaDescription(text: String): String {
+    val language = if (LocalConfiguration.current.locales[0].language == "en") Lang.EN else Lang.ZH
+    return Strings.translate(text, language)
 }

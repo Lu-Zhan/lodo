@@ -283,8 +283,16 @@ private fun MemoryRow(item: MemoryEntity, onClick: () -> Unit) {
                     item.isAsset -> {
                         if (item.assetLiability != null || item.assetInterestRate != null) {
                             val parts = listOfNotNull(
-                                item.assetLiability?.let { "负债 ${item.assetCurrencyOrDefault} $it" },
-                                item.assetInterestRate?.let { "利率 $it%" },
+                                item.assetLiability?.let {
+                                    stringResource(
+                                        R.string.android_ui_asset_liability_0_1,
+                                        item.assetCurrencyOrDefault,
+                                        it,
+                                    )
+                                },
+                                item.assetInterestRate?.let {
+                                    stringResource(R.string.android_ui_interest_rate_0, it)
+                                },
                             )
                             Text(parts.joinToString(" · "), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }

@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lodo.app.ai.ParsedTask
@@ -47,17 +48,20 @@ import com.lodo.app.ui.SectionHeader
 import kotlinx.coroutines.launch
 
 /**
- * 系统语音识别(zh-CN)启动 Intent。
+ * 系统语音识别启动 Intent,识别语言跟随 app 当前语言。
  * @param silenceTimeoutSeconds 静音多少秒后系统识别器自动停止;0 = 不覆盖(用系统默认),
  * 对应 iOS 应用内录音的静音自动停止设置,系统识别器不保证严格遵守这个提示。
  */
-internal fun speechIntent(silenceTimeoutSeconds: Int = 3): Intent {
+internal fun speechIntent(
+    silenceTimeoutSeconds: Int = 3,
+    languageTag: String = java.util.Locale.getDefault().toLanguageTag(),
+): Intent {
     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         .putExtra(
             RecognizerIntent.EXTRA_LANGUAGE_MODEL,
             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
         )
-        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
     if (silenceTimeoutSeconds > 0) {
         val millis = silenceTimeoutSeconds * 1000L
         intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, millis)
@@ -88,6 +92,9 @@ fun AddTaskSheet(
     /** AI 按记忆建议的时长值;用户手动改动后清除高亮。 */
     var suggestedDuration by remember { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
+    val taskFieldsRequiredText = stringResource(R.string.android_ui_task_fields_required)
+    val voiceNotSupportedText = stringResource(R.string.android_ui_voice_not_supported)
+    val voiceLanguageTag = LocalConfiguration.current.locales[0].toLanguageTag()
 
     fun parse() {
         val trimmed = text.trim()
@@ -121,7 +128,7 @@ fun AddTaskSheet(
     fun save() {
         val result = form.makeParsed(allDayTime)
         if (result == null) {
-            errorText = "请补全事项内容和时间设置"
+            errorText = taskFieldsRequiredText
             return
         }
         onSave(result)
@@ -145,7 +152,9 @@ fun AddTaskSheet(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = ::save, enabled = form.isValid) { Text("保存") }
+                TextButton(onClick = ::save, enabled = form.isValid) {
+                    Text(stringResource(R.string.android_ui_save))
+                }
             }
 
             SectionHeader(stringResource(R.string.shared_ai_assistant))
@@ -157,8 +166,9 @@ fun AddTaskSheet(
                 trailingIcon = {
                     Row {
                         IconButton(onClick = {
-                            runCatching { speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds)) }
-                                .onFailure { errorText = "设备不支持语音输入" }
+                            runCatching {
+                                speechLauncher.launch(speechIntent(agentSilenceTimeoutSeconds, voiceLanguageTag))
+                            }.onFailure { errorText = voiceNotSupportedText }
                         }, enabled = !busy) {
                             Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.android_ui_voice_input))
                         }
@@ -175,7 +185,7 @@ fun AddTaskSheet(
                     }
                 },
             )
-            FooterText("一句话描述事项,解析结果会填入下方表单;没说时长时 AI 会按历史记忆建议。")
+            FooterText(stringResource(R.string.android_ui_ai_task_parse_footer))
             errorText?.let {
                 Text(
                     it,
@@ -188,7 +198,7 @@ fun AddTaskSheet(
             TaskFormFields(
                 state = form,
                 allDayTime = allDayTime,
-                header = "手动输入",
+                header = stringResource(R.string.android_ui_manual_input),
                 aiFilled = aiFilled,
                 suggestedDuration = suggestedDuration != null &&
                     form.duration == suggestedDuration,

@@ -13,6 +13,8 @@ import com.lodo.app.LodoApp
 import com.lodo.app.ai.DurationMemory
 import com.lodo.app.ai.GeminiNanoClient
 import com.lodo.app.ai.WebSearchClient
+import com.lodo.app.core.CurrentLang
+import com.lodo.app.core.Strings
 import com.lodo.app.data.Backup
 import com.lodo.app.data.Settings
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,9 +63,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         backupMessage = null
         try {
             Backup.export(app, uri, app.database)
-            backupMessage = "已导出备份。"
+            backupMessage = Strings.of("android_core_ai.backup_exported", CurrentLang.value)
         } catch (e: Exception) {
-            backupMessage = "导出失败:${e.message}"
+            backupMessage = Strings.of("android_core_ai.backup_export_failed_prefix", CurrentLang.value) +
+                (e.message?.let { Strings.translate(it, CurrentLang.value) }.orEmpty())
         } finally {
             backupBusy = false
         }
@@ -74,10 +77,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         backupMessage = null
         try {
             val result = Backup.import(app, uri, app.database)
-            backupMessage = "已导入 ${result.taskCount} 项任务、${result.memoryCount} 条记忆、" +
-                "${result.relationshipCount} 条人脉关系。"
+            backupMessage = Strings.of("android_core_ai.backup_imported", CurrentLang.value).format(
+                result.taskCount,
+                result.memoryCount,
+                result.relationshipCount,
+            )
         } catch (e: Exception) {
-            backupMessage = "导入失败:${e.message}"
+            backupMessage = Strings.of("android_core_ai.backup_import_failed_prefix", CurrentLang.value) +
+                (e.message?.let { Strings.translate(it, CurrentLang.value) }.orEmpty())
         } finally {
             backupBusy = false
         }

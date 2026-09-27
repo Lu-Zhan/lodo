@@ -59,11 +59,12 @@ fun TaskEditSheet(
     var aiBusy by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val taskFieldsRequiredText = stringResource(R.string.android_ui_task_fields_required)
 
     fun save() {
         val result = form.makeParsed(allDayTime)
         if (result == null) {
-            errorText = "请补全事项内容和时间设置"
+            errorText = taskFieldsRequiredText
             return
         }
         onSave(result)
@@ -101,12 +102,15 @@ fun TaskEditSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_cancel)) }
                 Text(
-                    if (existing == null) "新建事项" else "编辑事项",
+                    if (existing == null) stringResource(R.string.android_ui_new_task)
+                    else stringResource(R.string.android_ui_edit_task),
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = ::save, enabled = form.isValid) { Text("保存") }
+                TextButton(onClick = ::save, enabled = form.isValid) {
+                    Text(stringResource(R.string.android_ui_save))
+                }
             }
 
             TaskFormFields(state = form, allDayTime = allDayTime)

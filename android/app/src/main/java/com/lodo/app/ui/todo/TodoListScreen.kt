@@ -68,6 +68,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
@@ -77,15 +78,16 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import com.lodo.app.LodoApp
 import com.lodo.app.PendingRoute
 import com.lodo.app.core.TaskPhase
-import com.lodo.app.core.weekdayNames
+import com.lodo.app.core.RepeatType
+import com.lodo.app.ui.localizedDateTimeLabel
+import com.lodo.app.ui.localizedWeekdayList
+import com.lodo.app.ui.localizedWeekdayLabels
 import com.lodo.app.data.TaskEntity
 import com.lodo.app.notify.NotificationPermission
 import com.lodo.app.ui.EmptyState
 import com.lodo.app.ui.SectionHeader
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
-private val monthDayFormatter = DateTimeFormatter.ofPattern("M月d日")
 
 /**
  * 待办标签页,对应 iOS TodoListView:日期横滑条(默认今天)、到期提醒卡
@@ -143,6 +145,10 @@ fun TodoListScreen(
     val upcoming = state.pending.filter { it.uuid !in dueUuids }
     val dayTasks = upcoming.filter { it.nextRemindAt.toLocalDate() == vm.selectedDate }
     val futureTasks = upcoming.filter { it.nextRemindAt.toLocalDate() > vm.selectedDate }
+    val locale = LocalConfiguration.current.locales[0]
+    val selectedDateText = remember(vm.selectedDate, locale) {
+        vm.selectedDate.format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale))
+    }
 
     Scaffold(
         modifier = modifier,
@@ -215,18 +221,18 @@ fun TodoListScreen(
 
             item(key = "day-header") {
                 SectionHeader(
-                    if (vm.selectedDate == LocalDate.now()) "今天任务"
-                    else "${vm.selectedDate.format(monthDayFormatter)}任务"
+                    if (vm.selectedDate == LocalDate.now()) stringResource(R.string.android_ui_today_tasks)
+                    else stringResource(R.string.android_ui_tasks_for_date_0, selectedDateText)
                 )
             }
             if (upcoming.isEmpty() && state.due.isEmpty()) {
                 item(key = "empty-pending") {
-                    EmptyState(Icons.Outlined.CheckCircle, "暂无任务")
+                    EmptyState(Icons.Outlined.CheckCircle, stringResource(R.string.shared_no_tasks_yet))
                 }
             } else if (dayTasks.isEmpty()) {
                 item(key = "empty-day") {
                     Text(
-                        "当天暂无任务",
+                        stringResource(R.string.android_ui_no_tasks_on_selected_day),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 12.dp),
@@ -349,7 +355,8 @@ private fun DateStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {
                     Text(
-                        if (date == today) "今天" else weekdayNames[date.dayOfWeek.value - 1],
+                        if (date == today) stringResource(R.string.android_ui_today)
+                        else localizedWeekdayLabels()[date.dayOfWeek.value - 1],
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isSelected) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -377,7 +384,7 @@ private fun NotificationDeniedBanner(onOpenSettings: () -> Unit, modifier: Modif
         ) {
             Icon(Icons.Filled.NotificationsOff, contentDescription = null)
             Text(
-                "通知权限未开启,到期提醒可能不会推送",
+                stringResource(R.string.android_ui_notification_permission_disabled),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
@@ -428,10 +435,11 @@ private fun AskDurationCard(
 @Composable
 private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
     val starting = task.phaseEnum == TaskPhase.START && task.durationMinutes > 0
+    val taskCaption = localizedTaskCaption(task)
     val caption = when {
-        task.phaseEnum == TaskPhase.END -> "时间到 — 完成了吗?"
-        starting -> "${task.caption()} — 该开始了!"
-        else -> task.caption()
+        task.phaseEnum == TaskPhase.END -> stringResource(R.string.android_ui_time_to_finish)
+        starting -> stringResource(R.string.android_ui_duration_start_message_0, taskCaption)
+        else -> taskCaption
     }
     ElevatedCard(
         modifier = Modifier
@@ -474,7 +482,10 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text(if (starting) "开始了" else "完成")
+                    Text(
+                        if (starting) stringResource(R.string.android_ui_start_task)
+                        else stringResource(R.string.android_ui_complete_action),
+                    )
                 }
                 OutlinedButton(onClick = { vm.snooze(task.uuid) }) {
                     Icon(
@@ -551,13 +562,40 @@ internal fun PendingRow(
         ) {
             ListItem(
                 headlineContent = { Text(task.title) },
-                supportingContent = { Text(task.caption()) },
+                supportingContent = { Text(localizedTaskCaption(task)) },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
                 modifier = Modifier.clickable(onClick = onClick),
             )
         }
         HorizontalDivider()
     }
+}
+
+@Composable
+private fun localizedTaskCaption(task: TaskEntity): String {
+    val parts = mutableListOf(localizedDateTimeLabel(task.nextRemindAt))
+    if (task.isRecurring) {
+        val times = task.repeatTimesList.joinToString("/")
+        val recurrence = when (task.repeatTypeEnum) {
+            RepeatType.DAILY -> stringResource(R.string.shared_daily)
+            RepeatType.WEEKLY -> {
+                val days = localizedWeekdayList(task.repeatDaysList, compactChinese = true)
+                val separator = if (LocalConfiguration.current.locales[0].language == "zh") "" else " "
+                stringResource(R.string.android_ui_weekly_caption_prefix) + separator + days
+            }
+            RepeatType.NONE -> ""
+        }
+        parts += "$recurrence $times".trim()
+    } else if (task.allDay) {
+        parts += stringResource(R.string.shared_all_day)
+    }
+    if (task.durationMinutes > 0) {
+        parts += stringResource(R.string.android_ui_0_min, task.durationMinutes)
+    }
+    if (task.phaseEnum == TaskPhase.END) {
+        parts += stringResource(R.string.android_ui_in_progress)
+    }
+    return parts.joinToString(" · ")
 }
 
 /** 滑动背景:右滑完成为主色 + 对勾,左滑删除为错误色 + 垃圾桶。 */

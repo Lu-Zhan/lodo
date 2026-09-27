@@ -6,6 +6,7 @@ import android.content.Context
 import android.widget.RemoteViews
 import com.lodo.app.LodoApp
 import com.lodo.app.R
+import com.lodo.app.core.CurrentLang
 import com.lodo.app.core.TimeFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,10 @@ class ReminderWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_task_time, "")
             } else {
                 views.setTextViewText(R.id.widget_task_title, next.title)
-                views.setTextViewText(R.id.widget_task_time, TimeFormat.format(next.nextRemindAt))
+                views.setTextViewText(
+                    R.id.widget_task_time,
+                    TimeFormat.localized(next.nextRemindAt, CurrentLang.value),
+                )
             }
             manager.updateAppWidget(widgetId, views)
         }

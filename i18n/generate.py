@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 i18n/strings.csv 生成四份本地化产物,不手写 JSON/XML/Swift/Kotlin。
+"""从 i18n/strings.csv 生成五份本地化产物,不手写 JSON/XML/Swift/Kotlin/Python。
 运行:python3 i18n/generate.py
 产物全部标注"生成文件,不要手改",改动一律回到 strings.csv 重新生成。
 """
@@ -158,13 +158,19 @@ def gen_android_strings_xml(rows):
         zh_entries.append((name, row["zh"]))
         en_entries.append((name, row["en"]))
 
-    def render(entries):
+    def render(entries, english=False):
         lines = [GENERATED_HEADER_XML, "<resources>"]
         lines.append('    <string name="app_name">lodo</string>')
-        lines.append('    <string name="shortcut_agent_short">AI 助手</string>')
-        lines.append('    <string name="shortcut_agent_long">打开 AI 助手</string>')
-        lines.append('    <string name="shortcut_add_short">新建</string>')
-        lines.append('    <string name="shortcut_add_long">新建事项</string>')
+        if english:
+            lines.append('    <string name="shortcut_agent_short">AI Assistant</string>')
+            lines.append('    <string name="shortcut_agent_long">Open AI Assistant</string>')
+            lines.append('    <string name="shortcut_add_short">Add</string>')
+            lines.append('    <string name="shortcut_add_long">Add a task</string>')
+        else:
+            lines.append('    <string name="shortcut_agent_short">AI 助手</string>')
+            lines.append('    <string name="shortcut_agent_long">打开 AI 助手</string>')
+            lines.append('    <string name="shortcut_add_short">新建</string>')
+            lines.append('    <string name="shortcut_add_long">新建事项</string>')
         for name, value in entries:
             lines.append(f'    <string name="{name}">{android_xml_string(value)}</string>')
         lines.append("</resources>")
@@ -174,7 +180,7 @@ def gen_android_strings_xml(rows):
     en_out = ROOT / "android" / "app" / "src" / "main" / "res" / "values-en" / "strings.xml"
     en_out.parent.mkdir(parents=True, exist_ok=True)
     zh_out.write_text(render(zh_entries), encoding="utf-8")
-    en_out.write_text(render(en_entries), encoding="utf-8")
+    en_out.write_text(render(en_entries, english=True), encoding="utf-8")
     print(f"wrote {len(zh_entries)} keys to {zh_out.relative_to(ROOT)} / {en_out.relative_to(ROOT)}")
 
 
@@ -231,12 +237,46 @@ def gen_android_core_kotlin(rows):
     print(f"wrote {len(entries)} keys to {out.relative_to(ROOT)}")
 
 
+def gen_web_localization(rows):
+    entries = [(row["zh"], row["en"]) for row in rows if row["scope"] == "web"]
+    lines = [
+        '"""UI strings for the Streamlit demo. Generated from i18n/strings.csv."""',
+        "from __future__ import annotations",
+        "",
+        "",
+        "ENGLISH = {",
+    ]
+    for zh, en in entries:
+        lines.append(f"    {zh!r}: {en!r},")
+    lines.extend([
+        "}",
+        "",
+        "",
+        "def localize(value: str, language: str) -> str:",
+        '    """Translate visible Chinese UI text and preserve dynamic values."""',
+        '    if language != "English":',
+        "        return value",
+        "    exact = ENGLISH.get(value)",
+        "    if exact is not None:",
+        "        return exact",
+        "    for source, translated in ENGLISH.items():",
+        '        if source.endswith(":") and value.startswith(source):',
+        "            return translated + value[len(source):]",
+        "    return value",
+        "",
+    ])
+    out = ROOT / "web" / "lodo" / "localization.py"
+    out.write_text("\n".join(lines), encoding="utf-8")
+    print(f"wrote {len(entries)} keys to {out.relative_to(ROOT)}")
+
+
 def main():
     rows = load_rows()
     gen_xcstrings(rows)
     gen_ios_core_swift(rows)
     gen_android_strings_xml(rows)
     gen_android_core_kotlin(rows)
+    gen_web_localization(rows)
 
 
 if __name__ == "__main__":

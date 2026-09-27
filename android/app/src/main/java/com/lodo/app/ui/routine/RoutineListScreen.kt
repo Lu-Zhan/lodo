@@ -35,10 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lodo.app.core.RepeatType
-import com.lodo.app.core.TimeFormat
-import com.lodo.app.core.weekdayNames
 import com.lodo.app.data.RoutineEntity
 import com.lodo.app.ui.EmptyState
+import com.lodo.app.ui.localizedDateTimeLabel
+import com.lodo.app.ui.localizedWeekdayList
 
 /** 定时任务(AI 例行任务)列表,对应 iOS RoutineListView。从设置页进入。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,12 +122,14 @@ private fun RoutineRow(routine: RoutineEntity, onToggle: (Boolean) -> Unit, onCl
         },
         supportingContent = {
             val schedule = if (routine.repeatTypeEnum == RepeatType.WEEKLY) {
-                routine.repeatDaysList.joinToString("、") { weekdayNames[it] } + " " + routine.repeatTimesList.firstOrNull().orEmpty()
+                val prefix = stringResource(R.string.shared_weekly)
+                val separator = if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "zh") "" else " "
+                prefix + separator + localizedWeekdayList(routine.repeatDaysList) + " " + routine.repeatTimesList.firstOrNull().orEmpty()
             } else {
                 stringResource(R.string.shared_daily) + " " + routine.repeatTimesList.firstOrNull().orEmpty()
             }
             Text(
-                routine.lastRunAt?.let { "$schedule · ${stringResource(R.string.android_ui_last_run_0, TimeFormat.format(it))}" } ?: schedule,
+                routine.lastRunAt?.let { "$schedule · ${stringResource(R.string.android_ui_last_run_0, localizedDateTimeLabel(it))}" } ?: schedule,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

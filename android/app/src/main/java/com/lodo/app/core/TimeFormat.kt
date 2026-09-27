@@ -4,6 +4,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 /** "HH:MM" 字符串与时间的互转、列表行日期文案(对应 iOS AppSettings.time/hhmm 与 TaskItem.format)。 */
 object TimeFormat {
@@ -32,6 +34,26 @@ object TimeFormat {
             else -> dateTime.format(monthDayFormatter)
         }
     }
+
+    /** UI/display formatter honoring the app language; core scheduler behavior stays language-neutral. */
+    fun localized(dateTime: LocalDateTime, language: Lang, today: LocalDate = LocalDate.now()): String {
+        val locale = if (language == Lang.EN) Locale.ENGLISH else Locale.SIMPLIFIED_CHINESE
+        val time = dateTime.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
+        return when (dateTime.toLocalDate()) {
+            today -> "${Strings.of("android_core_ai.today", language)} $time"
+            today.plusDays(1) -> "${Strings.of("android_core_ai.tomorrow", language)} $time"
+            else -> dateTime.format(
+                DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale),
+            )
+        }
+    }
+
+    /** Completed grouping label honoring the app language. */
+    fun localizedDayLabel(date: LocalDate, language: Lang, today: LocalDate = LocalDate.now()): String =
+        if (date == today.minusDays(1)) Strings.of("android_core_ai.yesterday", language)
+        else date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(
+            if (language == Lang.EN) Locale.ENGLISH else Locale.SIMPLIFIED_CHINESE,
+        ))
 
     /** 已完成页分组标题:"昨天" / "7月14日"。 */
     fun dayLabel(date: LocalDate, today: LocalDate = LocalDate.now()): String = when (date) {

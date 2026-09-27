@@ -48,10 +48,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.TaskEntity
 import com.lodo.app.ui.EmptyState
 import com.lodo.app.ui.SectionHeader
+import com.lodo.app.ui.localizedDateTimeLabel
+import com.lodo.app.ui.localizedDayLabel
 import java.time.LocalDate
 
 /** 已完成标签页,对应 iOS DoneListView:本周洞察 + 右滑恢复未完成、左滑删除。 */
@@ -109,7 +110,7 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
 
             if (state.done.isEmpty()) {
                 item(key = "empty-done") {
-                    EmptyState(Icons.Outlined.Inbox, "还没有完成的事项")
+                    EmptyState(Icons.Outlined.Inbox, stringResource(R.string.android_ui_nothing_completed_yet))
                 }
             } else {
                 if (todayDone.isNotEmpty()) {
@@ -126,7 +127,7 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
                 otherGroups.forEach { (date, tasks) ->
                     item(key = "group-header-$date") {
                         DoneGroupHeader(
-                            title = TimeFormat.dayLabel(date, today),
+                            title = localizedDayLabel(date, today),
                             expanded = expandedDays.contains(date),
                             onToggle = {
                                 expandedDays = if (expandedDays.contains(date)) {
@@ -172,7 +173,8 @@ private fun DoneGroupHeader(title: String, expanded: Boolean, onToggle: () -> Un
         )
         Icon(
             Icons.Filled.ExpandMore,
-            contentDescription = if (expanded) "收起" else "展开",
+            contentDescription = if (expanded) stringResource(R.string.android_ui_collapse)
+            else stringResource(R.string.android_ui_expand),
             modifier = Modifier.rotate(rotation),
         )
     }
@@ -218,7 +220,7 @@ private fun DoneRow(
                 },
                 supportingContent = {
                     task.doneAt?.let {
-                        Text(stringResource(R.string.android_ui_completed_at_0, TimeFormat.format(it)))
+                        Text(stringResource(R.string.android_ui_completed_at_0, localizedDateTimeLabel(it)))
                     }
                 },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),

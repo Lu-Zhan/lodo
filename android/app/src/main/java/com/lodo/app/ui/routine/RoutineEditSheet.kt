@@ -36,10 +36,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lodo.app.core.RepeatType
 import com.lodo.app.core.TimeFormat
-import com.lodo.app.core.weekdayNames
 import com.lodo.app.data.RoutineEntity
 import com.lodo.app.ui.FooterText
 import com.lodo.app.ui.LodoTimePickerDialog
+import com.lodo.app.ui.localizedWeekdayChipLabel
 import java.time.LocalDateTime
 
 /** 新建/编辑定时任务,对应 iOS RoutineEditView 的核心子集:指令原话 + 每天/
@@ -114,7 +114,7 @@ fun RoutineEditSheet(
                         FilterChip(
                             selected = i in days,
                             onClick = { days = if (i in days) days - i else days + i },
-                            label = { Text(weekdayNames[i].drop(1)) },
+                            label = { Text(localizedWeekdayChipLabel(i)) },
                         )
                     }
                 }

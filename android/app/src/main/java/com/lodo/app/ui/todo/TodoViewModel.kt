@@ -15,9 +15,10 @@ import com.lodo.app.ai.DeepSeekException
 import com.lodo.app.ai.DurationMemory
 import com.lodo.app.ai.ParsedTask
 import com.lodo.app.ai.WebSearchClient
+import com.lodo.app.core.CurrentLang
+import com.lodo.app.core.Strings
 import com.lodo.app.core.TaskPhase
 import com.lodo.app.core.TaskStatus
-import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.TaskEntity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.Locale
 
 /** 底部弹层模式,对应 iOS SheetMode。 */
 sealed interface SheetMode {
@@ -257,18 +259,27 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                             // (不用 uiState.value.pending 那份弹层打开时可能已过时的快照)。
                             val before = app.repository.current(update.uuid)
                             if (before == null || before.statusEnum != TaskStatus.PENDING) {
-                                throw DeepSeekException("无法解析:找不到要修改的事项")
+                                throw DeepSeekException(
+                                    Strings.of("android_core_ai.task_not_found_for_edit", CurrentLang.value),
+                                )
                             }
                             app.repository.applyEdit(update.uuid, update.task)
                             lastUndo = listOf(UndoOp.Updated(before))
                             val token = ++lastUndoToken
                             _undoAvailableEvents.emit(token)
-                            return AgentReply.Message("已修改:${update.task.title}")
+                            return AgentReply.Message(
+                                Strings.of("android_core_ai.task_updated", CurrentLang.value) + update.task.title,
+                            )
                         }
                         (actions[0] as? AIAction.Answer)?.let { return AgentReply.Message(it.text) }
                         (actions[0] as? AIAction.Memorize)?.let { memorize ->
                             val item = app.memoryRepository.saveText(app.settings.aiConfig(), memorize.text)
-                            return AgentReply.Message("已收藏:${item.title.ifEmpty { "整理中…" }}")
+                            val savedTitle = item.title.ifEmpty {
+                                Strings.of("android_core_ai.organizing", CurrentLang.value)
+                            }
+                            return AgentReply.Message(
+                                Strings.of("android_core_ai.memory_saved", CurrentLang.value) + savedTitle,
+                            )
                         }
                         (actions[0] as? AIAction.SuggestMemorize)?.let { return AgentReply.SuggestMemorize(it.text) }
                         (actions[0] as? AIAction.AskMemory)?.let { return answerFromMemory(it.question) }
@@ -278,7 +289,9 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        throw DeepSeekException("无法解析:多轮推理超过上限,换个说法试试")
+        throw DeepSeekException(
+            Strings.of("android_core_ai.too_many_reasoning_turns", CurrentLang.value),
+        )
     }
 
     /** search_memory/ReAct 观察文本的格式化,与 iOS route() 的拼接方式一致
@@ -296,7 +309,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun answerFromMemory(question: String): AgentReply.Message {
         val candidates = app.memoryRepository.retrieveCandidates(question)
         if (candidates.isEmpty()) {
-            return AgentReply.Message("你还没有任何收藏,先在「记忆」页收藏一些内容吧。")
+            return AgentReply.Message(Strings.of("android_core_ai.no_saved_memories", CurrentLang.value))
         }
         val (answer, _) = DeepSeekClient.askMemory(app.settings.aiConfig(), question, candidates)
         return AgentReply.Message(answer)
@@ -308,25 +321,30 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         app.memoryRepository.saveText(app.settings.aiConfig(), text)
     }
 
-    private fun describe(action: AIAction): String = when (action) {
-        is AIAction.Create -> {
-            var caption = TimeFormat.format(action.task.remindAt)
-            if (action.task.durationMinutes > 0) caption += " · ${action.task.durationMinutes} 分钟"
-            "新建:${action.task.title}($caption)"
+    private fun describe(action: AIAction): String {
+        val language = CurrentLang.value
+        fun format(key: String, vararg values: Any) =
+            String.format(Locale.ROOT, Strings.of("android_core_ai.$key", language), *values)
+        val unknownTask = Strings.of("android_core_ai.unknown_task", language)
+        return when (action) {
+            is AIAction.Create -> format(
+                "action_create", action.task.title, localizedParsedTaskCaption(action.task, language),
+            )
+            is AIAction.Update -> format(
+                "action_update", action.task.title, localizedParsedTaskCaption(action.task, language),
+            )
+            is AIAction.Complete -> format("action_complete", titleOf(action.uuid) ?: unknownTask)
+            is AIAction.Delete -> format("action_delete", titleOf(action.uuid) ?: unknownTask)
+            // memorize 可以和待办操作混在同一句话里并存(如"明天9点开会,再记住门禁码
+            // 1234"),混合批次会真的走到这里,不是防御性分支。
+            is AIAction.Memorize -> format("action_memorize", action.text)
+            // 防御性分支:agentRoute 已把单条 answer/askMemory/suggestMemorize 短路
+            // 直接返回(解析层的归一化也保证它们不会和写操作混批),混合批次里理论上
+            // 不会出现,兜底给出可读描述。
+            is AIAction.Answer -> format("action_answer", action.text)
+            is AIAction.AskMemory -> format("action_search_memory", action.question)
+            is AIAction.SuggestMemorize -> format("action_suggest_save", action.text)
         }
-        is AIAction.Update ->
-            "修改:${action.task.title}(${TimeFormat.format(action.task.remindAt)})"
-        is AIAction.Complete -> "完成:${titleOf(action.uuid) ?: "未知事项"}"
-        is AIAction.Delete -> "删除:${titleOf(action.uuid) ?: "未知事项"}"
-        // memorize 可以和待办操作混在同一句话里并存(如"明天9点开会,再记住门禁码
-        // 1234"),混合批次会真的走到这里,不是防御性分支。
-        is AIAction.Memorize -> "收藏:${action.text}"
-        // 防御性分支:agentRoute 已把单条 answer/askMemory/suggestMemorize 短路
-        // 直接返回(解析层的归一化也保证它们不会和写操作混批),混合批次里理论上
-        // 不会出现,兜底给出可读描述。
-        is AIAction.Answer -> "回答:${action.text}"
-        is AIAction.AskMemory -> "查记忆:${action.question}"
-        is AIAction.SuggestMemorize -> "建议收藏:${action.text}"
     }
 
     private fun titleOf(uuid: String): String? =
@@ -403,7 +421,11 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             _undoAvailableEvents.emit(token)
         }
         if (missingCount > 0) {
-            actionsWarning = "有 $missingCount 项操作未执行:对应事项已不存在"
+            actionsWarning = String.format(
+                Locale.ROOT,
+                Strings.of("android_core_ai.actions_not_executed", CurrentLang.value),
+                missingCount,
+            )
         }
     }
 
@@ -422,9 +444,9 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
      * 文字指令"撤销"传 null,永远撤最新一批。 */
     private suspend fun undoLastBatch(expectedToken: Long? = null): String {
         if (expectedToken != null && expectedToken != lastUndoToken) {
-            return "这批操作已经被后面的操作覆盖,无法撤销。"
+            return Strings.of("android_core_ai.undo_stale", CurrentLang.value)
         }
-        val ops = lastUndo ?: return "没有可撤销的操作。"
+        val ops = lastUndo ?: return Strings.of("android_core_ai.undo_none", CurrentLang.value)
         lastUndo = null
         var missingCount = 0
         for (op in ops.reversed()) {
@@ -455,9 +477,10 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         return if (missingCount > 0) {
-            "已撤销上一步操作($missingCount 项因事项已不存在无法撤销)。"
+            String.format(Locale.ROOT,
+                Strings.of("android_core_ai.undo_missing", CurrentLang.value), missingCount)
         } else {
-            "已撤销上一步操作。"
+            Strings.of("android_core_ai.undo_success", CurrentLang.value)
         }
     }
 
