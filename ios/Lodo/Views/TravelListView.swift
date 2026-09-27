@@ -288,6 +288,10 @@ struct TravelListView: View {
         if args.contains("--demo-travel-unknown-country") {
             trip = trips.first { $0.title == "京都三日" } ?? seedUnknownCountryTrip()
         }
+        // 验证"没填城市国家时提醒去填"用:名字里也看不出目的地。
+        if args.contains("--demo-travel-no-location") {
+            trip = trips.first { $0.title == "毕业旅行" } ?? seedUnknownCountryTrip(title: "毕业旅行")
+        }
         if args.contains("--demo-travel-flight") {
             attachDemoFlight(to: trip)
         }
@@ -303,10 +307,10 @@ struct TravelListView: View {
     }
 
     /// AI 规划出来的老旅行的样子:只有「京都三日」这个名字,城市国家都空,行程项都没坐标。
-    private func seedUnknownCountryTrip() -> TravelTrip {
+    private func seedUnknownCountryTrip(title: String = "京都三日") -> TravelTrip {
         let calendar = Calendar.current
         let start = calendar.date(byAdding: .day, value: 10, to: calendar.startOfDay(for: Date()))!
-        let trip = TravelTrip(title: "京都三日", startDate: start,
+        let trip = TravelTrip(title: title, startDate: start,
                               endDate: calendar.date(byAdding: .day, value: 2, to: start)!)
         context.insert(trip)
         for (offset, name) in [(0, "清水寺"), (1, "金阁寺"), (1, "岚山"), (2, "伏见稻荷大社")] {

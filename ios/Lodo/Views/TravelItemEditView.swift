@@ -226,7 +226,8 @@ struct TravelItemEditView: View {
                         originName = name
                         originCoordinate = coordinate
                     }
-                }, hint: tripHint, region: tripRegion, anchor: tripAnchor)
+                }, hint: tripHint, region: tripRegion, anchor: tripAnchor,
+                   tripLacksLocation: tripLacksLocation)
             }
             .onAppear(perform: load)
             #if DEBUG
@@ -269,6 +270,8 @@ struct TravelItemEditView: View {
     @State private var tripRegion: String?
     /// 这趟旅行里已经有坐标的某个地点,给选地点页按远近排序用(同名的寺庙全国有十几座)。
     @State private var tripAnchor: CLLocationCoordinate2D?
+    /// 旅行的城市、国家都没填(选地点页搜不到时提醒去填)。
+    @State private var tripLacksLocation = false
 
     private func load() {
         guard !didLoad else { return }
@@ -276,6 +279,8 @@ struct TravelItemEditView: View {
         if let trip = TravelStore.trips(in: context).first(where: { $0.uuid == tripUUID }) {
             tripHint = TravelStore.geocodeHint(for: trip)
             tripRegion = TravelStore.expectedRegion(for: trip)
+            tripLacksLocation = trip.city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && trip.country.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             // 交通类不当锚点:起降机场常在出发地,会把排序拉到另一个城市去。
             tripAnchor = TravelStore.items(for: trip.uuid, in: context)
                 .first { $0.travelKind?.isTransport != true && $0.travelLatitude != nil }

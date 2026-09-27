@@ -2061,6 +2061,22 @@
       }
     },
     "关闭导航" : {},
+    "关闭提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭提醒"
+          }
+        }
+      }
+    },
     "其中 %lld 项币种暂无汇率,不计入总额" : {},
     "其中 %lld 项未填金额,不计入总额" : {},
     "其中 %lld 项负债币种暂无汇率,不计入净资产" : {},
@@ -2696,6 +2712,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "去哪儿,如 东京四日"
+          }
+        }
+      }
+    },
+    "去填写城市和国家" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add City & Country"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "去填写城市和国家"
           }
         }
       }
@@ -4143,6 +4175,7 @@
       }
     },
     "已更新 %lld 个地点,%lld 个没搜到(保留原来的位置)。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4159,6 +4192,7 @@
       }
     },
     "已更新 %lld 个地点的位置。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7323,6 +7357,22 @@
         }
       }
     },
+    "没有找到这个地方。这次旅行还没填城市和国家,先回「编辑旅行」填上再搜会准得多。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results. This trip has no city or country yet; add them in Edit Trip first for much better results."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有找到这个地方。这次旅行还没填城市和国家,先回「编辑旅行」填上再搜会准得多。"
+          }
+        }
+      }
+    },
     "没有改动:%@" : {
       "localizations" : {
         "en" : {
@@ -10206,6 +10256,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这次旅行下面的航班、住宿、地点会一起删掉(它们同时是记忆条目)。"
+          }
+        }
+      }
+    },
+    "这次旅行还没填城市和国家,地点查不到位置。填上以后地图才能准确定位。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This trip has no city or country yet, so its places can't be located. Add them so the map can pin places accurately."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次旅行还没填城市和国家,地点查不到位置。填上以后地图才能准确定位。"
           }
         }
       }

@@ -922,3 +922,7 @@ travel.relocate_moved_same,"已重新查找 %lld 个地点:%lld 个位置有更�
 travel.relocate_moved_same_missed,"已重新查找 %lld 个地点:%lld 个位置有更新,%lld 个没变,%lld 个没搜到(保留原来的位置)。","Looked up %lld places again: %lld moved, %lld unchanged, %lld not found (kept their previous locations).",ios_view,旅行详情
 travel.locating,正在查找「%@」的位置…,Looking up “%@”…,ios_view,旅行详情
 travel.locate_failed,"没找到「%@」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。",Couldn't find “%@”. Tap ⓘ to edit it and pick the place with Search.,ios_view,旅行详情
+travel.fill_location_reminder,"这次旅行还没填城市和国家,地点查不到位置。填上以后地图才能准确定位。","This trip has no city or country yet, so its places can't be located. Add them so the map can pin places accurately.",ios_view,旅行详情
+travel.fill_location_button,去填写城市和国家,Add City & Country,ios_view,旅行详情
+travel.close_reminder,关闭提醒,Dismiss,ios_view,旅行详情
+place_search.not_found_fill_location,"没有找到这个地方。这次旅行还没填城市和国家,先回「编辑旅行」填上再搜会准得多。",No results. This trip has no city or country yet; add them in Edit Trip first for much better results.,ios_view,旅行详情

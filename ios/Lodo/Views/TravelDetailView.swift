@@ -47,6 +47,8 @@ struct TravelDetailView: View {
     /// 地图顶上停留一会儿的提示(刷新地点位置的结果)。
     @State private var mapNotice: String?
     @State private var noticeTask: Task<Void, Never>?
+    /// 当前这条提示是"没填城市和国家"的提醒:带「去填写」和关闭两颗按钮,一直挂着。
+    @State private var noticeOffersTripEdit = false
     /// 切换 mapDay 后要选中的点。行选中需要先把按天筛选退回「全部」,而 mapDay 的
     /// onChange 默认会清掉选中、框全部点——有这个就改成飞到这个点。
     @State private var pendingPin: String?
@@ -117,6 +119,16 @@ struct TravelDetailView: View {
         // 同一轮里先把存错国家的坐标清掉(见 TravelStore.pruneMisplacedCoordinates)。
         .task(id: trip.uuid) {
             await TravelStore.refreshCoordinates(for: trip, context: context)
+            remindToFillLocationIfNeeded()
+        }
+        // 用户按提醒去「编辑旅行」填了城市/国家:收起提醒,按新的判据再补一遍坐标。
+        .onChange(of: tripLocationKey) { _, _ in
+            guard !tripLacksLocation else { return }
+            if noticeOffersTripEdit { showNotice(nil) }
+            Task {
+                await TravelStore.refreshCoordinates(for: trip, context: context)
+                focusCamera(animated: true)
+            }
         }
         // 真实路线:点或开关变了就把缺的那几段规划一遍(缓存过的不再请求)。
         .task(id: routeLoadKey) {
@@ -452,11 +464,31 @@ struct TravelDetailView: View {
                 Spacer(minLength: 0)
             }
             if let notice = mapNotice ?? emptyMapNotice {
-                HStack(spacing: 8) {
-                    if relocating { ProgressView().controlSize(.small) }
-                    Text(notice)
-                        .font(.subheadline)
-                        .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
+                        if relocating { ProgressView().controlSize(.small) }
+                        Text(notice)
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if noticeOffersTripEdit {
+                            Spacer(minLength: 0)
+                            Button {
+                                showNotice(nil)
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .pressable()
+                            .accessibilityLabel("关闭提醒")
+                        }
+                    }
+                    if noticeOffersTripEdit || (mapNotice == nil && tripLacksLocation) {
+                        Button("去填写城市和国家") { editingTrip = true }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(lodoAccent.accent)
+                            .pressable()
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -470,9 +502,36 @@ struct TravelDetailView: View {
     }
 
     private var emptyMapNotice: String? {
-        mapPins(for: nil).isEmpty
-            ? String(localized: "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。")
-            : nil
+        guard mapPins(for: nil).isEmpty else { return nil }
+        return tripLacksLocation
+            ? Self.fillLocationReminder
+            : String(localized: "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。")
+    }
+
+    // MARK: - 没填城市和国家的提醒
+
+    /// 城市、国家两栏都没填。这种旅行查地名只能靠从旅行名里猜城市,经常猜不出来,
+    /// 查不到是正常的——该做的是提醒用户去填,而不是只说"没找到"。
+    private var tripLacksLocation: Bool {
+        trip.city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && trip.country.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var tripLocationKey: String { trip.city + "|" + trip.country }
+
+    /// 有地名(或标题)、却还没坐标的非交通类行程项。
+    private var unlocatedCount: Int {
+        entries.filter { $0.coordinate == nil && !$0.kind.isTransport }.count
+    }
+
+    private static var fillLocationReminder: String {
+        String(localized: "这次旅行还没填城市和国家,地点查不到位置。填上以后地图才能准确定位。")
+    }
+
+    /// 查位置之后还有地点没找到、并且旅行没填城市国家时,挂一条带「去填写」的提醒。
+    private func remindToFillLocationIfNeeded() {
+        guard tripLacksLocation, unlocatedCount > 0 else { return }
+        showNotice(Self.fillLocationReminder, sticky: true, offersTripEdit: true)
     }
 
     /// 地图左上角那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
@@ -600,16 +659,19 @@ struct TravelDetailView: View {
                     pendingPin = pin.id
                     mapDay = nil
                 }
+            } else if tripLacksLocation {
+                showNotice(Self.fillLocationReminder, sticky: true, offersTripEdit: true)
             } else {
                 showNotice(String(localized: "没找到「\(entry.placeName ?? entry.title)」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。"))
             }
         }
     }
 
-    /// 地图顶上的提示。sticky 的一直挂着(进行中),否则几秒后自己消失。
-    private func showNotice(_ text: String?, sticky: Bool = false) {
+    /// 地图顶上的提示。sticky 的一直挂着(进行中/需要用户处理),否则几秒后自己消失。
+    private func showNotice(_ text: String?, sticky: Bool = false, offersTripEdit: Bool = false) {
         noticeTask?.cancel()
         mapNotice = text
+        noticeOffersTripEdit = text != nil && offersTripEdit
         guard text != nil, !sticky else { return }
         noticeTask = Task {
             try? await Task.sleep(for: .seconds(4))
@@ -624,7 +686,11 @@ struct TravelDetailView: View {
         Task {
             let result = await TravelStore.relocateAll(for: trip, context: context)
             relocating = false
-            showNotice(Self.relocateMessage(result))
+            if tripLacksLocation && (result.destinationUnknown || result.missed > 0) {
+                showNotice(Self.fillLocationReminder, sticky: true, offersTripEdit: true)
+            } else {
+                showNotice(Self.relocateMessage(result))
+            }
             // 选中的点还在就飞到它的新位置,否则把全部点重新框一遍。
             if let id = selectedPin, let pin = mapPins(for: nil).first(where: { $0.id == id }) {
                 focus(on: [pin], animated: true)

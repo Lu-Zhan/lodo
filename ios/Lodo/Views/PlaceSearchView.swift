@@ -27,6 +27,9 @@ struct PlaceSearchView: View {
     /// 这趟旅行里已有的某个坐标。OpenStreetMap 的结果按离它的远近排——同名的
     /// 「清水寺」日本有十几座,Nominatim 自己的排序会把福冈那座排在京都前面。
     var anchor: CLLocationCoordinate2D?
+    /// 这趟旅行城市、国家都没填。那时不知道该在哪个国家里找,国外地点常常搜不到
+    /// ——这是正常的,搜不到时提醒回「编辑旅行」把城市国家填上。
+    var tripLacksLocation = false
 
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -56,7 +59,11 @@ struct PlaceSearchView: View {
                         .foregroundStyle(.secondary)
                 } else if results.isEmpty && osmResults.isEmpty && !query.isEmpty
                             && osmQuery == trimmedQuery && !osmSearching {
-                    Text("没有找到这个地方。")
+                    // 显式 LocalizedStringKey:三元表达式里的字面量会推断成 String,
+                    // 走 Text 的 verbatim 重载、不查本地化表。
+                    Text(tripLacksLocation
+                         ? LocalizedStringKey("没有找到这个地方。这次旅行还没填城市和国家,先回「编辑旅行」填上再搜会准得多。")
+                         : LocalizedStringKey("没有找到这个地方。"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
