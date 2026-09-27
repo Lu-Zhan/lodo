@@ -535,7 +535,8 @@ public enum AgentSkillStore {
     "start_reminders": [开始前多少分钟提醒, ...], "end_reminders": [结束前多少分钟提醒, ...], \
     "show_in_widget": true/false, "notes": "备注"}
     - 修改倒数日:{"action": "update_countdown", "id": "倒数日 id", 只写要改的字段}\
-    (去掉结束时间写 "end": "")
+    (去掉结束时间写 "end": "";归档写 "archived": true,取消归档写 false——归档的不再显示、\
+    不再提醒,用户说"归档""不想再看到""收起来"时用它,比删除更合适)
     - 删除倒数日:{"action": "delete_countdown", "id": "倒数日 id"}
 
     额外判断规则:

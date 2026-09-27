@@ -23,12 +23,11 @@ struct AgentTripEditCard: View {
         if let record {
             // 跳转小条在卡片**外面**(没有卡片底色);撤销过的不给——那几项已经
             // 回滚,点过去看到的和卡片上写的对不上。
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 card(record)
                 if record.reverted != true {
                     AgentJumpLink(text: Text("旅行已更新:\(record.tripTitle)"),
                                   destination: .trip(record.tripUUID))
-                        .padding(.horizontal, 10)
                 }
             }
         } else {

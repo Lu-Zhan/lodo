@@ -20,11 +20,10 @@ struct AgentCountdownCard: View {
 
     var body: some View {
         if let record {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 card(record)
                 if record.reverted != true, !record.created.isEmpty || !record.updatedAfter.isEmpty {
                     AgentJumpLink(text: Text("倒数日已更新"), destination: .countdown)
-                        .padding(.horizontal, 10)
                 }
             }
         } else {

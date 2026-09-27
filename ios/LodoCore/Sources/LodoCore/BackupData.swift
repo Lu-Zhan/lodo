@@ -797,11 +797,12 @@ public struct BackupCountdownEvent: Codable, Equatable, Sendable {
     public var startReminders: [Int]
     public var endReminders: [Int]
     public var showInWidget: Bool
+    public var archived: Bool = false
     public var createdAt: Date
 
     public init(uuid: UUID, title: String, startDate: Date, endDate: Date?, allDay: Bool,
                 notes: String, startReminders: [Int], endReminders: [Int],
-                showInWidget: Bool, createdAt: Date) {
+                showInWidget: Bool, archived: Bool = false, createdAt: Date) {
         self.uuid = uuid
         self.title = title
         self.startDate = startDate
@@ -811,7 +812,24 @@ public struct BackupCountdownEvent: Codable, Equatable, Sendable {
         self.startReminders = startReminders
         self.endReminders = endReminders
         self.showInWidget = showInWidget
+        self.archived = archived
         self.createdAt = createdAt
+    }
+
+    /// 手写 init(from:):archived 是后加的字段,老备份缺这个 key 时按没归档处理。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        uuid = try c.decode(UUID.self, forKey: .uuid)
+        title = try c.decode(String.self, forKey: .title)
+        startDate = try c.decode(Date.self, forKey: .startDate)
+        endDate = try c.decodeIfPresent(Date.self, forKey: .endDate)
+        allDay = try c.decode(Bool.self, forKey: .allDay)
+        notes = try c.decode(String.self, forKey: .notes)
+        startReminders = try c.decode([Int].self, forKey: .startReminders)
+        endReminders = try c.decode([Int].self, forKey: .endReminders)
+        showInWidget = try c.decode(Bool.self, forKey: .showInWidget)
+        archived = try c.decodeIfPresent(Bool.self, forKey: .archived) ?? false
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
 
@@ -820,7 +838,7 @@ extension CountdownEvent {
         BackupCountdownEvent(uuid: uuid, title: title, startDate: startDate, endDate: endDate,
                              allDay: allDay, notes: notes, startReminders: startReminders,
                              endReminders: endReminders, showInWidget: showInWidget,
-                             createdAt: createdAt)
+                             archived: archived, createdAt: createdAt)
     }
 }
 
@@ -835,6 +853,7 @@ extension BackupCountdownEvent {
         event.startReminders = startReminders
         event.endReminders = endReminders
         event.showInWidget = showInWidget
+        event.archived = archived
         event.createdAt = createdAt
     }
 }

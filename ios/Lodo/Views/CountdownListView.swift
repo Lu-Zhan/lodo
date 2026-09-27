@@ -7,7 +7,9 @@ import LodoCore
 /// AI 接不了倒数日这一棒(`command` 协议里没有这个动作),所以和旅行详情的
 /// 「手动添加」一样,入口必须留着。
 ///
-/// 还没过去的在前、按下一个节点从近到远;已经过去的收在最底下的折叠栏里。
+/// 三组:「倒数日」(还没到/进行中,按下一个节点从近到远)、「正数日」(已经过去的
+/// 日子往上数:在一起、入职、宝宝出生……)、最底下折叠的「已归档」(不想再看到的,
+/// 不上小组件、不提醒,可以取消归档)。最上面是 AI 每天一句的建议(「马上两周年啦」)。
 struct CountdownListView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.sidebarChrome) private var sidebarChrome
@@ -16,7 +18,11 @@ struct CountdownListView: View {
 
     @State private var editing: CountdownEvent?
     @State private var creating = false
-    @State private var showPast = false
+    @State private var showArchived = false
+    /// 顶部那一句 AI 建议(按天缓存,见 loadInsight)。
+    @State private var insight: String?
+    private static let insightKeyKey = "countdownInsightKey"
+    private static let insightTextKey = "countdownInsightText"
     /// 一分钟刷新一次"还有几小时几分"。
     @State private var now = Date()
 
@@ -25,13 +31,18 @@ struct CountdownListView: View {
         return CountdownPlan.sorted(events.map(\.entry), now: now).compactMap { byID[$0.id] }
     }
 
+    private var active: [CountdownEvent] { sorted.filter { !$0.archived } }
+
     private var upcoming: [CountdownEvent] {
-        sorted.filter { !CountdownPlan.isPast($0.entry, now: now) }
+        active.filter { !CountdownPlan.isPast($0.entry, now: now) }
     }
 
+    /// 正数日:已经过去的日子。
     private var past: [CountdownEvent] {
-        sorted.filter { CountdownPlan.isPast($0.entry, now: now) }
+        active.filter { CountdownPlan.isPast($0.entry, now: now) }
     }
+
+    private var archivedEvents: [CountdownEvent] { sorted.filter(\.archived) }
 
     var body: some View {
         NavigationStack {
@@ -48,24 +59,48 @@ struct CountdownListView: View {
                         }
                     }
                 } else {
-                    Section {
-                        if upcoming.isEmpty {
-                            Text("没有还没到的日子了。")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                    if let insight {
+                        Section {
+                            Label {
+                                Text(insight)
+                                    .font(.body)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } icon: {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(.tint)
+                            }
+                            .padding(.vertical, 2)
                         }
-                        ForEach(upcoming) { event in row(event) }
-                    } footer: {
-                        if events.contains(where: \.showInWidget) {
-                            Text("带 \(Image(systemName: "lock.fill")) 的会显示在锁屏「倒数日」小组件上。")
+                    }
+                    if !upcoming.isEmpty || past.isEmpty {
+                        Section {
+                            if upcoming.isEmpty {
+                                Text("没有还没到的日子了。")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(upcoming) { event in row(event) }
+                        } header: {
+                            Text("倒数日")
+                        } footer: {
+                            if active.contains(where: \.showInWidget) {
+                                Text("带 \(Image(systemName: "lock.fill")) 的会显示在锁屏「倒数日」小组件上。")
+                            }
                         }
                     }
                     if !past.isEmpty {
                         Section {
-                            DisclosureGroup(isExpanded: $showPast) {
-                                ForEach(past) { event in row(event) }
+                            ForEach(past) { event in row(event) }
+                        } header: {
+                            Text("正数日")
+                        }
+                    }
+                    if !archivedEvents.isEmpty {
+                        Section {
+                            DisclosureGroup(isExpanded: $showArchived) {
+                                ForEach(archivedEvents) { event in row(event) }
                             } label: {
-                                Text("已经过去 · \(past.count)")
+                                Text("已归档 · \(archivedEvents.count)")
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.secondary)
                             }
@@ -96,6 +131,8 @@ struct CountdownListView: View {
             .sheet(item: $editing) { event in
                 CountdownEditView(event: event)
             }
+            // 顶部那句 AI 建议:日子有变化或到了新的一天才重新要一句。
+            .task(id: insightInput) { await loadInsight() }
             .task {
                 // 对齐到下一个整分钟再开始每分钟跳一次。
                 while !Task.isCancelled {
@@ -114,6 +151,9 @@ struct CountdownListView: View {
         let entry = event.entry
         let spans = CountdownPlan.spans(entry, now: now)
         let isPast = CountdownPlan.isPast(entry, now: now)
+        // 倒数日用强调色,正数日用另一种颜色,归档的一律灰。
+        let accent: Color = event.archived ? .secondary
+            : isPast ? LodoColor.positive : lodoAccent.accent
         return Button {
             editing = event
         } label: {
@@ -148,7 +188,7 @@ struct CountdownListView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(CountdownText.text(spans[0], hasEnd: entry.end != nil))
                         .font(.headline.monospacedDigit())
-                        .foregroundStyle(isPast ? Color.secondary : lodoAccent.accent)
+                        .foregroundStyle(accent)
                         .multilineTextAlignment(.trailing)
                     if spans.count > 1 {
                         Text(CountdownText.text(spans[1], hasEnd: true))
@@ -164,13 +204,79 @@ struct CountdownListView: View {
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 context.delete(event)
-                try? context.save()
-                CountdownNotifier.reschedule(context: context)
-                WidgetBridge.sync(context: context)
+                save()
             } label: {
                 Label("删除", systemImage: "trash")
             }
+            Button {
+                withAnimation(.lodoAware(.snappy)) {
+                    event.archived.toggle()
+                    save()
+                }
+            } label: {
+                Label(event.archived ? "取消归档" : "归档",
+                      systemImage: event.archived ? "tray.and.arrow.up" : "archivebox")
+            }
+            .tint(LodoColor.neutralAction)
         }
+        .contextMenu {
+            Button {
+                withAnimation(.lodoAware(.snappy)) {
+                    event.archived.toggle()
+                    save()
+                }
+            } label: {
+                Label(event.archived ? "取消归档" : "归档",
+                      systemImage: event.archived ? "tray.and.arrow.up" : "archivebox")
+            }
+        }
+    }
+
+    private func save() {
+        try? context.save()
+        CountdownNotifier.reschedule(context: context)
+        WidgetBridge.sync(context: context)
+    }
+
+    // MARK: - AI 建议
+
+    /// 喂给 AI 的素材;每天的"已经/还有几天"都不同,所以它本身就带着日期。
+    private var insightInput: String {
+        CountdownPlan.promptSummary(events.map(\.entry), now: Calendar.current.startOfDay(for: now))
+    }
+
+    /// 顶部那一句:按"当天 + 素材"缓存在 UserDefaults(纯展示的派生数据,不进库不备份),
+    /// 同一天、日子没变就不再请求;失败什么都不显示,不占位置。
+    private func loadInsight() async {
+        let input = insightInput
+        guard !input.isEmpty, DeepSeekClient.isConfigured else {
+            insight = nil
+            return
+        }
+        let day = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+        let key = "\(Int(day))|\(AppSettings.language.rawValue)|\(input)"
+        let defaults = UserDefaults.standard
+        #if DEBUG
+        // 截图验证用:跳过缓存,真发一次请求。
+        let bypassCache = ProcessInfo.processInfo.arguments.contains("--demo-countdown-insight-live")
+        #else
+        let bypassCache = false
+        #endif
+        if !bypassCache, defaults.string(forKey: Self.insightKeyKey) == key,
+           let cached = defaults.string(forKey: Self.insightTextKey) {
+            insight = cached
+            return
+        }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--demo-countdown-insight") {
+            insight = "再过 3 天就是在一起两周年啦,想想怎么庆祝"
+            return
+        }
+        #endif
+        guard let text = try? await DeepSeekClient.countdownInsight(summary: input) else { return }
+        defaults.set(key, forKey: Self.insightKeyKey)
+        defaults.set(text, forKey: Self.insightTextKey)
+        insight = text
     }
 
     /// "开始 2026年7月20日 周一 · 结束 7月25日 周六";只有一个日子的就一个日期。
@@ -203,6 +309,9 @@ struct CountdownListView: View {
                 CountdownEvent(title: "妈妈生日", startDate: day(40), showInWidget: true),
                 CountdownEvent(title: "国庆假期", startDate: day(-2), endDate: day(4)),
                 CountdownEvent(title: "搬家", startDate: day(-20)),
+                CountdownEvent(title: "在一起", startDate: calendar.date(
+                    byAdding: .year, value: -2, to: day(3))!),
+                CountdownEvent(title: "旧公司入职", startDate: day(-900), archived: true),
             ]
             samples.forEach(context.insert)
             try? context.save()
@@ -215,7 +324,7 @@ struct CountdownListView: View {
                 editing = sorted.first
             }
         }
-        if args.contains("--demo-countdown-past") { showPast = true }
+        if args.contains("--demo-countdown-archived") { showArchived = true }
     }
     #endif
 }

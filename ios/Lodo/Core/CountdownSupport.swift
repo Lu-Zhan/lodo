@@ -38,8 +38,9 @@ enum CountdownText {
                 return hasEnd ? String(localized: "今天开始", locale: locale)
                     : String(localized: "就是今天", locale: locale)
             }
+            // 只有一个日子、已经过去的是「正数日」(在一起、入职、宝宝出生):往上数。
             return hasEnd ? String(localized: "已开始 \(span.days) 天", locale: locale)
-                : String(localized: "已过去 \(span.days) 天", locale: locale)
+                : String(localized: "已经 \(span.days) 天", locale: locale)
         case .untilEnd:
             if let minutes, span.days == 0 {
                 return minutes < 1 ? String(localized: "马上结束", locale: locale)
@@ -212,7 +213,8 @@ enum CountdownStore {
                     event.endReminders = reminders
                 }
                 if let notes = change.notes { event.notes = notes }
-                if let show = change.showInWidget {
+                if let archived = change.archived { event.archived = archived }
+            if let show = change.showInWidget {
                     if !show, event.showInWidget { widgetCount -= 1 }
                     event.showInWidget = widgetAllowed(show, title: event.title,
                                                        already: event.showInWidget)

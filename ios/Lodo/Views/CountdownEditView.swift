@@ -127,9 +127,24 @@ struct CountdownEditView: View {
                         .lineLimit(2...6)
                 }
 
-                if event != nil {
+                if let event {
                     Section {
+                        // 归档:不想再看到、又不想删掉(纪念日过了还想留着)。
+                        Button {
+                            event.archived.toggle()
+                            try? context.save()
+                            CountdownNotifier.reschedule(context: context)
+                            WidgetBridge.sync(context: context)
+                            dismiss()
+                        } label: {
+                            Label(event.archived ? "取消归档" : "归档",
+                                  systemImage: event.archived ? "tray.and.arrow.up" : "archivebox")
+                        }
                         Button("删除倒数日", role: .destructive) { confirmingDelete = true }
+                    } footer: {
+                        if !event.archived {
+                            Text("归档后不再显示在列表、小组件和总览里,也不再提醒;在列表最下面「已归档」里可以找回来。")
+                        }
                     }
                 }
             }

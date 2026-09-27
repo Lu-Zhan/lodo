@@ -20,32 +20,23 @@ extension View {
     }
 }
 
-/// 带条目的结果回复(新建/修改待办、收藏、倒数日、旅行调整)的统一形态:先是一句
-/// 普通回复气泡(「已新建」「已修改」……,按字数收缩),条目列在气泡**下面**、
-/// **不垫任何底色**——气泡是 AI 说的那句话,条目是这句话落下的东西,两者分开放,
-/// 条目也就不用再做"玻璃卡里套灰卡"那一层(用户要求,2026-09)。
+/// 带条目的结果回复(新建/修改待办、收藏、倒数日、旅行调整)的统一形态:和 AI 普通
+/// 回复(`AgentAnswerCard`)**同一个气泡**——同样的玻璃底、同样以 ✨ 开头的一句话
+/// (「已新建」「已修改」……),条目列在这句话下面、**不垫任何底色**(用户要求,
+/// 2026-09):原来"玻璃卡里套灰卡"那一层去掉了,一条回复就是一个气泡。
 struct AgentResultReply<Items: View>: View {
     let status: Text
-    var systemImage: String?
+    /// 句首图标;默认同普通回复的 sparkles。
+    var systemImage: String = "sparkles"
     @ViewBuilder let items: () -> Items
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Group {
-                if let systemImage {
-                    Label { status } icon: { Image(systemName: systemImage) }
-                } else {
-                    status
-                }
-            }
-            .font(.body)
-            .agentCard(padding: 12, hugsContent: true)
-            VStack(alignment: .leading, spacing: 10) {
-                items()
-            }
-            // 和气泡里的文字左边对齐(气泡内边距 12)。
-            .padding(.horizontal, 12)
+        VStack(alignment: .leading, spacing: 10) {
+            Label { status } icon: { Image(systemName: systemImage) }
+                .font(.body)
+            items()
         }
+        .agentCard()
     }
 }
 
@@ -330,7 +321,8 @@ struct AgentMessageBubble: View {
         // suggestMemorize 确认)共用这个形态,但要让用户一眼看出这条是
         // AI 自己记的、不是自己刚收藏的——用 sparkles 图标 + 不同文案区分。
         AgentResultReply(status: Text(localizedSystemStatus),
-                         systemImage: resultMemoryItem?.isAutoRecorded == true ? "sparkles" : nil) {
+                         systemImage: resultMemoryItem?.isAutoRecorded == true
+                            ? "sparkles" : "bookmark.circle") {
             if let item = resultMemoryItem {
                 HStack(spacing: 8) {
                     HStack(alignment: .top, spacing: 10) {

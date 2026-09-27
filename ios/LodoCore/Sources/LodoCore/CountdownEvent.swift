@@ -24,12 +24,14 @@ public final class CountdownEvent {
     public var endReminders: [Int] = []
     /// 显示在锁屏「倒数日」小组件上(最多 3 件,见 `CountdownPlan.widgetLimit`)。
     public var showInWidget: Bool = false
+    /// 归档:页面主列表、小组件、总览、提醒里都不再出现,收在「已归档」里可以恢复。
+    public var archived: Bool = false
     public var createdAt: Date = Date.now
 
     public init(uuid: UUID = UUID(), title: String = "", startDate: Date = .now,
                 endDate: Date? = nil, allDay: Bool = true, notes: String = "",
                 startReminders: [Int] = [], endReminders: [Int] = [],
-                showInWidget: Bool = false, createdAt: Date = .now) {
+                showInWidget: Bool = false, archived: Bool = false, createdAt: Date = .now) {
         self.uuid = uuid
         self.title = title
         self.startDate = startDate
@@ -39,6 +41,7 @@ public final class CountdownEvent {
         self.startReminders = startReminders
         self.endReminders = endReminders
         self.showInWidget = showInWidget
+        self.archived = archived
         self.createdAt = createdAt
     }
 
@@ -46,7 +49,7 @@ public final class CountdownEvent {
     public var entry: CountdownEntry {
         CountdownEntry(id: uuid, title: title, start: startDate, end: endDate, allDay: allDay,
                        startReminders: startReminders, endReminders: endReminders,
-                       showInWidget: showInWidget)
+                       showInWidget: showInWidget, archived: archived)
     }
 }
 
@@ -60,10 +63,11 @@ public struct CountdownEntry: Equatable, Sendable, Identifiable {
     public let startReminders: [Int]
     public let endReminders: [Int]
     public let showInWidget: Bool
+    public let archived: Bool
 
     public init(id: UUID = UUID(), title: String, start: Date, end: Date? = nil,
                 allDay: Bool = true, startReminders: [Int] = [], endReminders: [Int] = [],
-                showInWidget: Bool = false) {
+                showInWidget: Bool = false, archived: Bool = false) {
         self.id = id
         self.title = title
         self.start = start
@@ -72,6 +76,7 @@ public struct CountdownEntry: Equatable, Sendable, Identifiable {
         self.startReminders = startReminders
         self.endReminders = endReminders
         self.showInWidget = showInWidget
+        self.archived = archived
     }
 }
 
@@ -204,11 +209,11 @@ public enum CountdownPlan {
         return upcoming + past
     }
 
-    /// 小组件上显示哪几件:勾了"显示在小组件"的,按页面同样的顺序取前 3 件。
+    /// 小组件上显示哪几件:勾了"显示在小组件"、没归档的,按页面同样的顺序取前 3 件。
     public static func widgetEntries(_ entries: [CountdownEntry], now: Date,
                                      calendar: Calendar = .current) -> [CountdownEntry] {
-        Array(sorted(entries.filter(\.showInWidget), now: now, calendar: calendar)
-            .prefix(widgetLimit))
+        Array(sorted(entries.filter { $0.showInWidget && !$0.archived }, now: now,
+                     calendar: calendar).prefix(widgetLimit))
     }
 
     /// 全部要发的提醒(只要将来的),按时间排好。全天的事以那天的 `allDayTime`
@@ -222,7 +227,8 @@ public enum CountdownPlan {
                                  of: calendar.startOfDay(for: date)) ?? date
         }
         var result: [CountdownReminder] = []
-        for entry in entries {
+        // 归档了的不再提醒。
+        for entry in entries where !entry.archived {
             let startBase = base(entry.start, allDay: entry.allDay)
             for offset in Set(entry.startReminders) {
                 result.append(CountdownReminder(
@@ -243,6 +249,96 @@ public enum CountdownPlan {
         return result.filter { $0.fireDate > now }.sorted {
             ($0.fireDate, $0.offsetMinutes) < ($1.fireDate, $1.offsetMinutes)
         }
+    }
+
+    // MARK: - 接下来的节点(AI 建议的素材)
+
+    /// 一件事接下来值得一提的节点。
+    public struct Milestone: Equatable, Sendable {
+        public enum Kind: Equatable, Sendable {
+            /// 还没开始的事:离开始还有几天。
+            case start
+            /// 过去的日子满 N 周年(N ≥ 1)。
+            case anniversary(years: Int)
+            /// 过去的日子满 N 天(整百,N ≥ 100)。
+            case dayCount(Int)
+        }
+        public let kind: Kind
+        public let date: Date
+        /// 离那天还有几天(0 = 就是今天)。
+        public let daysAway: Int
+
+        public init(kind: Kind, date: Date, daysAway: Int) {
+            self.kind = kind
+            self.date = date
+            self.daysAway = daysAway
+        }
+    }
+
+    /// 一件事接下来的节点,近的在前。还没开始的只有"开始";开始了的(纪念日、
+    /// 在一起、入职这类正数日)给下一个周年和下一个整百天——"马上两周年啦"
+    /// "明天就满 1000 天"。只看 `horizonDays` 天以内的。
+    public static func milestones(_ entry: CountdownEntry, now: Date, horizonDays: Int = 60,
+                                  calendar: Calendar = .current) -> [Milestone] {
+        let today = calendar.startOfDay(for: now)
+        let startDay = calendar.startOfDay(for: entry.start)
+        func days(to date: Date) -> Int {
+            calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: date)).day ?? 0
+        }
+        var result: [Milestone] = []
+        if startDay > today {
+            result.append(Milestone(kind: .start, date: startDay, daysAway: days(to: startDay)))
+        } else {
+            // 下一个周年:今天正好是周年就算今天。2/29 在非闰年落 2/28(Calendar 自己处理)。
+            let passed = calendar.dateComponents([.year], from: startDay, to: today).year ?? 0
+            for years in [passed, passed + 1] where years >= 1 {
+                if let date = calendar.date(byAdding: .year, value: years, to: startDay),
+                   calendar.startOfDay(for: date) >= today {
+                    result.append(Milestone(kind: .anniversary(years: years), date: date,
+                                            daysAway: days(to: date)))
+                    break
+                }
+            }
+            // 下一个整百天:按"已经 N 天"那个口径(开始那天算第 0 天)。
+            let elapsed = calendar.dateComponents([.day], from: startDay, to: today).day ?? 0
+            let next = max(100, elapsed % 100 == 0 ? elapsed : (elapsed / 100 + 1) * 100)
+            if let date = calendar.date(byAdding: .day, value: next, to: startDay) {
+                result.append(Milestone(kind: .dayCount(next), date: date, daysAway: next - elapsed))
+            }
+        }
+        return result.filter { $0.daysAway <= horizonDays }.sorted { $0.daysAway < $1.daysAway }
+    }
+
+    /// 给 AI 写"今日一句"的素材:每件没归档的事一行,带已经/还有几天和接下来的节点。
+    /// 固定中文(喂给模型的,不跟应用内语言走)。没有值得说的节点时也照样列出。
+    public static func promptSummary(_ entries: [CountdownEntry], now: Date,
+                                     calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.dateFormat = "yyyy-MM-dd"
+        let lines = sorted(entries.filter { !$0.archived }, now: now, calendar: calendar)
+            .map { entry -> String in
+                let span = primary(entry, now: now, calendar: calendar)
+                var line = "「\(entry.title)」\(formatter.string(from: entry.start))"
+                if let end = entry.end { line += " 至 \(formatter.string(from: end))" }
+                switch span.milestone {
+                case .untilStart: line += ",还有 \(span.days) 天开始"
+                case .untilEnd: line += ",进行中,还有 \(span.days) 天结束"
+                case .sinceStart: line += ",已经 \(span.days) 天"
+                case .sinceEnd: line += ",已结束 \(span.days) 天"
+                }
+                let upcoming = milestones(entry, now: now, calendar: calendar).compactMap { m -> String? in
+                    let when = m.daysAway == 0 ? "今天" : "\(m.daysAway) 天后"
+                    switch m.kind {
+                    case .start: return nil
+                    case .anniversary(let years): return "\(when)满 \(years) 周年"
+                    case .dayCount(let n): return "\(when)满 \(n) 天"
+                    }
+                }
+                if !upcoming.isEmpty { line += ";" + upcoming.joined(separator: "、") }
+                return line
+            }
+        return lines.joined(separator: "\n")
     }
 
     static func parseTime(_ text: String) -> (Int, Int) {

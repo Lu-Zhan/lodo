@@ -129,6 +129,22 @@
         }
       }
     },
+    "「%@」没放上小组件(最多 3 件)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” isn't on the widget (3 max)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」没放上小组件(最多 3 件)"
+          }
+        }
+      }
+    },
     "#%@" : {
       "localizations" : {
         "en" : {
@@ -1165,22 +1181,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tavily API Key"
-          }
-        }
-      }
-    },
-    "「%@」没放上小组件(最多 3 件)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“%@” isn't on the widget (3 max)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「%@」没放上小组件(最多 3 件)"
           }
         }
       }
@@ -3183,102 +3183,6 @@
         }
       }
     },
-    "已修改" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updated"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已修改"
-          }
-        }
-      }
-    },
-    "已删除" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deleted"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已删除"
-          }
-        }
-      }
-    },
-    "已撤销" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Undone"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已撤销"
-          }
-        }
-      }
-    },
-    "已新建" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Created"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已新建"
-          }
-        }
-      }
-    },
-    "已更新" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updated"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已更新"
-          }
-        }
-      }
-    },
-    "已调整「%@」:%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updated “%@”: %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已调整「%@」:%@"
-          }
-        }
-      }
-    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -4337,6 +4241,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消常驻"
+          }
+        }
+      }
+    },
+    "取消归档" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unarchive"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消归档"
           }
         }
       }
@@ -6057,6 +5977,22 @@
         }
       }
     },
+    "已修改" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已修改"
+          }
+        }
+      }
+    },
     "已停用" : {
       "localizations" : {
         "en" : {
@@ -6085,6 +6021,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已写入行程"
+          }
+        }
+      }
+    },
+    "已删除" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除"
           }
         }
       }
@@ -6235,6 +6187,38 @@
         }
       }
     },
+    "已归档 · %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archived · %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已归档 · %lld"
+          }
+        }
+      }
+    },
+    "已撤销" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已撤销"
+          }
+        }
+      }
+    },
     "已撤销写入" : {
       "localizations" : {
         "en" : {
@@ -6283,6 +6267,22 @@
         }
       }
     },
+    "已新建" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已新建"
+          }
+        }
+      }
+    },
     "已新建:%@,点两下取消" : {
       "localizations" : {
         "en" : {
@@ -6295,6 +6295,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已新建:%@,点两下取消"
+          }
+        }
+      }
+    },
+    "已更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新"
           }
         }
       }
@@ -6349,6 +6365,22 @@
         }
       }
     },
+    "已经 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld d since"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经 %lld 天"
+          }
+        }
+      }
+    },
     "已经有同名的 skill 了" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6367,6 +6399,7 @@
       }
     },
     "已经过去 · %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6526,6 +6559,22 @@
         }
       }
     },
+    "已调整「%@」:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated “%@”: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已调整「%@」:%@"
+          }
+        }
+      }
+    },
     "已过去 %@" : {
       "localizations" : {
         "en" : {
@@ -6543,6 +6592,7 @@
       }
     },
     "已过去 %lld 天" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7100,6 +7150,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "强调色"
+          }
+        }
+      }
+    },
+    "归档" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "归档"
+          }
+        }
+      }
+    },
+    "归档后不再显示在列表、小组件和总览里,也不再提醒;在列表最下面「已归档」里可以找回来。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archived dates leave the list, widgets and Overview and stop reminding you. Find them under Archived at the bottom of the list."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "归档后不再显示在列表、小组件和总览里,也不再提醒;在列表最下面「已归档」里可以找回来。"
           }
         }
       }
@@ -10303,6 +10385,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在读取健康数据…"
+          }
+        }
+      }
+    },
+    "正数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days Since"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正数日"
           }
         }
       }

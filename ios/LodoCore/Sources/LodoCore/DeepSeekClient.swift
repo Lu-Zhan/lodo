@@ -1013,6 +1013,33 @@ public enum DeepSeekClient {
         return suggestion
     }
 
+    /// 「倒数日」页顶部那一句(每天一句):根据各件事已经/还有几天和接下来的节点
+    /// (`CountdownPlan.promptSummary` 给的素材),挑最值得说的写一句。
+    public static func countdownInsight(summary: String) async throws -> String {
+        let system = """
+        你是提醒事项应用 lodo 的倒数日助手。下面是用户记下的日子:还没到的(倒数日)和已经\
+        过去、在往上数的(正数日,如在一起、入职、宝宝出生),以及它们接下来的节点(周年、整百天)。\
+        挑今天**最值得一提**的一两件,写一句不超过 30 个字的话:像朋友提醒,有温度、具体,\
+        比如"在一起马上两周年啦,想想怎么庆祝""还有 5 天考研,稳住"。
+        规则:
+        - 每一行是**一件**事,节点(几天后开始、满几周年、满几百天)只属于它那一行;\
+        **不要把两件事的节点拼到一起**(A 三天后开始、B 三天后满周年,不能写成"A 三天后满周年")。
+        - 提到的事用列表里「」中的名字,可以略去修饰但不能换成别的事。
+        - 只根据列出的事实写,不编日子、不编数字;没什么特别的就说离得最近的那件。
+        只返回 JSON:{"text": "一句话"},不要任何其他文字。\(personaBlock)
+        """
+        return try parseCountdownInsight(await payload(system: system, user: summary, timeout: 60))
+    }
+
+    /// 倒数日那一句的解析(单测入口)。
+    static func parseCountdownInsight(_ payload: [String: Any]) throws -> String {
+        guard let text = (payload["text"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:缺少 text")
+        }
+        return text
+    }
+
     /// "总览" tab 用:给一句今天新收藏的记忆总结(调用方把标题+摘要格式化成
     /// summary 传进来)。
     public static func summarizeTodayMemories(summary: String) async throws -> String {

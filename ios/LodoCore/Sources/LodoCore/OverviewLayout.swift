@@ -338,7 +338,8 @@ public struct OverviewCountdownEntry: Equatable, Sendable, Identifiable {
                   next < horizon else { continue }
             entries.append(.init(id: "birthday-\(person.id)", title: person.name, date: next, kind: .birthday))
         }
-        for countdown in countdowns where !CountdownPlan.isPast(countdown, now: now, calendar: calendar) {
+        for countdown in countdowns
+        where !countdown.archived && !CountdownPlan.isPast(countdown, now: now, calendar: calendar) {
             let day = calendar.startOfDay(for: countdown.start)
             entries.removeAll {
                 $0.kind == .trip && $0.title == countdown.title

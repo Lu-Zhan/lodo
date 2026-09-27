@@ -94,4 +94,52 @@ final class CountdownPlanTests: XCTestCase {
                         .map(\.fireDate),
                        [date(day: 8, hour: 19), date(day: 8, hour: 19, minute: 30)])
     }
+
+    // MARK: - 归档与节点
+
+    func testArchivedExcludedFromWidgetAndReminders() {
+        let archived = CountdownEntry(title: "旧事", start: date(day: 20), startReminders: [0],
+                                      showInWidget: true, archived: true)
+        let live = CountdownEntry(title: "新事", start: date(day: 21), startReminders: [0],
+                                  showInWidget: true)
+        XCTAssertEqual(CountdownPlan.widgetEntries([archived, live], now: now).map(\.title), ["新事"])
+        XCTAssertEqual(CountdownPlan.reminders([archived, live], allDayTime: "09:00", now: now)
+                        .map(\.title), ["新事"])
+    }
+
+    /// 在一起 2024-07-11:再过 3 天满两周年;已经 727 天,73 天后满 800 天(在 60 天外,不报)。
+    func testMilestonesForPastDate() {
+        let start = calendar.date(from: DateComponents(year: 2024, month: 7, day: 11))!
+        let entry = CountdownEntry(title: "在一起", start: start)
+        let milestones = CountdownPlan.milestones(entry, now: now)
+        XCTAssertEqual(milestones.first?.kind, .anniversary(years: 2))
+        XCTAssertEqual(milestones.first?.daysAway, 3)
+        XCTAssertFalse(milestones.contains { if case .dayCount = $0.kind { return true } else { return false } })
+        XCTAssertEqual(CountdownPlan.milestones(entry, now: now, horizonDays: 100).last?.kind,
+                       .dayCount(800))
+    }
+
+    /// 正好是周年/整百天那天算今天;还没开始的只有"开始"。
+    func testMilestonesTodayAndUpcoming() {
+        let hundred = CountdownEntry(title: "宝宝", start: calendar.date(byAdding: .day, value: -100,
+                                                                          to: date(day: 8))!)
+        XCTAssertEqual(CountdownPlan.milestones(hundred, now: now).first,
+                       CountdownPlan.Milestone(kind: .dayCount(100), date: date(day: 8), daysAway: 0))
+        let exam = CountdownEntry(title: "考试", start: date(day: 20))
+        XCTAssertEqual(CountdownPlan.milestones(exam, now: now).map(\.kind), [.start])
+    }
+
+    func testPromptSummaryListsCountUpAndMilestones() {
+        let start = calendar.date(from: DateComponents(year: 2024, month: 7, day: 11))!
+        let summary = CountdownPlan.promptSummary([
+            CountdownEntry(title: "在一起", start: start),
+            CountdownEntry(title: "归档的", start: date(day: 20), archived: true),
+        ], now: now)
+        XCTAssertEqual(summary, "「在一起」2024-07-11,已经 727 天;3 天后满 2 周年")
+    }
+
+    func testParseCountdownInsight() throws {
+        XCTAssertEqual(try DeepSeekClient.parseCountdownInsight(["text": " 马上两周年啦 "]), "马上两周年啦")
+        XCTAssertThrowsError(try DeepSeekClient.parseCountdownInsight([:]))
+    }
 }

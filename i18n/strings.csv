@@ -1516,3 +1516,9 @@ ios_view.agent_result_5,倒数日已更新,Countdown updated,ios_view,AI 结果�
 ios_view.agent_result_6,已调整「%@」:%@,Updated “%@”: %@,ios_view,AI 结果回复/倒数日
 ios_view.agent_result_7,「%@」没放上小组件(最多 3 件),“%@” isn't on the widget (3 max),ios_view,AI 结果回复/倒数日
 ios_view.agent_result_8,有一个倒数日没找到,A countdown couldn't be found,ios_view,AI 结果回复/倒数日
+ios_view.countdown_archive_0,正数日,Days Since,ios_view,倒数日:正数日/归档
+ios_view.countdown_archive_1,已经 %lld 天,%lld d since,ios_view,倒数日:正数日/归档
+ios_view.countdown_archive_3,已归档 · %lld,Archived · %lld,ios_view,倒数日:正数日/归档
+ios_view.countdown_archive_4,归档,Archive,ios_view,倒数日:正数日/归档
+ios_view.countdown_archive_5,取消归档,Unarchive,ios_view,倒数日:正数日/归档
+ios_view.countdown_archive_6,"归档后不再显示在列表、小组件和总览里,也不再提醒;在列表最下面「已归档」里可以找回来。","Archived dates leave the list, widgets and Overview and stop reminding you. Find them under Archived at the bottom of the list.",ios_view,倒数日:正数日/归档

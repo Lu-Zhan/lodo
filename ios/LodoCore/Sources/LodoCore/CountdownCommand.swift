@@ -51,10 +51,11 @@ public struct CountdownChange: Equatable, Sendable {
     public var endReminders: [Int]?
     public var showInWidget: Bool?
     public var notes: String?
+    public var archived: Bool?
 
     public init(title: String? = nil, start: Date? = nil, end: EndChange? = nil,
                 allDay: Bool? = nil, startReminders: [Int]? = nil, endReminders: [Int]? = nil,
-                showInWidget: Bool? = nil, notes: String? = nil) {
+                showInWidget: Bool? = nil, notes: String? = nil, archived: Bool? = nil) {
         self.title = title
         self.start = start
         self.end = end
@@ -63,6 +64,7 @@ public struct CountdownChange: Equatable, Sendable {
         self.endReminders = endReminders
         self.showInWidget = showInWidget
         self.notes = notes
+        self.archived = archived
     }
 
     public var isEmpty: Bool { self == CountdownChange() }
@@ -126,6 +128,7 @@ extension DeepSeekClient {
                 "start": formatter.string(from: entry.start), "all_day": entry.allDay,
                 "show_in_widget": entry.showInWidget,
             ]
+            if entry.archived { fields["archived"] = true }
             if let end = entry.end { fields["end"] = formatter.string(from: end) }
             if !entry.startReminders.isEmpty { fields["start_reminders"] = entry.startReminders }
             if !entry.endReminders.isEmpty { fields["end_reminders"] = entry.endReminders }
@@ -197,6 +200,7 @@ extension DeepSeekClient {
             change.endReminders = reminders("end_reminders")
             change.showInWidget = bool("show_in_widget")
             change.notes = raw["notes"] as? String
+            change.archived = bool("archived")
             guard !change.isEmpty else {
                 throw DeepSeekError.parse("返回格式异常:倒数日没有要改的内容")
             }
