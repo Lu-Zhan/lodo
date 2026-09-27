@@ -129,9 +129,11 @@ struct MemoryListView: View {
                         }
                     } else if filtered.isEmpty {
                         ContentUnavailableView(
-                            showAssets ? "还没有资产记录" : "这个筛选下还没有收藏",
+                            LocalizedStringKey(showAssets ? "还没有资产记录" : "这个筛选下还没有收藏"),
                             systemImage: showAssets ? "creditcard" : "line.3.horizontal.decrease",
-                            description: Text(showAssets ? "在底下那条「问问 AI」里说一句要记的资产。" : "取消上面选中的筛选就能看到全部。"))
+                            description: Text(LocalizedStringKey(showAssets
+                                ? "在底下那条「问问 AI」里说一句要记的资产。"
+                                : "取消上面选中的筛选就能看到全部。")))
                     } else {
                         ForEach(filtered) { item in
                             // 目的地统一挂在下面的 navigationDestination 上:
@@ -302,7 +304,10 @@ private struct MemoryRow: View {
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
-                    Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
+                    Text(item.title.isEmpty
+                         ? (item.originalFileName ?? String(localized: "正在整理…",
+                                                            locale: AppSettings.language.locale))
+                         : item.title)
                         .font(.body.weight(.medium))
                         .lineLimit(1)
                     if let assetValue = item.assetValue {
@@ -321,10 +326,10 @@ private struct MemoryRow: View {
                 if item.assetLiability != nil || item.assetInterestRate != nil {
                     HStack(spacing: 6) {
                         if let liability = item.assetLiability {
-                            Text("负债 " + AssetFormat.currency(liability, code: item.assetCurrencyOrDefault))
+                            Text("负债 \(AssetFormat.currency(liability, code: item.assetCurrencyOrDefault))")
                         }
                         if let rate = item.assetInterestRate {
-                            Text("利率 " + AssetFormat.percent(rate))
+                            Text("利率 \(AssetFormat.percent(rate))")
                         }
                     }
                     .font(.caption)
@@ -345,7 +350,7 @@ private struct MemoryRow: View {
                             .lineLimit(1)
                     }
                     Spacer(minLength: 0)
-                    Text(TaskItem.format(item.createdAt))
+                    Text(LocalizedContent.dateCaption(item.createdAt))
                         .font(.footnote)
                         .foregroundStyle(.tertiary)
                 }

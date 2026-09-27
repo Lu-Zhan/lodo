@@ -43,8 +43,8 @@ struct DoneListView: View {
 
     private func dayGroupTitle(_ date: Date) -> String {
         Calendar.current.isDateInYesterday(date)
-            ? "昨天"
-            : date.formatted(.dateTime.month().day())
+            ? LocalizedStrings.translate("昨天", language: AppSettings.language)
+            : date.formatted(.dateTime.month().day().locale(AppSettings.language.locale))
     }
 
     var body: some View {
@@ -87,7 +87,7 @@ struct DoneListView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(task.title).strikethrough()
             if let doneAt = task.doneAt {
-                Text("完成于 \(TaskItem.format(doneAt))")
+                Text("完成于 \(LocalizedContent.dateCaption(doneAt))")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
         }

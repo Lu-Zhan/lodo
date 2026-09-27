@@ -46,7 +46,7 @@ struct RoutineListView: View {
                                     Text("试运行").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text(TaskItem.format(run.createdAt))
+                                Text(LocalizedContent.dateCaption(run.createdAt))
                                     .font(.footnote).foregroundStyle(.secondary)
                             }
                             Text(run.text)
@@ -104,7 +104,9 @@ struct RoutineListView: View {
                 editing = RoutineDraftTarget(routine: routine, isNew: false)
             } label: {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(routine.name.isEmpty ? "未命名任务" : routine.name)
+                    Text(routine.name.isEmpty
+                         ? String(localized: "未命名任务", locale: AppSettings.language.locale)
+                         : routine.name)
                         .foregroundStyle(.primary)
                     Text(subtitle(routine))
                         .font(.footnote)
@@ -138,9 +140,7 @@ struct RoutineListView: View {
 
     /// 副标题:重复方式 + 下一次触发;停用时只说停用。
     private func subtitle(_ routine: AIRoutine) -> String {
-        guard routine.enabled else { return "\(routine.caption) · 已停用" }
-        guard let next = routine.nextRun() else { return routine.caption }
-        return "\(routine.caption) · 下一次 \(TaskItem.format(next))"
+        LocalizedContent.routineSubtitle(routine, nextRun: routine.nextRun())
     }
 
     private func create(from preset: AIRoutine.Preset?) {

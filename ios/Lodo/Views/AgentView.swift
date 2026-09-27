@@ -13,6 +13,9 @@ import UIKit
 /// 保存后往对话末尾追加一条结果消息,不关掉聊天页。
 /// 抽屉本身归外壳(AppShellView/AppSidebarView),这里只管聊天区。
 struct AgentView: View {
+    /// AI 页顶部标题(品牌名,中英文界面一样)。
+    static let pageTitle = "Lodo☀️～"
+
     @Environment(\.lodoAccent) private var lodoAccent
     @Environment(\.dismiss) private var dismiss
     /// 非 nil 时把文本预填进输入框(深链/Siri 交接/小组件"+"),消费后置 nil。
@@ -39,6 +42,8 @@ struct AgentView: View {
     let toggleCreatedTask: (UUID?, ParsedTask) -> UUID?
     @Environment(\.modelContext) private var context
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
+    private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
 
     /// ReAct 循环中间步骤的轻量提示(如"正在查记忆…");不落库,循环一结束就清空。
     @State private var thinkingText: String?
@@ -157,12 +162,13 @@ struct AgentView: View {
             // 推开时页面被裁成 44pt 圆角,输入栏自己 26pt 的玻璃圆角正好落进那个圆角
             // 里,两道弧线套在一起。让输入栏收回安全区之上即可(消息仍然从它背后滚
             // 过去,底部那截不是死区)。
-            .navigationTitle("AI 助手")
+            // 标题是品牌名(用户要求,2026-09),中英文界面一样,不进字符串目录。
+            .navigationTitle(Text(verbatim: Self.pageTitle))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                // 自定义 principal:标题恒为「AI 助手」(单一持续对话,没有
+                // 自定义 principal:标题恒为「Lodo☀️～」(单一持续对话,没有
                 // 每段对话各自的标题了);标题下加一行
                 // 当前 AI 模式(服务商/思考强度/联网搜索),不然用户在对话里完全
                 // 看不出现在到底是哪个服务商、思考开没开、能不能联网搜索——
@@ -175,7 +181,7 @@ struct AgentView: View {
                 // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
                 // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
                 ToolbarItem(placement: .principal) {
-                    AgentTitleView(title: "AI 助手", mode: aiModeSummary,
+                    AgentTitleView(title: Self.pageTitle, mode: aiModeSummary,
                                    capability: aiCapabilitySummary)
                 }
                 if showsCloseButton {
@@ -317,6 +323,11 @@ struct AgentView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-live") {
                     send(overrideText: "只回复两个字:可用")
                 }
+                // 截图验证用:真发一次请求,内容是参数后面那一句(验证新动作端到端)。
+                let args = ProcessInfo.processInfo.arguments
+                if let index = args.firstIndex(of: "--demo-agent-send"), index + 1 < args.count {
+                    send(overrideText: args[index + 1])
+                }
                 // 截图验证用:模拟请求进行中,发送按钮应该变成取消。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-busy") {
                     busy = true
@@ -451,9 +462,11 @@ struct AgentView: View {
 
     /// 处理中的默认提示。不显示推理原文,用一组简短的词轮换。
     static let defaultThinking = "处理中…"
-    static let thinkingWords = [
-        "处理中…", "作业中…", "批示中…", "摸鱼中…", "996中…", "思考中…", "感悟中…",
-        "琢磨中…", "掐指一算…", "盘算中…", "打工中…", "开会中…",
+    static let thinkingKeys: [LK] = [
+        .ios_core_processing, .ios_core_thinking_busy, .ios_core_thinking_reviewing,
+        .ios_core_thinking_slacking, .ios_core_thinking_overtime, .ios_core_thinking_reasoning,
+        .ios_core_thinking_reflecting, .ios_core_thinking_pondering, .ios_core_thinking_guessing,
+        .ios_core_thinking_planning, .ios_core_thinking_working_hard, .ios_core_thinking_meeting,
     ]
 
     @ViewBuilder
@@ -465,7 +478,10 @@ struct AgentView: View {
                     // 不是默认态,原样显示。
                     TimelineView(.periodic(from: thinkingStart, by: 2.5)) { context in
                         let tick = Int(context.date.timeIntervalSince(thinkingStart) / 2.5)
-                        ShimmerText(text: Self.thinkingWords[(thinkingSeed + tick) % Self.thinkingWords.count])
+                        let words = Self.thinkingKeys.map {
+                            LocalizedStrings.text($0, language: language)
+                        }
+                        ShimmerText(text: words[(thinkingSeed + tick) % words.count])
                     }
                 } else {
                     ShimmerText(text: thinkingText)
@@ -962,7 +978,7 @@ struct AgentView: View {
         #if os(iOS)
         .hoverEffect(.highlight)
         #endif
-        .accessibilityLabel(busy ? "取消" : "发送")
+        .accessibilityLabel(LocalizedStringKey(busy ? "取消" : "发送"))
     }
 
     private var hasComposedContent: Bool {
@@ -1044,14 +1060,16 @@ struct AgentView: View {
         kind: AgentMessageKind, content: String,
         relatedTitles: [String] = [], askSnapshotData: Data? = nil,
         taskSnapshotData: Data? = nil, resultMemoryUUID: UUID? = nil,
-        tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil
+        tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil,
+        countdownSnapshotData: Data? = nil
     ) -> AgentMessage {
         let message = AgentMessage(role: .assistant, kind: kind,
                                    content: content, relatedTitles: relatedTitles,
                                    askSnapshotData: askSnapshotData, taskSnapshotData: taskSnapshotData,
                                    resultMemoryUUID: resultMemoryUUID,
                                    tripPlanSnapshotData: tripPlanSnapshotData,
-                                   tripEditSnapshotData: tripEditSnapshotData)
+                                   tripEditSnapshotData: tripEditSnapshotData,
+                                   countdownSnapshotData: countdownSnapshotData)
         context.insert(message)
         try? context.save()
         return message
@@ -1076,7 +1094,9 @@ struct AgentView: View {
         let snapshot = AgentTaskSnapshot(existingUUID: existingUUID, parsed: parsed,
                                          createdUUID: createdUUID)
         appendAssistant(kind: .taskResult,
-                        content: existingUUID == nil ? "已新建" : "已修改",
+                        content: LocalizedStrings.text(existingUUID == nil
+                            ? .ios_core_agent_task_created : .ios_core_agent_task_updated,
+                            language: language),
                         taskSnapshotData: try? JSONEncoder().encode(snapshot))
     }
 
@@ -1099,7 +1119,9 @@ struct AgentView: View {
     }
 
     private func handleTaskProposalCancel(_ message: AgentMessage) {
-        appendAssistant(kind: .text, content: "已取消这次操作。")
+        appendAssistant(kind: .text,
+                        content: LocalizedStrings.text(.ios_core_agent_operation_cancelled,
+                                                       language: language))
     }
 
     /// 点卡片本身:AI 解析偶尔会错,跳到现有的 TaskEditView 表单微调后再保存
@@ -1128,15 +1150,21 @@ struct AgentView: View {
     }
 
     private func handleAskCancel(_ message: AgentMessage) {
-        appendAssistant(kind: .text, content: "已取消这次提问。")
+        appendAssistant(kind: .text,
+                        content: LocalizedStrings.text(.ios_core_agent_question_cancelled,
+                                                       language: language))
     }
 
     private func handleConfirmAction(_ message: AgentMessage, execute: Bool) {
         if execute {
             onConfirm()
-            appendAssistant(kind: .executed, content: "已完成执行")
+            appendAssistant(kind: .executed,
+                            content: LocalizedStrings.text(.ios_core_agent_operations_completed,
+                                                           language: language))
         } else {
-            appendAssistant(kind: .text, content: "已取消这次操作。")
+            appendAssistant(kind: .text,
+                            content: LocalizedStrings.text(.ios_core_agent_operation_cancelled,
+                                                           language: language))
         }
     }
 
@@ -1178,7 +1206,8 @@ struct AgentView: View {
         MemoryPipeline.delete(item, context: context)
         message.resultMemoryUUID = nil
         message.kindRaw = AgentMessageKind.text.rawValue
-        message.content = "已取消收藏。"
+        message.content = LocalizedStrings.text(.ios_core_agent_memory_cancelled,
+                                                language: language)
         try? context.save()
     }
 
@@ -1186,7 +1215,9 @@ struct AgentView: View {
     /// 分支(route() 里)一致的记忆结果卡片。
     private func handleMemorizeSuggestion(_ message: AgentMessage) {
         let item = MemoryPipeline.saveText(message.content, context: context)
-        appendAssistant(kind: .memoryResult, content: "已收藏",
+        appendAssistant(kind: .memoryResult,
+                        content: LocalizedStrings.text(.ios_core_agent_memory_saved,
+                                                       language: language),
                         resultMemoryUUID: item?.uuid)
     }
 
@@ -1379,7 +1410,7 @@ struct AgentView: View {
         // 请求一发出就显示"思考中…";ReAct 工具调用会用更具体的提示
         // (如"正在查记忆…")覆盖它,交换结束后统一在 defer 里清空。
         if AppSettings.thinkingLevel != "off" {
-            thinkingSeed = Int.random(in: 0..<Self.thinkingWords.count)
+            thinkingSeed = Int.random(in: 0..<Self.thinkingKeys.count)
             thinkingStart = Date()
             thinkingText = Self.defaultThinking
         }
@@ -1428,16 +1459,23 @@ struct AgentView: View {
                 case .suggestMemorize(let text):
                     appendAssistant(kind: .memorizeSuggestion, content: text)
                 case .memorized(let uuid):
-                    appendAssistant(kind: .memoryResult, content: "已收藏",
+                    appendAssistant(kind: .memoryResult,
+                                    content: LocalizedStrings.text(.ios_core_agent_memory_saved,
+                                                                   language: language),
                                     resultMemoryUUID: uuid)
                 case .autoMemorized(let uuid):
-                    appendAssistant(kind: .memoryResult, content: "已自动记录",
+                    appendAssistant(kind: .memoryResult,
+                                    content: LocalizedStrings.text(.ios_core_agent_memory_auto_saved,
+                                                                   language: language),
                                     resultMemoryUUID: uuid)
                 case .tripPlan(let plan):
                     appendTripPlan(plan: plan)
                 case .tripEdited(let record):
                     appendAssistant(kind: .tripEdit, content: record.transcript,
                                     tripEditSnapshotData: try? JSONEncoder().encode(record))
+                case .countdownEdited(let record):
+                    appendAssistant(kind: .countdownEdit, content: record.transcript,
+                                    countdownSnapshotData: try? JSONEncoder().encode(record))
                 }
                 compactHistoryIfNeeded()
             } catch {

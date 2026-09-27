@@ -29,6 +29,11 @@ public final class TaskItem {
     /// 这件事属于哪个项目/主题,AI 新建时自动推断、用户可在表单里改;纯展示/
     /// 组织用的分类信息,不参与调度(不进 TaskData/Scheduler)。
     public var project: String?
+    /// 置顶(「重要的事」):任务页顶部单独一组、锁屏「重要的事」小组件只列这些。
+    /// 只是展示/组织用,不参与调度(不进 TaskData/Scheduler)。
+    public var pinned: Bool = false
+    /// 置顶的时间,置顶那组按它从新到旧排。
+    public var pinnedAt: Date?
 
     // 记忆"转为待办"携带的内容快照,展平存储(与 attachment 计算属性配套);
     // 直接新建的待办这几个字段都是 nil。同样出于 CloudKit 同步要求,不给默认值

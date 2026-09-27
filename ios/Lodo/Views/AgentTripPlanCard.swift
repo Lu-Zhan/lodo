@@ -166,14 +166,16 @@ enum TripPlanApplier {
 
 enum TripPlanFormat {
     static func dateRange(_ plan: TripPlanProposal) -> String {
-        let start = plan.startDate.formatted(.dateTime.month().day())
-        let end = plan.endDate.formatted(.dateTime.month().day())
+        let start = plan.startDate.formatted(.dateTime.month().day().locale(AppSettings.language.locale))
+        let end = plan.endDate.formatted(.dateTime.month().day().locale(AppSettings.language.locale))
         return start == end ? start : "\(start) – \(end)"
     }
 
     static func dayTitle(_ date: Date, in plan: TripPlanProposal) -> Text {
         let index = (plan.days().firstIndex(of: date) ?? 0) + 1
-        return Text("第 \(index) 天 · \(date.formatted(.dateTime.month().day().weekday()))")
+        let dateText = date.formatted(.dateTime.month().day().weekday()
+            .locale(AppSettings.language.locale))
+        return Text("第 \(index) 天 · \(dateText)")
     }
 }
 

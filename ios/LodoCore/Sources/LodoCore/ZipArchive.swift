@@ -23,10 +23,15 @@ public enum ZipArchive {
         case decompressionFailed
 
         public var errorDescription: String? {
+            let language = AppSettings.language
             switch self {
-            case .invalidFormat: return "不是有效的 zip 文件"
-            case .unsupportedMethod: return "zip 里有不支持的压缩方式"
-            case .decompressionFailed: return "zip 内容解压失败"
+            case .invalidFormat:
+                return LocalizedStrings.text(.ios_core_zip_invalid, language: language)
+            case .unsupportedMethod:
+                return LocalizedStrings.text(.ios_core_zip_unsupported_method, language: language)
+            case .decompressionFailed:
+                return LocalizedStrings.text(.ios_core_zip_decompression_failed,
+                                             language: language)
             }
         }
     }

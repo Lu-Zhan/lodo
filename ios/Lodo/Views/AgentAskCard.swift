@@ -197,7 +197,7 @@ struct AgentAskCard: View {
                     currentIndex += 1
                 }
             } label: {
-                Label(isLastQuestion ? "完成" : "下一项",
+                Label(LocalizedStringKey(isLastQuestion ? "完成" : "下一项"),
                       systemImage: isLastQuestion ? "checkmark" : "arrow.right")
                     .font(.body.weight(.medium))
                     .padding(.horizontal, 4)
@@ -228,7 +228,9 @@ struct AgentAskRecordCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                     let answer = index < snapshot.answers.count
                         ? snapshot.answers[index].joined(separator: "、") : ""
-                    Text(answer.isEmpty ? "未回答" : answer)
+                    Text(answer.isEmpty
+                         ? String(localized: "未回答", locale: AppSettings.language.locale)
+                         : answer)
                         .font(.body)
                         .foregroundStyle(answer.isEmpty ? .secondary : .primary)
                         .fixedSize(horizontal: false, vertical: true)

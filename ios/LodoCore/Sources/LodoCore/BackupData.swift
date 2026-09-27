@@ -31,6 +31,8 @@ public struct BackupTask: Codable {
     public var attachmentURLString: String?
     public var attachmentFileName: String?
     public var ignoreStreak: Int
+    public var pinned: Bool = false
+    public var pinnedAt: Date?
 
     public init(
         uuid: UUID, title: String, remindAt: Date, durationMinutes: Int, allDay: Bool,
@@ -39,7 +41,8 @@ public struct BackupTask: Codable {
         ekIdentifier: String?, project: String? = nil, attachmentKindRaw: String?,
         attachmentTitle: String?,
         attachmentSummary: String?, attachmentText: String?, attachmentURLString: String?,
-        attachmentFileName: String?, ignoreStreak: Int = 0
+        attachmentFileName: String?, ignoreStreak: Int = 0,
+        pinned: Bool = false, pinnedAt: Date? = nil
     ) {
         self.uuid = uuid
         self.title = title
@@ -63,6 +66,8 @@ public struct BackupTask: Codable {
         self.attachmentURLString = attachmentURLString
         self.attachmentFileName = attachmentFileName
         self.ignoreStreak = ignoreStreak
+        self.pinned = pinned
+        self.pinnedAt = pinnedAt
     }
 
     /// 手写 init(from:):ignoreStreak 是新增的非可选字段,老格式备份没有这个
@@ -92,6 +97,8 @@ public struct BackupTask: Codable {
         attachmentURLString = try c.decodeIfPresent(String.self, forKey: .attachmentURLString)
         attachmentFileName = try c.decodeIfPresent(String.self, forKey: .attachmentFileName)
         ignoreStreak = try c.decodeIfPresent(Int.self, forKey: .ignoreStreak) ?? 0
+        pinned = try c.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
+        pinnedAt = try c.decodeIfPresent(Date.self, forKey: .pinnedAt)
     }
 }
 
@@ -105,7 +112,8 @@ extension TaskItem {
             ekIdentifier: ekIdentifier, project: project, attachmentKindRaw: attachmentKindRaw,
             attachmentTitle: attachmentTitle, attachmentSummary: attachmentSummary,
             attachmentText: attachmentText, attachmentURLString: attachmentURLString,
-            attachmentFileName: attachmentFileName, ignoreStreak: ignoreStreak)
+            attachmentFileName: attachmentFileName, ignoreStreak: ignoreStreak,
+            pinned: pinned, pinnedAt: pinnedAt)
     }
 }
 
@@ -134,6 +142,8 @@ extension BackupTask {
         item.attachmentURLString = attachmentURLString
         item.attachmentFileName = attachmentFileName
         item.ignoreStreak = ignoreStreak
+        item.pinned = pinned
+        item.pinnedAt = pinnedAt
     }
 }
 
@@ -776,6 +786,100 @@ public struct BackupSettings: Codable {
     }
 }
 
+/// 倒数日。独立模型,没在别处备份,所以整份写进来。
+public struct BackupCountdownEvent: Codable, Equatable, Sendable {
+    public var uuid: UUID
+    public var title: String
+    public var startDate: Date
+    public var endDate: Date?
+    public var allDay: Bool
+    public var notes: String
+    public var startReminders: [Int]
+    public var endReminders: [Int]
+    public var showInWidget: Bool
+    public var createdAt: Date
+
+    public init(uuid: UUID, title: String, startDate: Date, endDate: Date?, allDay: Bool,
+                notes: String, startReminders: [Int], endReminders: [Int],
+                showInWidget: Bool, createdAt: Date) {
+        self.uuid = uuid
+        self.title = title
+        self.startDate = startDate
+        self.endDate = endDate
+        self.allDay = allDay
+        self.notes = notes
+        self.startReminders = startReminders
+        self.endReminders = endReminders
+        self.showInWidget = showInWidget
+        self.createdAt = createdAt
+    }
+}
+
+extension CountdownEvent {
+    public var backup: BackupCountdownEvent {
+        BackupCountdownEvent(uuid: uuid, title: title, startDate: startDate, endDate: endDate,
+                             allDay: allDay, notes: notes, startReminders: startReminders,
+                             endReminders: endReminders, showInWidget: showInWidget,
+                             createdAt: createdAt)
+    }
+}
+
+extension BackupCountdownEvent {
+    public func apply(to event: CountdownEvent) {
+        event.uuid = uuid
+        event.title = title
+        event.startDate = startDate
+        event.endDate = endDate
+        event.allDay = allDay
+        event.notes = notes
+        event.startReminders = startReminders
+        event.endReminders = endReminders
+        event.showInWidget = showInWidget
+        event.createdAt = createdAt
+    }
+}
+
+/// 旅行用品清单。旅行本身在 travelTrips 里,这里补它下面的清单(同 menuDishes 的道理)。
+public struct BackupPackingItem: Codable {
+    public var uuid: UUID
+    public var tripUUID: UUID
+    public var title: String
+    public var category: String
+    public var packed: Bool
+    public var sortIndex: Int
+    public var createdAt: Date
+
+    public init(uuid: UUID, tripUUID: UUID, title: String, category: String, packed: Bool,
+                sortIndex: Int, createdAt: Date) {
+        self.uuid = uuid
+        self.tripUUID = tripUUID
+        self.title = title
+        self.category = category
+        self.packed = packed
+        self.sortIndex = sortIndex
+        self.createdAt = createdAt
+    }
+}
+
+extension PackingItem {
+    public var backup: BackupPackingItem {
+        BackupPackingItem(uuid: uuid, tripUUID: tripUUID, title: title, category: category,
+                          packed: packed, sortIndex: sortIndex, createdAt: createdAt)
+    }
+}
+
+extension BackupPackingItem {
+    public func apply(to item: PackingItem) {
+        item.uuid = uuid
+        item.tripUUID = tripUUID
+        item.title = title
+        item.category = category
+        item.packed = packed
+        item.sortIndex = sortIndex
+        item.createdAt = createdAt
+    }
+}
+
 /// zip 里 `manifest.json` 的内容:格式版本 + 导出时间 + 各类目数量,供导入前的
 /// 预览确认页读取,不需要先解出整份 `data.json` 就能展示"包含 N 条待办…"。
 public struct BackupManifest: Codable {
@@ -860,6 +964,9 @@ public struct BackupPayload: Codable {
     /// skillEnabled 只记被停用的内置 skill(默认就是开,不用存)。
     public var customSkills: [BackupCustomSkill] = []
     public var disabledSkills: [String] = []
+    /// 倒数日与旅行用品清单。都是新增字段,老备份缺 key 时兜底为空。
+    public var countdownEvents: [BackupCountdownEvent] = []
+    public var packingItems: [BackupPackingItem] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
@@ -870,7 +977,9 @@ public struct BackupPayload: Codable {
         menuDishes: [BackupMenuDish] = [],
         newsFeeds: [BackupNewsFeed] = [],
         customSkills: [BackupCustomSkill] = [],
-        disabledSkills: [String] = []
+        disabledSkills: [String] = [],
+        countdownEvents: [BackupCountdownEvent] = [],
+        packingItems: [BackupPackingItem] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -884,6 +993,8 @@ public struct BackupPayload: Codable {
         self.newsFeeds = newsFeeds
         self.customSkills = customSkills
         self.disabledSkills = disabledSkills
+        self.countdownEvents = countdownEvents
+        self.packingItems = packingItems
     }
 
     /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
@@ -908,5 +1019,9 @@ public struct BackupPayload: Codable {
         customSkills = try c.decodeIfPresent(
             [BackupCustomSkill].self, forKey: .customSkills) ?? []
         disabledSkills = try c.decodeIfPresent([String].self, forKey: .disabledSkills) ?? []
+        countdownEvents = try c.decodeIfPresent(
+            [BackupCountdownEvent].self, forKey: .countdownEvents) ?? []
+        packingItems = try c.decodeIfPresent(
+            [BackupPackingItem].self, forKey: .packingItems) ?? []
     }
 }

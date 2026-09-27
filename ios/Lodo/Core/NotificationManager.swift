@@ -224,8 +224,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let titles = todayTasks.map(\.title)
         // 事项带时间与时长,供模型判断重点
         let items = todayTasks.map { task in
-            var line = "\(task.title)(\(TaskItem.format(task.nextRemindAt))"
-            if task.durationMinutes > 0 { line += ",\(task.durationMinutes) 分钟" }
+            var line = "\(task.title)(\(LocalizedContent.dateCaption(task.nextRemindAt))"
+            if task.durationMinutes > 0 {
+                let unit = LocalizedStrings.text(.ios_core_health_unit_minutes, language: AppSettings.language)
+                line += ",\(task.durationMinutes) \(unit)"
+            }
             return line + ")"
         }
         let day = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970

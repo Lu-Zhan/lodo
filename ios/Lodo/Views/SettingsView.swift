@@ -442,7 +442,8 @@ struct SettingsView: View {
         Task {
             do {
                 try await BackupManager.commit(zipURL: url, strategy: strategy, context: context)
-                importSuccessMessage = "任务、记忆与 AI 对话已导入;如果设置项有变化(如 iCloud 同步),需要退出并重新打开 App 才能生效。"
+                importSuccessMessage = LocalizedStrings.text(.ios_core_backup_import_success,
+                                                              language: language)
             } catch {
                 importErrorMessage = error.localizedDescription
             }
@@ -452,8 +453,11 @@ struct SettingsView: View {
     }
 
     private func importSummary(_ manifest: BackupManifest) -> String {
-        let date = manifest.exportedAt.formatted(date: .abbreviated, time: .shortened)
-        return "导出于 \(date) · \(manifest.taskCount) 条任务 · \(manifest.memoryCount) 条记忆 · \(manifest.agentMessageCount) 条对话消息"
+        let date = LocalizedContent.abbreviatedDateTime(manifest.exportedAt)
+        return String(format: LocalizedStrings.text(.ios_core_backup_import_summary,
+                                                     language: language),
+                      date as NSString, manifest.taskCount, manifest.memoryCount,
+                      manifest.agentMessageCount)
     }
 
 }

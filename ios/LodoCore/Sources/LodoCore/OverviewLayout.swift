@@ -299,6 +299,8 @@ public enum OverviewTime {
 public struct OverviewCountdownEntry: Equatable, Sendable, Identifiable {
     public enum Kind: String, Sendable {
         case trip, birthday
+        /// 用户在「倒数日」页里建的。
+        case countdown
     }
     public let id: String
     public let title: String
@@ -315,8 +317,14 @@ public struct OverviewCountdownEntry: Equatable, Sendable, Identifiable {
     /// 汇总倒数日:还没结束的旅行(进行中的也算,按出发日排,出发日可能已过)、
     /// 生日取下一次。只看未来 `horizonDays` 天以内——一年后的生日摆在这里
     /// 不是"重要的时间信息"。按日期升序。
+    ///
+    /// 用户在「倒数日」页建的(`countdowns`)**不受这个窗口限制**:那是用户自己挑出来
+    /// 要盯着的日子,三个月后的考试也该在;只要还没过去(`CountdownPlan.isPast`)就算,
+    /// 进行中的按开始日排(和旅行一样显示「进行中」)。和某次旅行同名、同一天开始的,
+    /// 只留倒数日那条——多半就是给那趟旅行建的倒数。
     public static func build(trips: [(id: String, title: String, start: Date, end: Date)],
                              birthdays: [(id: String, name: String, birthday: Date)],
+                             countdowns: [CountdownEntry] = [],
                              now: Date, horizonDays: Int = 60,
                              calendar: Calendar = .current) -> [OverviewCountdownEntry] {
         let today = calendar.startOfDay(for: now)
@@ -329,6 +337,15 @@ public struct OverviewCountdownEntry: Equatable, Sendable, Identifiable {
             guard let next = OverviewTime.nextBirthday(person.birthday, after: now, calendar: calendar),
                   next < horizon else { continue }
             entries.append(.init(id: "birthday-\(person.id)", title: person.name, date: next, kind: .birthday))
+        }
+        for countdown in countdowns where !CountdownPlan.isPast(countdown, now: now, calendar: calendar) {
+            let day = calendar.startOfDay(for: countdown.start)
+            entries.removeAll {
+                $0.kind == .trip && $0.title == countdown.title
+                    && calendar.startOfDay(for: $0.date) == day
+            }
+            entries.append(.init(id: "countdown-\(countdown.id.uuidString)", title: countdown.title,
+                                 date: countdown.start, kind: .countdown))
         }
         return entries.sorted { $0.date == $1.date ? $0.title < $1.title : $0.date < $1.date }
     }

@@ -2,31 +2,173 @@
   "sourceLanguage" : "zh-Hans",
   "strings" : {
     "" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
     },
     " " : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " "
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " "
+          }
+        }
+      }
     },
     "—" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "—"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "—"
+          }
+        }
+      }
+    },
+    "、" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ", "
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "、"
+          }
+        }
+      }
     },
     "·" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "·"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "·"
+          }
+        }
+      }
+    },
+    "(未命名)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Untitled"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(未命名)"
+          }
+        }
+      }
     },
     "「%@」实际用了多久?" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How long did “%@” actually take?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」实际用了多久?"
+          }
+        }
+      }
     },
     "「%@」改期建议" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reschedule suggestions for “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」改期建议"
+          }
+        }
+      }
     },
     "#%@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%@"
+          }
+        }
+      }
     },
     "%@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
     },
     "%@ · %@" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@"
+          }
+        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "new",
@@ -69,6 +211,12 @@
     },
     "%@ · 共 %lld 天" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %lld days"
+          }
+        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "new",
@@ -95,6 +243,12 @@
     },
     "%@ %lld" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %lld"
+          }
+        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "new",
@@ -115,6 +269,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 根据最近 24 小时的文章整理"
+          }
+        }
+      }
+    },
+    "%@ 车厢" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Car %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 车厢"
           }
         }
       }
@@ -168,10 +338,29 @@
       }
     },
     "%lld" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
     },
     "%lld / %lld" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld / %2$lld"
+          }
+        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "new",
@@ -213,7 +402,20 @@
       }
     },
     "%lld 分钟" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 分钟"
+          }
+        }
+      }
     },
     "%lld 天" : {
       "localizations" : {
@@ -232,10 +434,68 @@
       }
     },
     "%lld 字" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld characters"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 字"
+          }
+        }
+      }
+    },
+    "%lld 小时" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hr"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 小时"
+          }
+        }
+      }
+    },
+    "%lld 小时 %lld 分钟" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hr %lld min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 小时 %lld 分钟"
+          }
+        }
+      }
     },
     "%lld 条" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 条"
+          }
+        }
+      }
     },
     "%lld 道菜" : {
       "localizations" : {
@@ -254,7 +514,20 @@
       }
     },
     "%lld 项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 项"
+          }
+        }
+      }
     },
     "%lld. %@" : {
       "localizations" : {
@@ -273,10 +546,36 @@
       }
     },
     "%lld%%" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        }
+      }
     },
     "+%lld" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld"
+          }
+        }
+      }
     },
     "7 天" : {
       "localizations" : {
@@ -471,7 +770,20 @@
       }
     },
     "AI 定时任务" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Routine"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 定时任务"
+          }
+        }
+      }
     },
     "AI 已填写" : {
       "localizations" : {
@@ -485,6 +797,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AI 已填写"
+          }
+        }
+      }
+    },
+    "AI 建议" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Suggestions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 建议"
+          }
+        }
+      }
+    },
+    "AI 建议清单" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggest a List with AI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 建议清单"
           }
         }
       }
@@ -569,6 +913,38 @@
         }
       }
     },
+    "AI 正在想要带什么…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI is thinking about what to pack…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 正在想要带什么…"
+          }
+        }
+      }
+    },
+    "AI 没有想到清单里还缺什么。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI couldn't think of anything missing from the list."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 没有想到清单里还缺什么。"
+          }
+        }
+      }
+    },
     "AI 记忆" : {
       "localizations" : {
         "en" : {
@@ -602,7 +978,20 @@
       }
     },
     "API Key" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API Key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API Key"
+          }
+        }
+      }
     },
     "App 图标" : {
       "localizations" : {
@@ -621,7 +1010,20 @@
       }
     },
     "iCloud" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud"
+          }
+        }
+      }
     },
     "iCloud 同步" : {
       "localizations" : {
@@ -640,10 +1042,36 @@
       }
     },
     "Lodo" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lodo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lodo"
+          }
+        }
+      }
     },
     "lodo 键盘" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lodo Keyboard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lodo 键盘"
+          }
+        }
+      }
     },
     "macOS 版暂不支持连接系统日历。" : {
       "localizations" : {
@@ -694,13 +1122,68 @@
       }
     },
     "Qwen 语音识别(云端,默认)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen Speech Recognition (cloud, default)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen 语音识别(云端,默认)"
+          }
+        }
+      }
     },
     "Qwen 语音识别整段录音后一次性转写,停止录音到出结果会有短暂等待;系统语音识别边说边出字,但仅本机可用。语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen transcribes the full recording after you stop, so there may be a short wait. System speech recognition shows text as you speak and works on this device only. Voice input stops and submits automatically after the selected period of silence; 0 seconds turns this off."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qwen 语音识别整段录音后一次性转写,停止录音到出结果会有短暂等待;系统语音识别边说边出字,但仅本机可用。语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。"
+          }
+        }
+      }
     },
     "Tavily API Key" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tavily API Key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tavily API Key"
+          }
+        }
+      }
+    },
+    "「%@」没放上小组件(最多 3 件)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” isn't on the widget (3 max)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」没放上小组件(最多 3 件)"
+          }
+        }
+      }
     },
     "三日" : {
       "extractionState" : "stale",
@@ -720,7 +1203,20 @@
       }
     },
     "上一次旅行" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous Trip"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上一次旅行"
+          }
+        }
+      }
     },
     "上一页" : {
       "localizations" : {
@@ -750,6 +1246,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上升"
+          }
+        }
+      }
+    },
+    "上车点" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boarding Point"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上车点"
+          }
+        }
+      }
+    },
+    "上车点 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boarding %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上车点 %@"
+          }
+        }
+      }
+    },
+    "上车点,如 3 号站台" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boarding point, e.g. Bay 3"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上车点,如 3 号站台"
           }
         }
       }
@@ -787,7 +1331,20 @@
       }
     },
     "下一项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Item"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一项"
+          }
+        }
+      }
     },
     "下降" : {
       "localizations" : {
@@ -821,6 +1378,22 @@
         }
       }
     },
+    "不提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不提醒"
+          }
+        }
+      }
+    },
     "不重复" : {
       "localizations" : {
         "en" : {
@@ -838,6 +1411,7 @@
       }
     },
     "两个月内没有旅行或生日" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -886,7 +1460,20 @@
       }
     },
     "之后的对话记录会一并删除,不可恢复。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation history will also be deleted. This can't be undone."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "之后的对话记录会一并删除,不可恢复。"
+          }
+        }
+      }
     },
     "乘机" : {
       "localizations" : {
@@ -921,7 +1508,20 @@
       }
     },
     "事项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "事项"
+          }
+        }
+      }
     },
     "事项内容" : {
       "localizations" : {
@@ -989,7 +1589,20 @@
       }
     },
     "人脉页点右下角「+」记一位人脉。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap + at the bottom right of Contacts to add someone."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人脉页点右下角「+」记一位人脉。"
+          }
+        }
+      }
     },
     "什么时候跑" : {
       "localizations" : {
@@ -1087,6 +1700,22 @@
         }
       }
     },
+    "今天开始" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天开始"
+          }
+        }
+      }
+    },
     "今天暂无任务" : {
       "localizations" : {
         "en" : {
@@ -1104,7 +1733,52 @@
       }
     },
     "今天有什么安排" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's on today?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天有什么安排"
+          }
+        }
+      }
+    },
+    "今天有什么安排？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's on today?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天有什么安排？"
+          }
+        }
+      }
+    },
+    "今天有什么新鲜事？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's new today?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天有什么新鲜事？"
+          }
+        }
+      }
     },
     "今天没有任务" : {
       "localizations" : {
@@ -1123,7 +1797,36 @@
       }
     },
     "今天没有任务 🎉" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks today 🎉"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天没有任务 🎉"
+          }
+        }
+      }
+    },
+    "今天没有安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing planned today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天没有安排"
+          }
+        }
+      }
     },
     "今天没有日程" : {
       "localizations" : {
@@ -1190,6 +1893,22 @@
         }
       }
     },
+    "今天结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ends today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天结束"
+          }
+        }
+      }
+    },
     "今天还没有定时任务的结果" : {
       "localizations" : {
         "en" : {
@@ -1218,6 +1937,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今天还没有新收藏"
+          }
+        }
+      }
+    },
+    "今日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日"
           }
         }
       }
@@ -1613,7 +2348,20 @@
       }
     },
     "侧键 / Siri 快捷启动" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Side Button / Siri Shortcut"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "侧键 / Siri 快捷启动"
+          }
+        }
+      }
     },
     "保存" : {
       "localizations" : {
@@ -1632,7 +2380,20 @@
       }
     },
     "保存 API Key" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save API Key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存 API Key"
+          }
+        }
+      }
     },
     "信息来自你导入的订单和截图,更新于 %@。不会自动刷新,请以航司和机场通知为准。" : {
       "localizations" : {
@@ -1651,13 +2412,38 @@
       }
     },
     "修改" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改"
+          }
+        }
+      }
     },
     "修改这条消息?" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit this message?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改这条消息?"
+          }
+        }
+      }
     },
     "倒数日" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1669,6 +2455,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "倒数日"
+          }
+        }
+      }
+    },
+    "倒数日已更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Countdown updated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倒数日已更新"
           }
         }
       }
@@ -1917,7 +2719,20 @@
       }
     },
     "免打扰时段" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quiet Hours"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免打扰时段"
+          }
+        }
+      }
     },
     "入住" : {
       "localizations" : {
@@ -1952,10 +2767,68 @@
       }
     },
     "全天事项将在当天 %@ 提醒(可在设置中修改)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date-only tasks remind at %@ (change this in Settings)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全天事项将在当天 %@ 提醒(可在设置中修改)"
+          }
+        }
+      }
     },
     "全天事项提醒时间" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All-day Task Reminder Time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全天事项提醒时间"
+          }
+        }
+      }
+    },
+    "全天的事按「设置 → 提醒」里的全天提醒时间(%@)提醒。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All-day events remind you at the all-day reminder time in Settings → Reminders (%@)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全天的事按「设置 → 提醒」里的全天提醒时间(%@)提醒。"
+          }
+        }
+      }
+    },
+    "全天的事按日子算,结束那天整天都还算进行中。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All-day events count by date; the end date still counts as in progress all day."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全天的事按日子算,结束那天整天都还算进行中。"
+          }
+        }
+      }
     },
     "全年" : {
       "extractionState" : "stale",
@@ -2151,7 +3024,20 @@
       }
     },
     "关闭导航" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Navigation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭导航"
+          }
+        }
+      }
     },
     "关闭提醒" : {
       "localizations" : {
@@ -2170,13 +3056,52 @@
       }
     },
     "其中 %lld 项币种暂无汇率,不计入总额" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items are excluded from the total because exchange rates are unavailable."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中 %lld 项币种暂无汇率,不计入总额"
+          }
+        }
+      }
     },
     "其中 %lld 项未填金额,不计入总额" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items have no amount and are excluded from the total."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中 %lld 项未填金额,不计入总额"
+          }
+        }
+      }
     },
     "其中 %lld 项负债币种暂无汇率,不计入净资产" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld liabilities are excluded from net worth because exchange rates are unavailable."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中 %lld 项负债币种暂无汇率,不计入净资产"
+          }
+        }
+      }
     },
     "其他" : {
       "localizations" : {
@@ -2227,55 +3152,129 @@
       }
     },
     "其他旅行" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other Trips"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他旅行"
+          }
+        }
+      }
     },
     "内容" : {
-
-    },
-    "和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "These are the same items as in Memories: deleting removes them there too, while “Remove from Trip” just unlinks them from this trip."
+            "value" : "Content"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。"
+            "value" : "内容"
           }
         }
       }
     },
-    "待安排" : {
+    "已修改" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "To Schedule"
+            "value" : "Updated"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "待安排"
+            "value" : "已修改"
           }
         }
       }
     },
-    "想去但还没定哪天的地点和餐馆会放在这里。" : {
+    "已删除" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Places and restaurants you want to visit but haven't scheduled show up here."
+            "value" : "Deleted"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "想去但还没定哪天的地点和餐馆会放在这里。"
+            "value" : "已删除"
+          }
+        }
+      }
+    },
+    "已撤销" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已撤销"
+          }
+        }
+      }
+    },
+    "已新建" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已新建"
+          }
+        }
+      }
+    },
+    "已更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已更新"
+          }
+        }
+      }
+    },
+    "已调整「%@」:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated “%@”: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已调整「%@」:%@"
           }
         }
       }
@@ -2329,7 +3328,20 @@
       }
     },
     "最近旅行" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent Trips"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近旅行"
+          }
+        }
+      }
     },
     "最近结果" : {
       "localizations" : {
@@ -2343,6 +3355,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最近结果"
+          }
+        }
+      }
+    },
+    "最近身体怎么样？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How've you been feeling?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近身体怎么样？"
           }
         }
       }
@@ -2380,7 +3408,36 @@
       }
     },
     "净资产" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Net Worth"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "净资产"
+          }
+        }
+      }
+    },
+    "准时" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At time of event"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准时"
+          }
+        }
+      }
     },
     "出发" : {
       "localizations" : {
@@ -2414,7 +3471,24 @@
         }
       }
     },
+    "出发地时区" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Departure Time Zone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出发地时区"
+          }
+        }
+      }
+    },
     "出发航站楼" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2426,6 +3500,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "出发航站楼"
+          }
+        }
+      }
+    },
+    "出发航站楼,如 T3" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Departure terminal, e.g. T3"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出发航站楼,如 T3"
           }
         }
       }
@@ -2526,6 +3616,22 @@
         }
       }
     },
+    "刚刚结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Just ended"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刚刚结束"
+          }
+        }
+      }
+    },
     "创建" : {
       "localizations" : {
         "en" : {
@@ -2574,6 +3680,22 @@
         }
       }
     },
+    "删除倒数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Countdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除倒数日"
+          }
+        }
+      }
+    },
     "删除收藏" : {
       "localizations" : {
         "en" : {
@@ -2586,6 +3708,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除收藏"
+          }
+        }
+      }
+    },
+    "删除这个倒数日?提醒也会一起取消。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this countdown? Its reminders will be canceled too."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这个倒数日?提醒也会一起取消。"
           }
         }
       }
@@ -2607,7 +3745,20 @@
       }
     },
     "删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this contact? Their photo, attachments, and relationships will also be deleted."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。"
+          }
+        }
+      }
     },
     "删除这张菜单?" : {
       "localizations" : {
@@ -2642,10 +3793,36 @@
       }
     },
     "删除这条定时任务?" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this routine?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这条定时任务?"
+          }
+        }
+      }
     },
     "删除这条收藏?原始文件会一并删除。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this saved item? The original file will also be deleted."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这条收藏?原始文件会一并删除。"
+          }
+        }
+      }
     },
     "删除这次旅行?" : {
       "localizations" : {
@@ -2663,11 +3840,53 @@
         }
       }
     },
+    "利率 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interest rate %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利率 %@"
+          }
+        }
+      }
+    },
     "利率(可选),年化百分比数值,如 4.5" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annual interest rate (optional), e.g. 4.5"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利率(可选),年化百分比数值,如 4.5"
+          }
+        }
+      }
     },
     "利率无法识别为数字,改成数字或清空这一栏才能保存。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The interest rate must be a number. Enter a number or clear this field to save."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利率无法识别为数字,改成数字或清空这一栏才能保存。"
+          }
+        }
+      }
     },
     "到期后每隔一个稍等间隔重复提醒,直到完成。" : {
       "localizations" : {
@@ -2729,6 +3948,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "到达地"
+          }
+        }
+      }
+    },
+    "到达地时区" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrival Time Zone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "到达地时区"
           }
         }
       }
@@ -2826,6 +4061,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加元"
+          }
+        }
+      }
+    },
+    "加入清单" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to List"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入清单"
           }
         }
       }
@@ -3010,7 +4261,20 @@
       }
     },
     "发送" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送"
+          }
+        }
+      }
     },
     "取消" : {
       "localizations" : {
@@ -3029,7 +4293,20 @@
       }
     },
     "取消上面选中的筛选就能看到全部。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear the selected filters above to see everything."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消上面选中的筛选就能看到全部。"
+          }
+        }
+      }
     },
     "取消勾选的不会写进行程。日期或金额不对的,先存下来再到行程里改。" : {
       "localizations" : {
@@ -3065,7 +4342,20 @@
       }
     },
     "取消录音" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel Recording"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消录音"
+          }
+        }
+      }
     },
     "取消收藏" : {
       "localizations" : {
@@ -3079,6 +4369,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消收藏"
+          }
+        }
+      }
+    },
+    "取消置顶" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消置顶"
           }
         }
       }
@@ -3111,6 +4417,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "可以直接填 RSS/Atom 订阅地址;订阅博客时填博客首页也行,会自动找到它的订阅地址。"
+          }
+        }
+      }
+    },
+    "可以选多个。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can choose more than one."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以选多个。"
           }
         }
       }
@@ -3213,7 +4535,20 @@
       }
     },
     "名字,如 东京四日" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, e.g. Four Days in Tokyo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名字,如 东京四日"
+          }
+        }
+      }
     },
     "名称" : {
       "localizations" : {
@@ -3227,6 +4562,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名称"
+          }
+        }
+      }
+    },
+    "名称,如 东京旅行、驾照考试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, e.g. Tokyo trip, driving test"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称,如 东京旅行、驾照考试"
           }
         }
       }
@@ -3248,7 +4599,20 @@
       }
     },
     "名称与内置 skill「%@」相同,导入会覆盖它当前的文本(可在编辑页重置)。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This matches the built-in skill “%@”. Importing will replace its current text; you can restore the default in the editor."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称与内置 skill「%@」相同,导入会覆盖它当前的文本(可在编辑页重置)。"
+          }
+        }
+      }
     },
     "启用" : {
       "localizations" : {
@@ -3401,6 +4765,22 @@
         }
       }
     },
+    "和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These are the same items as in Memories: deleting removes them there too, while “Remove from Trip” just unlinks them from this trip."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。"
+          }
+        }
+      }
+    },
     "喜好" : {
       "localizations" : {
         "en" : {
@@ -3434,7 +4814,20 @@
       }
     },
     "国家,如 日本" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Country, e.g. Japan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "国家,如 日本"
+          }
+        }
+      }
     },
     "图标颜色" : {
       "extractionState" : "stale",
@@ -3470,17 +4863,101 @@
         }
       }
     },
+    "在倒数日里选要显示的" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which to show in Countdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在倒数日里选要显示的"
+          }
+        }
+      }
+    },
+    "在吃什么呀？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's cooking?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在吃什么呀？"
+          }
+        }
+      }
+    },
     "在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tell the AI assistant at the bottom where you want to go and for how long. It will plan the trip; add flights, lodging, and places to view the itinerary by day and track spending."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。"
+          }
+        }
+      }
     },
     "在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tell the AI assistant at the bottom what you want to remember, or share something from another app to Lodo. The AI will organize it as a memory."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。"
+          }
+        }
+      }
     },
     "在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tell the AI assistant at the bottom who you want to remember. It can save their name, contact details, and preferences, and link people in a relationship graph."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。"
+          }
+        }
+      }
     },
     "在底下那条「问问 AI」里说一句要记的资产。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tell the AI assistant at the bottom about an asset you want to record."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在底下那条「问问 AI」里说一句要记的资产。"
+          }
+        }
+      }
     },
     "在总览里点「编辑」:拖动卡片调整位置,拖右下角的手柄放大或缩小。" : {
       "localizations" : {
@@ -3515,7 +4992,20 @@
       }
     },
     "在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable the lodo keyboard in Settings → General → Keyboard → Keyboards → Add New Keyboard, then turn on Allow Full Access to use AI. Tasks and memories added from the keyboard are saved when Lodo opens or refreshes in the background."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。"
+          }
+        }
+      }
     },
     "在菜单里点一下菜品就能选上。" : {
       "localizations" : {
@@ -3648,7 +5138,20 @@
       }
     },
     "城市,如 东京" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "City, e.g. Tokyo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "城市,如 东京"
+          }
+        }
+      }
     },
     "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。" : {
       "localizations" : {
@@ -3700,7 +5203,20 @@
       }
     },
     "处理中" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Processing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "处理中"
+          }
+        }
+      }
     },
     "处理建议" : {
       "extractionState" : "stale",
@@ -3752,7 +5268,20 @@
       }
     },
     "复制" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制"
+          }
+        }
+      }
     },
     "大" : {
       "extractionState" : "stale",
@@ -3917,16 +5446,68 @@
       }
     },
     "完成事项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete Task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成事项"
+          }
+        }
+      }
     },
     "完成于 %@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed on %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成于 %@"
+          }
+        }
+      }
     },
     "完成哪个事项?" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which task should be completed?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成哪个事项?"
+          }
+        }
+      }
     },
     "完成录音" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish Recording"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成录音"
+          }
+        }
+      }
     },
     "完成洞察" : {
       "localizations" : {
@@ -3945,7 +5526,20 @@
       }
     },
     "完整 system prompt(共 %lld 字)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full system prompt (%lld characters)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完整 system prompt(共 %lld 字)"
+          }
+        }
+      }
     },
     "定时任务" : {
       "localizations" : {
@@ -4012,8 +5606,37 @@
         }
       }
     },
+    "客车信息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coach Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "客车信息"
+          }
+        }
+      }
+    },
     "对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Say “Open Lodo Assistant” to Siri, or on iPhone 15 Pro and later, choose Shortcuts → Open Lodo Assistant under Settings > Action Button for one-tap access."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。"
+          }
+        }
+      }
     },
     "对话记录" : {
       "localizations" : {
@@ -4113,7 +5736,20 @@
       }
     },
     "导入失败" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入失败"
+          }
+        }
+      }
     },
     "导入截图更新" : {
       "localizations" : {
@@ -4148,7 +5784,20 @@
       }
     },
     "导出(%lld)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export (%lld)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出(%lld)"
+          }
+        }
+      }
     },
     "导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。" : {
       "localizations" : {
@@ -4199,10 +5848,36 @@
       }
     },
     "导出失败" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出失败"
+          }
+        }
+      }
     },
     "导出完成" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export Complete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出完成"
+          }
+        }
+      }
     },
     "导航" : {
       "localizations" : {
@@ -4233,6 +5908,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "小"
+          }
+        }
+      }
+    },
+    "就是今天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "就是今天"
+          }
+        }
+      }
+    },
+    "就是现在" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "就是现在"
           }
         }
       }
@@ -4302,7 +6009,20 @@
       }
     },
     "已使用内置 API Key,无需再填。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The built-in API key is in use; no need to enter one."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已使用内置 API Key,无需再填。"
+          }
+        }
+      }
     },
     "已使用内置 DeepSeek API Key,无需再填。" : {
       "extractionState" : "stale",
@@ -4322,7 +6042,20 @@
       }
     },
     "已保存" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存"
+          }
+        }
+      }
     },
     "已停用" : {
       "localizations" : {
@@ -4373,6 +6106,38 @@
         }
       }
     },
+    "已取消:%@,点两下重新新建" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelled: %@, double-tap to create again"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消:%@,点两下重新新建"
+          }
+        }
+      }
+    },
+    "已取消新建" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creation canceled"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消新建"
+          }
+        }
+      }
+    },
     "已存在的人脉(按手机号/邮箱匹配)会自动跳过,不会重复导入。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4407,10 +6172,68 @@
       }
     },
     "已导入" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已导入"
+          }
+        }
+      }
     },
     "已导出" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exported"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已导出"
+          }
+        }
+      }
+    },
+    "已导出到通讯录。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exported to Contacts."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已导出到通讯录。"
+          }
+        }
+      }
+    },
+    "已开始 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started %lld d ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已开始 %lld 天"
+          }
+        }
+      }
     },
     "已撤销写入" : {
       "localizations" : {
@@ -4456,6 +6279,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已收藏"
+          }
+        }
+      }
+    },
+    "已新建:%@,点两下取消" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created: %@, double-tap to cancel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已新建:%@,点两下取消"
           }
         }
       }
@@ -4511,6 +6350,7 @@
       }
     },
     "已经有同名的 skill 了" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4522,6 +6362,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已经有同名的 skill 了"
+          }
+        }
+      }
+    },
+    "已经过去 · %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past · %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经过去 · %lld"
           }
         }
       }
@@ -4543,7 +6399,52 @@
       }
     },
     "已结束 · %lld" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended · %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已结束 · %lld"
+          }
+        }
+      }
+    },
+    "已结束 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended %lld d ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已结束 %lld 天"
+          }
+        }
+      }
+    },
+    "已置顶" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinned"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已置顶"
+          }
+        }
+      }
     },
     "已自定义" : {
       "localizations" : {
@@ -4557,6 +6458,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已自定义"
+          }
+        }
+      }
+    },
+    "已装好 %lld / %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Packed %lld / %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已装好 %lld / %lld"
           }
         }
       }
@@ -4605,6 +6522,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已调整「%@」"
+          }
+        }
+      }
+    },
+    "已过去 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已过去 %@"
+          }
+        }
+      }
+    },
+    "已过去 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld d ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已过去 %lld 天"
           }
         }
       }
@@ -4717,6 +6666,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "币种"
+          }
+        }
+      }
+    },
+    "带 %@ 的会显示在锁屏「倒数日」小组件上。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items with %@ appear in the Countdown Lock Screen widget."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "带 %@ 的会显示在锁屏「倒数日」小组件上。"
           }
         }
       }
@@ -4850,6 +6815,38 @@
         }
       }
     },
+    "座席" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Class"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座席"
+          }
+        }
+      }
+    },
+    "座席,如 二等座、指定席" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Class, e.g. second class, reserved seat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座席,如 二等座、指定席"
+          }
+        }
+      }
+    },
     "建一次旅行,把航班、住宿、想去的地方都放进去,可以按天看,也可以看花了多少。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4932,13 +6929,68 @@
       }
     },
     "开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, the Calendar page shows your calendar events. Open an event to edit or delete it in Apple's editor; you confirm each change. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync both ways: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Long-press or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in Settings → Privacy & Security → Calendars."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。"
+          }
+        }
+      }
     },
     "开始" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始"
+          }
+        }
+      }
+    },
+    "开始 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始 %@"
+          }
+        }
+      }
     },
     "开始了" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始了"
+          }
+        }
+      }
     },
     "开始使用" : {
       "localizations" : {
@@ -4957,7 +7009,36 @@
       }
     },
     "开始对话" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a Conversation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始对话"
+          }
+        }
+      }
+    },
+    "开始提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Reminders"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始提醒"
+          }
+        }
+      }
     },
     "开始时间" : {
       "localizations" : {
@@ -4992,10 +7073,52 @@
       }
     },
     "引用" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quote"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引用"
+          }
+        }
+      }
     },
     "强调色" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accent Color"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "强调色"
+          }
+        }
+      }
+    },
+    "当地时区" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local Time Zone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当地时区"
+          }
+        }
+      }
     },
     "当日" : {
       "extractionState" : "stale",
@@ -5030,8 +7153,37 @@
         }
       }
     },
+    "待安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To Schedule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待安排"
+          }
+        }
+      }
+    },
     "忽略" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignore"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "忽略"
+          }
+        }
+      }
     },
     "思考强度" : {
       "localizations" : {
@@ -5114,7 +7266,20 @@
       }
     },
     "总负债" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total Liabilities"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总负债"
+          }
+        }
+      }
     },
     "恢复默认布局" : {
       "localizations" : {
@@ -5128,6 +7293,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "恢复默认布局"
+          }
+        }
+      }
+    },
+    "想去但还没定哪天的地点和餐馆会放在这里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Places and restaurants you want to visit but haven't scheduled show up here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想去但还没定哪天的地点和餐馆会放在这里。"
+          }
+        }
+      }
+    },
+    "想去哪玩？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where to next?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想去哪玩？"
+          }
+        }
+      }
+    },
+    "想找点什么？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for something?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想找点什么？"
+          }
+        }
+      }
+    },
+    "想起谁了？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thinking of someone?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想起谁了？"
           }
         }
       }
@@ -5279,16 +7508,68 @@
       }
     },
     "打开 AI 助手" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open AI Assistant"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 AI 助手"
+          }
+        }
+      }
     },
     "打开 App 后默认进入 AI 助手" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the AI assistant when the app launches"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 App 后默认进入 AI 助手"
+          }
+        }
+      }
     },
     "打开 lodo 助手" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Lodo Assistant"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 lodo 助手"
+          }
+        }
+      }
     },
     "打开 lodo 的全局 AI 助手。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Lodo's AI assistant from anywhere."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 lodo 的全局 AI 助手。"
+          }
+        }
+      }
     },
     "打开网站" : {
       "localizations" : {
@@ -5339,10 +7620,36 @@
       }
     },
     "把一个任务标记为完成。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark a task as complete."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把一个任务标记为完成。"
+          }
+        }
+      }
     },
     "把任务写进系统日历" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write Tasks to System Calendar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把任务写进系统日历"
+          }
+        }
+      }
     },
     "把订票邮件、酒店确认信或行程单贴进来,AI 会拆成航班/住宿/地点。" : {
       "localizations" : {
@@ -5506,11 +7813,53 @@
         }
       }
     },
+    "按目的地、季节和行程,让 AI 先列一份,再挑着加进来。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let AI draft a list based on the destination, season and itinerary, then pick what to add."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按目的地、季节和行程,让 AI 先列一份,再挑着加进来。"
+          }
+        }
+      }
+    },
     "按钮、选中态和链接的颜色。每一档的浅色/深色两套取值都核过对比度,换色不会让文字变得难读。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colors for buttons, selected states, and links. Light and dark variants are checked for contrast and readability."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按钮、选中态和链接的颜色。每一档的浅色/深色两套取值都核过对比度,换色不会让文字变得难读。"
+          }
+        }
+      }
     },
     "按项目查看" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View by Project"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按项目查看"
+          }
+        }
+      }
     },
     "振动反馈" : {
       "localizations" : {
@@ -5672,6 +8021,70 @@
         }
       }
     },
+    "提前 %lld 分钟" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld min before"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 分钟"
+          }
+        }
+      }
+    },
+    "提前 %lld 周" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld wk before"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 周"
+          }
+        }
+      }
+    },
+    "提前 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld d before"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 天"
+          }
+        }
+      }
+    },
+    "提前 %lld 小时" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hr before"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 小时"
+          }
+        }
+      }
+    },
     "提示" : {
       "localizations" : {
         "en" : {
@@ -5768,6 +8181,22 @@
         }
       }
     },
+    "搜索城市或 GMT+9" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search a city or GMT+9"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索城市或 GMT+9"
+          }
+        }
+      }
+    },
     "搜索失败,检查一下网络再试。" : {
       "localizations" : {
         "en" : {
@@ -5802,7 +8231,20 @@
       }
     },
     "搜索记忆" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Memories"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索记忆"
+          }
+        }
+      }
     },
     "摘要" : {
       "localizations" : {
@@ -5853,7 +8295,20 @@
       }
     },
     "收藏于" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved on"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收藏于"
+          }
+        }
+      }
     },
     "收藏这条" : {
       "localizations" : {
@@ -5888,7 +8343,20 @@
       }
     },
     "收起改期候选" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse suggestions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起改期候选"
+          }
+        }
+      }
     },
     "改期" : {
       "localizations" : {
@@ -5907,7 +8375,20 @@
       }
     },
     "改期失败" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reschedule Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改期失败"
+          }
+        }
+      }
     },
     "放大" : {
       "localizations" : {
@@ -6039,10 +8520,36 @@
       }
     },
     "新建事项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建事项"
+          }
+        }
+      }
     },
     "新建定时任务" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Routine"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建定时任务"
+          }
+        }
+      }
     },
     "新建旅行" : {
       "localizations" : {
@@ -6174,7 +8681,20 @@
       }
     },
     "无法访问通讯录" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't Access Contacts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法访问通讯录"
+          }
+        }
+      }
     },
     "日元" : {
       "extractionState" : "stale",
@@ -6273,8 +8793,37 @@
         }
       }
     },
+    "时区" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time Zone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时区"
+          }
+        }
+      }
+    },
     "时段内到期事项照样显示为到期,只是不弹通知,时段结束后补发。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks due during this period still appear as due, but notifications are held until the period ends."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时段内到期事项照样显示为到期,只是不弹通知,时段结束后补发。"
+          }
+        }
+      }
     },
     "时长" : {
       "extractionState" : "stale",
@@ -6310,10 +8859,52 @@
       }
     },
     "时间" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时间"
+          }
+        }
+      }
     },
     "时间 %lld" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时间 %lld"
+          }
+        }
+      }
+    },
+    "时间按出发地、到达地的当地时间填,行程里也按当地日期排;时区不填就按手机的时区。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter times in local time at departure and arrival; the itinerary is arranged by local date too. Without a time zone, your phone's time zone is used."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时间按出发地、到达地的当地时间填,行程里也按当地日期排;时区不填就按手机的时区。"
+          }
+        }
+      }
     },
     "明天" : {
       "localizations" : {
@@ -6332,7 +8923,20 @@
       }
     },
     "明天出发" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leaves Tomorrow"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明天出发"
+          }
+        }
+      }
     },
     "明日离开" : {
       "localizations" : {
@@ -6399,7 +9003,36 @@
       }
     },
     "显示人脉" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Contacts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示人脉"
+          }
+        }
+      }
+    },
+    "显示在锁屏小组件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in Lock Screen Widget"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示在锁屏小组件"
+          }
+        }
+      }
     },
     "显示直线" : {
       "localizations" : {
@@ -6563,7 +9196,20 @@
       }
     },
     "暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can't be added directly yet. Open Lodo and the AI assistant will pick up where you left off."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。"
+          }
+        }
+      }
     },
     "更多" : {
       "localizations" : {
@@ -6647,7 +9293,20 @@
       }
     },
     "有 %lld 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld tasks reached the system notification limit. Open the app to see their reminders."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒"
+          }
+        }
+      }
     },
     "有 %lld 道菜没标价,没算进合计。" : {
       "localizations" : {
@@ -6665,6 +9324,38 @@
         }
       }
     },
+    "有一个倒数日没找到" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A countdown couldn't be found"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有一个倒数日没找到"
+          }
+        }
+      }
+    },
+    "有提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has reminders"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有提醒"
+          }
+        }
+      }
+    },
     "有时长的事项会在开始和结束各提醒一次" : {
       "localizations" : {
         "en" : {
@@ -6677,6 +9368,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有时长的事项会在开始和结束各提醒一次"
+          }
+        }
+      }
+    },
+    "有结束时间" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has End Time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有结束时间"
           }
         }
       }
@@ -6729,6 +9436,22 @@
         }
       }
     },
+    "未命名任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Untitled task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未命名任务"
+          }
+        }
+      }
+    },
     "未命名旅行" : {
       "localizations" : {
         "en" : {
@@ -6745,6 +9468,22 @@
         }
       }
     },
+    "未回答" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unanswered"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未回答"
+          }
+        }
+      }
+    },
     "未排期" : {
       "localizations" : {
         "en" : {
@@ -6757,6 +9496,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未排期"
+          }
+        }
+      }
+    },
+    "未来" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upcoming"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未来"
           }
         }
       }
@@ -6974,10 +9729,36 @@
       }
     },
     "松绿" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pine Green"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "松绿"
+          }
+        }
+      }
     },
     "查看今天开始或到期的任务。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View tasks starting or due today."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看今天开始或到期的任务。"
+          }
+        }
+      }
     },
     "查看最终 Prompt" : {
       "localizations" : {
@@ -6995,8 +9776,37 @@
         }
       }
     },
+    "查看原文件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View original file"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看原文件"
+          }
+        }
+      }
+    },
     "查看图片" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Image"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看图片"
+          }
+        }
+      }
     },
     "查看引导" : {
       "localizations" : {
@@ -7106,6 +9916,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "标题"
+          }
+        }
+      }
+    },
+    "检票口" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ticket Gate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检票口"
+          }
+        }
+      }
+    },
+    "检票口 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gate %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检票口 %@"
           }
         }
       }
@@ -7273,7 +10115,36 @@
       }
     },
     "正在改期" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rescheduling"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在改期"
+          }
+        }
+      }
+    },
+    "正在整理…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Organizing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在整理…"
+          }
+        }
+      }
     },
     "正在整理今天的收藏…" : {
       "localizations" : {
@@ -7551,7 +10422,20 @@
       }
     },
     "每日任务汇总" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily Task Digest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日任务汇总"
+          }
+        }
+      }
     },
     "汇总展示币种" : {
       "localizations" : {
@@ -7586,6 +10470,7 @@
       }
     },
     "没从这段文字里读出行程项。换一段更完整的订单内容试试,或者直接手动添加。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7666,10 +10551,52 @@
       }
     },
     "没有匹配的收藏" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matching memories"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有匹配的收藏"
+          }
+        }
+      }
+    },
+    "没有快到的日子" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No dates coming up"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有快到的日子"
+          }
+        }
+      }
     },
     "没有找到这个事项,它可能已经完成了。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task not found; it may already be complete."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有找到这个事项,它可能已经完成了。"
+          }
+        }
+      }
     },
     "没有找到这个地方。" : {
       "localizations" : {
@@ -7747,6 +10674,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有未来任务"
+          }
+        }
+      }
+    },
+    "没有还没到的日子了。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No upcoming dates."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有还没到的日子了。"
           }
         }
       }
@@ -7850,10 +10793,52 @@
       }
     },
     "添加(%lld)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add (%lld)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加(%lld)"
+          }
+        }
+      }
     },
     "添加事项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加事项"
+          }
+        }
+      }
+    },
+    "添加倒数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Countdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加倒数日"
+          }
+        }
+      }
     },
     "添加关系" : {
       "localizations" : {
@@ -7967,6 +10952,22 @@
         }
       }
     },
+    "添加要带的东西" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add something to pack"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加要带的东西"
+          }
+        }
+      }
+    },
     "添加订阅" : {
       "localizations" : {
         "en" : {
@@ -7984,7 +10985,36 @@
       }
     },
     "添加附件" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Attachment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加附件"
+          }
+        }
+      }
+    },
+    "清单" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Packing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清单"
+          }
+        }
+      }
     },
     "清空对话记录" : {
       "localizations" : {
@@ -8118,6 +11148,22 @@
         }
       }
     },
+    "火车信息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Train Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "火车信息"
+          }
+        }
+      }
+    },
     "点「搜索」选地点才会记下坐标,地图上才画得出这个点;只手打名字也能存,只是不上地图。" : {
       "localizations" : {
         "en" : {
@@ -8216,7 +11262,36 @@
       }
     },
     "玫红" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magenta"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "玫红"
+          }
+        }
+      }
+    },
+    "班次(可选)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service number (optional)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "班次(可选)"
+          }
+        }
+      }
     },
     "班次/区间,如 机场大巴 T2–市区" : {
       "localizations" : {
@@ -8284,7 +11359,20 @@
       }
     },
     "用一句话添加任务,AI 解析时间和时长。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a task in one sentence; AI will parse the time and duration."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用一句话添加任务,AI 解析时间和时长。"
+          }
+        }
+      }
     },
     "用右上角的 + 添加,比如每天早上让 AI 总结今天的任务。" : {
       "extractionState" : "stale",
@@ -8304,7 +11392,20 @@
       }
     },
     "用右下角的 + 添加,比如每天早上让 AI 总结今天的任务。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap + at the bottom right to add one, such as a daily morning summary of your tasks."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用右下角的 + 添加,比如每天早上让 AI 总结今天的任务。"
+          }
+        }
+      }
     },
     "登机口" : {
       "localizations" : {
@@ -8404,7 +11505,20 @@
       }
     },
     "目的地" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destination"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目的地"
+          }
+        }
+      }
     },
     "看看推荐订阅" : {
       "localizations" : {
@@ -8423,7 +11537,20 @@
       }
     },
     "石墨" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graphite"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "石墨"
+          }
+        }
+      }
     },
     "确定" : {
       "localizations" : {
@@ -8458,10 +11585,36 @@
       }
     },
     "确定恢复默认内容吗?" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore the default content?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确定恢复默认内容吗?"
+          }
+        }
+      }
     },
     "确定清空 AI 偏好吗?" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear AI preferences?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确定清空 AI 偏好吗?"
+          }
+        }
+      }
     },
     "确定清空 AI 记忆吗?" : {
       "localizations" : {
@@ -8496,7 +11649,20 @@
       }
     },
     "确认修改" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm Changes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认修改"
+          }
+        }
+      }
     },
     "确认执行" : {
       "localizations" : {
@@ -8515,20 +11681,17 @@
       }
     },
     "确认新建" : {
-
-    },
-    "移出旅行" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remove from Trip"
+            "value" : "Confirm Creation"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "移出旅行"
+            "value" : "确认新建"
           }
         }
       }
@@ -8545,6 +11708,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "视图"
+          }
+        }
+      }
+    },
+    "移出旅行" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from Trip"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移出旅行"
           }
         }
       }
@@ -8582,7 +11761,20 @@
       }
     },
     "移除图片" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Image"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除图片"
+          }
+        }
+      }
     },
     "稍等" : {
       "localizations" : {
@@ -8601,7 +11793,20 @@
       }
     },
     "稍等 %lld 分钟" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snooze %lld min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍等 %lld 分钟"
+          }
+        }
+      }
     },
     "稍等或忽略提醒后,间隔多久再次提醒,直到完成。" : {
       "extractionState" : "stale",
@@ -8637,7 +11842,20 @@
       }
     },
     "稍等间隔:%lld 分钟" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snooze interval: %lld min"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍等间隔:%lld 分钟"
+          }
+        }
+      }
     },
     "立即运行" : {
       "localizations" : {
@@ -8651,6 +11869,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "立即运行"
+          }
+        }
+      }
+    },
+    "站台" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Platform"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "站台"
+          }
+        }
+      }
+    },
+    "站台 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Platform %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "站台 %@"
           }
         }
       }
@@ -8852,13 +12102,100 @@
       }
     },
     "系统日历" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Calendar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统日历"
+          }
+        }
+      }
     },
     "系统语音识别(iOS 自带)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Speech Recognition (built in)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统语音识别(iOS 自带)"
+          }
+        }
+      }
     },
     "结束" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束"
+          }
+        }
+      }
+    },
+    "结束 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ends %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束 %@"
+          }
+        }
+      }
+    },
+    "结束提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Reminders"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束提醒"
+          }
+        }
+      }
+    },
+    "结束早于开始,改一下才能保存。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The end is before the start. Fix it to save."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束早于开始,改一下才能保存。"
+          }
+        }
+      }
     },
     "结束时间" : {
       "localizations" : {
@@ -8925,7 +12262,20 @@
       }
     },
     "给这件事归个类,「按项目查看」里会按这个分组,可留空。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Categorize this task for View by Project. Optional."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "给这件事归个类,「按项目查看」里会按这个分组,可留空。"
+          }
+        }
+      }
     },
     "绿色" : {
       "extractionState" : "stale",
@@ -8961,10 +12311,52 @@
       }
     },
     "编辑事项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑事项"
+          }
+        }
+      }
+    },
+    "编辑倒数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Countdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑倒数日"
+          }
+        }
+      }
     },
     "编辑偏好" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Preferences"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑偏好"
+          }
+        }
+      }
     },
     "编辑布局" : {
       "extractionState" : "stale",
@@ -9032,7 +12424,20 @@
       }
     },
     "编辑记忆" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Memory"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑记忆"
+          }
+        }
+      }
     },
     "缩小" : {
       "localizations" : {
@@ -9066,6 +12471,22 @@
         }
       }
     },
+    "置顶" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "置顶"
+          }
+        }
+      }
+    },
     "美元" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -9079,6 +12500,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "美元"
+          }
+        }
+      }
+    },
+    "考试、搬家、演唱会、放假……点右上角的「+」记下日子,这里会一直告诉你还有几天。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exams, moving day, concerts, holidays… Tap + at the top right to add a date, and this page will keep counting the days for you."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "考试、搬家、演唱会、放假……点右上角的「+」记下日子,这里会一直告诉你还有几天。"
           }
         }
       }
@@ -9180,6 +12617,22 @@
         }
       }
     },
+    "航班号(可选),如 CA925" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flight number (optional), e.g. CA925"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班号(可选),如 CA925"
+          }
+        }
+      }
+    },
     "航空公司/航段,如 国航 北京–东京" : {
       "localizations" : {
         "en" : {
@@ -9224,6 +12677,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "舱位"
+          }
+        }
+      }
+    },
+    "舱位,如 经济舱" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cabin, e.g. Economy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "舱位,如 经济舱"
           }
         }
       }
@@ -9439,6 +12908,22 @@
         }
       }
     },
+    "行程时长" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duration"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程时长"
+          }
+        }
+      }
+    },
     "行程项" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -9472,8 +12957,53 @@
         }
       }
     },
+    "要安排点什么？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan something?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要安排点什么？"
+          }
+        }
+      }
+    },
     "要提醒你什么?" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What should I remind you about?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要提醒你什么?"
+          }
+        }
+      }
+    },
+    "要记下什么事？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anything to remember?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要记下什么事？"
+          }
+        }
+      }
     },
     "解析" : {
       "localizations" : {
@@ -9815,10 +13345,36 @@
       }
     },
     "识别中" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recognizing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别中"
+          }
+        }
+      }
     },
     "试试加入一个任务/记忆…" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try adding a task or memory…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试试加入一个任务/记忆…"
+          }
+        }
+      }
     },
     "试运行" : {
       "localizations" : {
@@ -9918,10 +13474,36 @@
       }
     },
     "语音识别引擎" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speech Recognition Engine"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音识别引擎"
+          }
+        }
+      }
     },
     "语音输入" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice Input"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入"
+          }
+        }
+      }
     },
     "语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。" : {
       "extractionState" : "stale",
@@ -10005,14 +13587,69 @@
         }
       }
     },
+    "负债 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liability %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债 %@"
+          }
+        }
+      }
+    },
     "负债(可选),如房贷/车贷本金" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liability (optional), e.g. mortgage or car loan principal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债(可选),如房贷/车贷本金"
+          }
+        }
+      }
     },
     "负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liabilities and interest rates use the asset's currency and are included in the net worth calculation. Both are optional."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。"
+          }
+        }
+      }
     },
     "负债无法识别为数字,改成数字或清空这一栏才能保存。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The liability must be a number. Enter a number or clear this field to save."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债无法识别为数字,改成数字或清空这一栏才能保存。"
+          }
+        }
+      }
     },
     "资产" : {
       "localizations" : {
@@ -10063,7 +13700,20 @@
       }
     },
     "赤陶橙" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terracotta"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "赤陶橙"
+          }
+        }
+      }
     },
     "起飞时间" : {
       "localizations" : {
@@ -10113,6 +13763,22 @@
         }
       }
     },
+    "跟随手机" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as Phone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随手机"
+          }
+        }
+      }
+    },
     "跳过" : {
       "localizations" : {
         "en" : {
@@ -10130,7 +13796,52 @@
       }
     },
     "跳过提问" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip Question"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跳过提问"
+          }
+        }
+      }
+    },
+    "车厢" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Car"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "车厢"
+          }
+        }
+      }
+    },
+    "车次(可选),如 G123、Nozomi 21" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Train number (optional), e.g. G123, Nozomi 21"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "车次(可选),如 G123、Nozomi 21"
+          }
+        }
+      }
     },
     "车次/区间,如 新干线 东京–京都" : {
       "localizations" : {
@@ -10165,6 +13876,7 @@
       }
     },
     "车次/航班号(可选)" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10246,7 +13958,20 @@
       }
     },
     "运行失败" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行失败"
+          }
+        }
+      }
     },
     "近期没有日程" : {
       "localizations" : {
@@ -10312,8 +14037,117 @@
         }
       }
     },
+    "还有 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %@"
+          }
+        }
+      }
+    },
+    "还有 %@开始" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts in %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %@开始"
+          }
+        }
+      }
+    },
+    "还有 %@结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ends in %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %@结束"
+          }
+        }
+      }
+    },
+    "还有 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In %lld d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %lld 天"
+          }
+        }
+      }
+    },
     "还有 %lld 天出发" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leaves in %lld Days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %lld 天出发"
+          }
+        }
+      }
+    },
+    "还有 %lld 天开始" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts in %lld d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %lld 天开始"
+          }
+        }
+      }
+    },
+    "还有 %lld 天结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ends in %lld d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有 %lld 天结束"
+          }
+        }
+      }
     },
     "还有 %lld 项" : {
       "localizations" : {
@@ -10331,8 +14165,37 @@
         }
       }
     },
+    "还有几天？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How many days to go?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还有几天？"
+          }
+        }
+      }
+    },
     "还没有人脉" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Contacts Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有人脉"
+          }
+        }
+      }
     },
     "还没有人脉。" : {
       "localizations" : {
@@ -10346,6 +14209,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有人脉。"
+          }
+        }
+      }
+    },
+    "还没有倒数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Countdowns Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有倒数日"
           }
         }
       }
@@ -10399,10 +14278,36 @@
       }
     },
     "还没有完成的事项" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing completed yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有完成的事项"
+          }
+        }
+      }
     },
     "还没有定时任务" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No routines yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有定时任务"
+          }
+        }
+      }
     },
     "还没有收藏" : {
       "localizations" : {
@@ -10453,7 +14358,20 @@
       }
     },
     "还没有标签" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Tags Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有标签"
+          }
+        }
+      }
     },
     "还没有菜单" : {
       "localizations" : {
@@ -10489,7 +14407,20 @@
       }
     },
     "还没有行程,点进去添加航班、住宿和想去的地方。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No itinerary yet. Open a trip to add flights, lodging, and places."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有行程,点进去添加航班、住宿和想去的地方。"
+          }
+        }
+      }
     },
     "还没有订阅" : {
       "localizations" : {
@@ -10556,7 +14487,20 @@
       }
     },
     "还没有资产记录" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Assets Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有资产记录"
+          }
+        }
+      }
     },
     "还没有选菜" : {
       "localizations" : {
@@ -10591,7 +14535,20 @@
       }
     },
     "这个筛选下还没有收藏" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No saved items for this filter"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个筛选下还没有收藏"
+          }
+        }
+      }
     },
     "这个订阅只提供了摘要,原网页也没能抓到全文。" : {
       "localizations" : {
@@ -10769,6 +14726,22 @@
         }
       }
     },
+    "这趟还想去哪？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anywhere else on this trip?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这趟还想去哪？"
+          }
+        }
+      }
+    },
     "进行中" : {
       "localizations" : {
         "en" : {
@@ -10786,7 +14759,20 @@
       }
     },
     "进行中 · 第 %lld 天" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Progress · Day %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "进行中 · 第 %lld 天"
+          }
+        }
+      }
     },
     "连接日历" : {
       "localizations" : {
@@ -10805,7 +14791,20 @@
       }
     },
     "连接系统日历" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Calendar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接系统日历"
+          }
+        }
+      }
     },
     "连接系统日历后显示今天的日程" : {
       "localizations" : {
@@ -10856,7 +14855,6 @@
       }
     },
     "选择文件" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10985,6 +14983,22 @@
         }
       }
     },
+    "都是可选的,照车票上的填。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All optional—fill in what's on your ticket."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "都是可选的,照车票上的填。"
+          }
+        }
+      }
+    },
     "都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。" : {
       "localizations" : {
         "en" : {
@@ -11082,7 +15096,20 @@
       }
     },
     "重命名标签" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Tag"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重命名标签"
+          }
+        }
+      }
     },
     "重命名菜单" : {
       "localizations" : {
@@ -11276,6 +15303,22 @@
         }
       }
     },
+    "重要的事" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Important"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重要的事"
+          }
+        }
+      }
+    },
     "重试" : {
       "localizations" : {
         "en" : {
@@ -11356,6 +15399,38 @@
         }
       }
     },
+    "锁屏「倒数日」小组件最多显示 3 件,已经选满了。先在别的倒数日里关掉一件。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Countdown Lock Screen widget shows up to 3 items and is full. Turn one off in another countdown first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "锁屏「倒数日」小组件最多显示 3 件,已经选满了。先在别的倒数日里关掉一件。"
+          }
+        }
+      }
+    },
+    "锁屏「倒数日」小组件最多显示 3 件,按日子从近到远排。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Countdown Lock Screen widget shows up to 3 items, soonest first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "锁屏「倒数日」小组件最多显示 3 件,按日子从近到远排。"
+          }
+        }
+      }
+    },
     "锻炼" : {
       "localizations" : {
         "en" : {
@@ -11372,8 +15447,37 @@
         }
       }
     },
+    "长按任务即可置顶" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touch and hold a task to pin it"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "长按任务即可置顶"
+          }
+        }
+      }
+    },
     "问问 AI" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask AI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "问问 AI"
+          }
+        }
+      }
     },
     "阅读原文" : {
       "localizations" : {
@@ -11424,13 +15528,52 @@
       }
     },
     "静音自动停止:%lld 秒" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-stop after %lld seconds of silence"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静音自动停止:%lld 秒"
+          }
+        }
+      }
     },
     "靛紫" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indigo Violet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靛紫"
+          }
+        }
+      }
     },
     "靛蓝" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indigo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靛蓝"
+          }
+        }
+      }
     },
     "韩元" : {
       "extractionState" : "stale",
@@ -11450,7 +15593,20 @@
       }
     },
     "项目(可选)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Project (optional)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目(可选)"
+          }
+        }
+      }
     },
     "预计到达" : {
       "localizations" : {
@@ -11480,6 +15636,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "预计起飞"
+          }
+        }
+      }
+    },
+    "飞行 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flight time %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "飞行 %@"
+          }
+        }
+      }
+    },
+    "飞行时长" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flight Time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "飞行时长"
+          }
+        }
+      }
+    },
+    "马上开始" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starting now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "马上开始"
+          }
+        }
+      }
+    },
+    "马上结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ending now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "马上结束"
           }
         }
       }

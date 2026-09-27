@@ -59,7 +59,7 @@ struct TaskEntity: AppEntity {
     init(task: TaskItem) {
         id = task.uuid
         title = task.title
-        caption = task.caption
+        caption = LocalizedContent.taskCaption(task)
     }
 }
 
@@ -116,13 +116,17 @@ struct AddTaskIntent: AppIntent {
             NotificationManager.shared.rebuild(for: task)
             DurationMemory.learn(title: parsed.title,
                                  durationMinutes: parsed.durationMinutes)
-            return .result(dialog: IntentDialog(stringLiteral:
-                "已添加:\(task.title),\(TaskItem.format(task.nextRemindAt))"))
+            let addedMessage = String(format: LocalizedStrings.text(.ios_core_intent_task_added,
+                                                                     language: AppSettings.language),
+                                      task.title,
+                                      LocalizedContent.dateCaption(task.nextRemindAt))
+            return .result(dialog: IntentDialog(stringLiteral: addedMessage))
         } catch {
             // 解析不了(缺时间/无 key/断网):交接给 app 内 agent,下次打开自动带出
             LodoIntentSupport.handOffToAgent(text)
-            return .result(dialog: IntentDialog(stringLiteral:
-                "暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。"))
+            return .result(dialog: IntentDialog(stringLiteral: String(localized:
+                "暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。",
+                locale: AppSettings.language.locale)))
         }
     }
 }

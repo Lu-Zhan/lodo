@@ -303,8 +303,8 @@ extension CalendarEvent {
     /// 给旁白读的一句:标题、时间、所属日历。
     var accessibilityDescription: String {
         let time = isAllDay
-            ? String(localized: "全天")
-            : "\(start.formatted(date: .abbreviated, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened))"
+            ? String(localized: "全天", locale: AppSettings.language.locale)
+            : "\(LocalizedContent.abbreviatedDateTime(start)) – \(LocalizedContent.time(end))"
         return [title, time, calendarTitle].filter { !$0.isEmpty }.joined(separator: ", ")
     }
 }

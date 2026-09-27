@@ -72,7 +72,7 @@ struct NewsArticleView: View {
                 Button {
                     NewsStore.toggleStar(article, context: context)
                 } label: {
-                    Label(article.isStarred ? "取消收藏" : "收藏",
+                    Label(LocalizedStringKey(article.isStarred ? "取消收藏" : "收藏"),
                           systemImage: article.isStarred ? "star.fill" : "star")
                 }
             }
@@ -113,7 +113,7 @@ struct NewsArticleView: View {
                 if summarizeTask != nil || summaryError == nil {
                     HStack {
                         ProgressView().controlSize(.small)
-                        Text(isFetchingText ? "正在读原文…" : "正在总结…")
+                        Text(LocalizedStringKey(isFetchingText ? "正在读原文…" : "正在总结…"))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -157,7 +157,7 @@ struct NewsArticleView: View {
                     }
                 }
             } header: {
-                Text(fullText == nil ? "摘要" : "正文")
+                Text(LocalizedStringKey(fullText == nil ? "摘要" : "正文"))
             } footer: {
                 if fullText == nil, !isFetchingText, !article.summary.isEmpty {
                     Text("这个订阅只提供了摘要,原网页也没能抓到全文。")

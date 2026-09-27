@@ -21,7 +21,9 @@ enum BackupManager {
 
         var errorDescription: String? {
             switch self {
-            case .invalidZip: return "无法识别这份备份文件"
+            case .invalidZip:
+                return LocalizedStrings.text(.ios_core_backup_invalid_file,
+                                             language: AppSettings.language)
             }
         }
     }
@@ -54,6 +56,8 @@ enum BackupManager {
         let travelTrips = ((try? context.fetch(FetchDescriptor<TravelTrip>())) ?? [])
         let menuDishes = ((try? context.fetch(FetchDescriptor<MenuDish>())) ?? [])
         let newsFeeds = ((try? context.fetch(FetchDescriptor<NewsFeed>())) ?? [])
+        let countdownEvents = ((try? context.fetch(FetchDescriptor<CountdownEvent>())) ?? [])
+        let packingItems = ((try? context.fetch(FetchDescriptor<PackingItem>())) ?? [])
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -75,7 +79,9 @@ enum BackupManager {
             travelTrips: travelTrips.map { $0.backup },
             menuDishes: menuDishes.map { $0.backup },
             newsFeeds: newsFeeds.map { $0.backup },
-            customSkills: customSkills, disabledSkills: disabledSkills)
+            customSkills: customSkills, disabledSkills: disabledSkills,
+            countdownEvents: countdownEvents.map { $0.backup },
+            packingItems: packingItems.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -224,6 +230,30 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: dish)
+        }
+
+        // 倒数日与旅行用品清单:按 uuid 去重合并,同上。
+        for dto in payload.countdownEvents {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<CountdownEvent>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let event = existing ?? {
+                let created = CountdownEvent(uuid: dto.uuid)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: event)
+        }
+        for dto in payload.packingItems {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<PackingItem>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let item = existing ?? {
+                let created = PackingItem(uuid: dto.uuid, tripUUID: dto.tripUUID, title: dto.title)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: item)
         }
 
         // 新闻订阅:只恢复订阅本身,文章下次打开新闻页时重新抓。按 uuid 去重合并。

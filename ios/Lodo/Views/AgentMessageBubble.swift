@@ -20,6 +20,35 @@ extension View {
     }
 }
 
+/// 带条目的结果回复(新建/修改待办、收藏、倒数日、旅行调整)的统一形态:先是一句
+/// 普通回复气泡(「已新建」「已修改」……,按字数收缩),条目列在气泡**下面**、
+/// **不垫任何底色**——气泡是 AI 说的那句话,条目是这句话落下的东西,两者分开放,
+/// 条目也就不用再做"玻璃卡里套灰卡"那一层(用户要求,2026-09)。
+struct AgentResultReply<Items: View>: View {
+    let status: Text
+    var systemImage: String?
+    @ViewBuilder let items: () -> Items
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Group {
+                if let systemImage {
+                    Label { status } icon: { Image(systemName: systemImage) }
+                } else {
+                    status
+                }
+            }
+            .font(.body)
+            .agentCard(padding: 12, hugsContent: true)
+            VStack(alignment: .leading, spacing: 10) {
+                items()
+            }
+            // 和气泡里的文字左边对齐(气泡内边距 12)。
+            .padding(.horizontal, 12)
+        }
+    }
+}
+
 /// 一条消息的气泡渲染;confirm 的按钮只在 isLatest(这条是当前 thread 最新
 /// 一条)时可交互——历史消息一律纯展示,避免翻旧账时执行过时的批量操作。
 struct AgentMessageBubble: View {
@@ -94,7 +123,10 @@ struct AgentMessageBubble: View {
             VStack(alignment: .trailing, spacing: 6) {
                 if !attachments.isEmpty {
                     ForEach(attachments, id: \.uuid) { item in
-                        Label(item.title.isEmpty ? (item.originalFileName ?? "附件") : item.title,
+                        Label(item.title.isEmpty
+                              ? (item.originalFileName ?? String(localized: "附件",
+                                                                 locale: AppSettings.language.locale))
+                              : item.title,
                               systemImage: item.kind.symbol)
                             .font(.footnote)
                             .lineLimit(1)
@@ -108,7 +140,7 @@ struct AgentMessageBubble: View {
                         .truncationMode(.tail)
                 }
                 if !message.content.isEmpty {
-                    Text(message.content)
+                    Text(localizedSystemStatus)
                 }
             }
             .padding(12)
@@ -148,16 +180,28 @@ struct AgentMessageBubble: View {
         !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// These short assistant messages are app-generated status labels saved with the
+    /// conversation. Render them in the currently selected language after a language switch.
+    private var localizedSystemStatus: String {
+        guard message.roleRaw == AgentMessageRole.assistant.rawValue else { return message.content }
+        let statuses = [
+            "已新建", "已修改", "已收藏", "已自动记录", "已取消收藏。",
+            "已取消这次操作。", "已取消这次提问。", "已完成执行",
+        ]
+        guard statuses.contains(message.content) else { return message.content }
+        return LocalizedStrings.translate(message.content, language: AppSettings.language)
+    }
+
     private var fillsWidth: Bool {
         message.kind == .ask || message.kind == .askResult || message.kind == .tripPlan
-            || message.kind == .tripEdit
     }
 
     @ViewBuilder
     private var content: some View {
         switch message.kind {
         case .text:
-            TypewriterText(fullText: message.content, animates: message.createdAt > typingBaseline)
+            TypewriterText(fullText: localizedSystemStatus,
+                           animates: message.createdAt > typingBaseline)
                 .font(.body)
                 .textSelection(.enabled)
                 .agentCard(padding: 12, hugsContent: true)
@@ -183,6 +227,8 @@ struct AgentMessageBubble: View {
             AgentTripPlanCard(message: message, isLatest: isLatest)
         case .tripEdit:
             AgentTripEditCard(message: message)
+        case .countdownEdit:
+            AgentCountdownCard(message: message)
         }
     }
 
@@ -199,7 +245,8 @@ struct AgentMessageBubble: View {
                             Haptics.success()
                             onTaskProposalConfirm()
                         } label: {
-                            Label(taskSnapshot.existingUUID == nil ? "确认新建" : "确认修改",
+                            Label(LocalizedStringKey(taskSnapshot.existingUUID == nil
+                                                     ? "确认新建" : "确认修改"),
                                   systemImage: "checkmark")
                         }
                         .glassProminentButton()
@@ -249,16 +296,16 @@ struct AgentMessageBubble: View {
     @ViewBuilder
     private var taskResultContent: some View {
         if let taskSnapshot {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(taskSnapshot.createdRemoved == true ? "已取消新建" : message.content)
-                    .font(.body)
+            AgentResultReply(status: Text(taskSnapshot.createdRemoved == true
+                     ? String(localized: "已取消新建", locale: AppSettings.language.locale)
+                     : localizedSystemStatus)) {
                 if taskSnapshot.createdUUID != nil {
                     AgentTaskCard(snapshot: taskSnapshot,
                                   isActive: taskSnapshot.isCreatedActive,
-                                  onTap: onToggleCreatedTask)
+                                  onTap: onToggleCreatedTask, transparent: true)
                 } else if isLatest, taskSnapshot.existingUUID != nil {
                     HStack(spacing: 8) {
-                        AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
+                        AgentTaskCard(snapshot: taskSnapshot, onTap: nil, transparent: true)
                         Button {
                             onUndo()
                         } label: {
@@ -269,10 +316,9 @@ struct AgentMessageBubble: View {
                         .accessibilityLabel("撤销")
                     }
                 } else {
-                    AgentTaskCard(snapshot: taskSnapshot, onTap: nil)
+                    AgentTaskCard(snapshot: taskSnapshot, onTap: nil, transparent: true)
                 }
             }
-            .agentCard()
         } else {
             Text(message.content).font(.body).agentCard(padding: 12, hugsContent: true)
         }
@@ -280,15 +326,11 @@ struct AgentMessageBubble: View {
 
     @ViewBuilder
     private var memoryResultContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let item = resultMemoryItem, item.isAutoRecorded {
-                // AI 主动记下的重点事实(auto_memorize)和用户主动收藏(memorize/
-                // suggestMemorize 确认)共用这张卡片,但要让用户一眼看出这条是
-                // AI 自己记的、不是自己刚收藏的——用 sparkles 图标 + 不同文案区分。
-                Label(message.content, systemImage: "sparkles").font(.body)
-            } else {
-                Text(message.content).font(.body)
-            }
+        // AI 主动记下的重点事实(auto_memorize)和用户主动收藏(memorize/
+        // suggestMemorize 确认)共用这个形态,但要让用户一眼看出这条是
+        // AI 自己记的、不是自己刚收藏的——用 sparkles 图标 + 不同文案区分。
+        AgentResultReply(status: Text(localizedSystemStatus),
+                         systemImage: resultMemoryItem?.isAutoRecorded == true ? "sparkles" : nil) {
             if let item = resultMemoryItem {
                 HStack(spacing: 8) {
                     HStack(alignment: .top, spacing: 10) {
@@ -297,7 +339,10 @@ struct AgentMessageBubble: View {
                             .frame(width: 20)
                             .padding(.top, 2)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(item.title.isEmpty ? (item.originalFileName ?? "正在整理…") : item.title)
+                            Text(item.title.isEmpty
+                                 ? (item.originalFileName ?? String(localized: "正在整理…",
+                                                                    locale: AppSettings.language.locale))
+                                 : item.title)
                             if !item.summary.isEmpty {
                                 Text(item.summary)
                                     .font(.subheadline)
@@ -306,11 +351,7 @@ struct AgentMessageBubble: View {
                             }
                         }
                     }
-                    .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    // 外面整条回复已经是玻璃卡,卡中卡用填充色分层(玻璃采样不到玻璃)。
-                    .background(.fill.tertiary,
-                                in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
                     // 收藏/自动记录也是默认就存,这颗 ✕ 是事后反悔的入口,
                     // 和新建待办那张卡同一个位置、同一个图标。
                     if isLatest {
@@ -325,7 +366,6 @@ struct AgentMessageBubble: View {
                 }
             }
         }
-        .agentCard()
     }
 
     private var memorizeSuggestionContent: some View {
@@ -347,7 +387,7 @@ struct AgentMessageBubble: View {
 
     private var executedContent: some View {
         HStack(spacing: 10) {
-            Label(message.content, systemImage: "checkmark.circle").font(.body)
+            Label(localizedSystemStatus, systemImage: "checkmark.circle").font(.body)
             if isLatest {
                 Spacer(minLength: 12)
                 Button {
@@ -474,6 +514,8 @@ private struct AgentTaskCard: View {
     let snapshot: AgentTaskSnapshot
     var isActive: Bool?
     var onTap: (() -> Void)?
+    /// 结果回复里的条目不垫底色(见 `AgentResultReply`);提案卡里的仍是卡中卡。
+    var transparent = false
 
     var body: some View {
         Button {
@@ -489,24 +531,27 @@ private struct AgentTaskCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(snapshot.parsed.title)
                         .foregroundStyle(.primary)
-                    Text(snapshot.parsed.caption)
+                    Text(LocalizedContent.taskCaption(snapshot.parsed))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(10)
+            .padding(transparent ? 0 : 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            // 外面那层玻璃卡由调用方套(agentCard),这里是卡中卡,用填充色。
-            .background(.fill.tertiary,
+            // 提案卡:外面那层玻璃卡由调用方套(agentCard),这里是卡中卡,用填充色。
+            .background(transparent ? AnyShapeStyle(.clear) : AnyShapeStyle(.fill.tertiary),
                         in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
             .contentShape(Rectangle())
         }
         .pressableCard()
         .disabled(onTap == nil)
         .accessibilityLabel(isActive == nil ? snapshot.parsed.title
-                            : (isActive == true ? "已新建:\(snapshot.parsed.title),点两下取消"
-                                                : "已取消:\(snapshot.parsed.title),点两下重新新建"))
+                            : (isActive == true
+                               ? String(localized: "已新建:\(snapshot.parsed.title),点两下取消",
+                                        locale: AppSettings.language.locale)
+                               : String(localized: "已取消:\(snapshot.parsed.title),点两下重新新建",
+                                        locale: AppSettings.language.locale)))
     }
 }
 

@@ -69,6 +69,14 @@ enum TaskActions {
         CalendarSync.sync(context: context)
     }
 
+    /// 置顶 / 取消置顶(「重要的事」)。只动展示字段,不碰提醒链。
+    static func togglePin(_ task: TaskItem, context: ModelContext) {
+        task.pinned.toggle()
+        task.pinnedAt = task.pinned ? Date() : nil
+        try? context.save()
+        WidgetBridge.sync(context: context)
+    }
+
     static func snooze(_ task: TaskItem, context: ModelContext) {
         NotificationManager.shared.snooze(task, context: context)
     }

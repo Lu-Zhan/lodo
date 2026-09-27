@@ -55,8 +55,8 @@ struct MemoryDetailView: View {
                         }
                     }
                 }
-                LabeledContent("类型", value: item.kind.label)
-                LabeledContent("收藏于", value: TaskItem.format(item.createdAt))
+                LabeledContent("类型", value: LocalizedContent.memoryKindLabel(item.kind))
+                LabeledContent("收藏于", value: LocalizedContent.dateCaption(item.createdAt))
             }
 
             if item.isAsset {
@@ -115,7 +115,8 @@ struct MemoryDetailView: View {
                         Button {
                             previewURL = fileURL
                         } label: {
-                            Label(item.originalFileName ?? "查看原文件",
+                            Label(item.originalFileName ?? String(localized: "查看原文件",
+                                                                   locale: AppSettings.language.locale),
                                   systemImage: item.kind.symbol)
                         }
                     } else {
@@ -140,7 +141,9 @@ struct MemoryDetailView: View {
                 }
             }
         }
-        .navigationTitle(item.title.isEmpty ? "记忆" : item.title)
+        .navigationTitle(item.title.isEmpty
+                         ? String(localized: "记忆", locale: AppSettings.language.locale)
+                         : item.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

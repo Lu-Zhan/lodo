@@ -61,15 +61,18 @@ final class SpeechInput {
             SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
         }
         guard auth == .authorized else {
-            errorText = "语音识别未授权,请到系统设置中开启。"
+            errorText = LocalizedStrings.text(.ios_core_speech_permission_denied,
+                                              language: AppSettings.language)
             return
         }
         guard await AVAudioApplication.requestRecordPermission() else {
-            errorText = "麦克风未授权,请到系统设置中开启。"
+            errorText = LocalizedStrings.text(.ios_core_microphone_permission_denied,
+                                              language: AppSettings.language)
             return
         }
         guard let recognizer, recognizer.isAvailable else {
-            errorText = "语音识别暂不可用。"
+            errorText = LocalizedStrings.text(.ios_core_speech_unavailable,
+                                              language: AppSettings.language)
             return
         }
 
@@ -112,7 +115,8 @@ final class SpeechInput {
                 }
             }
         } catch {
-            errorText = "无法启动录音:\(error.localizedDescription)"
+            errorText = LocalizedStrings.text(.ios_core_recording_start_failed,
+                                              language: AppSettings.language) + error.localizedDescription
             stop()
         }
     }
@@ -124,7 +128,8 @@ final class SpeechInput {
             return
         }
         guard await AVAudioApplication.requestRecordPermission() else {
-            errorText = "麦克风未授权,请到系统设置中开启。"
+            errorText = LocalizedStrings.text(.ios_core_microphone_permission_denied,
+                                              language: AppSettings.language)
             return
         }
 
@@ -155,7 +160,8 @@ final class SpeechInput {
             watchSilence()
             watchLevel()
         } catch {
-            errorText = "无法启动录音:\(error.localizedDescription)"
+            errorText = LocalizedStrings.text(.ios_core_recording_start_failed,
+                                              language: AppSettings.language) + error.localizedDescription
             stop()
         }
     }
@@ -292,7 +298,8 @@ final class SpeechInput {
     private func transcribeQwenASR(fileURL: URL) async {
         defer { try? FileManager.default.removeItem(at: fileURL) }
         guard let data = try? Data(contentsOf: fileURL) else {
-            errorText = "无法读取录音文件。"
+            errorText = LocalizedStrings.text(.ios_core_recording_file_unreadable,
+                                              language: AppSettings.language)
             return
         }
         isProcessing = true

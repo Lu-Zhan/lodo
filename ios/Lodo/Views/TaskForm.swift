@@ -138,7 +138,7 @@ struct TaskFormSections: View {
                 Section("周几") {
                     HStack {
                         ForEach(0..<7, id: \.self) { i in
-                            Toggle(String(weekdayNames[i].dropFirst()), isOn: Binding(
+                            Toggle(LocalizedContent.weekdayShortName(i), isOn: Binding(
                                 get: { form.weekdays.contains(i) },
                                 set: { on in
                                     if on {
@@ -186,7 +186,13 @@ struct TaskFormSections: View {
 
         Section {
             Stepper(value: $form.duration, in: 0...480, step: 5) {
-                let text = "时长:\(form.duration == 0 ? "无" : "\(form.duration) 分钟")"
+                let language = AppSettings.language
+                let duration = form.duration == 0
+                    ? LocalizedStrings.text(.ios_core_duration_none, language: language)
+                    : "\(form.duration) \(LocalizedStrings.text(.ios_core_health_unit_minutes, language: language))"
+                let text = String(format: LocalizedStrings.text(.ios_core_duration_field,
+                                                                 language: language),
+                                  duration as NSString)
                 if suggestedDuration {
                     Label(text, systemImage: "sparkles")
                         .foregroundStyle(.tint)

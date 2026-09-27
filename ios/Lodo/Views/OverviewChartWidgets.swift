@@ -115,9 +115,11 @@ struct OverviewActivityRingsWidget: View {
                         OverviewRingStack(rings: rings, diameter: 104)
                         VStack(spacing: 10) {
                             OverviewRingLegend(color: OverviewRingColor.move, title: "活动",
-                                               value: String(localized: "\(format(energy))/\(Int(ActivityRingGoal.activeEnergy)) 千卡"))
+                                               value: String(localized: "\(format(energy))/\(Int(ActivityRingGoal.activeEnergy)) 千卡",
+                                                             locale: AppSettings.language.locale))
                             OverviewRingLegend(color: OverviewRingColor.exercise, title: "锻炼",
-                                               value: String(localized: "\(format(exercise))/\(Int(ActivityRingGoal.exerciseMinutes)) 分钟"))
+                                               value: String(localized: "\(format(exercise))/\(Int(ActivityRingGoal.exerciseMinutes)) 分钟",
+                                                             locale: AppSettings.language.locale))
                             OverviewRingLegend(color: OverviewRingColor.steps, title: "步数",
                                                value: "\(format(steps))/\(Int(ActivityRingGoal.steps))")
                         }
@@ -204,7 +206,9 @@ struct OverviewWeeklyDoneWidget: View {
         let total = days.reduce(0) { $0 + $1.count }
         // 半宽卡片放不下「标题 + 件数 + ›」,小卡把件数挪到图表上方。
         OverviewWidgetCard(kind: .weeklyDone,
-                           trailing: size == .large ? String(localized: "\(total) 件") : nil,
+                           trailing: size == .large
+                               ? String(localized: "\(total) 件", locale: AppSettings.language.locale)
+                               : nil,
                            action: onOpen) {
             if size == .small {
                 Text("\(total) 件")

@@ -59,7 +59,8 @@ struct TravelListView: View {
                         }
                         .swipeActions(edge: .trailing) { deleteButton(featured) }
                     } header: {
-                        Text(featured.isOngoing() || featured.isUpcoming() ? "最近旅行" : "上一次旅行")
+                        Text(LocalizedStringKey(featured.isOngoing() || featured.isUpcoming()
+                                                ? "最近旅行" : "上一次旅行"))
                     }
                 }
                 if !others.isEmpty {
@@ -194,7 +195,7 @@ struct TravelListView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         Label {
-                            Text("\(next.title) · \(Self.nextFormatter.string(from: start))")
+                            Text("\(next.title) · \(LocalizedContent.dateTime(start, language: language))")
                         } icon: {
                             Image(systemName: next.kind.systemImage)
                                 .foregroundStyle(.tint)
@@ -232,18 +233,14 @@ struct TravelListView: View {
             .min { ($0.start ?? .distantFuture) < ($1.start ?? .distantFuture) }
     }
 
-    private static let nextFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日 HH:mm"
-        return f
-    }()
-
     // MARK: - 行
 
     private func row(_ trip: TravelTrip) -> some View {
         let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid && $0.travelKind != nil }.count
         return VStack(alignment: .leading, spacing: 3) {
-            Text(trip.title.isEmpty ? "未命名旅行" : trip.title)
+            Text(trip.title.isEmpty
+                 ? String(localized: "未命名旅行", locale: language.locale)
+                 : trip.title)
                 .font(.body.weight(.medium))
             if let location = trip.locationText {
                 Label(location, systemImage: "mappin.and.ellipse")
@@ -266,15 +263,9 @@ struct TravelListView: View {
     /// 日期区间先拼成一个串,让上面那句只剩三个占位符——字符串目录里
     /// "%@ · %lld 天 · %lld 项" 比五个占位符好翻译得多。
     private func dateRange(_ trip: TravelTrip) -> String {
-        Self.formatter.string(from: trip.startDate) + " – "
-            + Self.formatter.string(from: trip.endDate)
+        LocalizedContent.dateOnly(trip.startDate, language: language) + " – "
+            + LocalizedContent.dateOnly(trip.endDate, language: language)
     }
-
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日"
-        return f
-    }()
 
     #if DEBUG
     /// 截图验证用:simctl 点不了表单,启动参数直接塞一次样板旅行。
@@ -535,7 +526,7 @@ struct TripEditView: View {
                     }
                 }
             }
-            .navigationTitle(trip == nil ? "新建旅行" : "编辑旅行")
+            .navigationTitle(LocalizedStringKey(trip == nil ? "新建旅行" : "编辑旅行"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

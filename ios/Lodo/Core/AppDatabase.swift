@@ -20,7 +20,7 @@ enum AppDatabase {
                 for: TaskItem.self, MemoryItem.self, MemoryTag.self, MemoryChunk.self,
                     AgentMessage.self, AIRoutine.self, AIRoutineRun.self,
                     ContactRelationship.self, TravelTrip.self, MenuDish.self,
-                    NewsFeed.self, NewsArticle.self,
+                    NewsFeed.self, NewsArticle.self, CountdownEvent.self, PackingItem.self,
                 configurations: ModelConfiguration(url: storeURL, cloudKitDatabase: cloudKit)) {
                 return container
             }
@@ -29,7 +29,7 @@ enum AppDatabase {
             for: TaskItem.self, MemoryItem.self, MemoryTag.self, MemoryChunk.self,
                 AgentMessage.self, AIRoutine.self, AIRoutineRun.self,
                 ContactRelationship.self, TravelTrip.self, MenuDish.self,
-                    NewsFeed.self, NewsArticle.self,
+                    NewsFeed.self, NewsArticle.self, CountdownEvent.self, PackingItem.self,
             configurations: ModelConfiguration(cloudKitDatabase: cloudKit)) {
             return container
         }
@@ -37,7 +37,7 @@ enum AppDatabase {
             for: TaskItem.self, MemoryItem.self, MemoryTag.self, MemoryChunk.self,
                 AgentMessage.self, AIRoutine.self, AIRoutineRun.self,
                 ContactRelationship.self, TravelTrip.self, MenuDish.self,
-                    NewsFeed.self, NewsArticle.self,
+                    NewsFeed.self, NewsArticle.self, CountdownEvent.self, PackingItem.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)) else {
             fatalError("无法初始化数据库(含内存兜底)")
         }

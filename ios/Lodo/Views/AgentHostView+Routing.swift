@@ -47,6 +47,9 @@ extension AgentHostView {
         let travelEnabled = !TravelStore.trips(in: context).isEmpty
         // 新闻同理:一个订阅都没有时不给 search_news。
         let newsEnabled = !NewsStore.feeds(in: context).isEmpty
+        // 倒数日:主 app 恒开(从零新建也要用),当前的倒数日带 id 放进 prompt。
+        let countdowns = ((try? context.fetch(FetchDescriptor<CountdownEvent>())) ?? [])
+            .map(\.entry)
 
         for _ in 0..<3 {
             switch try await DeepSeekClient.command(
@@ -55,6 +58,7 @@ extension AgentHostView {
                 travelEnabled: travelEnabled,
                 // 规划行程不看库里有没有旅行:"帮我规划东京四天"本来就是从零开始的。
                 tripPlanEnabled: true, newsEnabled: newsEnabled,
+                countdownEnabled: true, countdowns: countdowns,
                 pageFocus: pageFocus, history: reasoningHistory,
                 // 窗口之外的历史压成的常驻摘要。ReAct 每轮都带同一份——它不像
                 // history 那样随轮次增长。
@@ -155,6 +159,30 @@ extension AgentHostView {
                         title: title, text: text, context: context)?.uuid
                 }
                 actions.removeAll { if case .autoMemorize = $0 { return true } else { return false } }
+                // 倒数日操作直接执行,结果卡片带撤销(同 edit_trip)。和待办等别的操作
+                // 混在一句话里时两样都做:倒数日这边先落一条结果消息,剩下的照常往下走
+                // (那条回复会排在它后面)。
+                let countdownOps = actions.compactMap { action -> CountdownOp? in
+                    if case .countdown(let op) = action { return op }
+                    return nil
+                }
+                actions.removeAll { if case .countdown = $0 { return true } else { return false } }
+                if !countdownOps.isEmpty {
+                    let record = CountdownStore.apply(countdownOps, context: context)
+                    if actions.isEmpty {
+                        guard record.hasChanges else {
+                            return .answer(text: record.skipped.isEmpty ? "倒数日没有改动。"
+                                           : record.skipped.joined(separator: ";") + "。", related: [])
+                        }
+                        return .countdownEdited(record)
+                    }
+                    if record.hasChanges {
+                        context.insert(AgentMessage(
+                            role: .assistant, kind: .countdownEdit, content: record.transcript,
+                            countdownSnapshotData: try? JSONEncoder().encode(record)))
+                        try? context.save()
+                    }
+                }
                 guard !actions.isEmpty else {
                     if let autoMemorizedUUID {
                         return .autoMemorized(uuid: autoMemorizedUUID)
@@ -360,7 +388,9 @@ extension AgentHostView {
             items: done.enumerated().map { index, task in (index: index, title: task.title) })
         return matched.map { index in
             let task = done[index]
-            let excerpt = "已于 \(TaskItem.format(task.doneAt ?? task.remindAt)) 完成"
+            let excerpt = String(format: LocalizedStrings.text(.ios_core_completed_at,
+                                                                 language: AppSettings.language),
+                                  LocalizedContent.dateCaption(task.doneAt ?? task.remindAt))
             return (uuid: "task:\(task.uuid.uuidString)", title: task.title, summary: "",
                      tags: [], excerpt: excerpt, isTaskHistory: true)
         }
@@ -378,46 +408,68 @@ extension AgentHostView {
     }
 
     private func describe(_ action: AIAction) -> String {
+        let language = AppSettings.language
         switch action {
         case .create(let parsed):
-            var caption = TaskItem.format(parsed.remindAt)
-            if parsed.durationMinutes > 0 { caption += " · \(parsed.durationMinutes) 分钟" }
-            return "新建:\(parsed.title)(\(caption))"
+            return String(format: LocalizedStrings.text(.ios_core_action_create, language: language),
+                          parsed.title, LocalizedContent.taskCaption(parsed, language: language))
         case .update(_, let parsed):
-            return "修改:\(parsed.title)(\(TaskItem.format(parsed.remindAt)))"
+            return String(format: LocalizedStrings.text(.ios_core_action_update, language: language),
+                          parsed.title, LocalizedContent.taskCaption(parsed, language: language))
         case .complete(let uuid):
-            return "完成:\(title(of: uuid) ?? "未知事项")"
+            return String(format: LocalizedStrings.text(.ios_core_action_complete, language: language),
+                          title(of: uuid) ?? LocalizedStrings.text(.ios_core_unknown_task,
+                                                                   language: language))
         case .delete(let uuid):
-            return "删除:\(title(of: uuid) ?? "未知事项")"
+            return String(format: LocalizedStrings.text(.ios_core_action_delete, language: language),
+                          title(of: uuid) ?? LocalizedStrings.text(.ios_core_unknown_task,
+                                                                  language: language))
         case .memorize(let text):
             // 防御性分支:route() 已把单条 memorize 短路直接执行,
             // 混合批次里理论上不会出现,兜底给出可读描述。
-            return "收藏:\(MemorySearch.truncate(text, limit: 20))"
+            return String(format: LocalizedStrings.text(.ios_core_action_save, language: language),
+                          MemorySearch.truncate(text, limit: 20))
         case .askMemory:
             // 防御性分支:parseCommand 已把 ask_memory 与写操作混合时丢弃,
             // 正常不会走到这里。
-            return "查询记忆"
+            return LocalizedStrings.text(.ios_core_action_query_memory, language: language)
         case .answer:
             // 防御性分支:parseCommand 已把 answer 与写操作混合时丢弃,
             // 正常不会走到这里(route() 已把单条 answer 短路直接返回)。
-            return "回答问题"
+            return LocalizedStrings.text(.ios_core_action_answer, language: language)
         case .suggestMemorize(let text):
             // 防御性分支:parseCommand 已把 suggest_memorize 与写操作混合时丢弃,
             // 正常不会走到这里(route() 已把单条 suggest_memorize 短路直接返回)。
-            return "建议收藏:\(MemorySearch.truncate(text, limit: 20))"
+            return String(format: LocalizedStrings.text(.ios_core_action_suggest_save, language: language),
+                          MemorySearch.truncate(text, limit: 20))
         case .rememberPreference(let text):
             // 防御性分支:route() 已经在进确认清单之前把偏好摘走了。
-            return "记住偏好:\(MemorySearch.truncate(text, limit: 20))"
+            return String(format: LocalizedStrings.text(.ios_core_action_remember_preference,
+                                                         language: language),
+                          MemorySearch.truncate(text, limit: 20))
         case .autoMemorize(let title, _):
             // 防御性分支:route() 已经在进确认清单之前把自动记录摘走落盘了。
-            return "自动记录:\(title)"
+            return String(format: LocalizedStrings.text(.ios_core_action_auto_record, language: language),
+                          title)
         case .planTrip(let plan):
             // 防御性分支:parseCommand 已把 plan_trip 与写操作混合时丢弃,
             // 单条的 route() 已经短路成规划卡片。
-            return "规划行程:\(plan.tripTitle)"
+            return String(format: LocalizedStrings.text(.ios_core_action_plan_trip, language: language),
+                          plan.tripTitle)
         case .editTrip(let edit):
             // 防御性分支:同上,edit_trip 混合时被丢弃、单条时 route() 直接执行。
-            return "调整行程:\(edit.tripTitle)"
+            return String(format: LocalizedStrings.text(.ios_core_action_edit_trip, language: language),
+                          edit.tripTitle)
+        case .countdown(let op):
+            // 防御性分支:倒数日操作混合时被丢弃、单独出现时 route() 直接执行。
+            let name: String
+            switch op {
+            case .create(let draft): name = draft.title
+            case .update(_, let change): name = change.title ?? ""
+            case .delete: name = ""
+            }
+            return String(format: LocalizedStrings.text(.ios_core_action_countdown, language: language),
+                          name)
         }
     }
 
@@ -467,7 +519,8 @@ extension AgentHostView {
                 if let created = MemoryPipeline.saveText(text, context: context) {
                     undoOps.append(.memorized(uuid: created.uuid))
                 }
-            case .askMemory, .answer, .suggestMemorize, .rememberPreference, .autoMemorize, .planTrip, .editTrip:
+            case .askMemory, .answer, .suggestMemorize, .rememberPreference, .autoMemorize, .planTrip,
+                 .editTrip, .countdown:
                 // 防御性分支:查询/回答/建议收藏类操作没有可执行的落库动作
                 // (suggest_memorize 要用户点了"收藏这条"才真正落库,不能在这里
                 // 静默自动执行——那样就和 memorize 没区别了);偏好、自动记录都在
@@ -481,7 +534,9 @@ extension AgentHostView {
         WidgetBridge.sync(context: context)
         CalendarSync.sync(context: context)
         if missingCount > 0 {
-            actionsWarning = "有 \(missingCount) 项操作未执行:对应事项已不存在"
+            actionsWarning = String(format: LocalizedStrings.text(.ios_core_action_missing_count,
+                                                                   language: AppSettings.language),
+                                    missingCount)
         }
     }
 

@@ -56,7 +56,7 @@ struct ReminderSettingsView: View {
                     if digestRepeatType == "weekly" {
                         HStack {
                             ForEach(0..<7, id: \.self) { i in
-                                Toggle(String(weekdayNames[i].dropFirst()),
+                                Toggle(LocalizedContent.weekdayShortName(i),
                                        isOn: digestDayBinding(i))
                                     .toggleStyle(.button)
                             }

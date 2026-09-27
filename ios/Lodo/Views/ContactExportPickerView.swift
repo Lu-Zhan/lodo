@@ -29,7 +29,9 @@ struct ContactExportPickerView: View {
                         } label: {
                             HStack {
                                 Label(
-                                    contact.title.isEmpty ? "(未命名)" : contact.title,
+                                    contact.title.isEmpty
+                                        ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                                        : contact.title,
                                     systemImage: "person.crop.circle")
                                 Spacer()
                                 if selected.contains(contact.uuid) {
@@ -71,10 +73,18 @@ struct ContactExportPickerView: View {
     private func export() {
         let items = contacts.filter { selected.contains($0.uuid) }
         let result = ContactsBridge.exportContacts(items)
-        var message = "已导出 \(result.exported) 位"
-        if result.skipped > 0 { message += ",跳过 \(result.skipped) 位重复" }
-        if result.failed > 0 { message += ",\(result.failed) 位失败" }
-        resultMessage = message
+        let language = AppSettings.language
+        var parts = [String(format: LocalizedStrings.text(.ios_core_contact_exported_count,
+                                                           language: language), result.exported)]
+        if result.skipped > 0 {
+            parts.append(String(format: LocalizedStrings.text(.ios_core_contact_export_skipped_count,
+                                                              language: language), result.skipped))
+        }
+        if result.failed > 0 {
+            parts.append(String(format: LocalizedStrings.text(.ios_core_contact_export_failed_count,
+                                                              language: language), result.failed))
+        }
+        resultMessage = parts.joined(separator: language == .en ? ", " : "，")
     }
 }
 #endif

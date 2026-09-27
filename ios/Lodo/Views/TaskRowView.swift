@@ -23,9 +23,9 @@ struct TaskRowView: View {
     private var overdue: Bool { task.nextRemindAt <= now }
 
     private var dueCaption: String {
-        if task.phase == .end { return "时间到 — 完成了吗?" }
-        if task.durationMinutes > 0 { return "\(task.caption) — 该开始了!" }
-        return task.caption
+        if task.phase == .end { return LocalizedContent.taskFinishedCaption() }
+        if task.durationMinutes > 0 { return LocalizedContent.taskStartCaption(task) }
+        return LocalizedContent.taskCaption(task)
     }
 
     var body: some View {
@@ -37,13 +37,19 @@ struct TaskRowView: View {
                             // 主标题靠**字重**而不是继续加字号来取得存在感:
                             // 加粗不占额外空间,列表行的密度不受影响(§字体层级)。
                             .font(.body.weight(.medium))
+                        if task.pinned {
+                            Image(systemName: "pin.fill")
+                                .font(.caption)
+                                .foregroundStyle(.tint)
+                                .accessibilityLabel("已置顶")
+                        }
                         if overdue, rescheduleLoading {
                             Spacer()
                             ProgressView().controlSize(.small)
                                 .accessibilityLabel("正在改期")
                         }
                     }
-                    Text(overdue ? dueCaption : task.caption)
+                    Text(overdue ? dueCaption : LocalizedContent.taskCaption(task))
                         .font(.footnote)
                         .foregroundStyle(overdue ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
                 }
@@ -124,6 +130,7 @@ struct TaskRowView: View {
                 }
                 .tint(LodoColor.muted)
             } else {
+                pinButton
                 Button(role: .destructive) {
                     Haptics.impact()
                     withAnimation(.lodoAware(.snappy)) {
@@ -134,6 +141,28 @@ struct TaskRowView: View {
                 }
             }
         }
+        // 长按:置顶(逾期那一排滑动按钮已经四个了,置顶只在这里和没逾期时的滑动里)。
+        .contextMenu {
+            pinButton
+            Button(action: onEdit) {
+                Label("编辑", systemImage: "pencil")
+            }
+        }
+    }
+
+    /// 置顶 / 取消置顶。置顶的任务收在任务页最上面「重要的事」一组,锁屏「重要的事」
+    /// 小组件也只列这些。
+    private var pinButton: some View {
+        Button {
+            Haptics.impact(.light)
+            withAnimation(.lodoAware(.snappy)) {
+                TaskActions.togglePin(task, context: context)
+            }
+        } label: {
+            Label(task.pinned ? "取消置顶" : "置顶",
+                  systemImage: task.pinned ? "pin.slash" : "pin")
+        }
+        .tint(Color.accentColor)
     }
 
     private func complete() {

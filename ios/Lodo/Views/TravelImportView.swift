@@ -46,12 +46,6 @@ struct TravelImportView: View {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !screenshots.isEmpty
     }
 
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日 HH:mm"
-        return f
-    }()
-
     var body: some View {
         NavigationStack {
             Form {
@@ -126,7 +120,8 @@ struct TravelImportView: View {
     private var screenshotSection: some View {
         Section {
             PhotosPicker(selection: $photoItems, maxSelectionCount: 6, matching: .images) {
-                Label(screenshots.isEmpty ? "添加截图" : "重新选择截图", systemImage: "photo.on.rectangle")
+                Label(LocalizedStringKey(screenshots.isEmpty ? "添加截图" : "重新选择截图"),
+                      systemImage: "photo.on.rectangle")
             }
             .disabled(recognizing || parsing)
             if recognizing {
@@ -175,7 +170,8 @@ struct TravelImportView: View {
             }
             screenshots = shots
             if shots.isEmpty {
-                errorMessage = "没从截图里认出文字。换一张更清晰的截图,或者直接把文字贴进来。"
+                errorMessage = LocalizedStrings.text(.ios_core_travel_screenshot_text_missing,
+                                                     language: language)
             }
         }
     }
@@ -209,7 +205,8 @@ struct TravelImportView: View {
                             .foregroundStyle(.tint)
                     }
                     if let flight = item.flight {
-                        FlightInfoLine(flight: flight, planned: item.start, showsStatus: true)
+                        FlightInfoLine(flight: flight, planned: item.start, showsStatus: true,
+                                       kind: item.kind)
                     }
                     if let detail = detailLine(item) {
                         Text(detail)
@@ -237,8 +234,13 @@ struct TravelImportView: View {
             parts.append(place)
         }
         if let start = item.start {
-            var span = Self.formatter.string(from: start)
-            if let end = item.end { span += " – " + Self.formatter.string(from: end) }
+            // 票面上的当地时间原样显示(抽出了时区的按那个时区)。
+            var span = LocalizedContent.dateTime(start, language: language,
+                                                 timeZone: item.flight?.departureZone)
+            if let end = item.end {
+                span += " – " + LocalizedContent.dateTime(end, language: language,
+                                                          timeZone: item.flight?.arrivalZone)
+            }
             parts.append(span)
         } else {
             parts.append("未排期")
@@ -257,7 +259,8 @@ struct TravelImportView: View {
                     tripStart: trip.startDate, tripEnd: trip.endDate)
                 guard !Task.isCancelled else { return }
                 if items.isEmpty {
-                    errorMessage = "没从这段文字里读出行程项。换一段更完整的订单内容试试,或者直接手动添加。"
+                    errorMessage = LocalizedStrings.text(.ios_core_travel_import_items_missing,
+                                                         language: language)
                     return
                 }
                 parsed = items

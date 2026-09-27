@@ -47,7 +47,7 @@ struct NewsFeedsView: View {
                             feed.enabled.toggle()
                             try? context.save()
                         } label: {
-                            Label(feed.enabled ? "停用" : "启用",
+                            Label(LocalizedStringKey(feed.enabled ? "停用" : "启用"),
                                   systemImage: feed.enabled ? "pause.circle" : "play.circle")
                         }
                         .tint(LodoColor.neutralAction)
@@ -180,7 +180,10 @@ struct NewsFeedsView: View {
             do {
                 try await NewsStore.subscribe(preset.url, kind: preset.kind, context: context)
             } catch {
-                presetError = "「\(preset.title)」订阅失败:\(error.localizedDescription)"
+                let language = AppSettings.language
+                presetError = String(format: LocalizedStrings.text(
+                    .ios_core_feed_subscription_failed, language: language),
+                    preset.title as NSString, error.localizedDescription as NSString)
             }
             addingPreset = nil
         }

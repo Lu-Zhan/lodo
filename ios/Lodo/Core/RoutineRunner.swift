@@ -273,7 +273,8 @@ enum RoutineRunner {
             for (index, slot) in planned.enumerated() {
                 let content = UNMutableNotificationContent()
                 content.title = slot.title
-                content.body = "到时间了,打开看看今天的内容。"
+                content.body = LocalizedStrings.text(.ios_notif_routine_open_reminder,
+                                                     language: AppSettings.language)
                 content.sound = .default
                 content.userInfo = ["routineUUID": slot.uuid]
                 center.add(UNNotificationRequest(

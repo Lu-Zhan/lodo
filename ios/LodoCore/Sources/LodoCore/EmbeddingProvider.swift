@@ -16,8 +16,12 @@ public enum EmbeddingError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .unavailable: return "语义检索不可用"
-        case .api(let m): return "语义检索请求失败:\(m)"
+        case .unavailable:
+            return LocalizedStrings.text(.ios_core_embedding_unavailable,
+                                         language: AppSettings.language)
+        case .api(let m):
+            return LocalizedStrings.text(.ios_core_embedding_failed,
+                                         language: AppSettings.language) + m
         }
     }
 }

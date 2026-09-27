@@ -129,14 +129,14 @@ struct OverviewNextUpWidget: View {
             if let first = items.first {
                 if size == .small {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(OverviewTime.relativeLabel(to: first.date, from: now))
+                        Text(LocalizedContent.relativeTimeLabel(to: first.date, from: now))
                             .font(.title3.weight(.semibold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         Text(first.title)
                             .font(.body.weight(.medium))
                             .lineLimit(2)
-                        Label(first.date.formatted(date: .omitted, time: .shortened),
+                        Label(LocalizedContent.time(first.date),
                               systemImage: first.isEvent ? "calendar" : "checklist")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -153,7 +153,7 @@ struct OverviewNextUpWidget: View {
                                     .font(.body)
                                     .lineLimit(1)
                                 Spacer(minLength: 8)
-                                Text(OverviewTime.relativeLabel(to: item.date, from: now))
+                                Text(LocalizedContent.relativeTimeLabel(to: item.date, from: now))
                                     .font(.subheadline.monospacedDigit())
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
@@ -196,7 +196,7 @@ struct OverviewTaskLine: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    Text(task.caption)
+                    Text(LocalizedContent.taskCaption(task))
                         .font(.footnote)
                         .foregroundStyle(task.nextRemindAt <= now ? LodoColor.critical : .secondary)
                         .lineLimit(1)
@@ -262,10 +262,17 @@ struct OverviewTodayWidget: View {
                     .gaugeStyle(.accessoryCircularCapacity)
                     .tint(Color.accentColor)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(remaining.isEmpty ? "全部完成" : "还剩 \(remaining.count) 件")
-                            .font(.body.weight(.medium))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                        if remaining.isEmpty {
+                            Text("全部完成")
+                                .font(.body.weight(.medium))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        } else {
+                            Text("还剩 \(remaining.count) 件")
+                                .font(.body.weight(.medium))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
                         if let next = remaining.first {
                             Text(next.title)
                                 .font(.footnote)
@@ -275,7 +282,9 @@ struct OverviewTodayWidget: View {
                     }
                 }
             } else if remaining.isEmpty {
-                OverviewEmptyText(text: total == 0 ? "今天暂无任务" : "今天的任务都完成了")
+                OverviewEmptyText(text: LocalizedStringKey(total == 0
+                                                            ? "今天暂无任务"
+                                                            : "今天的任务都完成了"))
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ProgressView(value: Double(doneCount), total: Double(max(total, 1)))
@@ -352,7 +361,9 @@ struct OverviewAgendaWidget: View {
     }
 
     private func timeLabel(_ event: CalendarEvent) -> String {
-        event.isAllDay ? String(localized: "全天") : event.start.formatted(date: .omitted, time: .shortened)
+        event.isAllDay
+            ? String(localized: "全天", locale: AppSettings.language.locale)
+            : LocalizedContent.time(event.start)
     }
 }
 
@@ -362,9 +373,11 @@ struct OverviewCountdownWidget: View {
     let size: OverviewWidgetSize
     let entries: [OverviewCountdownEntry]
     let now: Date
+    /// 点卡片:进「倒数日」页。
+    var action: (() -> Void)? = nil
 
     var body: some View {
-        OverviewWidgetCard(kind: .countdown) {
+        OverviewWidgetCard(kind: .countdown, action: action) {
             if let first = entries.first {
                 if size == .small {
                     VStack(alignment: .leading, spacing: 2) {
@@ -393,13 +406,17 @@ struct OverviewCountdownWidget: View {
                     }
                 }
             } else {
-                OverviewEmptyText(text: "两个月内没有旅行或生日")
+                OverviewEmptyText(text: "没有快到的日子")
             }
         }
     }
 
     private func icon(_ entry: OverviewCountdownEntry) -> String {
-        entry.kind == .trip ? "suitcase.rolling" : "gift"
+        switch entry.kind {
+        case .trip: return "suitcase.rolling"
+        case .birthday: return "gift"
+        case .countdown: return "hourglass"
+        }
     }
 
     /// 旅行已经出发了的写「进行中」,当天的写「今天」,其余「N 天」。

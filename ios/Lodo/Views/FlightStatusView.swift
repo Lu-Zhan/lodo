@@ -11,6 +11,8 @@ struct FlightStatusView: View {
     let trip: TravelTrip
 
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
+    private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
 
     @State private var editing = false
     @State private var importing = false
@@ -96,6 +98,16 @@ struct FlightStatusView: View {
                 Spacer()
                 endpointCode(flight?.arrivalCode, name: item.travelPlaceName, alignment: .trailing)
             }
+            if let minutes = FlightDetails.durationMinutes(start: item.travelStart,
+                                                           end: item.travelEnd) {
+                Label {
+                    Text("飞行 \(CountdownText.durationText(minutes))")
+                } icon: {
+                    Image(systemName: "clock")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
             if let delay = flight?.departureDelayMinutes(planned: item.travelStart)
                 ?? flight?.arrivalDelayMinutes(planned: item.travelEnd) {
                 Label {
@@ -138,22 +150,34 @@ struct FlightStatusView: View {
     private var departureSection: some View {
         Section("出发") {
             row("机场", item.travelOriginName)
-            timeRow("计划起飞", item.travelStart)
-            estimatedRow("预计起飞", flight?.estimatedDeparture, planned: item.travelStart)
+            timeRow("计划起飞", item.travelStart, zone: flight?.departureZone)
+            estimatedRow("预计起飞", flight?.estimatedDeparture, planned: item.travelStart,
+                         zone: flight?.departureZone)
+            zoneRow(flight?.departureZone)
             row("航站楼", flight?.departureTerminal)
             row("值机柜台", flight?.checkInCounter)
             row("登机口", flight?.gate)
-            timeRow("登机时间", flight?.boardingTime)
+            timeRow("登机时间", flight?.boardingTime, zone: flight?.departureZone)
         }
     }
 
     private var arrivalSection: some View {
         Section("到达") {
             row("机场", item.travelPlaceName)
-            timeRow("计划到达", item.travelEnd)
-            estimatedRow("预计到达", flight?.estimatedArrival, planned: item.travelEnd)
+            timeRow("计划到达", item.travelEnd, zone: flight?.arrivalZone)
+            estimatedRow("预计到达", flight?.estimatedArrival, planned: item.travelEnd,
+                         zone: flight?.arrivalZone)
+            zoneRow(flight?.arrivalZone)
             row("航站楼", flight?.arrivalTerminal)
             row("行李转盘", flight?.baggageBelt)
+        }
+    }
+
+    /// 填了时区才显示:说明上面的时刻是当地时间。
+    @ViewBuilder
+    private func zoneRow(_ zone: TimeZone?) -> some View {
+        if let zone {
+            LabeledContent("当地时区", value: LocalizedContent.timeZoneName(zone, language: language))
         }
     }
 
@@ -166,10 +190,11 @@ struct FlightStatusView: View {
     }
 
     @ViewBuilder
-    private func timeRow(_ title: LocalizedStringKey, _ date: Date?) -> some View {
+    private func timeRow(_ title: LocalizedStringKey, _ date: Date?,
+                         zone: TimeZone? = nil) -> some View {
         if let date {
             LabeledContent(title) {
-                Text(Self.formatter.string(from: date))
+                Text(LocalizedContent.dateTime(date, language: language, timeZone: zone))
                     .monospacedDigit()
             }
         }
@@ -177,22 +202,18 @@ struct FlightStatusView: View {
 
     /// 预计时刻:晚于计划标橙色;和计划一样就不重复显示。
     @ViewBuilder
-    private func estimatedRow(_ title: LocalizedStringKey, _ date: Date?, planned: Date?) -> some View {
+    private func estimatedRow(_ title: LocalizedStringKey, _ date: Date?, planned: Date?,
+                              zone: TimeZone? = nil) -> some View {
         if let date, date != planned {
             let late = planned.map { date > $0 } ?? false
             LabeledContent(title) {
-                Text(Self.formatter.string(from: date))
+                Text(LocalizedContent.dateTime(date, language: language, timeZone: zone))
                     .monospacedDigit()
                     .foregroundStyle(late ? LodoColor.critical : Color.primary)
             }
         }
     }
 
-    private static let formatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日 HH:mm"
-        return f
-    }()
 }
 
 /// 航班状态小标签,行程列表行、导入确认页和详情页共用。
@@ -230,13 +251,20 @@ struct FlightInfoLine: View {
     let planned: Date?
     /// 列表行已经有状态胶囊了,导入确认页没有,由它自己带上。
     var showsStatus = false
+    /// 火车/客车换一套字段:检票口 / 站台(上车点) / 车厢 / 座位。
+    var kind: TravelItemKind = .flight
 
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
 
     var body: some View {
-        let delay = flight.departureDelayMinutes(planned: planned)
-        let pieces: [Text] = [
+        let delay = kind == .flight ? flight.departureDelayMinutes(planned: planned) : nil
+        let pieces: [Text] = kind != .flight ? [
+            flight.gate.map { Text("检票口 \($0)") },
+            flight.platform.map { kind == .train ? Text("站台 \($0)") : Text("上车点 \($0)") },
+            flight.carriage.map { Text("\($0) 车厢") },
+            flight.seat.map { Text("座位 \($0)") },
+        ].compactMap { $0 } : [
             flight.departureTerminal.map { Text(verbatim: $0) },
             flight.checkInCounter.map { Text("值机 \($0)") },
             flight.gate.map { Text("登机口 \($0)") },

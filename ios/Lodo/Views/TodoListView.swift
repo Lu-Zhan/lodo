@@ -37,6 +37,8 @@ enum AgentReply {
     case tripPlan(TripPlanProposal)
     /// AI 调整了已记下的行程(已经落库):AgentView 追加改动结果卡片,卡片自带撤销。
     case tripEdited(TripEditRecord)
+    /// AI 新建/修改/删除了倒数日(已经落库):同上,卡片自带撤销。
+    case countdownEdited(CountdownEditRecord)
 }
 
 /// 记忆条目左滑"转为待办"交接的载荷(见 ContentView)。
@@ -95,7 +97,7 @@ struct TodoListView: View {
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
     @State private var now = Date()
-    /// 顶部 4 个筛选胶囊(今天/未来/全部/已完成)当前选中的态。
+    /// 顶部 4 档筛选(今天/未来/全部/已完成)当前选中的态。
     @State var filter: TodoFilter = .today
     @State var sheet: SheetMode?
     /// 工具栏"项目视图"菜单的两个入口。
@@ -108,7 +110,7 @@ struct TodoListView: View {
     private static let insightWeekKey = "insightWeek"
     private static let insightTextKey = "insightText"
 
-    /// 顶部筛选胶囊的 4 个态;"全部"/"已完成"按日期分 Section,其余两个是平铺列表。
+    /// 顶部筛选的 4 个态;"全部"/"已完成"按日期分 Section,其余两个是平铺列表。
     enum TodoFilter: CaseIterable {
         case today, future, all, done
 
@@ -168,8 +170,15 @@ struct TodoListView: View {
     }
 
     private var due: [TaskItem] { pending.filter { $0.nextRemindAt <= now } }
+    /// 置顶的任务(「重要的事」),最近置顶的在前。它们收在列表最上面单独一组,
+    /// 下面按日期分的那几组里不再重复出现。
+    private var pinnedTasks: [TaskItem] {
+        pending.filter(\.pinned).sorted { ($0.pinnedAt ?? .distantPast) > ($1.pinnedAt ?? .distantPast) }
+    }
+    /// 没置顶的待办,按日期分组的那几组只看这些。
+    private var unpinned: [TaskItem] { pending.filter { !$0.pinned } }
     /// 尚未到期的待办。
-    private var upcoming: [TaskItem] { pending.filter { $0.nextRemindAt > now } }
+    private var upcoming: [TaskItem] { unpinned.filter { $0.nextRemindAt > now } }
     /// 待办分组时算作哪一天:到期未处理的(不管原定哪天,含昨天及更早遗漏的)
     /// 一律冒泡算作"今天"——过期的待办不该被埋没在过去的日期分组里没人看见;
     /// 没到期的按 `nextRemindAt` 本身的日期算。行内时间靠这个信号标红,见 taskRow。
@@ -182,7 +191,7 @@ struct TodoListView: View {
     /// 到期项 nextRemindAt 更早,自然排在前面,不用额外排序。
     private var todayTasks: [TaskItem] {
         let today = Calendar.current.startOfDay(for: now)
-        return pending.filter { effectiveDay($0) == today }
+        return unpinned.filter { effectiveDay($0) == today }
     }
     /// "未来"筛选态的内容:今天以后,平铺不分组(每行自带日期,见 TaskItem.caption)。
     private var futureTasks: [TaskItem] {
@@ -260,7 +269,7 @@ struct TodoListView: View {
 
     private var allRowsGroupedByDay: [(date: Date, rows: [TodoRow])] {
         var byDay: [Date: [TodoRow]] = [:]
-        for task in pending {
+        for task in unpinned {
             byDay[effectiveDay(task), default: []].append(taskRow(task))
         }
         for routine in routines {
@@ -298,6 +307,10 @@ struct TodoListView: View {
                     askDurationSection(ask)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
+                // 置顶的「重要的事」在已完成之外的三档里都排最上面。
+                if filter != .done, !pinnedTasks.isEmpty {
+                    pinnedSection
+                }
                 // 任务页只显示任务;系统日历里的日程在「日历」页。
                 switch filter {
                 case .today: todaySection
@@ -312,6 +325,8 @@ struct TodoListView: View {
             // 修饰符各管一段,冗余且不好看出这几路本质上是"同一份列表的动画"。
             .animation(.lodoAware(.snappy), value: ListAnimationKey(
                 dueUUIDs: due.map(\.uuid), askTitles: askDurationQueue.map(\.title), filter: filter))
+            // 顶部筛选贴近导航栏:分组列表默认在第一个分区上面留一大截空白。
+            .contentMargins(.top, 4, for: .scrollContent)
             .navigationTitle("任务")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -414,43 +429,17 @@ struct TodoListView: View {
 
     // MARK: - 筛选胶囊
 
-    /// 顶部常驻的 4 个大号筛选胶囊,替代原来的横滑日期条;单选,选中态用
-    /// .borderedProminent 填充色,未选中用 .bordered 描边——与 MemoryListView
-    /// 筛选弹层的 tag 胶囊(.buttonBorderShape(.capsule))同一视觉语言,只是
-    /// 这里是主导航控件,字号/触控区域做大一档。不铺白色卡片背景、不撑满
-    /// 横向宽度,胶囊挨着排、按自然宽度靠左,右侧留空。
+    /// 顶部常驻的 4 档筛选,滑块式切换(同旅行详情面板那条,见 `SlidingSwitch`)。
+    /// 和下面的卡片左右对齐,不铺行底色——轨道自己就是一块玻璃。
     private var filterBar: some View {
         Section {
-            HStack(spacing: 8) {
-                ForEach(TodoFilter.allCases, id: \.self) { option in
-                    filterButton(option)
-                }
+            SlidingSwitch(options: TodoFilter.allCases, selection: $filter, height: 44,
+                          font: .body.weight(.semibold)) {
+                Text(LocalizedStringKey($0.title))
             }
         }
-        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
         .listRowBackground(Color.clear)
-    }
-
-    /// 单个筛选胶囊;选中/未选中是两种不同的具体 PrimitiveButtonStyle 类型,
-    /// 不能用三元表达式在 .buttonStyle() 里混用,拆成 @ViewBuilder 两个分支。
-    @ViewBuilder
-    private func filterButton(_ option: TodoFilter) -> some View {
-        if filter == option {
-            Button(option.title) {
-                withAnimation(.lodoAware(.snappy)) { filter = option }
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .font(.body.weight(.semibold))
-            .accessibilityAddTraits(.isSelected)
-        } else {
-            Button(option.title) {
-                withAnimation(.lodoAware(.snappy)) { filter = option }
-            }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .font(.body.weight(.semibold))
-        }
     }
 
     /// 混排行的分支渲染:待办事项走 TaskRowView,定时任务走 RoutineRowView
@@ -475,10 +464,10 @@ struct TodoListView: View {
     /// "月日 周X" 格式,跨过去/今天/未来都覆盖到。
     private func dayLabel(_ date: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "今天" }
-        if calendar.isDateInTomorrow(date) { return "明天" }
-        if calendar.isDateInYesterday(date) { return "昨天" }
-        return date.formatted(.dateTime.month().day().weekday())
+        if calendar.isDateInToday(date) { return LocalizedStrings.translate("今天", language: AppSettings.language) }
+        if calendar.isDateInTomorrow(date) { return LocalizedStrings.translate("明天", language: AppSettings.language) }
+        if calendar.isDateInYesterday(date) { return LocalizedStrings.translate("昨天", language: AppSettings.language) }
+        return date.formatted(.dateTime.month().day().weekday().locale(AppSettings.language.locale))
     }
 
     // MARK: - 区块
@@ -514,6 +503,17 @@ struct TodoListView: View {
             }
         } header: {
             Text("今天任务")
+        }
+    }
+
+    /// 置顶的任务,排在今天/未来/全部三档的最上面。
+    private var pinnedSection: some View {
+        Section {
+            ForEach(pinnedTasks) { task in
+                todoRow(taskRow(task))
+            }
+        } header: {
+            Label("重要的事", systemImage: "pin.fill")
         }
     }
 
@@ -587,7 +587,7 @@ struct TodoListView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(task.title).strikethrough()
             if let doneAt = task.doneAt {
-                Text("完成于 \(TaskItem.format(doneAt))")
+                Text("完成于 \(LocalizedContent.dateCaption(doneAt))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

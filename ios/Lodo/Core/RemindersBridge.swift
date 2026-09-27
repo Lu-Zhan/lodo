@@ -20,7 +20,9 @@ final class RemindersBridge {
         do {
             _ = try await store.requestFullAccessToReminders()
         } catch {
-            lastError = "请求权限失败:\(error.localizedDescription)"
+            let language = AppSettings.language
+            lastError = LocalizedStrings.text(.ios_core_reminders_permission_failed,
+                                              language: language) + error.localizedDescription
         }
         authStatus = EKEventStore.authorizationStatus(for: .reminder)
         if hasAccess { await refresh() }
@@ -79,13 +81,18 @@ final class RemindersBridge {
             [.year, .month, .day, .hour, .minute], from: task.nextRemindAt)
         reminder.addAlarm(EKAlarm(absoluteDate: task.nextRemindAt))
         if task.isRecurring {
-            reminder.notes = "lodo 重复事项:\(task.data.repeatLabel)(系统侧仅显示下一次)"
+            let language = AppSettings.language
+            reminder.notes = String(format: LocalizedStrings.text(.ios_core_reminders_repeat_note,
+                                                                  language: language),
+                                    LocalizedContent.repeatLabel(task, language: language) as NSString)
         }
         do {
             try store.save(reminder, commit: true)
             task.ekIdentifier = reminder.calendarItemIdentifier
         } catch {
-            lastError = "导出失败:\(error.localizedDescription)"
+            let language = AppSettings.language
+            lastError = LocalizedStrings.text(.ios_core_reminders_export_failed,
+                                              language: language) + error.localizedDescription
         }
     }
 }

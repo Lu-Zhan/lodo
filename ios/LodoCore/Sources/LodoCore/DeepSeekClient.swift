@@ -90,6 +90,9 @@ public enum AIAction {
     /// 调整已经记下的某次旅行(travelEnabled 时才会出现):删/加/改行程项。
     /// **直接执行**,结果卡片带撤销——和单条修改待办同一个取舍。
     case editTrip(TripEdit)
+    /// 新建/修改/删除倒数日(countdownEnabled 时才会出现)。直接执行,结果卡片带撤销;
+    /// 一句话里可以有好几条,但不和待办写操作混(混着时丢掉)。
+    case countdown(CountdownOp)
 }
 
 /// AI 总入口的返回:操作列表、关键信息缺失时的反问(一次可问多道,每道带
@@ -279,6 +282,9 @@ public enum DeepSeekClient {
         tripPlanEnabled: Bool = false,
         /// 订阅过新闻/博客才开;默认 false ⇒ prompt 逐字不变(Watch 等调用方)。
         newsEnabled: Bool = false,
+        /// 倒数日:主 app 恒开(从零新建也要用),Watch 不传 ⇒ prompt 逐字不变。
+        countdownEnabled: Bool = false,
+        countdowns: [CountdownEntry] = [],
         /// 从哪一页唤出;nil ⇒ 整段不出现(侧栏 AI 页、Watch)。
         pageFocus: AgentFocus? = nil,
         history: [(role: String, content: String)] = [],
@@ -293,16 +299,18 @@ public enum DeepSeekClient {
     ) async throws -> AICommandResult {
         let caps = CommandCapabilities(
             memory: memoryEnabled, webSearch: webSearchEnabled, health: healthEnabled,
-            travel: travelEnabled, tripPlan: tripPlanEnabled, news: newsEnabled)
+            travel: travelEnabled, tripPlan: tripPlanEnabled, news: newsEnabled,
+            countdown: countdownEnabled)
         let (system, tasks) = commandSystemPrompt(
             tasks: allTasks, capabilities: caps, pageFocus: pageFocus, history: history,
-            summary: summary, existingProjects: existingProjects)
+            summary: summary, existingProjects: existingProjects, countdowns: countdowns)
         let memoryEnabled = caps.memory && AgentSkillStore.isEnabled(.memory)
         let webSearchEnabled = caps.webSearch && AgentSkillStore.isEnabled(.webSearch)
         let healthEnabled = caps.health && AgentSkillStore.isEnabled(.health)
         let travelEnabled = caps.travel && AgentSkillStore.isEnabled(.travel)
         let tripPlanEnabled = caps.tripPlan && AgentSkillStore.isEnabled(.tripPlanner)
         let newsEnabled = caps.news && AgentSkillStore.isEnabled(.news)
+        let countdownEnabled = caps.countdown && AgentSkillStore.isEnabled(.countdown)
         let hasCatalog = AgentSkillStore.catalogBlock() != nil
         // 模型按 prompt 约定用 {"error": "原因"} 表示"这句话里没有我能执行的操作"
         // (带了张照片却没说要拿它干什么就是最常见的一种),decodePayload 会把那句
@@ -328,6 +336,8 @@ public enum DeepSeekClient {
             travelEnabled: travelEnabled,
             tripPlanEnabled: tripPlanEnabled,
             newsEnabled: newsEnabled,
+            countdownEnabled: countdownEnabled,
+            validCountdownIDs: countdowns.map(\.id.uuidString),
             loadSkillEnabled: hasCatalog)
     }
 
@@ -340,15 +350,18 @@ public enum DeepSeekClient {
         public var travel = false
         public var tripPlan = false
         public var news = false
+        public var countdown = false
 
         public init(memory: Bool = false, webSearch: Bool = false, health: Bool = false,
-                    travel: Bool = false, tripPlan: Bool = false, news: Bool = false) {
+                    travel: Bool = false, tripPlan: Bool = false, news: Bool = false,
+                    countdown: Bool = false) {
             self.memory = memory
             self.webSearch = webSearch
             self.health = health
             self.travel = travel
             self.tripPlan = tripPlan
             self.news = news
+            self.countdown = countdown
         }
     }
 
@@ -361,7 +374,8 @@ public enum DeepSeekClient {
         pageFocus: AgentFocus? = nil,
         history: [(role: String, content: String)] = [],
         summary: String? = nil,
-        existingProjects: [String] = []
+        existingProjects: [String] = [],
+        countdowns: [CountdownEntry] = []
     ) -> (system: String, tasks: [(uuid: String, task: ParsedTask)]) {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
         let tasks = Array(allTasks.prefix(50))
@@ -376,6 +390,12 @@ public enum DeepSeekClient {
         let travelEnabled = capabilities.travel && AgentSkillStore.isEnabled(.travel)
         let tripPlanEnabled = capabilities.tripPlan && AgentSkillStore.isEnabled(.tripPlanner)
         let newsEnabled = capabilities.news && AgentSkillStore.isEnabled(.news)
+        let countdownEnabled = capabilities.countdown && AgentSkillStore.isEnabled(.countdown)
+        // 倒数日清单跟着 skill 一起出现;一件都没有时说明一句,免得模型以为漏传了。
+        let countdownBlock = countdownEnabled
+            ? "\n\n" + AgentSkillStore.content(for: .countdown) + "\n\n当前倒数日列表:\n"
+                + (countdowns.isEmpty ? "(还没有)" : json(countdownList(countdowns)))
+            : ""
         let catalog = AgentSkillStore.catalogBlock()
         let system = """
         \(AgentSkillStore.content(for: .agent))
@@ -387,6 +407,7 @@ public enum DeepSeekClient {
         \(travelEnabled ? "\n\n" + AgentSkillStore.content(for: .travel) : "")\
         \(tripPlanEnabled ? "\n\n" + AgentSkillStore.content(for: .tripPlanner) : "")\
         \(newsEnabled ? "\n\n" + AgentSkillStore.content(for: .news) : "")\
+        \(countdownBlock)\
         \(catalog.map { "\n\n" + $0 } ?? "")
 
         \(timeContext)\(preferencesBlock)\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")
@@ -407,6 +428,7 @@ public enum DeepSeekClient {
         memoryEnabled: Bool, webSearchEnabled: Bool = false,
         healthEnabled: Bool = false, travelEnabled: Bool = false,
         tripPlanEnabled: Bool = false, newsEnabled: Bool = false,
+        countdownEnabled: Bool = false, validCountdownIDs: [String] = [],
         loadSkillEnabled: Bool = false
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
@@ -528,6 +550,10 @@ public enum DeepSeekClient {
                 actions.append(.planTrip(try parseTripPlan(raw)))
             case "edit_trip" where travelEnabled:
                 actions.append(.editTrip(try parseTripEdit(raw)))
+            case let name? where countdownEnabled
+                && ["create_countdown", "update_countdown", "delete_countdown"].contains(name):
+                actions.append(.countdown(try parseCountdownOp(raw, action: name,
+                                                               validIDs: validCountdownIDs)))
             default:
                 // 带上 action 名:模型编出来的名字是排查这类报错唯一的线索,
                 // 光说"未知 action"用户和日志都看不出它到底返回了什么。
@@ -543,6 +569,12 @@ public enum DeepSeekClient {
         // plan_trip 归这一组:它本身不落库、要用户在卡片上确认,和建议收藏同性质。
         // edit_trip 虽然会落库,也归这一组——它要求单独出现、有自己的结果卡片和撤销,
         // 混进批量确认清单里既没有卡片也撤销不了;混着待办写操作时丢掉,用户单独再说一遍。
+        // 倒数日操作不参与下面的归一化:和待办写操作混在一句话里("加个元旦倒数日,
+        // 另外明天三点提醒我交报告")很自然,两样都该做。route() 先把它们摘出来
+        // 单独执行、单独出结果卡片(带撤销),剩下的再走原来的路径。
+        let countdownActions = actions.filter { if case .countdown = $0 { return true } else { return false } }
+        actions.removeAll { if case .countdown = $0 { return true } else { return false } }
+        guard !actions.isEmpty else { return .actions(countdownActions) }
         func isInformational(_ action: AIAction) -> Bool {
             switch action {
             case .askMemory, .answer, .suggestMemorize, .planTrip, .editTrip: return true
@@ -552,11 +584,11 @@ public enum DeepSeekClient {
         let informationalCount = actions.filter(isInformational).count
         if informationalCount > 0 {
             if informationalCount == actions.count {
-                return .actions([actions[0]])
+                return .actions(countdownActions + [actions[0]])
             }
             actions = actions.filter { !isInformational($0) }
         }
-        return .actions(actions)
+        return .actions(countdownActions + actions)
     }
 
     /// ReAct 工具载荷 → 工具调用;不认得这个名字(或对应能力没开)时返回 nil,
@@ -845,6 +877,50 @@ public enum DeepSeekClient {
         return note
     }
 
+    /// 旅行用品清单「AI 建议」:根据这次旅行(目的地、日期、行程、已有清单)建议要带
+    /// 的东西。只是建议,调用方让用户勾选后才落库。
+    public static func suggestPackingList(summary: String, existing: [String],
+                                          language: String = "中文") async throws -> [PackingSuggestion] {
+        let system = """
+        你是旅行应用 lodo 的行李助手。根据用户这次旅行的目的地、日期(季节、天数)和行程\
+        (有没有温泉、徒步、海边、正式场合、长途飞行),建议要带的东西,用\(language)写。
+
+        只返回 JSON:{"items": [{"title": "物品", "category": "分类", "reason": "为什么带"}]},\
+        不要任何其他文字。
+
+        规则:
+        - 12 到 30 件,按重要程度排,证件和钱最先。
+        - category 从这几个里选:证件、钱与卡、衣物、电子、洗护、药品、其他。
+        - title 写具体的东西("转换插头(日本 A 型)""薄羽绒服"),不写"必需品""衣服若干"。
+        - reason 一句话、15 字以内,说和这趟旅行有关的理由("十一月京都早晚凉""有温泉");\
+        人人都带的(牙刷、手机)可以留空。
+        - 已有清单里有的不要再建议。
+        """
+        let owned = existing.isEmpty ? "(还没有)" : existing.joined(separator: "、")
+        let user = "\(summary)\n\n已有清单:\(owned)"
+        return try parsePackingList(await payload(system: system, user: user, timeout: 60))
+    }
+
+    /// 从 payload 里取建议清单(单测入口,不发请求)。缺标题的丢掉,缺分类的归「其他」。
+    static func parsePackingList(_ payload: [String: Any]) throws -> [PackingSuggestion] {
+        guard let raw = payload["items"] as? [Any] else {
+            throw DeepSeekError.parse("返回格式异常:缺少 items")
+        }
+        return raw.compactMap { element -> PackingSuggestion? in
+            guard let object = element as? [String: Any],
+                  let title = (object["title"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
+                return nil
+            }
+            let category = (object["category"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let reason = (object["reason"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return PackingSuggestion(title: title, category: category.isEmpty ? "其他" : category,
+                                     reason: reason)
+        }
+    }
+
     /// 新闻页「AI 总结」:一篇文章 → 一段话 + 最多 5 条要点。正文由调用方抓
     /// (抓不到就只给 feed 里的摘要),这里不联网。
     public static func summarizeArticle(title: String, source: String, text: String,
@@ -1021,15 +1097,21 @@ public enum DeepSeekClient {
         "place": "主要地点(住宿/地点填它本身,航班/火车/客车填**到达地**)", \
         "origin": "航班/火车/客车的出发地,其余类型省略", \
         "price": 数字, "currency": "ISO 4217 币种码如 CNY/JPY/USD", "note": "补充说明", \
-        "flight": 航班补充信息,仅 flight 有,见下}
+        "flight": 交通补充信息,flight/train/coach 才有,见下}
 
-        航班补充信息(每个字段都是可选的,文本里没有就省略,整个对象都没有就省略 flight):
-        {"airline": "航空公司", "departure_code": "出发机场三字码如 PEK", "arrival_code": "到达机场三字码", \
+        交通补充信息(航班、火车、客车共用这个对象;每个字段都是可选的,文本里没有就省略,\
+        整个对象都没有就省略 flight):
+        {"airline": "航空公司/铁路公司/客运公司", "departure_code": "出发机场三字码如 PEK", \
+        "arrival_code": "到达机场三字码", \
+        "departure_timezone": "出发地时区,IANA 标识如 Asia/Tokyo", \
+        "arrival_timezone": "到达地时区,IANA 标识", \
         "departure_terminal": "出发航站楼如 T3", "arrival_terminal": "到达航站楼", \
-        "check_in_counter": "值机柜台/值机岛", "gate": "登机口", "boarding_time": "yyyy-MM-dd HH:mm", \
+        "check_in_counter": "值机柜台/值机岛", "gate": "航班填登机口,火车/客车填检票口", \
+        "platform": "火车站台,客车填上车点", "carriage": "火车车厢号", \
+        "boarding_time": "yyyy-MM-dd HH:mm", \
         "estimated_departure": "yyyy-MM-dd HH:mm", "estimated_arrival": "yyyy-MM-dd HH:mm", \
-        "seat": "座位号", "cabin": "舱位如 经济舱", "aircraft": "机型如 空客A330", \
-        "baggage_belt": "行李转盘", \
+        "seat": "座位号", "cabin": "航班舱位如 经济舱,火车座席如 二等座/指定席", \
+        "aircraft": "机型如 空客A330", "baggage_belt": "行李转盘", \
         "status": "scheduled|check_in|boarding|gate_closed|departed|delayed|arrived|canceled|diverted"}
 
         规则:
@@ -1038,7 +1120,12 @@ public enum DeepSeekClient {
         - 航班的 start/end 填**计划**起降时刻;航班动态里显示的变更后/预计时刻填 \
         estimated_departure/estimated_arrival,不要覆盖到 start/end 上。只有预计时刻、\
         看不到计划时刻时省略 start/end。
-        - status 只在文本明确写了状态(如"延误""登机中""已取消")时填,别从时间推断。
+        - **所有时刻都照抄票面上的当地时间**:出发时刻是出发地的当地时间,到达时刻是到达地的\
+        当地时间,不要换算成别的时区。
+        - departure_timezone/arrival_timezone 按出发地、到达地所在城市给出 IANA 时区(北京、上海 \
+        → Asia/Shanghai,东京、大阪 → Asia/Tokyo,首尔 → Asia/Seoul,巴黎 → Europe/Paris);\
+        城市看不出来就省略,别猜。
+        - status 只在文本明确写了状态(如"延误""登机中""已取消")时填,别从时间推断;火车、客车一般没有。
         - 登机口、座位这些照抄原文,读不清就省略,别猜。
         - 住宿的 start 是入住、end 是退房。
         - 年份没写明时按上面给的旅行日期范围推断,不要凭空用今年。
@@ -1071,18 +1158,29 @@ public enum DeepSeekClient {
                 if let value = raw[key] as? Int { return Double(value) }
                 return (raw[key] as? String).flatMap(Double.init)
             }
+            let details = kind.isTransport
+                ? FlightDetails.parse(raw["flight"], date: { parseDate($0, in: $1) }) : nil
             return ParsedTravelItem(
                 kind: kind, title: title, code: text("code"),
-                start: text("start").flatMap(dateFormatter.date(from:)),
-                end: text("end").flatMap(dateFormatter.date(from:)),
+                // 票面时刻是两端的当地时间:抽出了时区就按那个时区解释,否则按本机时区。
+                start: text("start").flatMap { parseDate($0, in: details?.departureZone) },
+                end: text("end").flatMap { parseDate($0, in: details?.arrivalZone) },
                 placeName: text("place"), originName: text("origin"),
                 price: number("price"),
                 // 币种统一大写:模型偶尔会返回小写 "jpy",存下去会和 "JPY" 分成两组。
                 currency: text("currency")?.uppercased(),
                 note: text("note") ?? "",
-                flight: kind == .flight
-                    ? FlightDetails.parse(raw["flight"], date: dateFormatter.date(from:)) : nil)
+                flight: details)
         }
+    }
+
+    /// "yyyy-MM-dd HH:mm" 按某个时区解释;nil = 本机时区。
+    static func parseDate(_ text: String, in zone: TimeZone?) -> Date? {
+        guard let zone else { return dateFormatter.date(from: text) }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.timeZone = zone
+        return formatter.date(from: text)
     }
 
     /// 把一段菜单文字(拍照/截图 OCR 出来的,或用户直接贴进来的)整理成菜品清单,

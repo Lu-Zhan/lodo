@@ -225,16 +225,18 @@ struct CalendarEventRow: View {
     /// 跨天事件在中间几天写「全天」,首尾两天只写开始/结束那一端。
     private var timeLabel: String {
         let calendar = Calendar.current
-        if event.showsInAllDayRow(on: day, calendar: calendar) { return String(localized: "全天") }
+        if event.showsInAllDayRow(on: day, calendar: calendar) {
+            return String(localized: "全天", locale: AppSettings.language.locale)
+        }
         let startsToday = calendar.isDate(event.start, inSameDayAs: day)
         let endsToday = calendar.isDate(event.end, inSameDayAs: day)
-        let start = event.start.formatted(date: .omitted, time: .shortened)
-        let end = event.end.formatted(date: .omitted, time: .shortened)
+        let start = LocalizedContent.time(event.start)
+        let end = LocalizedContent.time(event.end)
         switch (startsToday, endsToday) {
         case (true, true): return "\(start) – \(end)"
         case (true, false): return "\(start) –"
         case (false, true): return "– \(end)"
-        case (false, false): return String(localized: "全天")
+        case (false, false): return String(localized: "全天", locale: AppSettings.language.locale)
         }
     }
 }

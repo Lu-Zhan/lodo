@@ -5,7 +5,7 @@ import LodoCore
 /// app 的八个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
 enum AppSection: Hashable, CaseIterable {
-    case overview, todo, calendar, memory, contact, health, travel, menu, news, agent
+    case overview, todo, calendar, countdown, memory, contact, health, travel, menu, news, agent
 }
 
 // MARK: - 「进到某个条目里」(经 Environment 下发)
@@ -15,6 +15,8 @@ enum AppSection: Hashable, CaseIterable {
 /// 目前只有旅行一种,别的条目(任务/记忆)要接的时候按同一个路子往里加。
 enum AppDestination: Hashable {
     case trip(UUID)
+    /// 倒数日页(不定位到某一件:一页就放得下,新改的那件按日子排在该在的位置)。
+    case countdown
 }
 
 /// 跨页"进到某个条目里"的统一出口。单独一个 Environment 而不是塞进
@@ -281,8 +283,9 @@ struct AppShellView: View {
             go(.overview)
             rescheduleRequestUUID = note.userInfo?["uuid"] as? String
         }
-        // 深链:lodo://add(小组件"+")/lodo://agent?text=…(Siri Intent 回退)
-        // 切到 AI 页;lodo://memory(分享收藏后跳回)切到记忆页。
+        // 深链:lodo://add(小组件"+"、锁屏 AI 小组件)/lodo://agent?text=…(Siri Intent 回退)
+        // 切到 AI 页;lodo://memory(分享收藏后跳回)切到记忆页;lodo://todo、
+        // lodo://countdown(锁屏小组件)切到任务页/倒数日页。
         .onOpenURL { url in
             guard url.scheme == "lodo" else { return }
             switch url.host {
@@ -295,6 +298,11 @@ struct AppShellView: View {
             case "memory":
                 memoryPath = []
                 go(.memory)
+            // 锁屏小组件:「今日」「重要的事」进任务页,「倒数日」进倒数日页。
+            case "todo":
+                go(.todo)
+            case "countdown":
+                go(.countdown)
             default:
                 break
             }
@@ -325,6 +333,8 @@ struct AppShellView: View {
             OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
         case .todo:
             TodoListView(convertToTodoRequest: $convertToTodoRequest)
+        case .countdown:
+            CountdownListView()
         case .calendar:
             CalendarView()
         case .memory:
@@ -395,6 +405,8 @@ struct AppShellView: View {
         case .trip(let uuid):
             travelTripRequest = uuid
             go(.travel)
+        case .countdown:
+            go(.countdown)
         }
     }
 
@@ -687,11 +699,13 @@ struct AppShellView: View {
                      "--demo-filter-done", "--demo-ask-duration",
                      "--demo-convert-to-todo"]),
             (.calendar, ["--demo-calendar"]),
+            (.countdown, ["--demo-countdown"]),
             (.agent, ["--demo-agent", "--demo-agent-hascontent", "--demo-agent-busy",
                       "--demo-agent-recording", "--demo-easter-egg",
                       "--demo-easter-egg-anniversary", "--demo-agent-quote-preview",
                       "--demo-agent-edit-confirm", "--demo-agent-sidebar",
                       "--demo-agent-photos", "--demo-agent-stream", "--demo-agent-live",
+                      "--demo-agent-send",
                       "--demo-agent-history"]),
         ]
         for (target, flags) in sectionFlags where flags.contains(where: args.contains) {

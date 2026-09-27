@@ -11,6 +11,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case travel
     case tripPlanner
     case news
+    case countdown
     case assets
     case duration
     case routineWeb
@@ -27,6 +28,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .travel: return "旅行"
         case .tripPlanner: return "规划行程"
         case .news: return "新闻"
+        case .countdown: return "倒数日"
         case .assets: return "资产与负债"
         case .duration: return "时长建议"
         case .routineWeb: return "定时任务联网"
@@ -43,6 +45,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .travel: return "读行程回答问题、按天调整已记下的行程(仅记录过旅行后生效)"
         case .tripPlanner: return "按目的地、天数和偏好自动排行程,确认后写进「旅行」"
         case .news: return "在订阅的新闻与博客里找文章、回答最近发生了什么(仅有订阅后生效)"
+        case .countdown: return "新建、修改、删除倒数日与它们的提醒"
         case .assets: return "收藏时识别资产金额、币种、负债与利率的规则"
         case .duration: return "没说时长时,按时长记忆给新事项建议时长(停用则不再建议)"
         case .routineWeb: return "定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)"
@@ -51,7 +54,7 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
 
     public var group: AgentSkillGroup {
         switch self {
-        case .agent, .todo, .webSearch, .duration: return .system
+        case .agent, .todo, .webSearch, .duration, .countdown: return .system
         case .memory, .assets: return .memory
         case .travel, .tripPlanner: return .travel
         case .health: return .health
@@ -317,6 +320,7 @@ public enum AgentSkillStore {
         case .travel: return defaultTravel
         case .tripPlanner: return defaultTripPlanner
         case .news: return defaultNews
+        case .countdown: return defaultCountdown
         case .assets: return defaultAssets
         case .duration: return defaultDuration
         case .routineWeb: return defaultRoutineWeb
@@ -521,6 +525,29 @@ public enum AgentSkillStore {
     链接用 web_fetch(联网搜索可用时)。
     - 回答时说清每条是哪个来源、大概什么时间,并把链接原样带上;没找到就如实说订阅里\
     没有相关文章,不要编。
+    """
+
+    private static let defaultCountdown = """
+    额外支持的操作(倒数日:考试、搬家、演唱会、放假这类"要到来的日子",只看离它还有多久,\
+    不需要完成、也不会纠缠提醒——和待办是两回事):
+    - 新建倒数日:{"action": "create_countdown", "title": "名称", "start": "YYYY-MM-DD 或 \
+    YYYY-MM-DD HH:MM", "end": "结束日期(可选,有时间段才写,如假期、旅行)", "all_day": true/false, \
+    "start_reminders": [开始前多少分钟提醒, ...], "end_reminders": [结束前多少分钟提醒, ...], \
+    "show_in_widget": true/false, "notes": "备注"}
+    - 修改倒数日:{"action": "update_countdown", "id": "倒数日 id", 只写要改的字段}\
+    (去掉结束时间写 "end": "")
+    - 删除倒数日:{"action": "delete_countdown", "id": "倒数日 id"}
+
+    额外判断规则:
+    - 用户说"倒数日""还有几天""倒计时""纪念日""记一下 X 号考试"这类,是倒数日,不是待办;\
+    要去**做**的事(交报告、给某人打电话)仍然是待办。拿不准时按用户的原话:说了"倒数"就是倒数日。
+    - 只说了日子没说几点就是全天(all_day: true,start 只写日期);说了几点才带时刻。
+    - 提醒用分钟数:0 = 准时(全天的事是当天的全天提醒时刻),60 = 提前 1 小时,1440 = 提前 1 天,\
+    10080 = 提前 1 周;用户没提提醒就不写。
+    - show_in_widget 只在用户说了要不要放到锁屏小组件时才写;小组件最多 3 件。
+    - 修改、删除必须用下面「当前倒数日列表」里的 id,按名称对上用户说的那一件;对不上就用 ask 反问,\
+    不要编 id。
+    - 一句话里可以有好几条倒数日操作,也可以和待办等其他操作放在同一个 actions 数组里。
     """
 
     private static let defaultTravel = """

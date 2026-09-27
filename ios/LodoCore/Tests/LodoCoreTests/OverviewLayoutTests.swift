@@ -146,4 +146,26 @@ final class OverviewLayoutTests: XCTestCase {
         XCTAssertTrue(layout.hiddenKinds.isEmpty)
         XCTAssertEqual(layout.items.last?.kind, .clock)
     }
+
+    /// 用户建的倒数日:没过去的都算(不受 60 天窗口限制),过去的不算,
+    /// 和同名同日开始的旅行合并成一条。
+    func testCountdownIncludesUserCountdowns() {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 7, day: 8, hour: 9))!
+        func day(_ offset: Int) -> Date {
+            calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now))!
+        }
+        let entries = OverviewCountdownEntry.build(
+            trips: [("t1", "东京旅行", day(3), day(6))],
+            birthdays: [],
+            countdowns: [
+                CountdownEntry(title: "东京旅行", start: day(3), end: day(6)),
+                CountdownEntry(title: "考研", start: day(120)),
+                CountdownEntry(title: "搬家", start: day(-5)),
+                CountdownEntry(title: "假期", start: day(-2), end: day(2)),
+            ],
+            now: now)
+        XCTAssertEqual(entries.map(\.title), ["假期", "东京旅行", "考研"])
+        XCTAssertEqual(entries.map(\.kind), [.countdown, .countdown, .countdown])
+    }
 }

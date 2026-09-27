@@ -123,14 +123,14 @@ struct NewsListView: View {
                                     Button {
                                         NewsStore.setRead(article, !article.isRead, context: context)
                                     } label: {
-                                        Label(article.isRead ? "标为未读" : "标为已读",
+                                        Label(LocalizedStringKey(article.isRead ? "标为未读" : "标为已读"),
                                               systemImage: article.isRead ? "circle" : "checkmark.circle")
                                     }
                                     .tint(LodoColor.neutralAction)
                                     Button {
                                         NewsStore.toggleStar(article, context: context)
                                     } label: {
-                                        Label(article.isStarred ? "取消收藏" : "收藏",
+                                        Label(LocalizedStringKey(article.isStarred ? "取消收藏" : "收藏"),
                                               systemImage: article.isStarred ? "star.slash" : "star")
                                     }
                                     .tint(.accentColor)
@@ -304,7 +304,8 @@ struct NewsListView: View {
                     digest = result
                     digestGeneratedAt = Date()
                 } else {
-                    digestError = "最近 24 小时订阅里没有新文章。"
+                    digestError = LocalizedStrings.text(.ios_core_news_no_recent_articles,
+                                                        language: language)
                 }
             } catch is CancellationError {
             } catch {
@@ -331,8 +332,12 @@ struct NewsListView: View {
             Button {
                 openRoutine()
             } label: {
-                Label(newsRoutine == nil ? "定时推送" : "定时推送:\(newsRoutine!.caption)",
-                      systemImage: "bell.badge")
+                if let newsRoutine {
+                    Label(String(localized: "定时推送:\(LocalizedContent.routineCaption(newsRoutine))",
+                                 locale: language.locale), systemImage: "bell.badge")
+                } else {
+                    Label("定时推送", systemImage: "bell.badge")
+                }
             }
             if !feeds.isEmpty {
                 Menu {
@@ -405,9 +410,9 @@ struct NewsListView: View {
 
     private func dayTitle(_ day: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(day) { return String(localized: "今天") }
-        if calendar.isDateInYesterday(day) { return String(localized: "昨天") }
-        return day.formatted(.dateTime.month().day().weekday())
+        if calendar.isDateInToday(day) { return String(localized: "今天", locale: language.locale) }
+        if calendar.isDateInYesterday(day) { return String(localized: "昨天", locale: language.locale) }
+        return day.formatted(.dateTime.month().day().weekday().locale(language.locale))
     }
 
     #if DEBUG

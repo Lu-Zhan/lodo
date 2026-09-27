@@ -51,9 +51,12 @@ public enum FeedParseError: LocalizedError, Equatable {
     case malformed(String)
 
     public var errorDescription: String? {
+        let language = AppSettings.language
         switch self {
-        case .notAFeed: return "这不是 RSS/Atom 订阅地址"
-        case .malformed(let reason): return "订阅内容解析失败:\(reason)"
+        case .notAFeed:
+            return LocalizedStrings.text(.ios_core_feed_not_rss, language: language)
+        case .malformed(let reason):
+            return LocalizedStrings.text(.ios_core_feed_parse_failed, language: language) + reason
         }
     }
 }

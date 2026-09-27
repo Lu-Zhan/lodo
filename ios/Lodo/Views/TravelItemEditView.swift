@@ -3,7 +3,10 @@ import SwiftData
 import MapKit
 import LodoCore
 
-/// 行程项的新建/编辑表单(航班/住宿/地点共用一张表,按类型显示不同字段)。
+/// 行程项的新建/编辑表单(航班/火车/客车/住宿/地点共用一张表,按类型显示不同字段)。
+/// 交通三类各有一段自己的补充信息(航班:航站楼/值机/登机口/舱位/机型;火车:
+/// 检票口/站台/车厢/座席;客车:检票口/上车点),两端时区也在这里手填——
+/// 起降时刻按**当地时间**填和显示,时长照绝对时间算。都是用户手动提供,不联网查。
 /// 和资产/人脉一样是结构化表单直接落库,不经 AI 整理。
 struct TravelItemEditView: View {
     let tripUUID: UUID
@@ -49,6 +52,12 @@ struct TravelItemEditView: View {
     @State private var gate = ""
     @State private var seat = ""
     @State private var aircraft = ""
+    @State private var cabin = ""
+    @State private var platform = ""
+    @State private var carriage = ""
+    /// 出发地/到达地时区(IANA 标识);nil = 本机时区。
+    @State private var departureZoneID: String?
+    @State private var arrivalZoneID: String?
 
     private enum SearchTarget: Identifiable {
         case place, origin
@@ -82,8 +91,20 @@ struct TravelItemEditView: View {
 
     /// 单号那一栏的提示语。交通类填车次/航班号,其余填订单号。
     private var codePrompt: LocalizedStringKey {
-        kind.isTransport ? "车次/航班号(可选)" : "订单号/房号(可选)"
+        switch kind {
+        case .flight: return "航班号(可选),如 CA925"
+        case .train: return "车次(可选),如 G123、Nozomi 21"
+        case .coach: return "班次(可选)"
+        case .lodging, .place: return "订单号/房号(可选)"
+        }
     }
+
+    private var departureZone: TimeZone? { departureZoneID.flatMap(TimeZone.init(identifier:)) }
+    private var arrivalZone: TimeZone? { arrivalZoneID.flatMap(TimeZone.init(identifier:)) }
+
+    /// 交通类的起讫时刻按两端各自的当地时间填;其余类型用本机时区。
+    private var startZone: TimeZone { (kind.isTransport ? departureZone : nil) ?? .current }
+    private var endZone: TimeZone { (kind.isTransport ? arrivalZone : nil) ?? .current }
 
     /// 起讫时间那两个开关的名字。
     private var startLabel: LocalizedStringKey {
@@ -137,6 +158,11 @@ struct TravelItemEditView: View {
                             #if os(iOS)
                             .datePickerStyle(.compact)
                             #endif
+                            // 交通类按出发地当地时间填(东京起飞就填东京时间)。
+                            .environment(\.timeZone, startZone)
+                    }
+                    if kind.isTransport {
+                        zoneRow("出发地时区", selection: departureZoneBinding)
                     }
                     Toggle(endLabel, isOn: $hasEnd)
                     if hasEnd {
@@ -145,6 +171,15 @@ struct TravelItemEditView: View {
                             #if os(iOS)
                             .datePickerStyle(.compact)
                             #endif
+                            .environment(\.timeZone, endZone)
+                    }
+                    if kind.isTransport {
+                        zoneRow("到达地时区", selection: arrivalZoneBinding)
+                    }
+                    if kind.isTransport, hasStart, hasEnd,
+                       let minutes = FlightDetails.durationMinutes(start: start, end: end) {
+                        LabeledContent(LocalizedStringKey(kind == .flight ? "飞行时长" : "行程时长"),
+                                       value: CountdownText.durationText(minutes))
                     }
                     if hasInvalidRange {
                         Text("结束时间早于开始时间,改一下才能保存。")
@@ -152,25 +187,16 @@ struct TravelItemEditView: View {
                             .foregroundStyle(LodoColor.critical)
                     }
                 } footer: {
-                    Text(kind == .lodging
-                         ? "填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。"
-                         : "不填时间也能存,会收进「未排期」。")
-                }
-
-                if kind == .flight {
-                    Section {
-                        TextField("出发航站楼", text: $departureTerminal)
-                        TextField("值机柜台", text: $checkInCounter)
-                        TextField("登机口", text: $gate)
-                        TextField("到达航站楼", text: $arrivalTerminal)
-                        TextField("座位", text: $seat)
-                        TextField("机型", text: $aircraft)
-                    } header: {
-                        Text("航班信息")
-                    } footer: {
-                        Text("都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。")
+                    if kind == .lodging {
+                        Text("填了入住和退房,这家住宿会出现在住的每一晚里(退房当天不算)。")
+                    } else if kind.isTransport {
+                        Text("时间按出发地、到达地的当地时间填,行程里也按当地日期排;时区不填就按手机的时区。")
+                    } else {
+                        Text("不填时间也能存,会收进「未排期」。")
                     }
                 }
+
+                transportSection
 
                 Section {
                     HStack {
@@ -200,7 +226,7 @@ struct TravelItemEditView: View {
                         .frame(minHeight: 80)
                 }
             }
-            .navigationTitle(existing == nil ? "添加行程" : "编辑行程")
+            .navigationTitle(LocalizedStringKey(existing == nil ? "添加行程" : "编辑行程"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -239,6 +265,98 @@ struct TravelItemEditView: View {
                 searching = .place
             }
             #endif
+        }
+    }
+
+    /// 交通三类各自的补充信息。字段都是可选的、手填的,不联网查。
+    @ViewBuilder
+    private var transportSection: some View {
+        switch kind {
+        case .flight:
+            Section {
+                TextField("出发航站楼,如 T3", text: $departureTerminal)
+                TextField("值机柜台", text: $checkInCounter)
+                TextField("登机口", text: $gate)
+                TextField("到达航站楼", text: $arrivalTerminal)
+                TextField("座位", text: $seat)
+                TextField("舱位,如 经济舱", text: $cabin)
+                TextField("机型", text: $aircraft)
+            } header: {
+                Label("航班信息", systemImage: TravelItemKind.flight.systemImage)
+            } footer: {
+                Text("都是可选的。在行程里点开这班航班,可以导入登机牌或航班动态截图自动补上。")
+            }
+        case .train:
+            Section {
+                TextField("检票口", text: $gate)
+                TextField("站台", text: $platform)
+                TextField("车厢", text: $carriage)
+                TextField("座位", text: $seat)
+                TextField("座席,如 二等座、指定席", text: $cabin)
+            } header: {
+                Label("火车信息", systemImage: TravelItemKind.train.systemImage)
+            } footer: {
+                Text("都是可选的,照车票上的填。")
+            }
+        case .coach:
+            Section {
+                TextField("检票口", text: $gate)
+                TextField("上车点,如 3 号站台", text: $platform)
+                TextField("座位", text: $seat)
+            } header: {
+                Label("客车信息", systemImage: TravelItemKind.coach.systemImage)
+            } footer: {
+                Text("都是可选的,照车票上的填。")
+            }
+        case .lodging, .place:
+            EmptyView()
+        }
+    }
+
+    /// 用户换时区时保留已经填好的"钟面时间":填了 10:00 再选东京,意思是东京的
+    /// 10:00,而不是把同一个时刻换算成东京的 11:00。放在绑定的 set 里而不是
+    /// onChange:load() 读出已存的时区也会触发 onChange,那时时刻本来就是对的。
+    private var departureZoneBinding: Binding<String?> {
+        Binding(get: { departureZoneID }, set: { new in
+            start = Self.keepingWallClock(start, from: zone(departureZoneID), to: zone(new))
+            departureZoneID = new
+        })
+    }
+
+    private var arrivalZoneBinding: Binding<String?> {
+        Binding(get: { arrivalZoneID }, set: { new in
+            end = Self.keepingWallClock(end, from: zone(arrivalZoneID), to: zone(new))
+            arrivalZoneID = new
+        })
+    }
+
+    private func zone(_ id: String?) -> TimeZone {
+        id.flatMap(TimeZone.init(identifier:)) ?? .current
+    }
+
+    /// 把 `date` 在 `from` 时区里的年月日时分,原样搬到 `to` 时区里。
+    static func keepingWallClock(_ date: Date, from: TimeZone, to: TimeZone) -> Date {
+        guard from.identifier != to.identifier else { return date }
+        var source = Calendar(identifier: .gregorian)
+        source.timeZone = from
+        var target = Calendar(identifier: .gregorian)
+        target.timeZone = to
+        let parts = source.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return target.date(from: parts) ?? date
+    }
+
+    /// 时区那一行:点进去从列表里选,显示"东京 GMT+9",没选时显示"跟随手机"。
+    private func zoneRow(_ title: LocalizedStringKey, selection: Binding<String?>) -> some View {
+        NavigationLink {
+            TimeZonePickerView(selection: selection)
+        } label: {
+            LabeledContent(title) {
+                if let zone = selection.wrappedValue.flatMap(TimeZone.init(identifier:)) {
+                    Text(LocalizedContent.timeZoneName(zone, language: language))
+                } else {
+                    Text("跟随手机")
+                }
+            }
         }
     }
 
@@ -303,6 +421,11 @@ struct TravelItemEditView: View {
         gate = flight?.gate ?? ""
         seat = flight?.seat ?? ""
         aircraft = flight?.aircraft ?? ""
+        cabin = flight?.cabin ?? ""
+        platform = flight?.platform ?? ""
+        carriage = flight?.carriage ?? ""
+        departureZoneID = flight?.departureTimeZone
+        arrivalZoneID = flight?.arrivalTimeZone
         note = existing.summary
         if let value = existing.travelStart {
             hasStart = true
@@ -344,7 +467,17 @@ struct TravelItemEditView: View {
         details.checkInCounter = value(checkInCounter)
         details.gate = value(gate)
         details.seat = value(seat)
-        details.aircraft = value(aircraft)
+        // 各类型只写它表单里露出来的那几项,别的类型的字段清掉(改了类型再存时
+        // 不留一个火车上的「站台」挂在航班上)。
+        details.aircraft = kind == .flight ? value(aircraft) : nil
+        details.checkInCounter = kind == .flight ? value(checkInCounter) : nil
+        details.departureTerminal = kind == .flight ? value(departureTerminal) : nil
+        details.arrivalTerminal = kind == .flight ? value(arrivalTerminal) : nil
+        details.cabin = kind == .coach ? nil : value(cabin)
+        details.platform = kind == .flight ? nil : value(platform)
+        details.carriage = kind == .train ? value(carriage) : nil
+        details.departureTimeZone = departureZoneID
+        details.arrivalTimeZone = arrivalZoneID
         if details != before { details.updatedAt = Date() }
         return details.isEmpty ? nil : details
     }
@@ -354,9 +487,9 @@ struct TravelItemEditView: View {
         let origin = originName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
         // 出发地只对交通类(航班/火车/客车)有意义,换成住宿/地点再存时要把它
-        // 连坐标一起清掉。航班补充信息那一坨仍然只有 flight 有。
+        // 连坐标一起清掉。交通补充信息(含两端时区)只有交通三类有。
         let keepOrigin = kind.isTransport && !origin.isEmpty
-        let keptFlight = kind == .flight ? editedFlight(code: trimmedCode) : nil
+        let keptFlight = kind.isTransport ? editedFlight(code: trimmedCode) : nil
         if let existing {
             TravelStore.update(
                 existing, kind: kind, title: title, note: note,

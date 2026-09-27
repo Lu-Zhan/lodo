@@ -23,10 +23,16 @@ enum NewsStore {
         case notFound
 
         var errorDescription: String? {
+            let language = AppSettings.language
             switch self {
-            case .invalidURL: return "请输入一个有效的网址。"
-            case .alreadySubscribed(let title): return "已经订阅过「\(title)」了。"
-            case .notFound: return "这个网址里没找到 RSS/Atom 订阅地址。可以试试直接填博客的 feed 地址(常见的是 /feed、/rss.xml、/atom.xml)。"
+            case .invalidURL:
+                return LocalizedStrings.text(.ios_core_news_invalid_url, language: language)
+            case .alreadySubscribed(let title):
+                return String(format: LocalizedStrings.text(.ios_core_news_already_subscribed,
+                                                             language: language),
+                              title as NSString)
+            case .notFound:
+                return LocalizedStrings.text(.ios_core_news_feed_not_found, language: language)
             }
         }
     }

@@ -220,6 +220,11 @@ struct LodoWidget: Widget {
 struct LodoWidgetBundle: WidgetBundle {
     var body: some Widget {
         LodoWidget()
+        // 锁屏:1×1 AI 助手;1×2 今日 / 重要的事 / 倒数日。
+        AgentLockWidget()
+        TodayLockWidget()
+        PinnedLockWidget()
+        CountdownLockWidget()
     }
 }
 

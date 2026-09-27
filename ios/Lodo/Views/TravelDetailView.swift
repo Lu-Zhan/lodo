@@ -63,12 +63,13 @@ struct TravelDetailView: View {
     private static let peekDetent = PresentationDetent.height(200)
 
     enum Mode: String, CaseIterable, Identifiable {
-        case overview, days, cost, files
+        case overview, days, packing, cost, files
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
             case .overview: return "总览"
             case .days: return "日程"
+            case .packing: return "清单"
             case .cost: return "消费"
             case .files: return "文件"
             }
@@ -81,7 +82,6 @@ struct TravelDetailView: View {
     @State private var photoSelection: [PhotosPickerItem] = []
     @State private var pickingMemories = false
     @State private var viewingFile: MemoryItem?
-    @Namespace private var modeThumb
 
     private var items: [MemoryItem] {
         memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid }
@@ -107,7 +107,9 @@ struct TravelDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         #else
-        .navigationTitle(trip.title.isEmpty ? "未命名旅行" : trip.title)
+        .navigationTitle(trip.title.isEmpty
+                         ? String(localized: "未命名旅行", locale: language.locale)
+                         : trip.title)
         #endif
         // 页面自己的操作收在右上角(原来「⋯」在左上角、紧挨着返回键)。
         .toolbar {
@@ -115,7 +117,7 @@ struct TravelDetailView: View {
                 Button {
                     withAnimation(.lodoAware(.snappy)) { showsRoutes.toggle() }
                 } label: {
-                    Label(showsRoutes ? "显示直线" : "显示路线",
+                    Label(LocalizedStringKey(showsRoutes ? "显示直线" : "显示路线"),
                           systemImage: showsRoutes ? "point.topleft.down.to.point.bottomright.curvepath.fill"
                                                    : "point.topleft.down.to.point.bottomright.curvepath")
                 }
@@ -200,6 +202,7 @@ struct TravelDetailView: View {
             switch mode {
             case .overview: overviewList
             case .days: dayList
+            case .packing: TravelPackingList(trip: trip)
             case .cost: costList
             case .files: filesList
             }
@@ -213,10 +216,11 @@ struct TravelDetailView: View {
         // 玻璃采样到的颜色跟着变,面板一拉一放就跳色。
         .presentationBackgroundInteraction(.enabled)
         .presentationDragIndicator(.visible)
-        // 三档用**同一种**底色:纯玻璃采样的是面板正后方的地图,半高时压在海面上偏蓝、
-        // 拉满后盖住的多是街道就发白,一拉一放颜色就跳。这里是一层薄模糊上叠几乎不透明
-        // 的分组底色——看得出是浮在地图上的一层,但颜色不再跟着背后的内容变。
+        // 面板底色透明,上拉时地图会透到旅行标题与切换条周围;列表卡片仍用固定行底色。
         .presentationBackground { TravelPanelBackground() }
+        // Sheet 是独立呈现宿主,页面根上的滚动边缘效果不会传进来。
+        // 这里让行程列表滚到顶部时在切换条下方柔和淡出。
+        .softTopScrollEdgeTransition()
         .interactiveDismissDisabled()
         // sheet 是独立呈现宿主,不继承根上的 tint(同 SettingsView)。
         .tint(lodoAccent.accent)
@@ -241,37 +245,9 @@ struct TravelDetailView: View {
         }
     }
 
-    /// 「总览 / 日程 / 消费 / 文件」切换:一整条 Liquid Glass 轨道,选中的那一格是一块
-    /// 强调色的滑块,切换时滑过去(同系统分段控件的手感)。不用系统分段控件——它在
-    /// 玻璃面板上是一块不透明的灰底,和整张面板的材质对不上。
+    /// 「总览 / 日程 / 消费 / 文件」切换,样式见 `SlidingSwitch`。
     private var modePicker: some View {
-        HStack(spacing: 0) {
-            ForEach(Mode.allCases) { option in
-                let selected = mode == option
-                Button {
-                    withAnimation(.lodoAware(.snappy)) { mode = option }
-                } label: {
-                    Text(option.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(selected ? lodoAccent.onFill : Color.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 32)
-                        .background {
-                            if selected {
-                                Capsule().fill(lodoAccent.fill)
-                                    .matchedGeometryEffect(id: "thumb", in: modeThumb)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .pressable()
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
-        .padding(3)
-        .glassBackground(Capsule())
+        SlidingSwitch(options: Mode.allCases, selection: $mode) { Text($0.title) }
     }
 
     #if DEBUG
@@ -282,6 +258,7 @@ struct TravelDetailView: View {
         if args.contains("--demo-travel-overview") { mode = .overview }
         if args.contains("--demo-travel-files") { mode = .files }
         if args.contains("--demo-travel-cost") { mode = .cost }
+        if args.contains("--demo-travel-packing") { mode = .packing }
         if args.contains("--demo-travel-map-day") {
             // 走左侧胶囊同一条路(连面板滚动一起);等面板弹出来、列表建好再点。
             Task { @MainActor in
@@ -342,7 +319,7 @@ struct TravelDetailView: View {
                 Group {
                     if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
                 }
-                    .font(.title2.weight(.semibold))
+                    .font(.title.weight(.semibold))
                     .foregroundStyle(.primary)
                 Group {
                     if let location = trip.locationText {
@@ -352,7 +329,7 @@ struct TravelDetailView: View {
                     // 备注(那句概述)只在旅行列表页显示:进到这一页要看的是行程本身,
                     // 那句话每天翻十遍不再带来信息,反而把第一天压到屏幕外面去。
                 }
-                .font(.body)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
@@ -384,7 +361,8 @@ struct TravelDetailView: View {
                     } else {
                         ForEach(day.entries) { entry in
                             draggable(entry) {
-                                entryRow(entry, showDate: false,
+                                entryRow(entry, group: "day-\(day.date.timeIntervalSince1970)",
+                                         showDate: false,
                                          night: TravelPlan.lodgingNight(entry, day: day.date))
                             }
                             // 拖到这天任意一行上都算放进这一天。
@@ -399,7 +377,7 @@ struct TravelDetailView: View {
                     // 手动填仍在右上角菜单里。
                     // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
                     // verbatim 的,拼好的字符串进不了字符串目录。
-                    Text("第 \(dayIndex(day.date)) 天 · \(Self.dayFormatter.string(from: day.date))")
+                    Text("第 \(dayIndex(day.date)) 天 · \(LocalizedContent.dateAndWeekday(day.date, language: language))")
                         .dropDestination(for: String.self) { ids, _ in
                             moveDropped(ids, to: day.date)
                         }
@@ -412,7 +390,7 @@ struct TravelDetailView: View {
             let extras = TravelPlan.outOfRange(entries, days: trip.days)
             if !extras.isEmpty {
                 Section {
-                    ForEach(extras) { entry in entryRow(entry) }
+                    ForEach(extras) { entry in entryRow(entry, group: "extras") }
                 } header: {
                     Text("行程日期之外")
                 } footer: {
@@ -423,13 +401,14 @@ struct TravelDetailView: View {
             let pending = TravelPlan.unscheduled(entries)
             if !pending.isEmpty {
                 Section("未排期") {
-                    ForEach(pending) { entry in entryRow(entry) }
+                    ForEach(pending) { entry in entryRow(entry, group: "unscheduled") }
                 }
                 .listRowBackground(Self.panelRowBackground)
             }
         }
         // 列表自己不铺底色,透出面板那层玻璃。
         .scrollContentBackground(.hidden)
+        .backgroundPreferenceValue(EntryGroupFramesKey.self) { entryGroupGlass($0) }
         .onChange(of: panelScrollToken) { _, _ in
             guard let target = panelScrollDay ?? trip.days.first else { return }
             // 等面板从露头升到半高、分段切回「按天」这一帧布局完再滚。
@@ -457,7 +436,7 @@ struct TravelDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(transport) { entry in entryRow(entry) }
+                    ForEach(transport) { entry in entryRow(entry, group: "transport") }
                 }
             } header: {
                 Label("交通", systemImage: "airplane")
@@ -469,7 +448,7 @@ struct TravelDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(pending) { entry in entryRow(entry) }
+                    ForEach(pending) { entry in entryRow(entry, group: "inbox") }
                 }
             } header: {
                 Label("待安排", systemImage: "tray")
@@ -481,6 +460,7 @@ struct TravelDetailView: View {
             .listRowBackground(Self.panelRowBackground)
         }
         .scrollContentBackground(.hidden)
+        .backgroundPreferenceValue(EntryGroupFramesKey.self) { entryGroupGlass($0) }
     }
 
     // MARK: - 文件
@@ -578,7 +558,9 @@ struct TravelDetailView: View {
                     .foregroundStyle(.tint)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(file.title.isEmpty ? (file.originalFileName ?? String(localized: "未命名")) : file.title)
+                    Text(file.title.isEmpty
+                         ? (file.originalFileName ?? String(localized: "未命名", locale: language.locale))
+                         : file.title)
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -757,8 +739,9 @@ struct TravelDetailView: View {
     private var emptyMapNotice: String? {
         guard mapPins(for: nil).isEmpty else { return nil }
         return tripLacksLocation
-            ? Self.fillLocationReminder
-            : String(localized: "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。")
+            ? fillLocationReminder
+            : String(localized: "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。",
+                     locale: language.locale)
     }
 
     // MARK: - 没填城市和国家的提醒
@@ -777,14 +760,15 @@ struct TravelDetailView: View {
         entries.filter { $0.coordinate == nil && !$0.kind.isTransport }.count
     }
 
-    private static var fillLocationReminder: String {
-        String(localized: "这次旅行还没填城市和国家,地点查不到位置。填上以后地图才能准确定位。")
+    private var fillLocationReminder: String {
+        String(localized: "这次旅行还没填城市和国家,地点查不到位置。填上以后地图才能准确定位。",
+               locale: language.locale)
     }
 
     /// 查位置之后还有地点没找到、并且旅行没填城市国家时,挂一条带「去填写」的提醒。
     private func remindToFillLocationIfNeeded() {
         guard tripLacksLocation, unlocatedCount > 0 else { return }
-        showNotice(Self.fillLocationReminder, sticky: true, offersTripEdit: true)
+        showNotice(fillLocationReminder, sticky: true, offersTripEdit: true)
     }
 
     /// 地图左上角那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
@@ -932,7 +916,8 @@ struct TravelDetailView: View {
     private func locateAndFocus(_ entry: TravelEntry) {
         guard locatingEntry == nil, let item = item(for: entry) else { return }
         locatingEntry = entry.id
-        showNotice(String(localized: "正在查找「\(entry.placeName ?? entry.title)」的位置…"), sticky: true)
+        showNotice(String(localized: "正在查找「\(entry.placeName ?? entry.title)」的位置…",
+                          locale: language.locale), sticky: true)
         Task {
             let found = await TravelStore.locate(item, in: trip, context: context)
             locatingEntry = nil
@@ -947,9 +932,10 @@ struct TravelDetailView: View {
                     mapDay = nil
                 }
             } else if tripLacksLocation {
-                showNotice(Self.fillLocationReminder, sticky: true, offersTripEdit: true)
+                showNotice(fillLocationReminder, sticky: true, offersTripEdit: true)
             } else {
-                showNotice(String(localized: "没找到「\(entry.placeName ?? entry.title)」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。"))
+                showNotice(String(localized: "没找到「\(entry.placeName ?? entry.title)」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。",
+                                  locale: language.locale))
             }
         }
     }
@@ -969,14 +955,14 @@ struct TravelDetailView: View {
 
     private func relocate() {
         relocating = true
-        showNotice(String(localized: "正在按地名重新查找位置…"), sticky: true)
+        showNotice(String(localized: "正在按地名重新查找位置…", locale: language.locale), sticky: true)
         Task {
             let result = await TravelStore.relocateAll(for: trip, context: context)
             relocating = false
             if tripLacksLocation && (result.destinationUnknown || result.missed > 0) {
-                showNotice(Self.fillLocationReminder, sticky: true, offersTripEdit: true)
+                showNotice(fillLocationReminder, sticky: true, offersTripEdit: true)
             } else {
-                showNotice(Self.relocateMessage(result))
+                showNotice(relocateMessage(result))
             }
             // 选中的点还在就飞到它的新位置,否则把全部点重新框一遍。
             if let id = selectedPin, let pin = mapPins(for: nil).first(where: { $0.id == id }) {
@@ -989,22 +975,27 @@ struct TravelDetailView: View {
     }
 
     /// 分开说"变了几个 / 没变 / 没搜到",看得出刷新到底有没有生效。
-    private static func relocateMessage(_ result: TravelStore.RelocateResult) -> String {
+    private func relocateMessage(_ result: TravelStore.RelocateResult) -> String {
         if result.destinationUnknown {
-            return String(localized: "认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。")
+            return String(localized: "认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。",
+                          locale: language.locale)
         }
         if result.total == 0 {
-            return String(localized: "这次旅行里没有可以查位置的地点。")
+            return String(localized: "这次旅行里没有可以查位置的地点。", locale: language.locale)
         }
         if result.moved == 0 && result.missed == 0 {
-            return String(localized: "已重新查找 \(result.total) 个地点,位置都没有变化。")
+            return String(localized: "已重新查找 \(result.total) 个地点,位置都没有变化。",
+                          locale: language.locale)
         }
         if result.missed == 0 {
             return result.unchanged == 0
-                ? String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新。")
-                : String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变。")
+                ? String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新。",
+                         locale: language.locale)
+                : String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变。",
+                         locale: language.locale)
         }
-        return String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变,\(result.missed) 个没搜到(保留原来的位置)。")
+        return String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变,\(result.missed) 个没搜到(保留原来的位置)。",
+                      locale: language.locale)
     }
 
     // MARK: - 路线
@@ -1214,7 +1205,9 @@ struct TravelDetailView: View {
     // MARK: - 行
 
     /// `night` 只有按天视图里的住宿才传:那一晚是入住当晚 / 最后一晚时各挂一枚标签。
-    private func entryRow(_ entry: TravelEntry, showDate: Bool = true,
+    /// `group` 标出这一行属于哪一组(哪一天、交通、待安排……),同组的行在列表背后
+    /// 共用一整块玻璃,见 `entryGroupGlass`。
+    private func entryRow(_ entry: TravelEntry, group: String, showDate: Bool = true,
                           night: LodgingNight? = nil) -> some View {
         HStack(spacing: 8) {
         Button {
@@ -1271,10 +1264,18 @@ struct TravelDetailView: View {
             .pressable()
             .accessibilityLabel("详情")
         }
-        // 没选中时也要显式给固定底色:给 nil 就回到系统默认,而系统默认的行底色
-        // 半高时是灰色半透明、全屏时是白色,面板一拉一放卡片就跳色。
-        .listRowBackground(Self.panelRowBackground
-            .overlay(isSelected(entry) ? lodoAccent.accent.opacity(0.12) : Color.clear))
+        // 同一组的行共用一整块 Liquid Glass(用户要求,同侧栏导航行那条例外),行间
+        // 不留空隙、不要分隔线。行自己不画底,只报告位置,玻璃由列表背后的
+        // `entryGroupGlass` 按整组的范围画——每行各垫一块时相邻两块亮度对不上,
+        // 交界处有一道接缝。行内边距清零、由这里的 padding 撑回来,位置才是整行。
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .anchorPreference(key: EntryGroupFramesKey.self, value: .bounds) {
+            [group: [EntryGroupFrame(bounds: $0, selected: isSelected(entry))]]
+        }
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         // 行操作一律收在向左滑那一侧(全 app 没有 leading swipeActions,见 CLAUDE.md)。
         .swipeActions(edge: .trailing) {
             if let item = item(for: entry) {
@@ -1292,6 +1293,44 @@ struct TravelDetailView: View {
             }
         }
     }
+
+    /// 行程项分组的玻璃底:按每组各行报上来的位置取并集,画一整块圆角玻璃;选中
+    /// (地图上正定位着它)那行在玻璃上叠一层淡淡的强调色,裁在同一个圆角里。
+    /// 旧系统 /「减弱透明度」退回固定底色——理由见 `panelRowBackground`。
+    ///
+    /// 列表是懒加载的,滚出屏幕的行不报位置,并集只覆盖当前建出来的那几行;它们
+    /// 本来就在可见区外面,顶/底的圆角因此不会出现在屏幕中间。
+    private func entryGroupGlass(_ groups: [String: [EntryGroupFrame]]) -> some View {
+        GeometryReader { proxy in
+            ForEach(groups.keys.sorted(), id: \.self) { key in
+                let frames = groups[key] ?? []
+                let rects = frames.map { proxy[$0.bounds] }
+                if let first = rects.first {
+                    let union = rects.dropFirst().reduce(first) { $0.union($1) }
+                    let selected = zip(frames, rects).filter { $0.0.selected }.map(\.1)
+                    let shape = RoundedRectangle(cornerRadius: Self.entryGroupRadius, style: .continuous)
+                    ZStack(alignment: .topLeading) {
+                        GlassRowBackground(selected: false, tint: .clear, shape: shape) {
+                            shape.fill(Self.panelRowBackground)
+                        }
+                        ForEach(Array(selected.enumerated()), id: \.offset) { _, rect in
+                            Rectangle()
+                                .fill(lodoAccent.accent.opacity(0.12))
+                                .frame(width: rect.width, height: rect.height)
+                                .offset(x: rect.minX - union.minX, y: rect.minY - union.minY)
+                        }
+                    }
+                    .frame(width: union.width, height: union.height, alignment: .topLeading)
+                    .clipShape(shape)
+                    .offset(x: union.minX, y: union.minY)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// 分组玻璃的圆角,对上 List 分区自己的圆角(面板里别的分区还是系统画的)。
+    private static let entryGroupRadius: CGFloat = 22
 
     private func isSelected(_ entry: TravelEntry) -> Bool {
         guard let selectedPin else { return false }
@@ -1330,9 +1369,16 @@ struct TravelDetailView: View {
             // 住宿一律带日期:它会铺在住的每一晚上,只显示"16:00 – 11:00"会让
             // 第 2、3 天那几行看着像当天就退房了。
             let withDate = showDate || entry.kind == .lodging
-            let formatter = withDate ? Self.dateTimeFormatter : Self.timeFormatter
-            var span = formatter.string(from: start)
-            if let end = entry.end { span += " – " + formatter.string(from: end) }
+            // 交通类按两端当地时间显示(东京起飞写东京时间)。
+            var span = withDate
+                ? LocalizedContent.dateTime(start, language: language, timeZone: entry.startTimeZone)
+                : LocalizedContent.time(start, language: language, timeZone: entry.startTimeZone)
+            if let end = entry.end {
+                let endText = withDate
+                    ? LocalizedContent.dateTime(end, language: language, timeZone: entry.endTimeZone)
+                    : LocalizedContent.time(end, language: language, timeZone: entry.endTimeZone)
+                span += " – " + endText
+            }
             parts.append(span)
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
@@ -1340,33 +1386,9 @@ struct TravelDetailView: View {
 
     // MARK: - 格式化
 
-    private static let dateTimeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日 HH:mm"
-        return f
-    }()
-
-    private static let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        return f
-    }()
-
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日 EEEE"
-        return f
-    }()
-
-    private static let rangeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy年M月d日"
-        return f
-    }()
-
     private var dateRangeText: String {
-        Self.rangeFormatter.string(from: trip.startDate) + " – "
-            + Self.rangeFormatter.string(from: trip.endDate)
+        LocalizedContent.dateRangeEndpoint(trip.startDate, language: language) + " – "
+            + LocalizedContent.dateRangeEndpoint(trip.endDate, language: language)
     }
 
     private func dayIndex(_ date: Date) -> Int {
@@ -1391,8 +1413,7 @@ private struct LodgingNightBadge: View {
     }
 }
 
-/// 旅行详情行程面板的底色(见 `.presentationBackground` 那段注释)。「减弱透明度」时
-/// 直接不透明。
+/// 旅行详情行程面板的底色。「减弱透明度」开启时使用不透明面色,其余情况保持透明。
 private struct TravelPanelBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -1404,12 +1425,20 @@ private struct TravelPanelBackground: View {
     })
 
     var body: some View {
-        ZStack {
-            if !DesignMetrics.reducesTransparency(reduceTransparency) {
-                Rectangle().fill(.ultraThinMaterial)
-            }
-            Self.panelColor
-                .opacity(DesignMetrics.reducesTransparency(reduceTransparency) ? 1 : 0.9)
-        }
+        DesignMetrics.reducesTransparency(reduceTransparency) ? Self.panelColor : .clear
+    }
+}
+
+/// 一行行程项在列表里的位置,供 `entryGroupGlass` 在列表背后按组画玻璃。
+private struct EntryGroupFrame {
+    let bounds: Anchor<CGRect>
+    let selected: Bool
+}
+
+private struct EntryGroupFramesKey: PreferenceKey {
+    static let defaultValue: [String: [EntryGroupFrame]] = [:]
+    static func reduce(value: inout [String: [EntryGroupFrame]],
+                       nextValue: () -> [String: [EntryGroupFrame]]) {
+        value.merge(nextValue()) { $0 + $1 }
     }
 }

@@ -43,14 +43,32 @@ public struct AgentSkillFile: Equatable {
 
         /// 给导入页直接展示的原因。
         public var message: String {
+            let language = AppSettings.language
             switch self {
-            case .missingFrontmatter: return "文件开头缺少 --- 包起来的头信息(name/description)"
-            case .missingName: return "头信息里缺少 name"
-            case .missingDescription: return "头信息里缺少 description"
-            case .emptyBody: return "正文是空的"
-            case .nameTooLong: return "name 不能超过 \(AgentSkillFile.maxNameLength) 个字"
-            case .descriptionTooLong: return "description 不能超过 \(AgentSkillFile.maxDescriptionLength) 个字"
-            case .bodyTooLong: return "正文不能超过 \(AgentSkillFile.maxBodyLength) 个字"
+            case .missingFrontmatter:
+                return LocalizedStrings.text(.ios_core_skill_error_missing_frontmatter,
+                                             language: language)
+            case .missingName:
+                return LocalizedStrings.text(.ios_core_skill_error_missing_name,
+                                             language: language)
+            case .missingDescription:
+                return LocalizedStrings.text(.ios_core_skill_error_missing_description,
+                                             language: language)
+            case .emptyBody:
+                return LocalizedStrings.text(.ios_core_skill_error_empty_body,
+                                             language: language)
+            case .nameTooLong:
+                return String(format: LocalizedStrings.text(.ios_core_skill_error_name_too_long,
+                                                             language: language),
+                              AgentSkillFile.maxNameLength)
+            case .descriptionTooLong:
+                return String(format: LocalizedStrings.text(
+                    .ios_core_skill_error_description_too_long, language: language),
+                    AgentSkillFile.maxDescriptionLength)
+            case .bodyTooLong:
+                return String(format: LocalizedStrings.text(.ios_core_skill_error_body_too_long,
+                                                             language: language),
+                              AgentSkillFile.maxBodyLength)
             }
         }
     }

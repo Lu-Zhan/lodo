@@ -250,6 +250,8 @@ ios_view.birthday,生日,Birthday,ios_view,
 ios_view.notify_on_result,结果发通知,Notify on Result,ios_view,
 ios_view.contact_info,联系方式,Contact Info,ios_view,
 ios_view.asset_amount,资产金额,Asset Amount,ios_view,
+ios_view.asset_liability_value,负债 %@,Liability %@,ios_view,资产列表中的负债金额标签
+ios_view.asset_interest_rate_value,利率 %@,Interest rate %@,ios_view,资产列表中的利率标签
 ios_view.link,链接,Link,ios_view,
 ios_core.model_default,模型(默认 ,Model (default ,ios_core,"后接型号名+右括号;用 LocalizedStrings.translate 消费,不是字面量 Text(),scope 不能给 ios_view"
 shared.language,语言,Language,shared,
@@ -329,6 +331,33 @@ ios_core.turn_on_apple_intelligence_in_settings,请先在系统设置中开启 A
 ios_core.the_apple_intelligence_model_is_getting,"苹果智能模型准备中,请稍后再试。",The Apple Intelligence model is getting ready—try again shortly.,ios_core,
 ios_core.apple_intelligence_is_currently,苹果智能暂不可用。,Apple Intelligence is currently unavailable.,ios_core,
 ios_core.no_weekday_selected,未选择星期,No weekday selected,ios_core,
+ios_core.weekly_caption_prefix,每周,Every,ios_core,任务和定时任务说明中的每周前缀
+ios_core.next_occurrence,下次,Next,ios_core,定时任务下一次运行时间
+ios_core.no_time_set,未设置时间,No time set,ios_core,定时任务无时间点时显示
+ios_core.start_task_hint,该开始了!,Time to start!,ios_core,待办行的时长阶段提示
+ios_core.contact_exported_count,已导出 %lld 位,Exported %lld contacts,ios_core,批量导出通讯录结果
+ios_core.contact_export_skipped_count,"跳过 %lld 位重复","Skipped %lld duplicates",ios_core,批量导出通讯录结果
+ios_core.contact_export_failed_count,"%lld 位失败","%lld failed",ios_core,批量导出通讯录结果
+ios_core.routine_requires_weekday,至少选一天,Select at least one day,ios_core,定时任务每周设置校验提示
+ios_core.routine_next_unavailable,当前设置算不出下一次触发时间。,Can't calculate the next run with the current settings.,ios_core,定时任务时间预览
+ios_core.routine_next_caption,下一次:%@。一天可以设多个时间点。,Next: %@. You can add multiple times per day.,ios_core,定时任务时间预览
+ios_core.action_create,新建:%@(%@),Create: %@ (%@),ios_core,AI 批量操作确认项
+ios_core.action_update,修改:%@(%@),Update: %@ (%@),ios_core,AI 批量操作确认项
+ios_core.action_complete,完成:%@,Complete: %@,ios_core,AI 批量操作确认项
+ios_core.action_delete,删除:%@,Delete: %@,ios_core,AI 批量操作确认项
+ios_core.action_save,收藏:%@,Save: %@,ios_core,AI 批量操作确认项
+ios_core.action_query_memory,查询记忆,Search memories,ios_core,AI 批量操作确认项
+ios_core.action_answer,回答问题,Answer the question,ios_core,AI 批量操作确认项
+ios_core.action_suggest_save,建议收藏:%@,Suggest saving: %@,ios_core,AI 批量操作确认项
+ios_core.action_remember_preference,记住偏好:%@,Remember preference: %@,ios_core,AI 批量操作确认项
+ios_core.action_auto_record,自动记录:%@,Auto-record: %@,ios_core,AI 批量操作确认项
+ios_core.action_plan_trip,规划行程:%@,Plan trip: %@,ios_core,AI 批量操作确认项
+ios_core.action_edit_trip,调整行程:%@,Update trip: %@,ios_core,AI 批量操作确认项
+ios_core.action_countdown,倒数日:%@,Countdown: %@,ios_core,AI 批量操作确认项
+ios_core.unknown_task,未知事项,Unknown task,ios_core,AI 批量操作确认项
+ios_core.intent_task_added,"已添加:%@,%@","Added: %@, %@",ios_core,Siri 添加事项成功提示
+ios_core.action_missing_count,有 %lld 项操作未执行:对应事项已不存在,%lld operations were skipped because the tasks no longer exist,ios_core,AI 批量操作结果提示
+ios_core.completed_at,已于 %@ 完成,Completed on %@,ios_core,任务历史摘录
 ios_notif.time_s_up_please_take_care_of_it,"到时间了,请处理。","Time's up, please take care of it.",ios_notif,
 ios_notif.time_to_start_set_aside_d_minutes,"该开始了,请预留 %d 分钟。",Time to start—set aside %d minutes.,ios_notif,
 ios_notif.time_s_up_please_confirm_it_s_done,"时间已到,请确认完成情况。",Time's up—please confirm it's done.,ios_notif,
@@ -791,6 +820,7 @@ calendar.denied,"日历访问权限已关闭。到系统「设置 → 隐私与�
 calendar.connect_hint,"授权后这里会显示你日历里的日程,点开任意一条可以直接修改。lodo 不会替你改任何内容,改动都要你在编辑界面里确认。","After you grant access, your calendar events appear here and you can tap any of them to edit. lodo never changes anything on its own—every edit needs your confirmation.",ios_view,日历页
 calendar.mac_unsupported,macOS 版暂不支持连接系统日历。,Connecting to Calendar isn't supported on macOS yet.,ios_view,日历页
 calendar.today,今天,Today,ios_view,日历页/任务页
+tasks.filter_future,未来,Upcoming,ios_view,任务页顶部筛选
 overview.widget_now,此刻,Now,ios_view,总览页
 overview.widget_next_up,接下来,Up Next,ios_view,总览页
 overview.widget_agenda,今日日程,Today's Events,ios_view,总览页
@@ -937,3 +967,552 @@ travel.overview_pending_footer,"点行尾的 ⓘ 给它排个时间,就会出现
 travel.files_empty,"机票行程单、签证、保险、攻略截图……放在这里,在记忆里也能搜到。","Itineraries, visas, insurance, guide screenshots… keep them here — they're searchable in Memories too.",ios_view,旅行详情
 travel.files_footer,"和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。","These are the same items as in Memories: deleting removes them there too, while “Remove from Trip” just unlinks them from this trip.",ios_view,旅行详情
 travel.files_detach,移出旅行,Remove from Trip,ios_view,旅行详情
+ios_view.catalog_da39a3ee5e6b,,,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b858cb282617, , ,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_1b93795b9768,—,—,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_1fdf0d90c37a,·,·,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_7ca4844e636e,「%@」实际用了多久?,How long did “%@” actually take?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_9c74f55d8d52,「%@」改期建议,Reschedule suggestions for “%@”,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a2a4dab8586d,#%@,#%@,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_99e693f8cd0c,%@,%@,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_6c2c7047ea36,%@ · %@,%@ · %@,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_567697cd4c0f,%@ · 共 %lld 天,%@ · %lld days,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_443824e38b37,%@ %lld,%@ %lld,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_16070acfe083,%lld,%lld,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f8d820eebfed,%lld / %lld,%1$lld / %2$lld,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b0cd32904276,%lld 分钟,%lld min,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_3aad2fe07a9e,%lld 字,%lld characters,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_4a82cb8c23d7,%lld 条,%lld items,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_0caf3adc406f,%lld 项,%lld items,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_197eb092cd0a,%lld%%,%lld%%,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a2843d9bdcd7,+%lld,+%lld,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_7e27ae2668bd,AI 定时任务,AI Routine,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_47acd2028cf8,API Key,API Key,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_6ca46df113ad,iCloud,iCloud,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_76e3dc4129a6,Lodo,Lodo,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_c9cda37a6548,lodo 键盘,lodo Keyboard,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_87a8de80724f,"Qwen 语音识别(云端,默认)","Qwen Speech Recognition (cloud, default)",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_4f6147d6d79c,"Qwen 语音识别整段录音后一次性转写,停止录音到出结果会有短暂等待;系统语音识别边说边出字,但仅本机可用。语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。","Qwen transcribes the full recording after you stop, so there may be a short wait. System speech recognition shows text as you speak and works on this device only. Voice input stops and submits automatically after the selected period of silence; 0 seconds turns this off.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_48e24ef6072a,Tavily API Key,Tavily API Key,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_d70e26a22dc7,上一次旅行,Previous Trip,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b2b4a773c3d3,下一项,Next Item,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f5c3a04b4bae,"之后的对话记录会一并删除,不可恢复。",The conversation history will also be deleted. This can't be undone.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_741cc996ec44,事项,Task,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_46edd7300410,人脉页点右下角「+」记一位人脉。,Tap + at the bottom right of Contacts to add someone.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_bd4bbf2c07c1,今天有什么安排,What's on today?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_7b954f6c3dcb,今天没有任务 🎉,No tasks today 🎉,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_60df865a5600,侧键 / Siri 快捷启动,Side Button / Siri Shortcut,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_c13cdc84d8c8,保存 API Key,Save API Key,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_c9c77517fe85,修改,Edit,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_0daef74ebae9,修改这条消息?,Edit this message?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_d075c7a55eba,全天事项将在当天 %@ 提醒(可在设置中修改),Date-only tasks remind at %@ (change this in Settings).,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_39516f7f4cce,全天事项提醒时间,All-day Task Reminder Time,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_3b25082eac53,关闭导航,Close Navigation,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_53e2b5d0eb2d,"其中 %lld 项币种暂无汇率,不计入总额",%lld items are excluded from the total because exchange rates are unavailable.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_c1e7c4745555,"其中 %lld 项未填金额,不计入总额",%lld items have no amount and are excluded from the total.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f55454ab91fc,"其中 %lld 项负债币种暂无汇率,不计入净资产",%lld liabilities are excluded from net worth because exchange rates are unavailable.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_d921c0ddf748,其他旅行,Other Trips,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_163aec9194a1,内容,Content,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_1e450af99141,最近旅行,Recent Trips,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_4c5c1d6fbfda,净资产,Net Worth,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_672b9fb4130a,"删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。","Delete this contact? Their photo, attachments, and relationships will also be deleted.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_c9106a6243b2,删除这条定时任务?,Delete this routine?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_7e82bc539e7e,删除这条收藏?原始文件会一并删除。,Delete this saved item? The original file will also be deleted.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_05af3bdbad3b,"利率(可选),年化百分比数值,如 4.5","Annual interest rate (optional), e.g. 4.5",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_e5ed26c36a25,"利率无法识别为数字,改成数字或清空这一栏才能保存。",The interest rate must be a number. Enter a number or clear this field to save.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_1214d633a448,发送,Send,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_68a1050a76bb,取消上面选中的筛选就能看到全部。,Clear the selected filters above to see everything.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f1da64e3e87a,取消录音,Cancel Recording,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b1516d5cad7b,"名字,如 东京四日","Name, e.g. Four Days in Tokyo",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_63dc45aae0c7,"名称与内置 skill「%@」相同,导入会覆盖它当前的文本(可在编辑页重置)。",This matches the built-in skill “%@”. Importing will replace its current text; you can restore the default in the editor.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b3d7cccb6d0b,"国家,如 日本","Country, e.g. Japan",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_8fe63c7bb276,"在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。","Tell the AI assistant at the bottom where you want to go and for how long. It will plan the trip; add flights, lodging, and places to view the itinerary by day and track spending.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_fb56653c1e52,"在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。","Tell the AI assistant at the bottom what you want to remember, or share something from another app to Lodo. The AI will organize it as a memory.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_be185fc3b078,"在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。","Tell the AI assistant at the bottom who you want to remember. It can save their name, contact details, and preferences, and link people in a relationship graph.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b70a5bbd2f5d,在底下那条「问问 AI」里说一句要记的资产。,Tell the AI assistant at the bottom about an asset you want to record.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_aab55d2c871b,"在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。","Enable the lodo keyboard in Settings → General → Keyboard → Keyboards → Add New Keyboard, then turn on Allow Full Access to use AI. Tasks and memories added from the keyboard are saved when Lodo opens or refreshes in the background.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_201e104623ad,"城市,如 东京","City, e.g. Tokyo",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_fcb979ef0b91,处理中,Processing,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_4edd1d00875d,复制,Copy,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_636684bb9a31,完成事项,Complete Task,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_cc22768d1604,完成于 %@,Completed on %@,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a2efd736db6c,完成哪个事项?,Which task should be completed?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_0749e9504b50,完成录音,Finish Recording,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_8d9fc2384140,完整 system prompt(共 %lld 字),Full system prompt (%lld characters),ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_2ade7821ccfd,"对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。","Say “Open Lodo Assistant” to Siri, or on iPhone 15 Pro and later, choose Shortcuts → Open Lodo Assistant under Settings > Action Button for one-tap access.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a01a8d53938f,导入失败,Import Failed,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_11883b2a5e40,导出(%lld),Export (%lld),ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_675338126127,导出失败,Export Failed,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a117aacf82cf,导出完成,Export Complete,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_61a46060524d,"已使用内置 API Key,无需再填。",The built-in API key is in use; no need to enter one.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_cdfab96f757f,已保存,Saved,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_5c5b7cfb1208,已导入,Imported,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_35f670828a53,已导出,Exported,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_e3abce2148d2,已结束 · %lld,Ended · %lld,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a407916a8387,"开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。","When enabled, the Calendar page shows your calendar events. Open an event to edit or delete it in Apple's editor; you confirm each change. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync both ways: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Long-press or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in Settings → Privacy & Security → Calendars.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_79cc871ca992,开始,Start,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_5f1eb0da681f,开始了,Started,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_df9da1ccc43f,开始对话,Start a Conversation,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_23c0e102a0ae,引用,Quote,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_6f67371e0527,强调色,Accent Color,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_3df0f7fe3650,总负债,Total Liabilities,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f4bad3452468,打开 AI 助手,Open AI Assistant,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f8c6f3d1f97c,打开 App 后默认进入 AI 助手,Open the AI assistant when the app launches,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_22ee03203313,打开 lodo 助手,Open Lodo Assistant,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_9163caf90d7c,打开 lodo 的全局 AI 助手。,Open Lodo's AI assistant from anywhere.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_7d4f8a3109e0,把一个任务标记为完成。,Mark a task as complete.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_2dd549fb4ee1,把任务写进系统日历,Write Tasks to System Calendar,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_2ca03c9e27a6,"按钮、选中态和链接的颜色。每一档的浅色/深色两套取值都核过对比度,换色不会让文字变得难读。","Colors for buttons, selected states, and links. Light and dark variants are checked for contrast and readability.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f55018f3f968,按项目查看,View by Project,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_9655ee6cf6e0,搜索记忆,Search Memories,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_4c87b9356524,收藏于,Saved on,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_09faa3a04399,改期失败,Reschedule Failed,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_5d52bd2fd014,新建事项,New Task,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_07ba3da7a9d2,新建定时任务,New Routine,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_4973dcea08c1,无法访问通讯录,Can't Access Contacts,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_fe9f881ef9f9,"时段内到期事项照样显示为到期,只是不弹通知,时段结束后补发。","Tasks due during this period still appear as due, but notifications are held until the period ends.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_89b4aa6364ce,时间,Time,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_367d4bab2255,时间 %lld,Time %lld,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_592f97228c16,明天出发,Leaves Tomorrow,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a7574d8ed74f,显示人脉,Show Contacts,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_ffaffaccb923,"暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。",This can't be added directly yet. Open Lodo and the AI assistant will pick up where you left off.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_3d401090dcc7,"有 %lld 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒",%lld tasks reached the system notification limit. Open the app to see their reminders.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_66ce64d401f5,松绿,Pine Green,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_4ee02aa320a8,查看今天开始或到期的任务。,View tasks starting or due today.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_9b18613a60c7,查看图片,View Image,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_e2b50654430f,正在改期,Rescheduling,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_249753ae8e3b,"没有找到这个事项,它可能已经完成了。",Task not found; it may already be complete.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_85aa5be8493e,添加(%lld),Add (%lld),ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_515ffeab667e,添加事项,Add Task,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_dba9e8228bf3,添加附件,Add Attachment,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_aece71c3bd50,玫红,Magenta,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a1f2b10aacd0,"用一句话添加任务,AI 解析时间和时长。",Add a task in one sentence; AI will parse the time and duration.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_d3a812ceaacc,"用右下角的 + 添加,比如每天早上让 AI 总结今天的任务。","Tap + at the bottom right to add one, such as a daily morning summary of your tasks.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_e203a4c76038,目的地,Destination,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_94fb25ffb82c,石墨,Graphite,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_c454dc9ea4d2,确定恢复默认内容吗?,Restore the default content?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_9f02d489c1f6,确定清空 AI 偏好吗?,Clear AI preferences?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_e17cb4ec3356,确认修改,Confirm Changes,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_53c33059ce93,确认新建,Confirm Creation,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_089db36fe0f1,移除图片,Remove Image,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_48e8e9d320d6,稍等 %lld 分钟,Snooze %lld min,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_968a26ebb966,稍等间隔:%lld 分钟,Snooze interval: %lld min,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f37c94e63aad,系统日历,System Calendar,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_e150a15e3a33,系统语音识别(iOS 自带),System Speech Recognition (built in),ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_76b9880829e0,结束,End,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_8be258ce8b74,"给这件事归个类,「按项目查看」里会按这个分组,可留空。",Categorize this task for View by Project. Optional.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_6ea6964be4e7,编辑事项,Edit Task,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_169b3bbac885,编辑偏好,Edit Preferences,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_ba78d587f781,编辑记忆,Edit Memory,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_39b14d63cdd5,要提醒你什么?,What should I remind you about?,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f70c48ceffbb,识别中,Recognizing,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_37d5093090ec,试试加入一个任务/记忆…,Try adding a task or memory…,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_3529f616688f,语音识别引擎,Speech Recognition Engine,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_59d78c136025,"负债(可选),如房贷/车贷本金","Liability (optional), e.g. mortgage or car loan principal",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_3e65779ca4d4,"负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。",Liabilities and interest rates use the asset's currency and are included in the net worth calculation. Both are optional.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a8efdad020ec,"负债无法识别为数字,改成数字或清空这一栏才能保存。",The liability must be a number. Enter a number or clear this field to save.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_e24ede310ec1,赤陶橙,Terracotta,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f606f0c4abf0,跳过提问,Skip Question,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_f5f12f1d7a73,运行失败,Run Failed,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_daee566e7cf1,还有 %lld 天出发,Leaves in %lld Days,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_7f1f6a2d9ed4,还没有人脉,No Contacts Yet,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_9e89c80e918e,还没有标签,No Tags Yet,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_74dfb8bb3156,"还没有行程,点进去添加航班、住宿和想去的地方。","No itinerary yet. Open a trip to add flights, lodging, and places.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_6c6b430e1e1d,还没有资产记录,No Assets Yet,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_17ae36953f2e,这个筛选下还没有收藏,No saved items for this filter,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_126f71a4e3b8,进行中 · 第 %lld 天,In Progress · Day %lld,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_190d93375eb0,重命名标签,Rename Tag,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_048dc369eec0,问问 AI,Ask AI,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b58b05d38f63,静音自动停止:%lld 秒,Auto-stop after %lld seconds of silence,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_b979c0ddf9c3,靛紫,Indigo Violet,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_6aa58f8c7597,靛蓝,Indigo,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_8636c54ffd12,项目(可选),Project (optional),ios_view,Xcode 提取的 iOS UI 文案
+android_ui.all_day_reminder_time,全天事项提醒时间,All-day task reminder time,android_ui,Android app UI localization
+android_ui.date_only_reminder_hint,"只有日期、没有时间的事项,当天几点提醒。",When to remind you on the day for tasks with a date but no time.,android_ui,Android app UI localization
+android_ui.daily_task_summary,每日任务汇总,Daily task summary,android_ui,Android app UI localization
+android_ui.scheduled_reminder_footer,在设定时间提醒今天开始或到期的事项。,Reminds you at the set time about tasks starting or due today.,android_ui,Android app UI localization
+android_ui.haptic_footer,滑动完成、删除等操作时轻微振动。,Vibrates lightly when you swipe to complete or delete an item.,android_ui,Android app UI localization
+android_ui.auto_voice_input_footer,点击添加按钮弹出 AI 助手时自动开始语音输入;关闭则需手动点麦克风按钮。,Automatically starts voice input when the AI assistant opens from Add. Turn this off to tap the microphone yourself.,android_ui,Android app UI localization
+android_ui.voice_silence_timeout_hint,"语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。",Voice input stops and submits after the selected period of silence. Set to 0 seconds to turn off auto-stop.,android_ui,Android app UI localization
+android_ui.model_name,模型名称,Model name,android_ui,Android app UI localization
+android_ui.model_default_0,模型(默认 {0}),Model (default: {0}),android_ui,Android app UI localization
+android_ui.saved,已保存,Saved,android_ui,Android app UI localization
+android_ui.ai_provider_storage_footer,"默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。",DeepSeek is the default. Providers use OpenAI-compatible APIs; each API key is encrypted and stored on this device.,android_ui,Android app UI localization
+android_ui.thinking_off,关闭,Off,android_ui,Android app UI localization
+android_ui.thinking_low,低,Low,android_ui,Android app UI localization
+android_ui.thinking_medium,中,Medium,android_ui,Android app UI localization
+android_ui.thinking_high,高,High,android_ui,Android app UI localization
+android_ui.thinking_footer,"思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置。",Higher thinking levels can improve answers but take longer. This setting only applies to providers and models that support reasoning.,android_ui,Android app UI localization
+android_ui.tavily_setup_footer,"配置后 AI 助手能在需要最新信息或回答一般问题时联网搜索;免费在 tavily.com 注册获取 API Key,不填则不启用联网搜索。",Set this up to let the AI assistant search the web for current information or general questions. Get a free API key at tavily.com; leave it blank to keep web search off.,android_ui,Android app UI localization
+android_ui.persona_footer,"影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。","Sets the tone for follow-up questions, summaries, and insights. It doesn't affect parsing; no personality is used by default.",android_ui,Android app UI localization
+android_ui.completion_insight_footer,"每周在已完成页生成一句正向回顾,不会推送通知。",Adds a positive weekly reflection to the Completed page. No notification is sent.,android_ui,Android app UI localization
+android_ui.edit_ai_memory,编辑记忆,Edit Memory,android_ui,Android app UI localization
+android_ui.duration_memory_footer,"AI 会在事项完成后归纳""类型 → 典型时长"",新建没说时长的事项时据此建议。","After you complete tasks, AI learns typical durations by task type and uses them to suggest durations for new tasks.",android_ui,Android app UI localization
+android_ui.permissions,权限,Permissions,android_ui,Android app UI localization
+android_ui.enable_alarm_permission,开启「闹钟和提醒」权限,Enable Alarms & reminders permission,android_ui,Android app UI localization
+android_ui.alarm_permission_delay,未开启时提醒可能延迟最多 10 分钟。,"Without this permission, reminders may be delayed by up to 10 minutes.",android_ui,Android app UI localization
+android_ui.clear_ai_memory_question,确定清空 AI 记忆吗?,Clear AI memory?,android_ui,Android app UI localization
+android_ui.ai_filled,AI 已填写,Filled by AI,android_ui,Android app UI localization
+android_ui.never,不重复,Never,android_ui,Android app UI localization
+android_ui.date,日期,Date,android_ui,Android app UI localization
+android_ui.time,时间,Time,android_ui,Android app UI localization
+android_ui.all_day_reminder_footer_0,全天事项将在当天 {0} 提醒(可在设置中修改),All-day tasks remind you at {0} (change this in Settings).,android_ui,Android app UI localization
+android_ui.duration_label_0,时长:{0},Duration: {0},android_ui,Android app UI localization
+android_ui.no_duration,无,None,android_ui,Android app UI localization
+android_ui.duration_ai_footer,时长为 AI 参考历史类似事项的建议,Duration suggestions are based on similar tasks in your history.,android_ui,Android app UI localization
+android_ui.duration_phase_footer,有时长的事项会在开始和结束各提醒一次,Tasks with a duration send one reminder when they start and another when they end.,android_ui,Android app UI localization
+android_ui.task_fields_required,请补全事项内容和时间设置,Enter a task name and set its time.,android_ui,Android app UI localization
+android_ui.voice_not_supported,设备不支持语音输入,Voice input isn't supported on this device.,android_ui,Android app UI localization
+android_ui.manual_input,手动输入,Enter Manually,android_ui,Android app UI localization
+android_ui.new_task,新建事项,New Task,android_ui,Android app UI localization
+android_ui.edit_task,编辑事项,Edit Task,android_ui,Android app UI localization
+android_ui.collapse,收起,Collapse,android_ui,Android app UI localization
+android_ui.expand,展开,Expand,android_ui,Android app UI localization
+android_ui.today_tasks,今天任务,Today's Tasks,android_ui,Android app UI localization
+android_ui.tasks_for_date_0,{0}任务,Tasks for {0},android_ui,Android app UI localization
+android_ui.no_tasks_on_selected_day,当天暂无任务,No tasks for this day,android_ui,Android app UI localization
+android_ui.notification_permission_disabled,"通知权限未开启,到期提醒可能不会推送",Notifications are disabled. Due reminders may not be delivered.,android_ui,Android app UI localization
+android_ui.time_up_completed_question,时间到 — 完成了吗?,Time's up — is it done?,android_ui,Android app UI localization
+android_ui.start_task,开始了,Start,android_ui,Android app UI localization
+android_ui.in_progress,进行中,In progress,android_ui,Android app UI localization
+android_ui.liability_0,负债 {0},Liability {0},android_ui,Android app UI localization
+android_ui.interest_rate_0,利率 {0}%,Interest rate {0}%,android_ui,Android app UI localization
+android_ui.tomorrow,明天,Tomorrow,android_ui,Android app UI localization
+android_core_ai.backup_exported,已导出备份。,Backup exported.,android_core_ai,Android app UI localization
+android_core_ai.backup_export_failed_prefix,导出失败:,Export failed: ,android_core_ai,Android app UI localization
+android_core_ai.backup_imported,已导入 %1$d 项任务、%2$d 条记忆、%3$d 条人脉关系。,"Imported %1$d tasks, %2$d memories, and %3$d contact relationships.",android_core_ai,Android app UI localization
+android_core_ai.backup_import_failed_prefix,导入失败:,Import failed: ,android_core_ai,Android app UI localization
+android_core_ai.actions_not_executed,有 %1$d 项操作未执行:对应事项已不存在,%1$d actions couldn't be completed because the corresponding tasks no longer exist.,android_core_ai,Android app UI localization
+android_core_ai.task_not_found_for_edit,无法解析:找不到要修改的事项,Couldn't parse: the task to edit couldn't be found.,android_core_ai,Android app UI localization
+android_core_ai.too_many_reasoning_turns,"无法解析:多轮推理超过上限,换个说法试试",Couldn't parse: the reasoning limit was reached. Try rephrasing.,android_core_ai,Android app UI localization
+android_ui.ai_task_parse_footer,"一句话描述事项,解析结果会填入下方表单;没说时长时 AI 会按历史记忆建议。","Describe the task in one sentence. The parsed details fill in below; if you don't specify a duration, AI will suggest one from past tasks.",android_ui,Android app UI localization
+android_ui.save_api_key,保存 API Key,Save API Key,android_ui,Android app UI localization
+android_ui.tavily_api_key,Tavily API Key,Tavily API Key,android_ui,Android app UI localization
+android_ui.yesterday,昨天,Yesterday,android_ui,Android app UI localization
+android_ui.date_time_today_0,今天 {0},Today at {0},android_ui,Android app UI localization
+android_ui.date_time_tomorrow_0,明天 {0},Tomorrow at {0},android_ui,Android app UI localization
+android_ui.date_time_on_0,{0},{0},android_ui,Android app UI localization
+android_core_ai.weekly_caption_prefix,每周,Every ,android_core_ai,待办确认项的每周规则说明
+android_core_ai.minutes_unit,分钟,min,android_core_ai,任务说明的时长单位
+android_core_ai.in_progress,进行中,In progress,android_core_ai,任务说明阶段
+android_core_ai.action_create,新建:%1$s(%2$s),Create: %1$s (%2$s),android_core_ai,AI 批量操作确认项
+android_core_ai.action_update,修改:%1$s(%2$s),Update: %1$s (%2$s),android_core_ai,AI 批量操作确认项
+android_core_ai.action_complete,完成:%1$s,Complete: %1$s,android_core_ai,AI 批量操作确认项
+android_core_ai.action_delete,删除:%1$s,Delete: %1$s,android_core_ai,AI 批量操作确认项
+android_core_ai.action_memorize,收藏:%1$s,Save: %1$s,android_core_ai,AI 批量操作确认项
+android_core_ai.action_answer,回答:%1$s,Answer: %1$s,android_core_ai,AI 批量操作确认项
+android_core_ai.action_search_memory,查记忆:%1$s,Search memories: %1$s,android_core_ai,AI 批量操作确认项
+android_core_ai.action_suggest_save,建议收藏:%1$s,Suggest saving: %1$s,android_core_ai,AI 批量操作确认项
+android_core_ai.unknown_task,未知事项,Unknown task,android_core_ai,AI 批量操作确认项
+android_core_ai.task_updated,已修改:,Updated: ,android_core_ai,AI 单条修改成功提示
+android_core_ai.memory_saved,已收藏:,Saved: ,android_core_ai,AI 收藏成功提示
+android_core_ai.organizing,整理中…,Organizing…,android_core_ai,AI 收藏结果为空标题时显示
+android_core_ai.no_saved_memories,"你还没有任何收藏,先在「记忆」页收藏一些内容吧。","You haven't saved anything yet. Save something on the Memories page first.",android_core_ai,记忆问答空状态提示
+android_core_ai.undo_stale,"这批操作已经被后面的操作覆盖,无法撤销。",This batch was replaced by a later one and can't be undone.,android_core_ai,撤销结果
+android_core_ai.undo_none,没有可撤销的操作。,Nothing to undo.,android_core_ai,撤销结果
+android_core_ai.undo_missing,已撤销上一步操作(%1$d 项因事项已不存在无法撤销)。,Undid the last action (%1$d tasks no longer exist and couldn't be restored).,android_core_ai,撤销结果
+android_core_ai.undo_success,已撤销上一步操作。,Undid the last action.,android_core_ai,撤销结果
+android_ui.weekly_caption_prefix,每周,Every,android_ui,待办行重复规则说明前缀
+android_ui.duration_start_message_0,{0} — 该开始了!,{0} — Time to start!,android_ui,Android app UI localization
+android_ui.time_to_finish,时间到 — 完成了吗?,Time's up — is it done?,android_ui,Android app UI localization
+android_ui.complete_action,完成,Done,android_ui,Android app UI localization
+android_ui.asset_liability_0_1,负债 {0} {1},Liability {0} {1},android_ui,Android app UI localization
+android_ui.agent_footer,"一句话新增/修改/完成/删除任务,可一次说多件事;输入内容和当前任务列表会发送给 DeepSeek 解析。","Create, edit, complete, or delete one or more tasks in a sentence. Your input and current task list are sent to DeepSeek for processing.",android_ui,Android app UI localization
+ios_view.unnamed_contact,(未命名),Untitled,ios_view,人脉空标题占位
+ios_view.unnamed_task,未命名任务,Untitled task,ios_view,定时任务空标题占位
+ios_view.view_original_file,查看原文件,View original file,ios_view,附件入口
+ios_view.saved_to_contacts,已导出到通讯录。,Exported to Contacts.,ios_view,通讯录导出结果
+ios_view.organizing,正在整理…,Organizing…,ios_view,收藏整理中空标题占位
+ios_view.creation_cancelled,已取消新建,Creation canceled,ios_view,AI 操作状态
+ios_view.unanswered,未回答,Unanswered,ios_view,AI 反问空答案占位
+ios_view.task_created_accessibility,"已新建:%@,点两下取消","Created: %@, double-tap to cancel",ios_view,AI 操作卡片旁白
+ios_view.task_cancelled_accessibility,"已取消:%@,点两下重新新建","Cancelled: %@, double-tap to create again",ios_view,AI 操作卡片旁白
+ios_core.task_in_progress,进行中,In progress,ios_core,任务说明阶段
+ios_core.duration_field,时长:%@,Duration: %@,ios_core,任务表单时长字段
+ios_core.duration_none,无,None,ios_core,任务表单无时长状态
+ios_core.relative_started,已开始,Started,ios_core,总览待办相对时间
+ios_core.relative_minutes,%lld 分钟后,in %lld min,ios_core,总览待办相对时间
+ios_core.relative_hours,%lld 小时后,in %lld hr,ios_core,总览待办相对时间
+ios_core.relative_hours_minutes,%lld 小时 %lld 分钟后,in %lld hr %lld min,ios_core,总览待办相对时间
+ios_core.relative_days,%lld 天后,in %lld days,ios_core,总览待办相对时间
+ios_core.memory_kind_text,文字,Text,ios_core,记忆类型标签
+ios_core.memory_kind_link,链接,Link,ios_core,记忆类型标签
+ios_core.memory_kind_pdf,PDF,PDF,ios_core,记忆类型标签
+ios_core.memory_kind_image,图片,Image,ios_core,记忆类型标签
+ios_core.memory_kind_file,文件,File,ios_core,记忆类型标签
+ios_core.skill_agent_title,总则(agent.md),General rules (agent.md),ios_core,AI Skill 设置标题
+ios_core.skill_todo_title,构建待办,Task management,ios_core,AI Skill 设置标题
+ios_core.skill_memory_title,记忆,Memory,ios_core,AI Skill 设置标题
+ios_core.skill_web_search_title,联网搜索,Web search,ios_core,AI Skill 设置标题
+ios_core.skill_health_title,健康,Health,ios_core,AI Skill 设置标题
+ios_core.skill_travel_title,旅行,Travel,ios_core,AI Skill 设置标题
+ios_core.skill_trip_planner_title,规划行程,Trip planning,ios_core,AI Skill 设置标题
+ios_core.skill_news_title,新闻,News,ios_core,AI Skill 设置标题
+ios_core.skill_countdown_title,倒数日,Countdown,ios_core,AI Skill 设置标题
+ios_core.skill_assets_title,资产与负债,Assets and liabilities,ios_core,AI Skill 设置标题
+ios_core.skill_duration_title,时长建议,Duration suggestions,ios_core,AI Skill 设置标题
+ios_core.skill_routine_web_title,定时任务联网,Web search for routines,ios_core,AI Skill 设置标题
+ios_core.skill_agent_subtitle,AI 入口的角色设定与通用判断规则,AI assistant role and general decision rules,ios_core,AI Skill 设置说明
+ios_core.skill_todo_subtitle,新建/修改事项的字段格式与时间换算规则,Task creation and editing fields and time conversion rules,ios_core,AI Skill 设置说明
+ios_core.skill_memory_subtitle,收藏与查记忆的判定规则(仅记忆功能开启时生效),Rules for saving and searching memories (only active when Memory is enabled),ios_core,AI Skill 设置说明
+ios_core.skill_web_search_subtitle,查最新信息/回答一般问题的判定规则(仅配置 Tavily key 后生效),Rules for current information and general questions (requires a Tavily key),ios_core,AI Skill 设置说明
+ios_core.skill_health_subtitle,读健康数据回答身体状况问题的判定规则(仅开启健康分析后生效),Rules for answering health questions from data (requires Health Analysis),ios_core,AI Skill 设置说明
+ios_core.skill_travel_subtitle,读行程回答问题、按天调整已记下的行程(仅记录过旅行后生效),Read trips and adjust plans by day (requires a saved trip),ios_core,AI Skill 设置说明
+ios_core.skill_trip_planner_subtitle,"按目的地、天数和偏好自动排行程,确认后写进「旅行」","Plan a trip from the destination, duration, and your preferences; add it to Travel after you confirm.",ios_core,AI Skill 设置说明
+ios_core.skill_news_subtitle,在订阅的新闻与博客里找文章、回答最近发生了什么(仅有订阅后生效),Search subscribed news and blogs for articles and recent events (requires subscriptions),ios_core,AI Skill 设置说明
+ios_core.skill_countdown_subtitle,新建、修改、删除倒数日与它们的提醒,"Create, edit and delete countdowns and their reminders",ios_core,AI Skill 设置说明
+ios_core.skill_assets_subtitle,收藏时识别资产金额、币种、负债与利率的规则,"Rules for recognizing asset values, currencies, liabilities, and interest rates when saving",ios_core,AI Skill 设置说明
+ios_core.skill_duration_subtitle,"没说时长时,按时长记忆给新事项建议时长(停用则不再建议)",Suggest task durations from duration memory when none is specified (disabled means no suggestions),ios_core,AI Skill 设置说明
+ios_core.skill_routine_web_subtitle,"定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)",Web search for routines that need current information (requires a Tavily key),ios_core,AI Skill 设置说明
+ios_core.skill_group_system,系统 skills,System skills,ios_core,AI Skill 设置分组
+ios_core.skill_group_memory,记忆 skills,Memory skills,ios_core,AI Skill 设置分组
+ios_core.skill_group_travel,旅行 skills,Travel skills,ios_core,AI Skill 设置分组
+ios_core.skill_group_health,健康 skills,Health skills,ios_core,AI Skill 设置分组
+ios_core.skill_group_news,新闻 skills,News skills,ios_core,AI Skill 设置分组
+ios_core.skill_group_routine,定时任务 skills,Routine skills,ios_core,AI Skill 设置分组
+ios_core.skill_group_custom,我的 skills,My skills,ios_core,AI Skill 设置分组
+ios_core.skill_error_missing_frontmatter,文件开头缺少 --- 包起来的头信息(name/description),The file is missing a front matter block (name/description) at the beginning.,ios_core,AI Skill 文件校验
+ios_core.skill_error_missing_name,头信息里缺少 name,The front matter is missing a name.,ios_core,AI Skill 文件校验
+ios_core.skill_error_missing_description,头信息里缺少 description,The front matter is missing a description.,ios_core,AI Skill 文件校验
+ios_core.skill_error_empty_body,正文是空的,The body is empty.,ios_core,AI Skill 文件校验
+ios_core.skill_error_name_too_long,name 不能超过 %lld 个字,The name can't exceed %lld characters.,ios_core,AI Skill 文件校验
+ios_core.skill_error_description_too_long,description 不能超过 %lld 个字,The description can't exceed %lld characters.,ios_core,AI Skill 文件校验
+ios_core.skill_error_body_too_long,正文不能超过 %lld 个字,The body can't exceed %lld characters.,ios_core,AI Skill 文件校验
+ios_core.zip_invalid,不是有效的 zip 文件,This isn't a valid ZIP file.,ios_core,备份解压错误
+ios_core.zip_unsupported_method,zip 里有不支持的压缩方式,This ZIP uses an unsupported compression method.,ios_core,备份解压错误
+ios_core.zip_decompression_failed,zip 内容解压失败,Couldn't decompress the ZIP contents.,ios_core,备份解压错误
+ios_core.feed_not_rss,这不是 RSS/Atom 订阅地址,This isn't an RSS or Atom feed URL.,ios_core,新闻订阅错误
+ios_core.feed_parse_failed,订阅内容解析失败:,Couldn't parse the feed:,ios_core,新闻订阅错误前缀
+ios_core.news_invalid_url,请输入一个有效的网址。,Enter a valid URL.,ios_core,新闻订阅错误
+ios_core.news_already_subscribed,已经订阅过「%@」了,You already subscribe to %@.,ios_core,新闻订阅错误
+ios_core.news_feed_not_found,"这个网址里没找到 RSS/Atom 订阅地址。可以试试直接填博客的 feed 地址(常见的是 /feed、/rss.xml、/atom.xml)。","Couldn't find an RSS or Atom feed at this URL. Try entering the blog's feed URL directly (often /feed, /rss.xml, or /atom.xml).",ios_core,新闻订阅错误
+ios_core.exchange_rate_failed,获取汇率失败:,Couldn't retrieve exchange rates:,ios_core,汇率错误前缀
+ios_core.embedding_unavailable,语义检索不可用,Semantic search is unavailable.,ios_core,语义检索错误
+ios_core.embedding_failed,语义检索请求失败:,Semantic search failed:,ios_core,语义检索错误前缀
+ios_core.reminders_repeat_note,lodo 重复事项:%@(系统侧仅显示下一次),lodo recurring task: %@ (only the next occurrence is shown in Reminders),ios_core,系统提醒事项备注
+ios_core.task_fields_required,请补全事项内容和时间设置,Enter a task name and set its time.,ios_core,事项表单校验
+ios_core.travel_screenshot_text_missing,"没从截图里认出文字。换一张更清晰的截图,或者直接把文字贴进来。",Couldn't read text from the screenshot. Try a clearer image or paste the text directly.,ios_core,旅行订单截图识别失败
+ios_core.travel_import_items_missing,"没从这段文字里读出行程项。换一段更完整的订单内容试试,或者直接手动添加。",Couldn't find any trip items in this text. Try a more complete booking or add items manually.,ios_core,旅行订单解析结果为空
+ios_core.news_no_recent_articles,最近 24 小时订阅里没有新文章。,There are no new articles from your subscriptions in the last 24 hours.,ios_core,新闻简报空结果
+ios_core.backup_import_success,"任务、记忆与 AI 对话已导入;如果设置项有变化(如 iCloud 同步),需要退出并重新打开 App 才能生效。","Tasks, memories, and AI conversations were imported. Restart the app for imported settings such as iCloud sync to take effect.",ios_core,备份导入成功
+ios_core.backup_import_summary,导出于 %@ · %lld 条任务 · %lld 条记忆 · %lld 条对话消息,Exported %@ · %lld tasks · %lld memories · %lld chat messages,ios_core,备份导入确认摘要
+ios_core.skill_file_not_utf8,读不出文件内容(需要 UTF-8 文本),Couldn't read the file. It must be UTF-8 text.,ios_core,Skill 导入错误
+ios_core.skill_duplicate_name,已经有同名的 skill 了,A skill with this name already exists.,ios_core,Skill 名称校验
+ios_core.agent_memory_cancelled,已取消收藏。,Removed from saved memories.,ios_core,AI 记忆操作结果
+ios_core.agent_memory_saved,已收藏,Saved,ios_core,AI 记忆操作结果
+ios_core.agent_memory_auto_saved,已自动记录,Recorded automatically,ios_core,AI 记忆操作结果
+ios_core.agent_task_created,已新建,Created,ios_core,AI 任务操作结果
+ios_core.agent_task_updated,已修改,Updated,ios_core,AI 任务操作结果
+ios_core.agent_operation_cancelled,已取消这次操作。,This action was cancelled.,ios_core,AI 操作取消结果
+ios_core.agent_question_cancelled,已取消这次提问。,This question was cancelled.,ios_core,AI 反问取消结果
+ios_core.agent_operations_completed,已完成执行,Actions completed,ios_core,AI 批量操作结果
+ios_core.feed_subscription_failed,「%@」订阅失败:%@,Couldn't subscribe to %@: %@,ios_core,新闻推荐订阅错误
+ios_core.processing,处理中…,Working…,ios_core,AI 助手默认处理中提示
+ios_core.thinking_busy,作业中…,Working…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_reviewing,批示中…,Reviewing…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_slacking,摸鱼中…,Taking a break…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_overtime,996中…,Working overtime…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_reasoning,思考中…,Thinking…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_reflecting,感悟中…,Reflecting…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_pondering,琢磨中…,Pondering…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_guessing,掐指一算…,Calculating…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_planning,盘算中…,Planning…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_working_hard,打工中…,On the clock…,ios_core,AI 助手轮换处理中提示
+ios_core.thinking_meeting,开会中…,In a meeting…,ios_core,AI 助手轮换处理中提示
+ios_core.speech_permission_denied,"语音识别未授权,请到系统设置中开启。",Speech recognition isn't authorized. Enable it in System Settings.,ios_core,语音识别错误
+ios_core.microphone_permission_denied,"麦克风未授权,请到系统设置中开启。",Microphone access isn't authorized. Enable it in System Settings.,ios_core,语音识别错误
+ios_core.speech_unavailable,语音识别暂不可用。,Speech recognition is currently unavailable.,ios_core,语音识别错误
+ios_core.recording_start_failed,无法启动录音:,Couldn't start recording:,ios_core,录音错误前缀
+ios_core.recording_file_unreadable,无法读取录音文件。,Couldn't read the recording file.,ios_core,录音错误
+ios_core.backup_invalid_file,无法识别这份备份文件,This backup file isn't recognized.,ios_core,备份导入错误
+ios_core.reminders_permission_failed,请求权限失败:,Permission request failed:,ios_core,系统提醒事项错误前缀
+ios_core.reminders_export_failed,导出失败:,Export failed:,ios_core,系统提醒事项错误前缀
+ios_notif.routine_open_reminder,"到时间了,打开看看今天的内容。",It's time. Open the app to see today's content.,ios_notif,定时任务通知正文
+web.settings,设置,Settings,web,Streamlit demo UI
+web.snooze_interval_minutes,稍等间隔(分钟),Snooze interval (minutes),web,Streamlit demo UI
+web.how_long_to_wait_before_reminding_again_after_snoozing_or_ignoring,"稍等或忽略提醒后,多久再次提醒",How long to wait before reminding again after snoozing or ignoring,web,Streamlit demo UI
+web.repeat_reminders,反复提醒,Repeat reminders,web,Streamlit demo UI
+web.repeat_reminders_at_each_snooze_interval_until_completed_turn_off_to_remind_once_overdue_tasks_remain_visible_and_you_can_still_snooze_them_manually,"到期后每隔一个稍等间隔重复提醒,直到完成。关掉则只提醒一次(事项仍然显示为逾期,你主动点「稍等」也照样有效)","Repeat reminders at each snooze interval until completed. Turn off to remind once. Overdue tasks remain visible, and you can still snooze them manually.",web,Streamlit demo UI
+web.all_day_reminder_time,全天事项提醒时间,All-day reminder time,web,Streamlit demo UI
+web.time_of_day_to_remind_for_tasks_with_a_date_but_no_specific_time,"只有日期、没有时间的事项,当天几点提醒",Time of day to remind for tasks with a date but no specific time,web,Streamlit demo UI
+web.daily_task_summary,每日待办汇总,Daily task summary,web,Streamlit demo UI
+web.summary_reminder_time,汇总提醒时间,Summary reminder time,web,Streamlit demo UI
+web.quiet_hours,免打扰时段,Quiet hours,web,Streamlit demo UI
+web.due_tasks_remain_visible_during_quiet_hours_but_notifications_are_held_until_quiet_hours_end,"时段内到期事项照样显示为到期,只是不弹通知,时段结束后补发","Due tasks remain visible during quiet hours, but notifications are held until quiet hours end",web,Streamlit demo UI
+web.start,开始,Start,web,Streamlit demo UI
+web.end,结束,End,web,Streamlit demo UI
+web.language,语言 / Language,Language,web,Streamlit demo UI
+web.task,事项内容,Task,web,Streamlit demo UI
+web.never,不重复,Never,web,Streamlit demo UI
+web.every_day,每天,Every day,web,Streamlit demo UI
+web.every_week,每周,Every week,web,Streamlit demo UI
+web.repeat,重复,Repeat,web,Streamlit demo UI
+web.date,日期,Date,web,Streamlit demo UI
+web.all_day,全天,All day,web,Streamlit demo UI
+web.date_only_remind_at_time,"只有日期,当天 {time} 提醒",Date only; remind at {time},web,Streamlit demo UI
+web.time,时间,Time,web,Streamlit demo UI
+web.weekdays,周几,Weekdays,web,Streamlit demo UI
+web.reminder_times_select_multiple_or_enter_a_time_e_g_08_30,"提醒时间点(可多个,可直接输入如 08:30)","Reminder times (select multiple or enter a time, e.g. 08:30)",web,Streamlit demo UI
+web.enter_times_in_hh_mm_format_e_g_08_30,"时间点格式应为 HH:MM,如 08:30","Enter times in HH:MM format, e.g. 08:30",web,Streamlit demo UI
+web.duration_minutes_0_means_no_duration,"时长(分钟,0 表示无时长)",Duration (minutes; 0 means no duration),web,Streamlit demo UI
+web.min,分钟,min,web,Streamlit demo UI
+web.in_progress,进行中,In progress,web,Streamlit demo UI
+web.create_from_natural_language,自然语言创建,Create from natural language,web,Streamlit demo UI
+web.try_remind_me_to_call_mom_today_at_9_remind_me_to_take_medicine_every_day_at_9_and_21_exercise_every_mon_wed_fri_at_8,例如:今天9点提醒我给妈妈打电话 / 每天9点和21点提醒吃药 / 每周一三五8点健身,"Try: remind me to call Mom today at 9 / remind me to take medicine every day at 9 and 21 / exercise every Mon, Wed, Fri at 8",web,Streamlit demo UI
+web.parse,✨ 解析,✨ Parse,web,Streamlit demo UI
+web.deepseek_is_parsing,DeepSeek 解析中…,DeepSeek is parsing…,web,Streamlit demo UI
+web.parsed_task_confirm_to_create,"解析结果,确认后创建:",Parsed task. Confirm to create:,web,Streamlit demo UI
+web.create,✅ 创建,✅ Create,web,Streamlit demo UI
+web.create_2,创建,Create,web,Streamlit demo UI
+web.complete_the_task_details_and_time_settings,请补全事项内容和时间设置,Complete the task details and time settings,web,Streamlit demo UI
+web.complete_the_task_details_and_time_settings_recurring_tasks_need_weekdays_and_reminder_times,请补全事项内容和时间设置(重复事项需选周几和时间点),Complete the task details and time settings. Recurring tasks need weekdays and reminder times.,web,Streamlit demo UI
+web.cancel,取消,Cancel,web,Streamlit demo UI
+web.create_manually,✍️ 手动创建,✍️ Create manually,web,Streamlit demo UI
+web.today_at_time,今天 {time},Today at {time},web,Streamlit demo UI
+web.tomorrow_at_time,明天 {time},Tomorrow at {time},web,Streamlit demo UI
+web.it_s_time_to_start,该开始了,It's time to start,web,Streamlit demo UI
+web.it_s_time,到时间了,It's time,web,Streamlit demo UI
+web.time_to_start,该开始了!,Time to start!,web,Streamlit demo UI
+web.time_s_up_are_you_done,时间到 — 完成了吗?,Time's up — are you done?,web,Streamlit demo UI
+web.started,▶️ 开始了,▶️ Started,web,Streamlit demo UI
+web.complete,✅ 完成,✅ Complete,web,Streamlit demo UI
+web.completed_next_reminder_time,"✅ 已完成,下次提醒 {time}",✅ Completed. Next reminder: {time},web,Streamlit demo UI
+web.snooze_minutes_min,⏳ 稍等 {minutes} 分钟,⏳ Snooze {minutes} min,web,Streamlit demo UI
+web.ignore,🙈 忽略,🙈 Ignore,web,Streamlit demo UI
+web.unlike_snoozing_the_interval_doubles_after_each_ignore_it_resets_when_you_snooze_complete_or_reschedule,"和稍等不同:间隔逐次翻倍,直到稍等/完成/改期才重置","Unlike snoozing, the interval doubles after each ignore. It resets when you snooze, complete, or reschedule.",web,Streamlit demo UI
+web.daily_task_summary_date,📋 每日待办汇总({date}),📋 Daily task summary ({date}),web,Streamlit demo UI
+web.all_tasks_completed_today,🎉 今日事项全部完成!,🎉 All tasks completed today!,web,Streamlit demo UI
+web.got_it,知道了,Got it,web,Streamlit demo UI
+web.to_do_count,📌 待办 ({count}),📌 To do ({count}),web,Streamlit demo UI
+web.completed,✅ 已完成,✅ Completed,web,Streamlit demo UI
+web.no_tasks_yet,暂无待办事项,No tasks yet,web,Streamlit demo UI
+web.edit,编辑,Edit,web,Streamlit demo UI
+web.mark_complete,标记完成,Mark complete,web,Streamlit demo UI
+web.delete,删除,Delete,web,Streamlit demo UI
+web.edit_with_ai,AI 修改,Edit with AI,web,Streamlit demo UI
+web.try_move_it_to_8_pm_tomorrow,例如:改到明天晚上8点,Try: move it to 8 PM tomorrow,web,Streamlit demo UI
+web.apply,✨ 应用,✨ Apply,web,Streamlit demo UI
+web.deepseek_is_editing,DeepSeek 修改中…,DeepSeek is editing…,web,Streamlit demo UI
+web.save,💾 保存,💾 Save,web,Streamlit demo UI
+web.no_completed_tasks_yet,还没有完成的事项,No completed tasks yet,web,Streamlit demo UI
+web.completed_time,完成于 {time},Completed {time},web,Streamlit demo UI
+web.deepseek_api_key_is_not_configured_add_it_to_web_env_or_create_the_task_manually,"未配置 DEEPSEEK_API_KEY,请在 web/.env 中填写,或使用手动创建。",DEEPSEEK_API_KEY is not configured. Add it to web/.env or create the task manually.,web,Streamlit demo UI
+web.deepseek_request_failed,调用 DeepSeek 失败:,DeepSeek request failed:,web,Streamlit demo UI
+web.could_not_parse,无法解析:,Could not parse:,web,Streamlit demo UI
+web.deepseek_returned_an_invalid_response,DeepSeek 返回格式异常:,DeepSeek returned an invalid response:,web,Streamlit demo UI
+ask_bar.overview,今天有什么安排？,What's on today?,ios_view,底部对话条占位短句
+ask_bar.todo,要记下什么事？,Anything to remember?,ios_view,底部对话条占位短句
+ask_bar.calendar,要安排点什么？,Plan something?,ios_view,底部对话条占位短句
+ask_bar.memory,想找点什么？,Looking for something?,ios_view,底部对话条占位短句
+ask_bar.contact,想起谁了？,Thinking of someone?,ios_view,底部对话条占位短句
+ask_bar.health,最近身体怎么样？,How've you been feeling?,ios_view,底部对话条占位短句
+ask_bar.travel,想去哪玩？,Where to next?,ios_view,底部对话条占位短句
+ask_bar.trip,这趟还想去哪？,Anywhere else on this trip?,ios_view,底部对话条占位短句
+ask_bar.menu,在吃什么呀？,What's cooking?,ios_view,底部对话条占位短句
+ask_bar.news,今天有什么新鲜事？,What's new today?,ios_view,底部对话条占位短句
+ios_view.lock_countdown_packing_00,带 %@ 的会显示在锁屏「倒数日」小组件上。,Items with %@ appear in the Countdown Lock Screen widget.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_01,AI 建议,AI Suggestions,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_02,AI 建议清单,Suggest a List with AI,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_03,AI 正在想要带什么…,AI is thinking about what to pack…,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_04,AI 没有想到清单里还缺什么。,AI couldn't think of anything missing from the list.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_05,%lld 小时,%lld hr,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_06,%lld 小时 %lld 分钟,%lld hr %lld min,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_07,上车点,Boarding Point,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_08,"上车点,如 3 号站台","Boarding point, e.g. Bay 3",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_09,不提醒,None,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_10,今天开始,Starts today,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_11,今天没有安排,Nothing planned today,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_12,今天结束,Ends today,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_13,今日,Today,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_14,全天的事按「设置 → 提醒」里的全天提醒时间(%@)提醒。,All-day events remind you at the all-day reminder time in Settings → Reminders (%@).,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_15,"全天的事按日子算,结束那天整天都还算进行中。",All-day events count by date; the end date still counts as in progress all day.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_16,准时,At time of event,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_17,出发地时区,Departure Time Zone,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_18,"出发航站楼,如 T3","Departure terminal, e.g. T3",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_19,刚刚结束,Just ended,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_20,删除倒数日,Delete Countdown,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_21,删除这个倒数日?提醒也会一起取消。,Delete this countdown? Its reminders will be canceled too.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_22,到达地时区,Arrival Time Zone,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_23,加入清单,Add to List,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_24,取消置顶,Unpin,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_25,可以选多个。,You can choose more than one.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_26,"名称,如 东京旅行、驾照考试","Name, e.g. Tokyo trip, driving test",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_27,在倒数日里选要显示的,Choose which to show in Countdown,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_28,客车信息,Coach Details,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_29,就是今天,Today,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_30,就是现在,Now,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_31,已开始 %lld 天,Started %lld d ago,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_32,已经过去 · %lld,Past · %lld,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_33,已结束 %lld 天,Ended %lld d ago,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_34,已置顶,Pinned,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_35,已装好 %lld / %lld,Packed %lld / %lld,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_36,已过去 %@,%@ ago,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_37,已过去 %lld 天,%lld d ago,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_38,座席,Class,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_39,"座席,如 二等座、指定席","Class, e.g. second class, reserved seat",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_40,开始 %@,Starts %@,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_41,开始提醒,Start Reminders,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_42,当地时区,Local Time Zone,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_43,"按目的地、季节和行程,让 AI 先列一份,再挑着加进来。","Let AI draft a list based on the destination, season and itinerary, then pick what to add.",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_44,提前 %lld 周,%lld wk before,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_45,提前 %lld 天,%lld d before,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_46,提前 %lld 小时,%lld hr before,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_47,提前 %lld 分钟,%lld min before,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_48,搜索城市或 GMT+9,Search a city or GMT+9,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_49,时区,Time Zone,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_50,"时间按出发地、到达地的当地时间填,行程里也按当地日期排;时区不填就按手机的时区。","Enter times in local time at departure and arrival; the itinerary is arranged by local date too. Without a time zone, your phone's time zone is used.",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_51,显示在锁屏小组件,Show in Lock Screen Widget,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_52,有提醒,Has reminders,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_53,有结束时间,Has End Time,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_54,检票口,Ticket Gate,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_55,没有还没到的日子了。,No upcoming dates.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_56,添加倒数日,Add Countdown,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_57,添加要带的东西,Add something to pack,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_58,清单,Packing,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_59,火车信息,Train Details,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_60,班次(可选),Service number (optional),ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_61,站台,Platform,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_62,结束 %@,Ends %@,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_63,结束提醒,End Reminders,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_64,"结束早于开始,改一下才能保存。",The end is before the start. Fix it to save.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_65,编辑倒数日,Edit Countdown,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_66,置顶,Pin,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_67,"考试、搬家、演唱会、放假……点右上角的「+」记下日子,这里会一直告诉你还有几天。","Exams, moving day, concerts, holidays… Tap + at the top right to add a date, and this page will keep counting the days for you.",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_68,"航班号(可选),如 CA925","Flight number (optional), e.g. CA925",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_69,"舱位,如 经济舱","Cabin, e.g. Economy",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_70,行程时长,Duration,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_71,跟随手机,Same as Phone,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_72,车厢,Car,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_73,"车次(可选),如 G123、Nozomi 21","Train number (optional), e.g. G123, Nozomi 21",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_74,还有 %@,In %@,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_75,还有 %@开始,Starts in %@,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_76,还有 %@结束,Ends in %@,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_77,还有 %lld 天,In %lld d,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_78,还有 %lld 天开始,Starts in %lld d,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_79,还有 %lld 天结束,Ends in %lld d,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_80,还有几天？,How many days to go?,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_81,还没有倒数日,No Countdowns Yet,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_82,"都是可选的,照车票上的填。",All optional—fill in what's on your ticket.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_83,重要的事,Important,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_84,"锁屏「倒数日」小组件最多显示 3 件,已经选满了。先在别的倒数日里关掉一件。",The Countdown Lock Screen widget shows up to 3 items and is full. Turn one off in another countdown first.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_85,"锁屏「倒数日」小组件最多显示 3 件,按日子从近到远排。","The Countdown Lock Screen widget shows up to 3 items, soonest first.",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_86,长按任务即可置顶,Touch and hold a task to pin it,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_87,飞行 %@,Flight time %@,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_88,飞行时长,Flight Time,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_89,马上开始,Starting now,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_90,马上结束,Ending now,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_91,、,", ",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+overview.countdown_empty,没有快到的日子,No dates coming up,ios_view,总览倒数日模块空态
+ios_view.transport_line_0,检票口 %@,Gate %@,ios_view,订单导入确认页火车/客车信息
+ios_view.transport_line_1,站台 %@,Platform %@,ios_view,订单导入确认页火车/客车信息
+ios_view.transport_line_2,上车点 %@,Boarding %@,ios_view,订单导入确认页火车/客车信息
+ios_view.transport_line_3,%@ 车厢,Car %@,ios_view,订单导入确认页火车/客车信息
+ios_view.agent_result_0,已更新,Updated,ios_view,AI 结果回复/倒数日
+ios_view.agent_result_1,已删除,Deleted,ios_view,AI 结果回复/倒数日
+ios_view.agent_result_2,已撤销,Undone,ios_view,AI 结果回复/倒数日
+ios_view.agent_result_3,已新建,Created,ios_view,AI 结果回复/倒数日
+ios_view.agent_result_4,已修改,Updated,ios_view,AI 结果回复/倒数日
+ios_view.agent_result_5,倒数日已更新,Countdown updated,ios_view,AI 结果回复/倒数日
+ios_view.agent_result_6,已调整「%@」:%@,Updated “%@”: %@,ios_view,AI 结果回复/倒数日
+ios_view.agent_result_7,「%@」没放上小组件(最多 3 件),“%@” isn't on the widget (3 max),ios_view,AI 结果回复/倒数日
+ios_view.agent_result_8,有一个倒数日没找到,A countdown couldn't be found,ios_view,AI 结果回复/倒数日

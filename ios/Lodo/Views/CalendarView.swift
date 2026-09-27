@@ -174,15 +174,17 @@ struct CalendarView: View {
         case .agenda:
             return ""
         case .day:
-            return anchor.formatted(.dateTime.year().month().day().weekday())
+            return anchor.formatted(.dateTime.year().month().day().weekday()
+                .locale(AppSettings.language.locale))
         case .threeDay, .week:
             let days = CalendarViewPlan.timelineDays(anchor: anchor, mode: mode, calendar: calendar)
             guard let first = days.first, let last = days.last else { return "" }
-            return (first..<last).formatted(.interval.month().day())
+            return (first..<last).formatted(.interval.month().day()
+                .locale(AppSettings.language.locale))
         case .month:
-            return anchor.formatted(.dateTime.year().month(.wide))
+            return anchor.formatted(.dateTime.year().month(.wide).locale(AppSettings.language.locale))
         case .year:
-            return anchor.formatted(.dateTime.year())
+            return anchor.formatted(.dateTime.year().locale(AppSettings.language.locale))
         }
     }
 

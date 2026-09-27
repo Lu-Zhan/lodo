@@ -154,6 +154,42 @@ final class TravelPlanTests: XCTestCase {
     }
 
     /// 火车/客车和航班一样只落在出发那天,也和航班一样算"交通"。
+    /// 交通类按出发地**当地**的日期归日:东京 7/10 00:30 起飞(比东京慢一小时的
+    /// 时区里还是 7/9 23:30),行程单上写的是 7/10,就该落在 7/10。
+    func testTransportUsesDepartureLocalDate() {
+        var local = Calendar(identifier: .gregorian)
+        local.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let tokyoMidnight = local.date(from: DateComponents(
+            year: 2026, month: 7, day: 9, hour: 23, minute: 30))!
+        let flight = TravelEntry(
+            id: UUID(), kind: .flight, title: "夜航", start: tokyoMidnight,
+            flight: FlightDetails(departureTimeZone: "Asia/Tokyo"))
+        let days = (8...11).map {
+            local.date(from: DateComponents(year: 2026, month: 7, day: $0))!
+        }
+        let grouped = TravelPlan.group([flight], into: days, calendar: local)
+        XCTAssertTrue(grouped[1].entries.isEmpty)
+        XCTAssertEqual(grouped[2].entries.map(\.title), ["夜航"])
+
+        let noZone = TravelEntry(id: UUID(), kind: .flight, title: "夜航", start: tokyoMidnight)
+        XCTAssertEqual(TravelPlan.group([noZone], into: days, calendar: local)[1]
+                        .entries.map(\.title), ["夜航"])
+    }
+
+    func testTransportDetailsParseTimeZonesAndStationFields() {
+        let details = FlightDetails.parse([
+            "departure_timezone": "Asia/Tokyo", "arrival_timezone": "Not/AZone",
+            "platform": "14", "carriage": "7", "gate": "B3",
+        ], date: { _, _ in nil })
+        XCTAssertEqual(details?.departureTimeZone, "Asia/Tokyo")
+        XCTAssertNil(details?.arrivalTimeZone)
+        XCTAssertEqual(details?.platform, "14")
+        XCTAssertEqual(details?.carriage, "7")
+        XCTAssertEqual(FlightDetails.durationMinutes(start: date(day: 8, hour: 9),
+                                                     end: date(day: 8, hour: 12, minute: 15)), 195)
+        XCTAssertNil(FlightDetails.durationMinutes(start: date(day: 8, hour: 9), end: nil))
+    }
+
     func testTransportKindsLandOnStartDay() {
         let train = entry(.train, "新干线 のぞみ", start: date(day: 9, hour: 7))
         let coach = entry(.coach, "机场大巴", start: date(day: 11, hour: 6))
@@ -343,6 +379,32 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertEqual(flight.departureDelayMinutes(planned: items[0].start), 40)
         XCTAssertNil(items[1].flight, "认不出的状态丢掉,剩下一个字段都没有就是 nil")
         XCTAssertNil(items[2].flight)
+    }
+
+    /// 票面时刻是当地时间:抽出了时区就按两端各自的时区解释;火车也能带补充信息。
+    func testParseTravelPayloadUsesLocalTimeZones() throws {
+        let items = try DeepSeekClient.parseTravelPayload(["items": [
+            ["kind": "flight", "title": "CA925", "start": "2026-07-08 09:00",
+             "end": "2026-07-08 13:30",
+             "flight": ["departure_timezone": "Asia/Shanghai", "arrival_timezone": "Asia/Tokyo",
+                        "boarding_time": "2026-07-08 08:20"]],
+            ["kind": "train", "title": "Nozomi 21", "code": "Nozomi 21",
+             "flight": ["platform": "14", "carriage": "7", "gate": "中央口", "cabin": "指定席"]],
+        ]])
+        let flight = items[0]
+        var shanghai = Calendar(identifier: .gregorian)
+        shanghai.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        XCTAssertEqual(flight.start, shanghai.date(from: DateComponents(
+            year: 2026, month: 7, day: 8, hour: 9)))
+        // 东京 13:30 = 北京 12:30:飞 3.5 小时,不是 4.5。
+        XCTAssertEqual(FlightDetails.durationMinutes(start: flight.start, end: flight.end), 210)
+        XCTAssertEqual(flight.flight?.arrivalTimeZone, "Asia/Tokyo")
+        XCTAssertEqual(flight.flight?.boardingTime, shanghai.date(from: DateComponents(
+            year: 2026, month: 7, day: 8, hour: 8, minute: 20)))
+        let train = try XCTUnwrap(items[1].flight)
+        XCTAssertEqual(train.platform, "14")
+        XCTAssertEqual(train.carriage, "7")
+        XCTAssertEqual(train.cabin, "指定席")
     }
 
     /// 再导入一张新截图:有的字段覆盖,没有的保留。

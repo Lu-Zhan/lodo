@@ -17,9 +17,7 @@ struct RoutineRowView: View {
     @State private var runError: String?
 
     private var subtitle: String {
-        guard routine.enabled else { return "\(routine.caption) · 已停用" }
-        guard let next = routine.nextRun(after: now) else { return routine.caption }
-        return "\(routine.caption) · 下一次 \(TaskItem.format(next))"
+        LocalizedContent.routineSubtitle(routine, nextRun: routine.nextRun(after: now))
     }
 
     var body: some View {
@@ -29,7 +27,9 @@ struct RoutineRowView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "sparkles")
                             .foregroundStyle(Color.accentColor)
-                        Text(routine.name.isEmpty ? "未命名任务" : routine.name)
+                        Text(routine.name.isEmpty
+                             ? String(localized: "未命名任务", locale: AppSettings.language.locale)
+                             : routine.name)
                         Text("AI 定时任务")
                             .font(.caption)
                             .padding(.horizontal, 6)

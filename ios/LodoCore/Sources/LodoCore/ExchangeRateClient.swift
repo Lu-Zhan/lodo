@@ -9,7 +9,9 @@ public enum ExchangeRateClient {
 
         public var errorDescription: String? {
             switch self {
-            case .api(let m): return "获取汇率失败:\(m)"
+            case .api(let m):
+                return LocalizedStrings.text(.ios_core_exchange_rate_failed,
+                                             language: AppSettings.language) + m
             }
         }
     }

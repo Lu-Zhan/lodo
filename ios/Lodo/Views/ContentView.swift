@@ -113,6 +113,10 @@ struct ContentView: View {
                     // 但通知按钮、Siri、小组件那几条路径可能在 app 没运行时发生,
                     // 用户也可能在日历 app 里改过东西,回前台一次性对平。
                     CalendarSync.reconcile(context: modelContext)
+                    // 倒数日只预排最近几条提醒,回前台补排后面的;小组件的
+                    // "今日"也随日期翻页。
+                    CountdownNotifier.reschedule(context: modelContext)
+                    WidgetBridge.sync(context: modelContext)
                 } else if phase == .background {
                     MemoryPipeline.consumeInbox(context: modelContext)
                     KeyboardBridge.refresh(context: modelContext)

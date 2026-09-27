@@ -43,6 +43,9 @@ public enum AgentMessageKind: String {
     /// AI 调整已记下行程(edit_trip)的执行结果;tripEditSnapshotData 存改动记录。
     /// 已经落库,卡片上的撤销不限最新一条(动的是记录里那几项)。
     case tripEdit
+    /// AI 新建/修改/删除倒数日的执行结果;countdownSnapshotData 存改动记录
+    /// (CountdownEditRecord)。撤销同 tripEdit,不限最新一条。
+    case countdownEdit
 }
 
 /// 对话里的一条消息。AI 助手是**单一持续对话**——全表按 createdAt 排序就是
@@ -74,6 +77,8 @@ public final class AgentMessage {
     public var tripPlanSnapshotData: Data? = nil
     /// tripEdit 消息的改动记录(JSON 编码的 TripEditRecord);其余 kind 恒为 nil。
     public var tripEditSnapshotData: Data? = nil
+    /// countdownEdit 消息的改动记录(JSON 编码的 CountdownEditRecord);其余 kind 恒为 nil。
+    public var countdownSnapshotData: Data? = nil
     public var createdAt: Date = Date.now
     /// 多对话改单一持续对话那次迁移的墓碑:新代码插入的消息恒为 1,而轻量迁移
     /// 给老库存量行填的是这里声明的默认值 0——**默认值必须留 0**,写 1 就再也
@@ -88,7 +93,8 @@ public final class AgentMessage {
         content: String, relatedTitles: [String] = [], askSnapshotData: Data? = nil,
         attachmentMemoryUUIDs: [UUID] = [], taskSnapshotData: Data? = nil,
         resultMemoryUUID: UUID? = nil, quotedContent: String? = nil,
-        tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil
+        tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil,
+        countdownSnapshotData: Data? = nil
     ) {
         self.uuid = UUID()
         self.roleRaw = role.rawValue
@@ -102,6 +108,7 @@ public final class AgentMessage {
         self.quotedContent = quotedContent
         self.tripPlanSnapshotData = tripPlanSnapshotData
         self.tripEditSnapshotData = tripEditSnapshotData
+        self.countdownSnapshotData = countdownSnapshotData
         self.createdAt = Date()
         self.formatVersion = 1
     }

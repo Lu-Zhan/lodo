@@ -19,7 +19,7 @@ struct AgentSkillEditView: View {
         TextEditor(text: $text)
             .font(.body.monospaced())
             .padding(.horizontal, 8)
-            .navigationTitle(id.title)
+            .navigationTitle(LocalizedContent.skillTitle(id))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -97,7 +97,7 @@ struct AgentSkillsSections: View {
                     builtinRow(id)
                 }
             } header: {
-                Text(LocalizedStringKey(group.title))
+                Text(LocalizedContent.skillGroupTitle(group))
             } footer: {
                 if group == .system {
                     Text("agent.md 是总则,其余是可分别编辑、可停用的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。")
@@ -117,7 +117,7 @@ struct AgentSkillsSections: View {
             Button("新建 skill") { newSkill = true }
             NavigationLink("查看最终 Prompt") { AgentPromptPreviewView() }
         } header: {
-            Text(LocalizedStringKey(AgentSkillGroup.custom.title))
+            Text(LocalizedContent.skillGroupTitle(.custom))
         } footer: {
             Text("导入别人分享的 .md 文件即可加载外部 skill。外部 skill 默认停用,启用后 AI 只在需要时按名字取回内容。")
         }
@@ -162,7 +162,8 @@ struct AgentSkillsSections: View {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             guard let text = try? String(contentsOf: url, encoding: .utf8) else {
-                importError = "读不出文件内容(需要 UTF-8 文本)"
+                importError = LocalizedStrings.text(.ios_core_skill_file_not_utf8,
+                                                    language: AppSettings.language)
                 return
             }
             switch AgentSkillStore.planImport(text) {
@@ -179,10 +180,10 @@ struct AgentSkillsSections: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text(id.title)
+                        Text(LocalizedContent.skillTitle(id))
                         if AgentSkillStore.isCustomized(id) { customizedBadge }
                     }
-                    Text(id.subtitle)
+                    Text(LocalizedContent.skillSubtitle(id))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -266,7 +267,8 @@ struct AgentSkillImportSheet: View {
                              ? "已有同名的外部 skill,导入会覆盖它的内容(启用状态不变)。"
                              : "这是一个外部 skill,导入后默认停用。请先看完下面的内容,确认可信再启用。")
                     case .overrideBuiltin(let id, _):
-                        Text("名称与内置 skill「\(id.title)」相同,导入会覆盖它当前的文本(可在编辑页重置)。")
+                        let title = LocalizedContent.skillTitle(id)
+                        Text("名称与内置 skill「\(title)」相同,导入会覆盖它当前的文本(可在编辑页重置)。")
                     }
                 }
                 Section("正文") {
@@ -325,7 +327,9 @@ struct CustomSkillEditView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle(slug == nil ? "新建 skill" : name)
+        .navigationTitle(slug == nil
+                         ? String(localized: "新建 skill", locale: AppSettings.language.locale)
+                         : name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -373,7 +377,8 @@ struct CustomSkillEditView: View {
             if slug == nil,
                AgentSkillStore.customSkills().contains(where: { $0.slug == newSlug })
                 || AgentSkillID.allCases.contains(where: { $0.title == file.name }) {
-                errorText = "已经有同名的 skill 了"
+                errorText = LocalizedStrings.text(.ios_core_skill_duplicate_name,
+                                                  language: AppSettings.language)
                 return
             }
             AgentSkillStore.saveCustom(file, slug: newSlug)
@@ -402,7 +407,9 @@ struct AgentPromptPreviewView: View {
                     HStack {
                         Text(block.title)
                         Spacer()
-                        Text(block.enabled ? "\(block.count) 字" : "已停用")
+                        Text(block.enabled
+                             ? String(localized: "\(block.count) 字", locale: AppSettings.language.locale)
+                             : String(localized: "已停用", locale: AppSettings.language.locale))
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
                     }

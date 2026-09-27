@@ -139,7 +139,9 @@ struct ContactDetailView: View {
                             ContactDetailView(item: entry.other)
                         } label: {
                             LabeledContent(
-                                entry.other.title.isEmpty ? "(未命名)" : entry.other.title,
+                                entry.other.title.isEmpty
+                                    ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                                    : entry.other.title,
                                 value: entry.relationship.label)
                         }
                         .swipeActions(edge: .trailing) {
@@ -178,7 +180,9 @@ struct ContactDetailView: View {
                 }
             }
         }
-        .navigationTitle(item.title.isEmpty ? "人脉" : item.title)
+        .navigationTitle(item.title.isEmpty
+                         ? String(localized: "人脉", locale: AppSettings.language.locale)
+                         : item.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -210,7 +214,9 @@ struct ContactDetailView: View {
             if let exportMutableContact {
                 ContactExportView(contact: exportMutableContact) { saved in
                     showExportSheet = false
-                    exportResultMessage = saved ? "已导出到通讯录。" : nil
+                    exportResultMessage = saved
+                        ? String(localized: "已导出到通讯录。", locale: AppSettings.language.locale)
+                        : nil
                 }
             }
         }
@@ -354,7 +360,9 @@ private struct AddContactRelationshipSheet: View {
                         Picker("人脉", selection: $selected) {
                             Text("请选择").tag(Optional<MemoryItem>.none)
                             ForEach(candidates) { contact in
-                                Text(contact.title.isEmpty ? "(未命名)" : contact.title)
+                                Text(contact.title.isEmpty
+                                     ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                                     : contact.title)
                                     .tag(Optional(contact))
                             }
                         }

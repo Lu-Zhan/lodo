@@ -23,11 +23,12 @@ struct AgentTripEditCard: View {
         if let record {
             // 跳转小条在卡片**外面**(没有卡片底色);撤销过的不给——那几项已经
             // 回滚,点过去看到的和卡片上写的对不上。
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 card(record)
                 if record.reverted != true {
                     AgentJumpLink(text: Text("旅行已更新:\(record.tripTitle)"),
                                   destination: .trip(record.tripUUID))
+                        .padding(.horizontal, 10)
                 }
             }
         } else {
@@ -37,20 +38,11 @@ struct AgentTripEditCard: View {
 
     private func card(_ record: TripEditRecord) -> some View {
         let reverted = record.reverted == true
-        return VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Label {
-                    Text("已调整「\(record.tripTitle)」")
-                } icon: {
-                    Image(systemName: "calendar.badge.clock")
-                }
-                .font(.headline)
-                if !record.summary.isEmpty {
-                    Text(record.summary)
-                        .font(.body)
-                }
-            }
-
+        // 一句话在气泡里(「已调整「北海道」:第二天改去奈良」),改动的行程项列在下面、不垫底色。
+        let status = reverted ? Text("已撤销这次调整")
+            : record.summary.isEmpty ? Text("已调整「\(record.tripTitle)」")
+            : Text("已调整「\(record.tripTitle)」:\(record.summary)")
+        return AgentResultReply(status: status) {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(record.removed, id: \.uuid) { item in
                     row(symbol: "minus.circle.fill", tint: .red, title: item.title,
@@ -76,14 +68,9 @@ struct AgentTripEditCard: View {
                 .foregroundStyle(.secondary)
             }
 
-            HStack(spacing: 8) {
-                if reverted {
-                    Label("已撤销这次调整", systemImage: "arrow.uturn.backward.circle")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 8)
-                if !reverted {
+            if !reverted {
+                HStack {
+                    Spacer(minLength: 8)
                     Button {
                         let reverted = TravelStore.revertEdit(record, context: context)
                         message.tripEditSnapshotData = try? JSONEncoder().encode(reverted)
@@ -98,7 +85,6 @@ struct AgentTripEditCard: View {
                 }
             }
         }
-        .agentCard()
     }
 
     private func row(symbol: String, tint: Color, title: String, start: Date?,

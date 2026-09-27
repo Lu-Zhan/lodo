@@ -36,15 +36,15 @@ public enum TravelItemKind: String, CaseIterable, Sendable {
     public var systemImage: String {
         switch self {
         case .flight: return "airplane"
-        case .train: return "tram.fill"
-        case .coach: return "bus"
+        case .train: return "train.side.front.car"
+        case .coach: return "bus.fill"
         case .lodging: return "bed.double"
         case .place: return "mappin.and.ellipse"
         }
     }
 
     /// 交通类(有出发地和到达地,落在出发那天)。住宿铺开住的每一晚、地点只占一个
-    /// 点,这两类不算。航班的补充信息(航站楼/登机口…)仍然只有 flight 有。
+    /// 点,这两类不算。交通三类都有补充信息(`FlightDetails`,各露不同字段)。
     public var isTransport: Bool {
         switch self {
         case .flight, .train, .coach: return true
@@ -78,7 +78,7 @@ public struct TravelEntry: Equatable, Sendable, Identifiable {
     public let originName: String?
     public let originCoordinate: TravelCoordinate?
     public let code: String?
-    /// 航班的补充信息(航站楼/登机口/座位/状态…);没导入过的航班、住宿、地点都是 nil。
+    /// 交通类的补充信息(航站楼/检票口/站台/座位/两端时区…);住宿、地点都是 nil。
     public let flight: FlightDetails?
 
     public init(id: UUID, kind: TravelItemKind, title: String, summary: String = "",
@@ -105,6 +105,10 @@ public struct TravelEntry: Equatable, Sendable, Identifiable {
 
     /// 还没排期:按天视图把它收进单独一组,而不是硬塞到第一天。
     public var isUnscheduled: Bool { start == nil }
+
+    /// 出发/到达那一头的当地时区(只有交通类填了才有);nil = 按本机时区。
+    public var startTimeZone: TimeZone? { kind.isTransport ? flight?.departureZone : nil }
+    public var endTimeZone: TimeZone? { kind.isTransport ? flight?.arrivalZone : nil }
 }
 
 extension TravelEntry {
@@ -122,7 +126,7 @@ extension TravelEntry {
                   currency: item.travelCurrencyOrDefault, placeName: item.travelPlaceName,
                   coordinate: coordinate, originName: item.travelOriginName,
                   originCoordinate: origin, code: item.travelCode,
-                  flight: kind == .flight ? FlightDetails.decode(item.travelFlightData) : nil)
+                  flight: kind.isTransport ? FlightDetails.decode(item.travelFlightData) : nil)
     }
 }
 
@@ -207,8 +211,25 @@ public enum TravelPlan {
     ) -> Bool {
         guard let start = entry.start, let end = entry.end,
               !days.contains(where: { covers(entry, day: $0, calendar: calendar) }),
-              calendar.startOfDay(for: start) < (days.first ?? start) else { return false }
-        return calendar.startOfDay(for: end) == day
+              localDay(start, in: entry.startTimeZone, calendar: calendar)
+                < (days.first ?? start) else { return false }
+        return localDay(end, in: entry.endTimeZone, calendar: calendar) == day
+    }
+
+    /// 某个时刻在**当地**是哪一天,折成 `calendar` 里同一个年月日的 0 点。
+    /// 东京 23:30(北京 22:30)起飞的航班按东京算是那天,和按北京算一样;东京
+    /// 00:30(北京前一天 23:30)起飞的,按东京算是后一天——行程单上写的就是那天。
+    /// `timeZone` 为 nil 或和 calendar 同一个时区时就是普通的 startOfDay。
+    public static func localDay(_ date: Date, in timeZone: TimeZone?,
+                                calendar: Calendar = .current) -> Date {
+        guard let timeZone, timeZone.identifier != calendar.timeZone.identifier else {
+            return calendar.startOfDay(for: date)
+        }
+        var local = calendar
+        local.timeZone = timeZone
+        let parts = local.dateComponents([.year, .month, .day], from: date)
+        return calendar.date(from: parts).map { calendar.startOfDay(for: $0) }
+            ?? calendar.startOfDay(for: date)
     }
 
     /// 一天之内的排序:**住宿排在最上面**,其余按时间。
@@ -271,7 +292,7 @@ public enum TravelPlan {
     /// 这一项是否属于某一天(day 是当天 0 点)。
     static func covers(_ entry: TravelEntry, day: Date, calendar: Calendar = .current) -> Bool {
         guard let start = entry.start else { return false }
-        let startDay = calendar.startOfDay(for: start)
+        let startDay = localDay(start, in: entry.startTimeZone, calendar: calendar)
         guard entry.kind == .lodging, let end = entry.end else {
             return startDay == day
         }

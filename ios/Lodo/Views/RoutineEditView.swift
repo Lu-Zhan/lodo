@@ -80,7 +80,7 @@ struct RoutineEditView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(isNew ? "新建定时任务" : "定时任务")
+            .navigationTitle(LocalizedStringKey(isNew ? "新建定时任务" : "定时任务"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -125,7 +125,7 @@ struct RoutineEditView: View {
             if repeatType == .weekly {
                 HStack {
                     ForEach(0..<7, id: \.self) { i in
-                        Toggle(String(weekdayNames[i].dropFirst()), isOn: dayBinding(i))
+                        Toggle(LocalizedContent.weekdayShortName(i), isOn: dayBinding(i))
                             .toggleStyle(.button)
                     }
                 }
@@ -152,12 +152,18 @@ struct RoutineEditView: View {
 
     private var scheduleFooter: String {
         if repeatType == .weekly && days.isEmpty {
-            return "至少选一天,否则这条任务永远不会触发。"
+            return LocalizedStrings.text(.ios_core_routine_requires_weekday,
+                                         language: AppSettings.language)
         }
         let draft = AIRoutine(name: name, prompt: prompt, times: times,
                               repeatType: repeatType, days: Array(days))
-        guard let next = draft.nextRun() else { return "当前设置算不出下一次触发时间。" }
-        return "下一次:\(TaskItem.format(next))。一天可以设多个时间点。"
+        guard let next = draft.nextRun() else {
+            return LocalizedStrings.text(.ios_core_routine_next_unavailable,
+                                         language: AppSettings.language)
+        }
+        return String(format: LocalizedStrings.text(.ios_core_routine_next_caption,
+                                                     language: AppSettings.language),
+                      LocalizedContent.dateCaption(next))
     }
 
     // MARK: - 选项

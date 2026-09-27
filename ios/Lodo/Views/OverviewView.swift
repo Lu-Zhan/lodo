@@ -29,6 +29,8 @@ struct OverviewView: View {
            sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
     private var doneTasks: [TaskItem]
     @Query(sort: \TravelTrip.startDate) private var trips: [TravelTrip]
+    /// 「倒数日」页里建的,汇进总览的倒数日模块。
+    @Query private var countdownEvents: [CountdownEvent]
     @Environment(\.scenePhase) private var scenePhase
     /// widget 布局(顺序/显示/大小),右上角「编辑」就地改。
     @AppStorage(AppSettings.overviewLayoutKey) private var layoutRaw = ""
@@ -323,7 +325,8 @@ struct OverviewView: View {
             OverviewAgendaWidget(size: item.size, events: calendarConnected ? todayEvents : nil,
                                  now: now) { chrome?.go(.calendar) }
         case .countdown:
-            OverviewCountdownWidget(size: item.size, entries: countdownEntries, now: now)
+            OverviewCountdownWidget(size: item.size, entries: countdownEntries, now: now,
+                                    action: { chrome?.go(.countdown) })
         case .routines:
             OverviewRoutinesWidget(runs: todayRoutineRuns)
         case .suggestion:
@@ -443,6 +446,7 @@ struct OverviewView: View {
                 guard item.isContact, let birthday = item.contactBirthday else { return nil }
                 return (item.uuid.uuidString, item.title, birthday)
             },
+            countdowns: countdownEvents.map(\.entry),
             now: now)
     }
 

@@ -87,7 +87,7 @@ private struct AskBarModifier: ViewModifier {
                     // 直接读强调色设置,不靠 .tint:挂在 sheet 里(旅行详情的行程面板)
                     // 时 safeAreaInset 这一层拿不到外面下发的 tint,会退回系统蓝。
                     .foregroundStyle(accentPalette.accent)
-                Text("问问 AI")
+                Text(focus.askBarPrompt)
                     .font(.body)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
@@ -113,5 +113,27 @@ extension View {
     /// `focus` 是所在页面:唤出的 AI 默认把含糊指令当成这一页的事。
     func askBar(focus: AgentFocus, isVisible: Bool = true) -> some View {
         modifier(AskBarModifier(isVisible: isVisible, focus: focus))
+    }
+}
+
+extension AgentFocus {
+    /// 对话条上的那句话:按所在页换成一句贴着这一页的口语短句(菜单页「在吃什么呀？」、
+    /// 旅行页「想去哪玩？」),比一句通用的「问问 AI」更像在邀请人开口。
+    /// 只是展示文案,不进 prompt——页面焦点另由 `promptBlock` 交给模型。
+    /// 日历页刻意不写「哪天有空」:AI 读不到系统日程,那句会让人以为它看得见。
+    var askBarPrompt: LocalizedStringKey {
+        switch page {
+        case .overview: return "今天有什么安排？"
+        case .todo: return "要记下什么事？"
+        case .calendar: return "要安排点什么？"
+        case .countdown: return "还有几天？"
+        case .memory: return "想找点什么？"
+        case .contact: return "想起谁了？"
+        case .health: return "最近身体怎么样？"
+        // 旅行详情页带着那次旅行(subject),问的是"这一趟"。
+        case .travel: return subject == nil ? "想去哪玩？" : "这趟还想去哪？"
+        case .menu: return "在吃什么呀？"
+        case .news: return "今天有什么新鲜事？"
+        }
     }
 }

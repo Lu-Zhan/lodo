@@ -61,7 +61,7 @@ struct TaskEditView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(existing == nil ? "新建事项" : "编辑事项")
+            .navigationTitle(LocalizedStringKey(existing == nil ? "新建事项" : "编辑事项"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -86,7 +86,9 @@ struct TaskEditView: View {
     /// 可正常编辑;这里只展示原记忆的摘要/正文/链接)。
     private func attachmentSection(_ attachment: TaskAttachment) -> some View {
         Section("附件") {
-            Label(attachment.kind.label, systemImage: attachment.kind.symbol)
+            Label(LocalizedContent.memoryKindLabel(attachment.kind,
+                                                   language: AppSettings.language),
+                  systemImage: attachment.kind.symbol)
                 .foregroundStyle(.secondary)
             if !attachment.summary.isEmpty {
                 Text(attachment.summary).font(.subheadline)
@@ -101,7 +103,8 @@ struct TaskEditView: View {
 
     private func save() {
         guard let parsed = form.makeParsed() else {
-            errorText = "请补全事项内容和时间设置"
+            errorText = LocalizedStrings.text(.ios_core_task_fields_required,
+                                              language: AppSettings.language)
             return
         }
         onSave(parsed)

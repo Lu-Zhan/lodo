@@ -115,7 +115,7 @@ enum TravelStore {
             travelPlaceName: placeName, travelLatitude: latitude, travelLongitude: longitude,
             travelOriginName: originName, travelOriginLatitude: originLatitude,
             travelOriginLongitude: originLongitude, travelCode: code,
-            travelFlightData: kind == .flight ? FlightDetails.encode(flight) : nil)
+            travelFlightData: kind.isTransport ? FlightDetails.encode(flight) : nil)
         context.insert(item)
         MemoryPipeline.finishStructuredSave(item, context: context)
         return item
@@ -166,7 +166,7 @@ enum TravelStore {
         item.travelOriginLatitude = originLatitude
         item.travelOriginLongitude = originLongitude
         item.travelCode = code
-        item.travelFlightData = kind == .flight ? FlightDetails.encode(flight) : nil
+        item.travelFlightData = kind.isTransport ? FlightDetails.encode(flight) : nil
         item.sourceText = MemorySearch.truncate(searchText(
             title: trimmed, note: note, code: code,
             placeName: placeName, originName: originName, flight: flight))
@@ -243,6 +243,11 @@ enum TravelStore {
         for file in all where file.travelTripUUID == trip.uuid && file.travelKind == nil {
             detachFile(file, context: context)
         }
+        // 用品清单只属于这一趟,跟着删。
+        let tripUUID = trip.uuid
+        let packing = (try? context.fetch(FetchDescriptor<PackingItem>(
+            predicate: #Predicate { $0.tripUUID == tripUUID }))) ?? []
+        packing.forEach(context.delete)
         context.delete(trip)
         try? context.save()
     }

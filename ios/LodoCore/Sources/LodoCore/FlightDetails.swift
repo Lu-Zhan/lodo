@@ -1,6 +1,10 @@
 import Foundation
 
-/// 航班行程项的补充信息:航站楼、值机柜台、登机口、座位、机型、航班状态……
+/// 交通行程项(航班/火车/客车)的补充信息:航站楼、值机柜台、登机口/检票口、
+/// 站台、车厢、座位、两端时区、航班状态……名字仍叫 FlightDetails 是历史原因
+/// (最早只有航班有),三类交通共用这一份结构,各自在 UI 上露出不同的字段:
+/// 航班 = 航站楼/值机柜台/登机口/舱位/机型,火车 = 检票口/站台/车厢/座席,
+/// 客车 = 检票口/上车点(站台)/座位。
 ///
 /// **来源只有用户给的文本和截图**(订票邮件、行程单、登机牌、航司 App 的航班动态
 /// 截图;截图在端上 OCR 成文字),由 `DeepSeekClient.parseTravelItems` 一并抽出来,
@@ -30,6 +34,15 @@ public struct FlightDetails: Equatable, Sendable, Codable {
     public var baggageBelt: String?
     /// `FlightStatus` 的原始值;认不出的状态丢掉,不存乱码。
     public var statusRaw: String?
+    /// 出发地/到达地的时区(IANA 标识,如 "Asia/Tokyo")。用户手填;nil = 和本机
+    /// 同一个时区。起讫时刻仍存绝对时间,只是**显示和归日按当地**:东京 23:30
+    /// 起飞的航班落在东京的那一天,不因为手机在北京就挪到前一天。
+    public var departureTimeZone: String?
+    public var arrivalTimeZone: String?
+    /// 火车站台 / 客车上车点。
+    public var platform: String?
+    /// 火车车厢号。
+    public var carriage: String?
     /// 这份信息最后一次被导入/更新的时间(本机时间,不是截图上的时间)。
     public var updatedAt: Date?
 
@@ -38,7 +51,9 @@ public struct FlightDetails: Equatable, Sendable, Codable {
                 checkInCounter: String? = nil, gate: String? = nil, boardingTime: Date? = nil,
                 estimatedDeparture: Date? = nil, estimatedArrival: Date? = nil,
                 seat: String? = nil, cabin: String? = nil, aircraft: String? = nil,
-                baggageBelt: String? = nil, status: FlightStatus? = nil, updatedAt: Date? = nil) {
+                baggageBelt: String? = nil, status: FlightStatus? = nil, updatedAt: Date? = nil,
+                departureTimeZone: String? = nil, arrivalTimeZone: String? = nil,
+                platform: String? = nil, carriage: String? = nil) {
         self.airline = airline
         self.departureCode = departureCode
         self.arrivalCode = arrivalCode
@@ -55,6 +70,20 @@ public struct FlightDetails: Equatable, Sendable, Codable {
         self.baggageBelt = baggageBelt
         self.statusRaw = status?.rawValue
         self.updatedAt = updatedAt
+        self.departureTimeZone = departureTimeZone
+        self.arrivalTimeZone = arrivalTimeZone
+        self.platform = platform
+        self.carriage = carriage
+    }
+
+    /// 出发地/到达地时区;没填或认不出的标识返回 nil(= 按本机时区)。
+    public var departureZone: TimeZone? { departureTimeZone.flatMap(TimeZone.init(identifier:)) }
+    public var arrivalZone: TimeZone? { arrivalTimeZone.flatMap(TimeZone.init(identifier:)) }
+
+    /// 路上要多久(分钟)。起讫都是绝对时间,跨时区也直接相减;缺一头或倒着时为 nil。
+    public static func durationMinutes(start: Date?, end: Date?) -> Int? {
+        guard let start, let end, end > start else { return nil }
+        return Int((end.timeIntervalSince(start) / 60).rounded())
     }
 
     public var status: FlightStatus? { statusRaw.flatMap(FlightStatus.init(rawValue:)) }
@@ -100,7 +129,11 @@ public struct FlightDetails: Equatable, Sendable, Codable {
             aircraft: newer.aircraft ?? aircraft,
             baggageBelt: newer.baggageBelt ?? baggageBelt,
             status: newer.status ?? status,
-            updatedAt: newer.updatedAt ?? updatedAt)
+            updatedAt: newer.updatedAt ?? updatedAt,
+            departureTimeZone: newer.departureTimeZone ?? departureTimeZone,
+            arrivalTimeZone: newer.arrivalTimeZone ?? arrivalTimeZone,
+            platform: newer.platform ?? platform,
+            carriage: newer.carriage ?? carriage)
     }
 
     // MARK: - 编解码
@@ -123,8 +156,10 @@ public struct FlightDetails: Equatable, Sendable, Codable {
     // MARK: - 解析(单测入口,不发请求)
 
     /// 从 AI 返回的行程项里那个 `"flight": {...}` 对象解析。时间格式同行程项
-    /// ("yyyy-MM-dd HH:mm",由调用方传解析器);一个字段都读不出来时返回 nil。
-    static func parse(_ raw: Any?, date: (String) -> Date?) -> FlightDetails? {
+    /// ("yyyy-MM-dd HH:mm",由调用方传解析器,第二个参数是按哪个时区解释);
+    /// 登机/预计起飞按出发地时区、预计到达按到达地时区——票面上都是当地时间。
+    /// 一个字段都读不出来时返回 nil。
+    static func parse(_ raw: Any?, date: (String, TimeZone?) -> Date?) -> FlightDetails? {
         guard let raw = raw as? [String: Any] else { return nil }
         func text(_ key: String) -> String? {
             if let number = raw[key] as? NSNumber { return number.stringValue }
@@ -132,6 +167,8 @@ public struct FlightDetails: Equatable, Sendable, Codable {
                 .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
             return value
         }
+        let departureZone = text("departure_timezone").flatMap(TimeZone.init(identifier:))
+        let arrivalZone = text("arrival_timezone").flatMap(TimeZone.init(identifier:))
         let details = FlightDetails(
             airline: text("airline"),
             departureCode: text("departure_code")?.uppercased(),
@@ -140,14 +177,18 @@ public struct FlightDetails: Equatable, Sendable, Codable {
             arrivalTerminal: text("arrival_terminal"),
             checkInCounter: text("check_in_counter"),
             gate: text("gate"),
-            boardingTime: text("boarding_time").flatMap(date),
-            estimatedDeparture: text("estimated_departure").flatMap(date),
-            estimatedArrival: text("estimated_arrival").flatMap(date),
+            boardingTime: text("boarding_time").flatMap { date($0, departureZone) },
+            estimatedDeparture: text("estimated_departure").flatMap { date($0, departureZone) },
+            estimatedArrival: text("estimated_arrival").flatMap { date($0, arrivalZone) },
             seat: text("seat"),
             cabin: text("cabin"),
             aircraft: text("aircraft"),
             baggageBelt: text("baggage_belt"),
-            status: text("status").flatMap { FlightStatus(rawValue: $0.lowercased()) })
+            status: text("status").flatMap { FlightStatus(rawValue: $0.lowercased()) },
+            departureTimeZone: departureZone?.identifier,
+            arrivalTimeZone: arrivalZone?.identifier,
+            platform: text("platform"),
+            carriage: text("carriage"))
         return details.isEmpty ? nil : details
     }
 }
