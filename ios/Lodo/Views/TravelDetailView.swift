@@ -133,7 +133,7 @@ struct TravelDetailView: View {
         // 真实路线:点或开关变了就把缺的那几段规划一遍(缓存过的不再请求)。
         .task(id: routeLoadKey) {
             guard showsRoutes else { return }
-            if await TravelRouteLoader.load(allLegs) { routeRevision += 1 }
+            if await TravelRouteLoader.load(selectedDayLegs) { routeRevision += 1 }
         }
         .onChange(of: pinSignature) { _, _ in
             if selectedPin == nil { focusCamera(animated: true) }
@@ -547,29 +547,35 @@ struct TravelDetailView: View {
     /// 胶囊宽度和左上角返回键一样(48pt),里面的按钮 36pt。
     private static let railWidth: CGFloat = 48
     private static let railButtonSize: CGFloat = 36
+    /// 首尾两颗(「全部」和最后一天)压扁一点,贴合胶囊两头的圆角。
+    private static let railEndHeight: CGFloat = 30
     private static let railSpacing: CGFloat = 6
+    private static var railInset: CGFloat { (railWidth - railButtonSize) / 2 }
     /// 一次最多露出几格(「全部」+ 天数),再多就滚。面板半高时地图只露出上半截。
     private static let railVisibleSlots = 6
 
+    /// 胶囊里某一格的位置:首尾两颗的外侧两角和胶囊圆角同心(胶囊半径 - 内边距),
+    /// 里侧两角收小,整颗是扁的;中间各天仍是正圆。
+    private enum RailSlot { case first, middle, last }
+
     private var dayFilterRail: some View {
-        ScrollViewReader { proxy in
+        let lastIndex = trip.days.count - 1
+        return ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: Self.railSpacing) {
-                    railButton(title: "全部", selected: mapDay == nil) { selectDay(nil) }
+                    railButton(title: "全部", slot: .first, selected: mapDay == nil) { selectDay(nil) }
                         .id(-1)
                     ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
-                        railButton(title: "\(index + 1)", selected: mapDay == day) {
+                        railButton(title: "\(index + 1)", slot: index == lastIndex ? .last : .middle,
+                                   selected: mapDay == day) {
                             selectDay(mapDay == day ? nil : day)
                         }
                         .id(index)
                     }
                 }
-                .padding((Self.railWidth - Self.railButtonSize) / 2)
+                .padding(Self.railInset)
             }
-            .frame(width: Self.railWidth,
-                   height: CGFloat(min(trip.days.count + 1, Self.railVisibleSlots))
-                       * (Self.railButtonSize + Self.railSpacing) - Self.railSpacing
-                       + (Self.railWidth - Self.railButtonSize))
+            .frame(width: Self.railWidth, height: railHeight)
             .glassBackground(RoundedRectangle(cornerRadius: Self.railWidth / 2, style: .continuous))
             // 天数比能露出的格数多时,选中某天后让它后面两天也露出来(选 4 看得到 6、
             // 选 5 看得到 7),往后翻不用自己拖;选「全部」回到顶上。
@@ -586,21 +592,44 @@ struct TravelDetailView: View {
         }
     }
 
-    private func railButton(title: LocalizedStringKey, selected: Bool,
+    /// 胶囊高度:全部放得下时正好包住所有格(首尾两颗是扁的);放不下时露出 6 格,
+    /// 露出来的最后一格是中间的某一天(正圆高度)。
+    private var railHeight: CGFloat {
+        let slots = trip.days.count + 1
+        let shown = min(slots, Self.railVisibleSlots)
+        let endsShown = slots <= Self.railVisibleSlots ? 2 : 1
+        let heights = CGFloat(endsShown) * Self.railEndHeight
+            + CGFloat(shown - endsShown) * Self.railButtonSize
+        return heights + CGFloat(shown - 1) * Self.railSpacing + Self.railInset * 2
+    }
+
+    private func railButton(title: LocalizedStringKey, slot: RailSlot, selected: Bool,
                             action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        let outer = Self.railWidth / 2 - Self.railInset
+        let inner: CGFloat = 10
+        let shape: UnevenRoundedRectangle = switch slot {
+        case .first:
+            UnevenRoundedRectangle(topLeadingRadius: outer, bottomLeadingRadius: inner,
+                                   bottomTrailingRadius: inner, topTrailingRadius: outer, style: .continuous)
+        case .last:
+            UnevenRoundedRectangle(topLeadingRadius: inner, bottomLeadingRadius: outer,
+                                   bottomTrailingRadius: outer, topTrailingRadius: inner, style: .continuous)
+        case .middle:
+            UnevenRoundedRectangle(cornerRadii: .init(topLeading: outer, bottomLeading: outer,
+                                                      bottomTrailing: outer, topTrailing: outer))
+        }
+        return Button(action: action) {
             Text(title)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(selected ? lodoAccent.onFill : .primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .frame(width: Self.railButtonSize, height: Self.railButtonSize)
+                .frame(width: Self.railButtonSize,
+                       height: slot == .middle ? Self.railButtonSize : Self.railEndHeight)
                 .background {
-                    if selected {
-                        Circle().fill(lodoAccent.fill)
-                    }
+                    if selected { shape.fill(lodoAccent.fill) }
                 }
-                .contentShape(Circle())
+                .contentShape(shape)
         }
         .pressable()
     }
@@ -766,12 +795,14 @@ struct TravelDetailView: View {
             }
     }
 
-    private var allLegs: [(from: TravelCoordinate, to: TravelCoordinate)] {
-        routeDays(for: nil).flatMap { TravelMapFraming.legs($0.points) }
+    /// 选中那一天要规划的几段;「全部」时不画线,也就不规划。
+    private var selectedDayLegs: [(from: TravelCoordinate, to: TravelCoordinate)] {
+        guard mapDay != nil else { return [] }
+        return routeDays(for: mapDay).flatMap { TravelMapFraming.legs($0.points) }
     }
 
     private var routeLoadKey: String {
-        "\(showsRoutes)|" + allLegs.map { TravelMapFraming.legKey($0.from, $0.to) }.joined(separator: ";")
+        "\(showsRoutes)|" + selectedDayLegs.map { TravelMapFraming.legKey($0.from, $0.to) }.joined(separator: ";")
     }
 
     /// 点的集合变了(补上了坐标、增删了行程项)就重新取景。
@@ -780,8 +811,11 @@ struct TravelDetailView: View {
     }
 
     /// 地图上的每一段线。开着路线时优先用规划出来的真实路线,没有就画虚线直线。
+    /// 地图上的线。**选「全部」时一条都不画**:每天都从同一家酒店出发、回到酒店,
+    /// 几天的线在酒店交汇,看上去像把不同日期的地点串在了一起;选中某一天才画那天的路线。
     private func mapLegs(for day: Date?) -> [MapLeg] {
         _ = routeRevision  // 路线缓存更新后借它触发重画
+        guard day != nil else { return [] }
         return routeDays(for: day).flatMap { index, date, points in
             TravelMapFraming.legs(points).enumerated().map { offset, leg in
                 let straight = [leg.from, leg.to].map {
