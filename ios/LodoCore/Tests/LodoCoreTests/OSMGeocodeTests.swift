@@ -3,7 +3,8 @@ import XCTest
 
 final class OSMGeocodeTests: XCTestCase {
     private let sample = """
-    [{"lat":"35.7134032","lon":"139.7955265","addresstype":"amenity","name":"淺草寺",
+    [{"osm_type":"way","osm_id":173154847,"display_name":"淺草寺, 浅草, 臺東區, 日本",
+      "lat":"35.7134032","lon":"139.7955265","addresstype":"amenity","name":"淺草寺",
       "address":{"country_code":"jp"},
       "namedetails":{"name:ja":"浅草寺","name:en":"Sensō-ji","alt_name:en":"Asakusa Kannon"}},
      {"lat":"35.8432297","lon":"139.7383428","addresstype":"building","name":"喜多屋酒店倉庫",
@@ -19,6 +20,10 @@ final class OSMGeocodeTests: XCTestCase {
         XCTAssertEqual(places[0].countryCode, "JP")
         XCTAssertTrue(places[0].names.contains("Asakusa Kannon"))
         XCTAssertEqual(places[0].addressType, "amenity")
+        XCTAssertEqual(places[0].name, "淺草寺")
+        XCTAssertEqual(places[0].displayName, "淺草寺, 浅草, 臺東區, 日本")
+        XCTAssertEqual(places[0].id, "way173154847")
+        XCTAssertNotEqual(places[1].id, places[2].id)
     }
 
     func testNameScoreNormalizesScriptsAndRejectsFuzzyMatches() {
@@ -54,5 +59,20 @@ final class OSMGeocodeTests: XCTestCase {
         XCTAssertEqual(items.first { $0.name == "viewbox" }?.value, "134.7000,36.0000,136.7000,34.0000")
         XCTAssertEqual(OSMGeocode.countryCodesParam(for: "HK"), "cn,hk,mo,tw")
         XCTAssertNil(OSMGeocode.countryCodesParam(for: nil))
+    }
+
+    func testArrangeForPickerKeepsFamousOnesAndDedupes() {
+        func place(_ id: String, _ lat: Double, _ lon: Double) -> OSMGeocode.Place {
+            OSMGeocode.Place(id: id, name: id, displayName: "", latitude: lat, longitude: lon,
+                             countryCode: "JP", names: [id], addressType: "amenity")
+        }
+        let kyoto = place("kyoto", 34.9949, 135.7850)
+        let fukuoka = place("fukuoka", 33.15, 130.52)
+        let yokohama = place("yokohama", 35.4300, 139.6400)
+        let yokohamaDup = place("yokohama2", 35.4301, 139.6401)
+        let tokyo = TravelCoordinate(latitude: 35.68, longitude: 139.76)
+        let arranged = OSMGeocode.arrangeForPicker([kyoto, fukuoka, yokohama, yokohamaDup], anchor: tokyo)
+        XCTAssertEqual(arranged.map(\.id), ["yokohama", "kyoto", "fukuoka"])
+        XCTAssertEqual(OSMGeocode.arrangeForPicker([kyoto, fukuoka], anchor: nil).map(\.id), ["kyoto", "fukuoka"])
     }
 }

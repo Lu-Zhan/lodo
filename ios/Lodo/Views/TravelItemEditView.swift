@@ -220,9 +220,18 @@ struct TravelItemEditView: View {
                         originName = name
                         originCoordinate = coordinate
                     }
-                }, hint: tripHint, region: tripRegion)
+                }, hint: tripHint, region: tripRegion, anchor: tripAnchor)
             }
             .onAppear(perform: load)
+            #if DEBUG
+            // 截图验证用:simctl 点不了「搜索」,直接拉起选地点页(配 --demo-travel-add)。
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("--demo-place-search") else { return }
+                // 等这张表弹完再叠一层,不然系统会忽略第二次呈现。
+                try? await Task.sleep(for: .seconds(1.2))
+                searching = .place
+            }
+            #endif
         }
     }
 
@@ -251,6 +260,8 @@ struct TravelItemEditView: View {
     /// 表单里其余字段都不依赖它。
     @State private var tripHint: String?
     @State private var tripRegion: String?
+    /// 这趟旅行里已经有坐标的某个地点,给选地点页按远近排序用(同名的寺庙全国有十几座)。
+    @State private var tripAnchor: CLLocationCoordinate2D?
 
     private func load() {
         guard !didLoad else { return }
@@ -258,6 +269,11 @@ struct TravelItemEditView: View {
         if let trip = TravelStore.trips(in: context).first(where: { $0.uuid == tripUUID }) {
             tripHint = TravelStore.geocodeHint(for: trip)
             tripRegion = TravelStore.expectedRegion(for: trip)
+            // 交通类不当锚点:起降机场常在出发地,会把排序拉到另一个城市去。
+            tripAnchor = TravelStore.items(for: trip.uuid, in: context)
+                .first { $0.travelKind?.isTransport != true && $0.travelLatitude != nil }
+                .flatMap { item in item.travelLatitude.flatMap { lat in
+                    item.travelLongitude.map { CLLocationCoordinate2D(latitude: lat, longitude: $0) } } }
         }
         guard let existing else {
             start = defaultDate

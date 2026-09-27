@@ -12,7 +12,12 @@ import Foundation
 /// Nominatim 是模糊匹配,会把「新宿王子酒店」匹配成埼玉的「喜多屋酒店倉庫」
 /// (只重了"酒店"两个字),所以结果还要过一道**名字校验**(`nameScore`)。
 public enum OSMGeocode {
-    public struct Place: Equatable, Sendable {
+    public struct Place: Equatable, Sendable, Identifiable {
+        public let id: String
+        /// 显示用的名字(按请求语言;没有就取别的名字)。
+        public let name: String
+        /// 完整地址(Nominatim 的 display_name),手动搜索列表的第二行。
+        public let displayName: String
         public let latitude: Double
         public let longitude: Double
         /// ISO 3166-1 alpha-2,大写。
@@ -78,7 +83,12 @@ public enum OSMGeocode {
             if let details = raw["namedetails"] as? [String: Any] {
                 names += details.values.compactMap { $0 as? String }.filter { !$0.isEmpty }
             }
-            return Place(latitude: lat, longitude: lon,
+            let display = raw["display_name"] as? String ?? ""
+            let osmID = "\(raw["osm_type"] as? String ?? "")\(raw["osm_id"].map { "\($0)" } ?? "\(lat),\(lon)")"
+            return Place(id: osmID,
+                         name: names.first ?? display.components(separatedBy: ",").first ?? "",
+                         displayName: display,
+                         latitude: lat, longitude: lon,
                          countryCode: (address?["country_code"] as? String)?.uppercased(),
                          names: names,
                          addressType: raw["addresstype"] as? String ?? "")
@@ -110,6 +120,24 @@ public enum OSMGeocode {
         // 带声调的拉丁字母(Sensō-ji)去掉附加符号。
         CFStringTransform(mutable, nil, kCFStringTransformStripCombiningMarks, false)
         return (mutable as String).filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// 手动搜索列表的排序:保留 Nominatim 自己的知名度顺序,只把离锚点 `nearby` 米以内的
+    /// **稳定地**挪到前面;坐标几乎重合(约 100 米内)的重复项只留第一条。
+    /// 不按纯距离排:东京行程里搜「清水寺」,纯距离会把京都那座挤出列表——
+    /// 一趟旅行顺道去一趟别的城市是常事,最有名的那座仍该看得到。
+    public static func arrangeForPicker(_ places: [Place], anchor: TravelCoordinate?,
+                                        nearby: Double = 200_000) -> [Place] {
+        var seen = Set<String>()
+        let unique = places.filter { place in
+            seen.insert(String(format: "%.3f,%.3f", place.latitude, place.longitude)).inserted
+        }
+        guard let anchor else { return unique }
+        let isNear: (Place) -> Bool = {
+            TravelMapFraming.distance(anchor, TravelCoordinate(latitude: $0.latitude, longitude: $0.longitude))
+                <= nearby
+        }
+        return unique.filter(isNear) + unique.filter { !isNear($0) }
     }
 
     /// 挑一条:国家对得上、名字对得上;有锚点时取最近的。

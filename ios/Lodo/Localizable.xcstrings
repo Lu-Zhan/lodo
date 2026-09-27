@@ -226,6 +226,7 @@
       }
     },
     "%lld 项" : {},
+    "%lld%%" : {},
     "%lld. %@" : {
       "localizations" : {
         "en" : {
@@ -566,6 +567,38 @@
       }
     },
     "Lodo" : {},
+    "OpenStreetMap" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenStreetMap"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenStreetMap"
+          }
+        }
+      }
+    },
+    "OpenStreetMap 搜索失败,检查一下网络再试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenStreetMap search failed. Check your connection and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenStreetMap 搜索失败,检查一下网络再试。"
+          }
+        }
+      }
+    },
     "Qwen 语音识别(云端,默认)" : {},
     "Qwen 语音识别整段录音后一次性转写,停止录音到出结果会有短暂等待;系统语音识别边说边出字,但仅本机可用。语音输入静音超过设定时长自动停止并提交;0 秒 = 关闭,不自动停止。" : {},
     "Tavily API Key" : {},
@@ -620,6 +653,7 @@
       }
     },
     "·" : {},
+    "—" : {},
     "「%@」实际用了多久?" : {},
     "「%@」改期建议" : {},
     "三日" : {
@@ -1163,6 +1197,7 @@
       }
     },
     "今日进度" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1373,6 +1408,7 @@
       }
     },
     "会先抓取原文网页,抓不到时只根据摘要总结。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3144,6 +3180,22 @@
         }
       }
     },
+    "在 OpenStreetMap 中搜索「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search OpenStreetMap for “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 OpenStreetMap 中搜索「%@」"
+          }
+        }
+      }
+    },
     "在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。" : {},
     "在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。" : {},
     "在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。" : {},
@@ -3230,6 +3282,7 @@
       }
     },
     "地图" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3246,6 +3299,7 @@
       }
     },
     "地图上还没有点" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3257,6 +3311,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "地图上还没有点"
+          }
+        }
+      }
+    },
+    "地图数据 © OpenStreetMap 贡献者" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Map data © OpenStreetMap contributors"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地图数据 © OpenStreetMap 贡献者"
           }
         }
       }
@@ -3327,6 +3397,7 @@
       }
     },
     "填了地点的行程项会自动找坐标画到地图上;这里空着,说明还没填地点,或者按名字没搜到。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6342,6 +6413,7 @@
       }
     },
     "本周完成" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6748,6 +6820,22 @@
         }
       }
     },
+    "正在搜索 OpenStreetMap…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching OpenStreetMap…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在搜索 OpenStreetMap…"
+          }
+        }
+      }
+    },
     "正在搜索…" : {
       "localizations" : {
         "en" : {
@@ -6878,6 +6966,7 @@
       }
     },
     "正在读原文并总结…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6959,6 +7048,7 @@
       }
     },
     "步数趋势" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7235,6 +7325,7 @@
       }
     },
     "活动圆环" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8582,6 +8673,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "英镑"
+          }
+        }
+      }
+    },
+    "苹果地图在当前网络下可能只有中国大陆的数据,找不到国外地点时可以试试这里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On this network Apple Maps may only have mainland China data. Try here if a place abroad can't be found."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "苹果地图在当前网络下可能只有中国大陆的数据,找不到国外地点时可以试试这里。"
           }
         }
       }

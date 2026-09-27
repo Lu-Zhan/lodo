@@ -103,7 +103,8 @@ enum PlaceGeocoder {
     }
 
     /// 打一次 Nominatim。网络失败/被限流返回 nil(不算"没找到",下次还能再试)。
-    private static func osmSearch(_ query: String, region: String?,
+    /// 手动搜地点(`PlaceSearchView`)也走这里,共用同一个每秒 1 次的限速。
+    static func osmSearch(_ query: String, region: String?,
                                   anchor: CLLocationCoordinate2D?) async -> [OSMGeocode.Place]? {
         guard let url = OSMGeocode.searchURL(
             query: query, region: region, anchor: anchor.map(travelCoordinate),

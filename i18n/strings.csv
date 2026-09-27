@@ -909,3 +909,9 @@ travel.relocating,正在按地名重新查找位置…,Looking up places again�
 travel.relocate_none,这次旅行里没有可以查位置的地点。,This trip has no places to look up.,ios_view,旅行详情
 travel.relocate_done,已更新 %lld 个地点的位置。,Updated %lld place locations.,ios_view,旅行详情
 travel.relocate_partial,"已更新 %lld 个地点,%lld 个没搜到(保留原来的位置)。",Updated %lld places; %lld weren't found (kept their previous locations).,ios_view,旅行详情
+place_search.osm_searching,正在搜索 OpenStreetMap…,Searching OpenStreetMap…,ios_view,选地点
+place_search.osm_button,在 OpenStreetMap 中搜索「%@」,Search OpenStreetMap for “%@”,ios_view,选地点
+place_search.osm_failed,"OpenStreetMap 搜索失败,检查一下网络再试。",OpenStreetMap search failed. Check your connection and try again.,ios_view,选地点
+place_search.osm_hint,"苹果地图在当前网络下可能只有中国大陆的数据,找不到国外地点时可以试试这里。",On this network Apple Maps may only have mainland China data. Try here if a place abroad can't be found.,ios_view,选地点
+place_search.osm_attribution,地图数据 © OpenStreetMap 贡献者,Map data © OpenStreetMap contributors,ios_view,选地点
+place_search.osm_header,OpenStreetMap,OpenStreetMap,ios_view,选地点

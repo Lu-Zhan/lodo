@@ -11,6 +11,12 @@ import LodoCore
 /// 一个同名的地方(详见 `PlaceGeocoder` 文件头),不分段的话用户点第一条就把
 /// 日本的行程钉到了浙江。不是直接滤掉——中途去别的国家转机、顺道去一趟都是真事,
 /// 只是不该排在前面、也不该看不出来它在哪儿。
+///
+/// **苹果搜不到时可以改搜 OpenStreetMap**(Nominatim,见 `PlaceGeocoder` 文件头:
+/// 国内网络上苹果只给中国数据,国外地点在上面那两段里根本不会出现)。
+/// Nominatim 的使用规定**不允许边打字边搜**,所以它只在按下键盘上的搜索键、
+/// 或点列表里那一行「在 OpenStreetMap 中搜索」时才发一次;打字过程中仍然只用苹果。
+/// 按旅行的国家筛,数据按 ODbL 要求在分段脚注里署名。
 struct PlaceSearchView: View {
     /// 选中后回传:显示名 + 坐标。
     let onPick: (String, CLLocationCoordinate2D) -> Void
@@ -18,6 +24,9 @@ struct PlaceSearchView: View {
     var hint: String?
     /// 这趟旅行应该在哪个国家(ISO 码);认不出来时 nil,那就不分段。
     var region: String?
+    /// 这趟旅行里已有的某个坐标。OpenStreetMap 的结果按离它的远近排——同名的
+    /// 「清水寺」日本有十几座,Nominatim 自己的排序会把福冈那座排在京都前面。
+    var anchor: CLLocationCoordinate2D?
 
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -25,6 +34,13 @@ struct PlaceSearchView: View {
     @State private var searching = false
     @State private var searchTask: Task<Void, Never>?
     @State private var failed = false
+    /// OpenStreetMap 那一段:结果、这批结果对应的查询词、是否正在查。
+    @State private var osmResults: [OSMGeocode.Place] = []
+    @State private var osmQuery: String?
+    @State private var osmSearching = false
+    @State private var osmFailed = false
+
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         NavigationStack {
@@ -38,12 +54,14 @@ struct PlaceSearchView: View {
                     Text("搜索失败,检查一下网络再试。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                } else if results.isEmpty && !query.isEmpty {
+                } else if results.isEmpty && osmResults.isEmpty && !query.isEmpty
+                            && osmQuery == trimmedQuery && !osmSearching {
                     Text("没有找到这个地方。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 ForEach(inRegion, id: \.self) { row($0) }
+                osmSection
                 if !elsewhere.isEmpty {
                     Section {
                         ForEach(elsewhere, id: \.self) { row($0) }
@@ -55,6 +73,10 @@ struct PlaceSearchView: View {
                 }
             }
             .searchable(text: $query, prompt: "搜索地点")
+            // 按下搜索键:苹果那边在目标国家里没有结果时,顺手查一次 OpenStreetMap。
+            .onSubmit(of: .search) {
+                if inRegion.isEmpty || region == nil && results.isEmpty { searchOSM() }
+            }
             .navigationTitle("选择地点")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -68,6 +90,12 @@ struct PlaceSearchView: View {
             // 每个字都会发一次网络请求,结果还会乱序回来盖掉最新那次。
             .onChange(of: query) { _, text in
                 searchTask?.cancel()
+                // OSM 的结果对应的是上一个词,换词就收掉(新词要再按一次搜索)。
+                if osmQuery != nil {
+                    osmResults = []
+                    osmQuery = nil
+                    osmFailed = false
+                }
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {
                     results = []
@@ -82,6 +110,89 @@ struct PlaceSearchView: View {
                 }
             }
             .onDisappear { searchTask?.cancel() }
+            #if DEBUG
+            // 截图验证用:--demo-place-search 后面跟一个词,填进去并在苹果搜完后查一次 OSM。
+            .task {
+                let args = ProcessInfo.processInfo.arguments
+                guard let index = args.firstIndex(of: "--demo-place-search"),
+                      index + 1 < args.count else { return }
+                query = args[index + 1]
+                try? await Task.sleep(for: .seconds(4))
+                searchOSM()
+            }
+            #endif
+        }
+    }
+
+    /// OpenStreetMap 那一段:还没查过时是一行「在 OpenStreetMap 中搜索」,查过就列结果。
+    @ViewBuilder
+    private var osmSection: some View {
+        if !trimmedQuery.isEmpty && !searching {
+            if osmQuery == trimmedQuery && !osmResults.isEmpty {
+                Section {
+                    ForEach(osmResults) { place in
+                        Button {
+                            onPick(place.name, CLLocationCoordinate2D(latitude: place.latitude,
+                                                                      longitude: place.longitude))
+                            dismiss()
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(place.name).foregroundStyle(.primary)
+                                if !place.displayName.isEmpty {
+                                    Text(place.displayName)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("OpenStreetMap")
+                } footer: {
+                    Text("地图数据 © OpenStreetMap 贡献者")
+                }
+            } else if osmSearching {
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("正在搜索 OpenStreetMap…").foregroundStyle(.secondary)
+                }
+            } else if osmQuery != trimmedQuery && (inRegion.isEmpty || region == nil) {
+                Section {
+                    Button {
+                        searchOSM()
+                    } label: {
+                        Label("在 OpenStreetMap 中搜索「\(trimmedQuery)」", systemImage: "globe.asia.australia")
+                    }
+                } footer: {
+                    Text(osmFailed ? "OpenStreetMap 搜索失败,检查一下网络再试。"
+                                   : "苹果地图在当前网络下可能只有中国大陆的数据,找不到国外地点时可以试试这里。")
+                }
+            }
+        }
+    }
+
+    private func searchOSM() {
+        let text = trimmedQuery
+        guard !text.isEmpty, !osmSearching, osmQuery != text else { return }
+        osmSearching = true
+        osmFailed = false
+        Task {
+            // 不给 viewbox:它会让 Nominatim 只挑附近的,把别的城市里最有名的那个挤掉;
+            // 附近的挪到前面由 arrangeForPicker 做。
+            let places = await PlaceGeocoder.osmSearch(text, region: region, anchor: nil).map {
+                OSMGeocode.arrangeForPicker($0, anchor: anchor.map {
+                    TravelCoordinate(latitude: $0.latitude, longitude: $0.longitude) })
+            }
+            // 查的时候用户又改了词:这批结果作废。
+            guard text == trimmedQuery else {
+                osmSearching = false
+                return
+            }
+            osmResults = places ?? []
+            osmFailed = places == nil
+            osmQuery = places == nil ? nil : text
+            osmSearching = false
         }
     }
 
@@ -142,12 +253,16 @@ struct PlaceSearchView: View {
             let response = try await MKLocalSearch(request: request).start()
             guard !Task.isCancelled else { return false }
             results = response.mapItems
+            failed = false
             return !response.mapItems.isEmpty
         } catch {
             guard !Task.isCancelled else { return false }
             results = []
-            // 用户自己取消/输入变化导致的取消不算失败,别红着脸报错。
-            failed = (error as? MKError)?.code != .loadingThrottled
+            // 只有真正的网络/服务错误才算失败。「找不到」(带城市那次搜常见,见
+            // PlaceGeocoder 文件头)和被限流都不是——原来把「找不到」也算成失败,
+            // 后面那次单搜成功了还挂着「搜索失败」。
+            let code = (error as? MKError)?.code
+            failed = code != .loadingThrottled && code != .placemarkNotFound
             return false
         }
     }
