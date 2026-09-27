@@ -252,7 +252,7 @@ struct TravelItemEditView: View {
                         originName = name
                         originCoordinate = coordinate
                     }
-                }, hint: tripHint, region: tripRegion, anchor: tripAnchor,
+                }, hints: tripHints, regions: tripRegions, anchor: tripAnchor,
                    tripLacksLocation: tripLacksLocation)
             }
             .onAppear(perform: load)
@@ -384,8 +384,8 @@ struct TravelItemEditView: View {
 
     /// 这次旅行(用来给地名搜索带上城市/国家消歧)。在 load() 里查一次存下来,
     /// 表单里其余字段都不依赖它。
-    @State private var tripHint: String?
-    @State private var tripRegion: String?
+    @State private var tripHints: [String] = []
+    @State private var tripRegions: [String] = []
     /// 这趟旅行里已经有坐标的某个地点,给选地点页按远近排序用(同名的寺庙全国有十几座)。
     @State private var tripAnchor: CLLocationCoordinate2D?
     /// 旅行的城市、国家都没填(选地点页搜不到时提醒去填)。
@@ -395,10 +395,9 @@ struct TravelItemEditView: View {
         guard !didLoad else { return }
         didLoad = true
         if let trip = TravelStore.trips(in: context).first(where: { $0.uuid == tripUUID }) {
-            tripHint = TravelStore.geocodeHint(for: trip)
-            tripRegion = TravelStore.expectedRegion(for: trip)
-            tripLacksLocation = trip.city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                && trip.country.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            tripHints = TravelStore.geocodeHints(for: trip)
+            tripRegions = TravelStore.expectedRegions(for: trip)
+            tripLacksLocation = trip.lacksLocation
             // 交通类不当锚点:起降机场常在出发地,会把排序拉到另一个城市去。
             tripAnchor = TravelStore.items(for: trip.uuid, in: context)
                 .first { $0.travelKind?.isTransport != true && $0.travelLatitude != nil }

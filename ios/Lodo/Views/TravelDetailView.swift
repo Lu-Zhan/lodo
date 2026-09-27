@@ -17,6 +17,7 @@ struct TravelDetailView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.lodoAccent) private var lodoAccent
+    @Environment(\.dismiss) private var dismiss
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var displayCurrency = "CNY"
     /// 地图上画真实路线(`MKDirections`)还是直线。纯展示偏好,存本机。
@@ -43,6 +44,9 @@ struct TravelDetailView: View {
     /// 底部行程面板。页面出现时弹出、离开时收回(返回上一页前必须先收掉)。
     @State private var showsPanel = false
     @State private var panelDetent: PresentationDetent = .medium
+    /// 点了返回:先收起面板,面板收完(sheet 的 onDismiss)再退出这一页。
+    /// 直接 pop 的话面板会在页面已经滑走之后才掉下去,两段动画叠在一起。
+    @State private var leaving = false
     /// 路线加载完一批就 +1,让地图按新缓存重画。
     @State private var routeRevision = 0
     @State private var relocating = false
@@ -111,8 +115,16 @@ struct TravelDetailView: View {
                          ? String(localized: "未命名旅行", bundle: .appLanguage(language), locale: language.locale)
                          : trip.title)
         #endif
+        // 返回键自己画:先收起面板再退出(见 leaving)。系统返回键会直接 pop。
+        .navigationBarBackButtonHidden(true)
         // 页面自己的操作收在右上角(原来「⋯」在左上角、紧挨着返回键)。
         .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button(action: leave) {
+                    Label("返回", systemImage: "chevron.backward")
+                }
+                .disabled(leaving)
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     withAnimation(.lodoAware(.snappy)) { showsRoutes.toggle() }
@@ -125,8 +137,10 @@ struct TravelDetailView: View {
                 actionMenu
             }
         }
-        .sheet(isPresented: $showsPanel) { panel }
-        .onAppear { showsPanel = true }
+        .sheet(isPresented: $showsPanel, onDismiss: {
+            if leaving { dismiss() }
+        }) { panel }
+        .onAppear { if !leaving { showsPanel = true } }
         .onDisappear { showsPanel = false }
         // 手打的地名、AI 规划出来的安排都没有坐标,打开这一页时补一遍,地图上才
         // 有点可画(查不到的照旧留空,见 TravelStore.fillMissingCoordinates);
@@ -155,6 +169,15 @@ struct TravelDetailView: View {
         #if DEBUG
         .onAppear(perform: applyDemoArguments)
         #endif
+    }
+
+    private func leave() {
+        leaving = true
+        if showsPanel {
+            showsPanel = false
+        } else {
+            dismiss()
+        }
     }
 
     private var actionMenu: some View {
@@ -353,7 +376,7 @@ struct TravelDetailView: View {
                         Text("这天还没安排")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .travelPanelRow(group: "day-\(day.date.timeIntervalSince1970)")
                             .contentShape(Rectangle())
                             .dropDestination(for: String.self) { ids, _ in
                                 moveDropped(ids, to: day.date)
@@ -385,7 +408,6 @@ struct TravelDetailView: View {
                 // 左侧按天胶囊选中某一天时滚到这里(见 selectDay)。List 的分区标题不能当
                 // scrollTo 的目标,实际对准的是分区第一行,锚点因此往下让出一截标题。
                 .id(day.date)
-                .listRowBackground(Self.panelRowBackground)
             }
             let extras = TravelPlan.outOfRange(entries, days: trip.days)
             if !extras.isEmpty {
@@ -396,19 +418,17 @@ struct TravelDetailView: View {
                 } footer: {
                     Text("这些行程项的时间不在这次旅行的日期范围里。改一下旅行日期,或者改这一项的时间。")
                 }
-                .listRowBackground(Self.panelRowBackground)
             }
             let pending = TravelPlan.unscheduled(entries)
             if !pending.isEmpty {
                 Section("未排期") {
                     ForEach(pending) { entry in entryRow(entry, group: "unscheduled") }
                 }
-                .listRowBackground(Self.panelRowBackground)
             }
         }
         // 列表自己不铺底色,透出面板那层玻璃。
         .scrollContentBackground(.hidden)
-        .backgroundPreferenceValue(EntryGroupFramesKey.self) { entryGroupGlass($0) }
+        .travelPanelGroupGlass()
         .onChange(of: panelScrollToken) { _, _ in
             guard let target = panelScrollDay ?? trip.days.first else { return }
             // 等面板从露头升到半高、分段切回「按天」这一帧布局完再滚。
@@ -435,18 +455,19 @@ struct TravelDetailView: View {
                     Text("还没有记下航班、火车或客车。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .travelPanelRow(group: "transport")
                 } else {
                     ForEach(transport) { entry in entryRow(entry, group: "transport") }
                 }
             } header: {
                 Label("交通", systemImage: "airplane")
             }
-            .listRowBackground(Self.panelRowBackground)
             Section {
                 if pending.isEmpty {
                     Text("想去但还没定哪天的地点和餐馆会放在这里。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .travelPanelRow(group: "inbox")
                 } else {
                     ForEach(pending) { entry in entryRow(entry, group: "inbox") }
                 }
@@ -457,10 +478,9 @@ struct TravelDetailView: View {
                     Text("点行尾的 ⓘ 给它排个时间,就会出现在日程里。")
                 }
             }
-            .listRowBackground(Self.panelRowBackground)
         }
         .scrollContentBackground(.hidden)
-        .backgroundPreferenceValue(EntryGroupFramesKey.self) { entryGroupGlass($0) }
+        .travelPanelGroupGlass()
     }
 
     // MARK: - 文件
@@ -492,28 +512,34 @@ struct TravelDetailView: View {
                         Label("从记忆库选择", systemImage: "tray.full")
                     }
                 } label: {
-                    Label("添加文件", systemImage: "plus.circle.fill")
-                        .font(.body.weight(.medium))
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus.circle.fill")
+                            .frame(width: 22)
+                        Text("添加文件")
+                            .font(.body.weight(.medium))
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
                 }
+                .travelPanelRow(group: "files-add")
             }
-            .listRowBackground(Self.panelRowBackground)
             if tripFiles.isEmpty {
                 Section {
                     Text("机票行程单、签证、保险、攻略截图……放在这里,在记忆里也能搜到。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .travelPanelRow(group: "files-empty")
                 }
-                .listRowBackground(Self.panelRowBackground)
             } else {
                 Section {
                     ForEach(tripFiles) { file in fileRow(file) }
                 } footer: {
                     Text("和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。")
                 }
-                .listRowBackground(Self.panelRowBackground)
             }
         }
         .scrollContentBackground(.hidden)
+        .travelPanelGroupGlass()
         .fileImporter(isPresented: $importingFiles, allowedContentTypes: [.item],
                       allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
@@ -553,7 +579,7 @@ struct TravelDetailView: View {
         Button {
             viewingFile = file
         } label: {
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 Image(systemName: file.kind.symbol)
                     .foregroundStyle(.tint)
                     .frame(width: 22)
@@ -577,9 +603,11 @@ struct TravelDetailView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .padding(.vertical, 1)
             .contentShape(Rectangle())
         }
         .pressableCard()
+        .travelPanelRow(group: "files")
         .swipeActions(edge: .trailing) {
             // 行程项的附件在日程里管,这里只管挂到旅行上的文件。
             if file.travelKind == nil {
@@ -749,11 +777,10 @@ struct TravelDetailView: View {
     /// 城市、国家两栏都没填。这种旅行查地名只能靠从旅行名里猜城市,经常猜不出来,
     /// 查不到是正常的——该做的是提醒用户去填,而不是只说"没找到"。
     private var tripLacksLocation: Bool {
-        trip.city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && trip.country.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        trip.lacksLocation
     }
 
-    private var tripLocationKey: String { trip.city + "|" + trip.country }
+    private var tripLocationKey: String { trip.destinationsKey }
 
     /// 有地名(或标题)、却还没坐标的非交通类行程项。
     private var unlocatedCount: Int {
@@ -1133,34 +1160,32 @@ struct TravelDetailView: View {
                 ExchangeRateStore.shared.convert(amount, from: from, to: to)
             }
             Section {
-                LabeledContent("合计") {
-                    Text("\(displayCurrency) \(String(format: "%.2f", total.amount))")
-                        .font(.body.monospacedDigit())
-                }
+                costLine(title: Text("合计"), symbol: "sum",
+                         amount: "\(displayCurrency) \(String(format: "%.2f", total.amount))",
+                         emphasized: true)
+                    .travelPanelRow(group: "cost-total")
                 if !total.missingCurrencies.isEmpty {
                     // 换不出汇率的不能默默当 0 吞掉,如实说清楚少算了哪几种。
                     Text("以下币种暂时换不到汇率,没有计入合计:\(total.missingCurrencies.joined(separator: "、"))")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .travelPanelRow(group: "cost-total")
                 }
             } header: {
                 Text("总花费")
             } footer: {
                 Text("按「设置 → 资产显示币种」折算,汇率与资产总览共用同一份。")
             }
-            .listRowBackground(Self.panelRowBackground)
 
             let lines = TravelPlan.costs(entries)
             if !lines.isEmpty {
                 Section("按币种") {
                     ForEach(lines) { line in
-                        LabeledContent(line.currency) {
-                            Text(String(format: "%.2f", line.amount))
-                                .font(.body.monospacedDigit())
-                        }
+                        costLine(title: Text(line.currency), symbol: "banknote",
+                                 amount: String(format: "%.2f", line.amount))
+                            .travelPanelRow(group: "cost-currency")
                     }
                 }
-                .listRowBackground(Self.panelRowBackground)
             }
 
             ForEach(TravelItemKind.allCases, id: \.self) { kind in
@@ -1168,23 +1193,20 @@ struct TravelDetailView: View {
                 if !kindLines.isEmpty {
                     Section {
                         ForEach(kindLines) { line in
-                            LabeledContent(line.currency) {
-                                Text(String(format: "%.2f", line.amount))
-                                    .font(.body.monospacedDigit())
-                            }
+                            costLine(title: Text(line.currency), symbol: kind.systemImage,
+                                     amount: String(format: "%.2f", line.amount), emphasized: true)
+                                .travelPanelRow(group: "cost-\(kind.rawValue)")
                         }
                         ForEach(entries.filter { $0.kind == kind && ($0.price ?? 0) != 0 }) { entry in
-                            LabeledContent(entry.title) {
-                                Text("\(entry.currency) \(String(format: "%.2f", entry.price ?? 0))")
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
+                            costLine(title: Text(entry.title), symbol: entry.symbolName,
+                                     detail: detailLine(entry, showDate: true),
+                                     amount: "\(entry.currency) \(String(format: "%.2f", entry.price ?? 0))")
+                                .travelPanelRow(group: "cost-\(kind.rawValue)")
                         }
                     } header: {
                         Label(LocalizedStrings.text(kind.titleKey, language: language),
                               systemImage: kind.systemImage)
                     }
-                    .listRowBackground(Self.panelRowBackground)
                 }
             }
 
@@ -1195,18 +1217,48 @@ struct TravelDetailView: View {
                     } description: {
                         Text("给行程项填上金额,这里就会按币种和类型汇总。")
                     }
+                    .travelPanelRow(group: "cost-empty")
                 }
             }
         }
         .scrollContentBackground(.hidden)
+        .travelPanelGroupGlass()
         .task { await ExchangeRateStore.shared.refreshIfNeeded() }
+    }
+
+    /// 消费视图的一行,版式对齐日程的行程项:左边图标、标题(+ 一行摘要)、右边金额。
+    private func costLine(title: Text, symbol: String, detail: String? = nil,
+                          amount: String, emphasized: Bool = false) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol)
+                .foregroundStyle(.tint)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                title
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if let detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 4)
+            Text(amount)
+                .font(emphasized ? .body.weight(.medium).monospacedDigit()
+                                 : .footnote.monospacedDigit())
+                .foregroundStyle(emphasized ? .primary : .secondary)
+        }
+        .padding(.vertical, 1)
     }
 
     // MARK: - 行
 
     /// `night` 只有按天视图里的住宿才传:那一晚是入住当晚 / 最后一晚时各挂一枚标签。
     /// `group` 标出这一行属于哪一组(哪一天、交通、待安排……),同组的行在列表背后
-    /// 共用一整块玻璃,见 `entryGroupGlass`。
+    /// 共用一整块玻璃,见 `travelPanelRow`。
     private func entryRow(_ entry: TravelEntry, group: String, showDate: Bool = true,
                           night: LodgingNight? = nil) -> some View {
         HStack(spacing: 8) {
@@ -1264,18 +1316,7 @@ struct TravelDetailView: View {
             .pressable()
             .accessibilityLabel("详情")
         }
-        // 同一组的行共用一整块 Liquid Glass(用户要求,同侧栏导航行那条例外),行间
-        // 不留空隙、不要分隔线。行自己不画底,只报告位置,玻璃由列表背后的
-        // `entryGroupGlass` 按整组的范围画——每行各垫一块时相邻两块亮度对不上,
-        // 交界处有一道接缝。行内边距清零、由这里的 padding 撑回来,位置才是整行。
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .anchorPreference(key: EntryGroupFramesKey.self, value: .bounds) {
-            [group: [EntryGroupFrame(bounds: $0, selected: isSelected(entry))]]
-        }
-        .listRowInsets(EdgeInsets())
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
+        .travelPanelRow(group: group, selected: isSelected(entry))
         // 行操作一律收在向左滑那一侧(全 app 没有 leading swipeActions,见 CLAUDE.md)。
         .swipeActions(edge: .trailing) {
             if let item = item(for: entry) {
@@ -1293,44 +1334,6 @@ struct TravelDetailView: View {
             }
         }
     }
-
-    /// 行程项分组的玻璃底:按每组各行报上来的位置取并集,画一整块圆角玻璃;选中
-    /// (地图上正定位着它)那行在玻璃上叠一层淡淡的强调色,裁在同一个圆角里。
-    /// 旧系统 /「减弱透明度」退回固定底色——理由见 `panelRowBackground`。
-    ///
-    /// 列表是懒加载的,滚出屏幕的行不报位置,并集只覆盖当前建出来的那几行;它们
-    /// 本来就在可见区外面,顶/底的圆角因此不会出现在屏幕中间。
-    private func entryGroupGlass(_ groups: [String: [EntryGroupFrame]]) -> some View {
-        GeometryReader { proxy in
-            ForEach(groups.keys.sorted(), id: \.self) { key in
-                let frames = groups[key] ?? []
-                let rects = frames.map { proxy[$0.bounds] }
-                if let first = rects.first {
-                    let union = rects.dropFirst().reduce(first) { $0.union($1) }
-                    let selected = zip(frames, rects).filter { $0.0.selected }.map(\.1)
-                    let shape = RoundedRectangle(cornerRadius: Self.entryGroupRadius, style: .continuous)
-                    ZStack(alignment: .topLeading) {
-                        GlassRowBackground(selected: false, tint: .clear, shape: shape) {
-                            shape.fill(Self.panelRowBackground)
-                        }
-                        ForEach(Array(selected.enumerated()), id: \.offset) { _, rect in
-                            Rectangle()
-                                .fill(lodoAccent.accent.opacity(0.12))
-                                .frame(width: rect.width, height: rect.height)
-                                .offset(x: rect.minX - union.minX, y: rect.minY - union.minY)
-                        }
-                    }
-                    .frame(width: union.width, height: union.height, alignment: .topLeading)
-                    .clipShape(shape)
-                    .offset(x: union.minX, y: union.minY)
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    /// 分组玻璃的圆角,对上 List 分区自己的圆角(面板里别的分区还是系统画的)。
-    private static let entryGroupRadius: CGFloat = 22
 
     private func isSelected(_ entry: TravelEntry) -> Bool {
         guard let selectedPin else { return false }
@@ -1429,16 +1432,85 @@ private struct TravelPanelBackground: View {
     }
 }
 
-/// 一行行程项在列表里的位置,供 `entryGroupGlass` 在列表背后按组画玻璃。
-private struct EntryGroupFrame {
+// MARK: - 面板行的分组玻璃(日程/总览/清单/消费/文件共用)
+
+/// 一行在列表里的位置,供 `TravelPanelGroupGlass` 在列表背后按组画玻璃。
+struct TravelPanelRowFrame {
     let bounds: Anchor<CGRect>
     let selected: Bool
 }
 
-private struct EntryGroupFramesKey: PreferenceKey {
-    static let defaultValue: [String: [EntryGroupFrame]] = [:]
-    static func reduce(value: inout [String: [EntryGroupFrame]],
-                       nextValue: () -> [String: [EntryGroupFrame]]) {
+struct TravelPanelRowFramesKey: PreferenceKey {
+    static let defaultValue: [String: [TravelPanelRowFrame]] = [:]
+    static func reduce(value: inout [String: [TravelPanelRowFrame]],
+                       nextValue: () -> [String: [TravelPanelRowFrame]]) {
         value.merge(nextValue()) { $0 + $1 }
+    }
+}
+
+extension View {
+    /// 旅行详情面板里的一行。同一组(`group`)的行在列表背后共用一整块 Liquid Glass
+    /// (用户要求,同侧栏导航行那条例外),行间不留空隙、不要分隔线。行自己不画底,
+    /// 只报告位置,玻璃由列表上的 `travelPanelGroupGlass()` 按整组的范围画——每行各垫
+    /// 一块时相邻两块亮度对不上,交界处有一道接缝。行内边距清零、由这里的 padding
+    /// 撑回来,位置才是整行。面板五个视图的行一律走这里,样子和「日程」一致。
+    func travelPanelRow(group: String, selected: Bool = false) -> some View {
+        frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .anchorPreference(key: TravelPanelRowFramesKey.self, value: .bounds) {
+                [group: [TravelPanelRowFrame(bounds: $0, selected: selected)]]
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+    }
+
+    /// 挂在面板里的 List 上,给 `travelPanelRow` 报上来的各组画玻璃底。
+    func travelPanelGroupGlass() -> some View {
+        backgroundPreferenceValue(TravelPanelRowFramesKey.self) { TravelPanelGroupGlass(groups: $0) }
+    }
+}
+
+/// 分组的玻璃底:按每组各行报上来的位置取并集,画一整块圆角玻璃;选中(地图上正
+/// 定位着它)那行在玻璃上叠一层淡淡的强调色,裁在同一个圆角里。旧系统 /「减弱
+/// 透明度」退回固定底色——理由见 `TravelDetailView.panelRowBackground`。
+///
+/// 列表是懒加载的,滚出屏幕的行不报位置,并集只覆盖当前建出来的那几行;它们
+/// 本来就在可见区外面,顶/底的圆角因此不会出现在屏幕中间。
+private struct TravelPanelGroupGlass: View {
+    let groups: [String: [TravelPanelRowFrame]]
+    @Environment(\.lodoAccent) private var lodoAccent
+
+    /// 分组玻璃的圆角,对上 List 分区自己的圆角。
+    private static let radius: CGFloat = 22
+
+    var body: some View {
+        GeometryReader { proxy in
+            ForEach(groups.keys.sorted(), id: \.self) { key in
+                let frames = groups[key] ?? []
+                let rects = frames.map { proxy[$0.bounds] }
+                if let first = rects.first {
+                    let union = rects.dropFirst().reduce(first) { $0.union($1) }
+                    let selected = zip(frames, rects).filter { $0.0.selected }.map(\.1)
+                    let shape = RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+                    ZStack(alignment: .topLeading) {
+                        GlassRowBackground(selected: false, tint: .clear, shape: shape) {
+                            shape.fill(TravelDetailView.panelRowBackground)
+                        }
+                        ForEach(Array(selected.enumerated()), id: \.offset) { _, rect in
+                            Rectangle()
+                                .fill(lodoAccent.accent.opacity(0.12))
+                                .frame(width: rect.width, height: rect.height)
+                                .offset(x: rect.minX - union.minX, y: rect.minY - union.minY)
+                        }
+                    }
+                    .frame(width: union.width, height: union.height, alignment: .topLeading)
+                    .clipShape(shape)
+                    .offset(x: union.minX, y: union.minY)
+                }
+            }
+        }
+        .allowsHitTesting(false)
     }
 }

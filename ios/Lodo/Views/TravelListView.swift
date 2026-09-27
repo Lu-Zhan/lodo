@@ -454,8 +454,9 @@ struct TripEditView: View {
     @State private var start = Date()
     @State private var end = Date()
     @State private var notes = ""
-    @State private var city = ""
-    @State private var country = ""
+    /// 目的地,至少一格。第一个就是 trip.city/country,其余存 extraDestinations
+    /// (见 `TripDestination`)。
+    @State private var destinations = [TripDestination()]
     @State private var didLoad = false
     /// 正在让 AI 重写备注。
     @State private var regenerating = false
@@ -476,9 +477,45 @@ struct TripEditView: View {
                 Section {
                     TextField("名字,如 东京四日", text: $title)
                 }
-                Section("目的地") {
-                    TextField("城市,如 东京", text: $city)
-                    TextField("国家,如 日本", text: $country)
+                // 一次去好几个地方(北海道 + 上海)时每个目的地一段:搜地点、补地图坐标
+                // 都会在这几个地方里找(见 TravelStore.geocodeContexts)。
+                ForEach(destinations.indices, id: \.self) { index in
+                    Section {
+                        TextField("城市,如 东京", text: $destinations[index].city)
+                        TextField("国家,如 日本", text: $destinations[index].country)
+                        if index == destinations.count - 1 {
+                            Button {
+                                withAnimation(.lodoAware(.snappy)) {
+                                    destinations.append(TripDestination())
+                                }
+                            } label: {
+                                Label("添加目的地", systemImage: "plus.circle")
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            if destinations.count > 1 {
+                                Text("目的地 \(index + 1)")
+                            } else {
+                                Text("目的地")
+                            }
+                            Spacer()
+                            if destinations.count > 1 {
+                                Button("移除", role: .destructive) {
+                                    withAnimation(.lodoAware(.snappy)) {
+                                        _ = destinations.remove(at: index)
+                                    }
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.footnote)
+                                .textCase(nil)
+                            }
+                        }
+                    } footer: {
+                        if index == destinations.count - 1 && destinations.count > 1 {
+                            Text("搜地点、在地图上找位置时会在这几个地方里找。")
+                        }
+                    }
                 }
                 Section("日期") {
                     DatePicker("出发", selection: $start, displayedComponents: .date)
@@ -573,25 +610,21 @@ struct TripEditView: View {
         start = trip.startDate
         end = trip.endDate
         notes = trip.notes
-        city = trip.city
-        country = trip.country
+        destinations = trip.destinations.isEmpty ? [TripDestination()] : trip.destinations
     }
 
     private func save() {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let city = city.trimmingCharacters(in: .whitespacesAndNewlines)
-        let country = country.trimmingCharacters(in: .whitespacesAndNewlines)
         if let trip {
             trip.title = trimmed
             trip.startDate = start
             trip.endDate = end
             trip.notes = notes
-            trip.city = city
-            trip.country = country
+            trip.destinations = destinations
             try? context.save()
         } else {
-            let created = TravelTrip(title: trimmed, startDate: start, endDate: end, notes: notes,
-                                     city: city, country: country)
+            let created = TravelTrip(title: trimmed, startDate: start, endDate: end, notes: notes)
+            created.destinations = destinations
             context.insert(created)
             try? context.save()
             onCreated(created)

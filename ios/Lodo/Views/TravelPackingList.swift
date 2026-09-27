@@ -35,28 +35,41 @@ struct TravelPackingList: View {
                             .font(.subheadline.weight(.medium).monospacedDigit())
                         ProgressView(value: Double(packedCount), total: Double(max(items.count, 1)))
                     }
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 1)
+                    .travelPanelRow(group: "packing-controls")
                 }
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundStyle(.tint)
+                        .frame(width: 22)
                     TextField("添加要带的东西", text: $newTitle)
                         .focused($addFocused)
                         .submitLabel(.done)
                         .onSubmit(add)
                 }
+                .padding(.vertical, 1)
+                .travelPanelRow(group: "packing-controls")
                 Button(action: suggest) {
-                    HStack(spacing: 8) {
-                        if suggesting {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "sparkles")
+                    HStack(spacing: 10) {
+                        Group {
+                            if suggesting {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "sparkles")
+                            }
                         }
+                        .frame(width: 22)
                         Text(suggesting ? "AI 正在想要带什么…" : "AI 建议清单")
                             .font(.body.weight(.medium))
+                        Spacer(minLength: 0)
                     }
+                    .padding(.vertical, 1)
+                    .contentShape(Rectangle())
                 }
+                .pressableCard()
+                .foregroundStyle(.tint)
                 .disabled(suggesting)
+                .travelPanelRow(group: "packing-controls")
             } footer: {
                 if let suggestError {
                     Text(suggestError).foregroundStyle(LodoColor.critical)
@@ -64,7 +77,6 @@ struct TravelPackingList: View {
                     Text("按目的地、季节和行程,让 AI 先列一份,再挑着加进来。")
                 }
             }
-            .listRowBackground(TravelDetailView.panelRowBackground)
 
             ForEach(PackingPlan.grouped(items), id: \.category) { group in
                 Section {
@@ -73,10 +85,10 @@ struct TravelPackingList: View {
                     Text(group.category.isEmpty
                          ? String(localized: "其他", bundle: .appLanguage(language), locale: language.locale) : group.category)
                 }
-                .listRowBackground(TravelDetailView.panelRowBackground)
             }
         }
         .scrollContentBackground(.hidden)
+        .travelPanelGroupGlass()
         .sheet(item: Binding(
             get: { suggestions.map(SuggestionBatch.init) },
             set: { if $0 == nil { suggestions = nil } })) { batch in
@@ -96,17 +108,21 @@ struct TravelPackingList: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: item.packed ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
                     .foregroundStyle(item.packed ? AnyShapeStyle(LodoColor.positive)
-                                                 : AnyShapeStyle(.secondary))
+                                                 : AnyShapeStyle(.tint))
+                    .frame(width: 22)
                 Text(item.title)
+                    .font(.body.weight(.medium))
                     .foregroundStyle(item.packed ? .secondary : .primary)
                     .strikethrough(item.packed)
+                    .lineLimit(1)
                 Spacer(minLength: 0)
             }
+            .padding(.vertical, 1)
             .contentShape(Rectangle())
         }
         .pressableCard()
+        .travelPanelRow(group: "packing-\(item.category)")
         .accessibilityAddTraits(item.packed ? .isSelected : [])
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {

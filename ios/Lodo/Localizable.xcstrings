@@ -3183,6 +3183,22 @@
         }
       }
     },
+    "搜地点、在地图上找位置时会在这几个地方里找。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place search and map locations will look in all of these destinations."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜地点、在地图上找位置时会在这几个地方里找。"
+          }
+        }
+      }
+    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -11034,6 +11050,22 @@
         }
       }
     },
+    "添加目的地" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Destination"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加目的地"
+          }
+        }
+      }
+    },
     "添加行程" : {
       "localizations" : {
         "en" : {
@@ -11614,6 +11646,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "目的地"
+          }
+        }
+      }
+    },
+    "目的地 %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destination %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目的地 %lld"
           }
         }
       }
@@ -14083,6 +14131,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "近期没有日程"
+          }
+        }
+      }
+    },
+    "返回" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回"
           }
         }
       }

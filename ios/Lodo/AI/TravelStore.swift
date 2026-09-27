@@ -363,7 +363,8 @@ enum TravelStore {
     static func pruneMisplacedCoordinates(
         for trip: TravelTrip, context: ModelContext, limit: Int = geocodeBudget
     ) async {
-        guard let region = expectedRegion(for: trip) else { return }
+        let regions = expectedRegions(for: trip)
+        guard !regions.isEmpty else { return }
         let pending = items(for: trip.uuid, in: context).filter {
             $0.travelLatitude != nil && $0.travelLongitude != nil
                 && $0.travelKind?.isTransport != true
@@ -375,7 +376,8 @@ enum TravelStore {
             guard let lat = item.travelLatitude, let lon = item.travelLongitude else { continue }
             let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
             guard let actual = await PlaceGeocoder.regionCode(at: coordinate) else { continue }
-            if PlaceRegion.matches(region, actual) {
+            // 多目的地(北海道 + 上海)时落在其中任何一个国家都算对。
+            if regions.contains(where: { PlaceRegion.matches($0, actual) }) {
                 // 验过就记下来,同一台 app 里不再反查它(同 PlaceGeocoder.missed 的定位:
                 // 内存级、不落盘,重开 app 会再验一遍)。
                 verifiedCoordinates.insert(item.uuid)
@@ -396,6 +398,35 @@ enum TravelStore {
         let region: String?
         var anchor: CLLocationCoordinate2D?
         let hint: String?
+        /// 多目的地时这份判据对应哪个目的地(按行程项文字点名排序用);单目的地为 nil。
+        var destination: TripDestination? = nil
+    }
+
+    /// 每个目的地一份判据。只有一个(或一个都没填)目的地时就是 `geocodeContext`
+    /// 那一份,行为和原来一样;多个目的地(「北海道 · 日本」+「上海 · 中国」)时逐个
+    /// 定国家和城市锚点,认不出也验不出城市的那个目的地跳过。
+    ///
+    /// 多目的地时不拿 `existingAnchor`:已有行程项的坐标属于哪个目的地说不清,
+    /// 挂错了会让另一个目的地的地点挑成离错城市最近的同名店。
+    static func geocodeContexts(for trip: TravelTrip,
+                                existingAnchor: CLLocationCoordinate2D? = nil) async -> [GeocodeContext] {
+        let destinations = trip.destinations
+        guard destinations.count > 1 else {
+            return await geocodeContext(for: trip, existingAnchor: existingAnchor).map { [$0] } ?? []
+        }
+        var contexts: [GeocodeContext] = []
+        for destination in destinations {
+            let cities = TravelDestination.cityCandidates(city: destination.city, title: "")
+            if let region = destination.regionCode {
+                let anchor = await PlaceGeocoder.verifiedAnchor(cities: cities, region: region)?.coordinate
+                contexts.append(GeocodeContext(region: region, anchor: anchor,
+                                               hint: destination.searchHint, destination: destination))
+            } else if let verified = await PlaceGeocoder.verifiedAnchor(cities: cities) {
+                contexts.append(GeocodeContext(region: verified.region, anchor: verified.coordinate,
+                                               hint: destination.searchHint, destination: destination))
+            }
+        }
+        return contexts
     }
 
     /// 定这一轮的判据。
@@ -449,13 +480,17 @@ enum TravelStore {
             $0.travelKind?.isTransport != true && !geocodeQuery(for: $0).isEmpty
         }
         guard !targets.isEmpty else { return result }
-        guard let geo = await geocodeContext(for: trip) else {
+        let contexts = await geocodeContexts(for: trip)
+        guard !contexts.isEmpty else {
             result.destinationUnknown = true
             result.missed = targets.count
             return result
         }
+        let tripItems = items(for: trip.uuid, in: context)
         for item in targets.prefix(geocodeBudget) {
-            guard let coordinate = await lookUp(item, with: geo) else {
+            guard let coordinate = await lookUp(item, in: contexts,
+                                                near: neighborCoordinates(of: item, among: tripItems))
+            else {
                 result.missed += 1
                 continue
             }
@@ -478,9 +513,11 @@ enum TravelStore {
 
     /// 查一条行程项的位置(按天列表里点了一个还没坐标的地点时用),查到就写进去。
     static func locate(_ item: MemoryItem, in trip: TravelTrip, context: ModelContext) async -> Bool {
-        guard !geocodeQuery(for: item).isEmpty, item.travelKind?.isTransport != true,
-              let geo = await geocodeContext(for: trip, existingAnchor: anchorCoordinate(for: trip, context: context)),
-              let coordinate = await lookUp(item, with: geo) else { return false }
+        guard !geocodeQuery(for: item).isEmpty, item.travelKind?.isTransport != true else { return false }
+        let contexts = await geocodeContexts(
+            for: trip, existingAnchor: anchorCoordinate(for: trip, context: context))
+        guard let coordinate = await lookUp(item, in: contexts, near: neighborCoordinates(
+            of: item, among: items(for: trip.uuid, in: context))) else { return false }
         item.travelLatitude = coordinate.latitude
         item.travelLongitude = coordinate.longitude
         if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
@@ -517,16 +554,19 @@ enum TravelStore {
         guard !pending.isEmpty else { return }
         // 认得出国家时可以拿已有行程项的坐标当锚点;认不出国家时 geocodeContext 不用它
         // ——没有国家判据的旅行正是当初最容易搜岔的那批,拿它自己存下的坐标当锚点只会把错误坐实。
-        guard var geo = await geocodeContext(
-            for: trip, existingAnchor: anchorCoordinate(for: trip, context: context)) else { return }
+        var contexts = await geocodeContexts(
+            for: trip, existingAnchor: anchorCoordinate(for: trip, context: context))
+        guard !contexts.isEmpty else { return }
+        let tripItems = items(for: trip.uuid, in: context)
         var filled = false
         for item in pending.prefix(limit) {
-            guard let coordinate = await lookUp(item, with: geo) else { continue }
+            guard let (coordinate, index) = await lookUpWithContext(
+                item, in: contexts, near: neighborCoordinates(of: item, among: tripItems)) else { continue }
             item.travelLatitude = coordinate.latitude
             item.travelLongitude = coordinate.longitude
             // 地名原来空着(用标题搜到的)时顺手补上,详情页那行才显示得出地点。
             if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
-            geo.anchor = geo.anchor ?? coordinate
+            contexts[index].anchor = contexts[index].anchor ?? coordinate
             filled = true
         }
         if filled { try? context.save() }
@@ -544,6 +584,24 @@ enum TravelStore {
     /// 调用方退回别的判据——**不猜**。
     static func expectedRegion(for trip: TravelTrip) -> String? {
         PlaceRegion.isoCode(in: [trip.country, trip.city, trip.title])
+    }
+
+    /// 所有目的地的国家/地区(去重,按目的地顺序)。只有一个目的地时同 `expectedRegion`。
+    static func expectedRegions(for trip: TravelTrip) -> [String] {
+        let destinations = trip.destinations
+        guard destinations.count > 1 else { return expectedRegion(for: trip).map { [$0] } ?? [] }
+        var result: [String] = []
+        for code in destinations.compactMap(\.regionCode) where !result.contains(code) {
+            result.append(code)
+        }
+        return result
+    }
+
+    /// 每个目的地一条消歧词(选地点页用);只有一个目的地时同 `geocodeHint`。
+    static func geocodeHints(for trip: TravelTrip) -> [String] {
+        let destinations = trip.destinations
+        guard destinations.count > 1 else { return geocodeHint(for: trip).map { [$0] } ?? [] }
+        return destinations.compactMap(\.searchHint)
     }
 
     static func geocodeHint(for trip: TravelTrip) -> String? {
@@ -578,6 +636,70 @@ enum TravelStore {
             result.append(candidate)
         }
         return result
+    }
+
+    /// 多目的地时,不是首选的那几个目的地查到的结果要离它的城市锚点这么近才认。
+    /// 「新宿」在北海道那边没查到、转去上海那边查时,苹果只给中国数据,会拿上海一家
+    /// 同名酒店糊弄——离上海几千公里之外的地名本来就不该在上海找到。
+    /// 放到 500 公里:北海道这种按整个道填的目的地,函馆到知床也有四百多公里。
+    private static let fallbackDestinationRadius: CLLocationDistance = 500_000
+
+    /// 同一天别的(非交通)行程项的坐标:用来猜这一条属于哪个目的地。
+    private static func neighborCoordinates(of item: MemoryItem,
+                                            among tripItems: [MemoryItem]) -> [CLLocationCoordinate2D] {
+        guard let start = item.travelStart else { return [] }
+        let calendar = Calendar.current
+        return tripItems.compactMap { other in
+            guard other.uuid != item.uuid, other.travelKind?.isTransport != true,
+                  let otherStart = other.travelStart, calendar.isDate(otherStart, inSameDayAs: start),
+                  let lat = other.travelLatitude, let lon = other.travelLongitude else { return nil }
+            return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        }
+    }
+
+    private static func lookUp(_ item: MemoryItem, in contexts: [GeocodeContext],
+                               near neighbors: [CLLocationCoordinate2D]) async -> CLLocationCoordinate2D? {
+        await lookUpWithContext(item, in: contexts, near: neighbors)?.0
+    }
+
+    /// 多目的地时按哪个顺序去各个目的地里查:① 行程项自己的文字点名了哪个目的地
+    /// (「上海外滩」)排最前;② 否则按同一天别的地点离哪个目的地的锚点近来排
+    /// (同一天多半在同一个地方);③ 都没线索就按目的地填写的顺序。
+    /// 排第一的照常查;后面的只认离那个目的地不远的结果(见 `fallbackDestinationRadius`)。
+    /// 回传查到的坐标和它用的是哪一份判据(补全时拿它当那个目的地的锚点)。
+    private static func lookUpWithContext(
+        _ item: MemoryItem, in contexts: [GeocodeContext], near neighbors: [CLLocationCoordinate2D]
+    ) async -> (CLLocationCoordinate2D, Int)? {
+        guard contexts.count > 1 else {
+            guard let only = contexts.first,
+                  let coordinate = await lookUp(item, with: only) else { return nil }
+            return (coordinate, 0)
+        }
+        let text = [item.title, item.travelPlaceName ?? "", item.summary].joined(separator: " ")
+        let destinations = contexts.map { $0.destination ?? TripDestination() }
+        var order = TripDestination.preferredOrder(destinations, text: text)
+        let anyMentioned = destinations.contains { TripDestination.mentioned($0, in: text) }
+        if !anyMentioned, let center = neighbors.first {
+            func distance(_ index: Int) -> CLLocationDistance {
+                guard let anchor = contexts[index].anchor else { return .greatestFiniteMagnitude }
+                return CLLocation(latitude: anchor.latitude, longitude: anchor.longitude)
+                    .distance(from: CLLocation(latitude: center.latitude, longitude: center.longitude))
+            }
+            order = order.sorted { distance($0) < distance($1) }
+        }
+        for (rank, index) in order.enumerated() {
+            let geo = contexts[index]
+            if rank > 0 && geo.anchor == nil { continue }
+            guard let coordinate = await lookUp(item, with: geo) else { continue }
+            if rank > 0, let anchor = geo.anchor {
+                let far = CLLocation(latitude: anchor.latitude, longitude: anchor.longitude)
+                    .distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+                    > fallbackDestinationRadius
+                if far { continue }
+            }
+            return (coordinate, index)
+        }
+        return nil
     }
 
     /// 按 `geocodeQueries` 的顺序查,第一个查到的就用。

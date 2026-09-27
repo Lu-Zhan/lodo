@@ -16,9 +16,13 @@ public final class TravelTrip {
     public var startDate: Date = Date.now
     public var endDate: Date = Date.now
     public var notes: String = ""
-    /// 目的地城市与国家,都是用户手填的纯文字(可空),只用于展示,不参与定位或地图。
+    /// 第一个目的地的城市与国家,都是用户手填的纯文字(可空)。给地名搜索当消歧判据
+    /// (见 `TravelStore.geocodeContext`)。
     public var city: String = ""
     public var country: String = ""
+    /// 第二个起的目的地(`TripDestination` 数组的 JSON 串,空串 = 只有一个目的地),
+    /// 读写走 `destinations`。
+    public var extraDestinations: String = ""
     public var createdAt: Date = Date.now
 
     public init(uuid: UUID = UUID(), title: String = "", startDate: Date = .now,
@@ -34,12 +38,11 @@ public final class TravelTrip {
         self.createdAt = createdAt
     }
 
-    /// "东京 · 日本";两个都空时返回 nil。
+    /// "东京 · 日本";多个目的地用「+」连起来("北海道 · 日本 + 上海 · 中国");
+    /// 一个都没填时返回 nil。
     public var locationText: String? {
-        let parts = [city, country]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        let parts = destinations.map(\.displayText)
+        return parts.isEmpty ? nil : parts.joined(separator: " + ")
     }
 
     /// 旅行天数(含首尾),按日历天算,至少 1 天。

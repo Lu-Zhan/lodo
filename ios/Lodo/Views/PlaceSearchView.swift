@@ -21,10 +21,11 @@ import LodoCore
 struct PlaceSearchView: View {
     /// 选中后回传:显示名 + 坐标。
     let onPick: (String, CLLocationCoordinate2D) -> Void
-    /// 消歧用的城市/国家,如"东京 日本"。带着它先搜一次,搜不到再单搜用户输入的词。
-    var hint: String?
-    /// 这趟旅行应该在哪个国家(ISO 码);认不出来时 nil,那就不分段。
-    var region: String?
+    /// 消歧用的城市/国家,如"东京 日本"。按顺序带着它们各搜一次,在目标国家里
+    /// 搜不到再单搜用户输入的词。多目的地的旅行(北海道 + 上海)每个目的地一条。
+    var hints: [String] = []
+    /// 这趟旅行应该在哪些国家(ISO 码,多目的地时不止一个);认不出来时为空,那就不分段。
+    var regions: [String] = []
     /// 这趟旅行里已有的某个坐标。OpenStreetMap 的结果按离它的远近排——同名的
     /// 「清水寺」日本有十几座,Nominatim 自己的排序会把福冈那座排在京都前面。
     var anchor: CLLocationCoordinate2D?
@@ -83,7 +84,7 @@ struct PlaceSearchView: View {
             .searchable(text: $query, prompt: "搜索地点")
             // 按下搜索键:苹果那边在目标国家里没有结果时,顺手查一次 OpenStreetMap。
             .onSubmit(of: .search) {
-                if inRegion.isEmpty || region == nil && results.isEmpty { searchOSM() }
+                if inRegion.isEmpty || regions.isEmpty && results.isEmpty { searchOSM() }
             }
             .navigationTitle("选择地点")
             #if os(iOS)
@@ -197,7 +198,14 @@ struct PlaceSearchView: View {
         Task {
             // 不给 viewbox:它会让 Nominatim 只挑附近的,把别的城市里最有名的那个挤掉;
             // 附近的挪到前面由 arrangeForPicker 做。
-            let places = await PlaceGeocoder.osmSearch(text, region: region, anchor: nil).map {
+            // 多目的地时每个国家各查一次(countrycodes 一次只筛一组),合在一起排。
+            var collected: [OSMGeocode.Place]?
+            for region in regions.isEmpty ? [nil] : regions.map(Optional.some) {
+                guard let batch = await PlaceGeocoder.osmSearch(text, region: region, anchor: nil)
+                else { continue }
+                collected = (collected ?? []) + batch
+            }
+            let places = collected.map {
                 OSMGeocode.arrangeForPicker($0, anchor: anchor.map {
                     TravelCoordinate(latitude: $0.latitude, longitude: $0.longitude) })
             }
@@ -213,16 +221,20 @@ struct PlaceSearchView: View {
         }
     }
 
-    /// 在目标国家里的结果(不知道国家时就是全部)。
+    /// 在目标国家里的结果(多目的地时落在其中任何一个都算;不知道国家时就是全部)。
     private var inRegion: [MKMapItem] {
-        guard region != nil else { return results }
-        return results.filter { PlaceRegion.matches(region, $0.placemark.isoCountryCode) }
+        guard !regions.isEmpty else { return results }
+        return results.filter(isInRegion)
     }
 
     /// 不在目标国家的结果。
     private var elsewhere: [MKMapItem] {
-        guard region != nil else { return [] }
-        return results.filter { !PlaceRegion.matches(region, $0.placemark.isoCountryCode) }
+        guard !regions.isEmpty else { return [] }
+        return results.filter { !isInRegion($0) }
+    }
+
+    private func isInRegion(_ item: MKMapItem) -> Bool {
+        regions.contains { PlaceRegion.matches($0, item.placemark.isoCountryCode) }
     }
 
     private func row(_ item: MKMapItem) -> some View {
@@ -247,9 +259,13 @@ struct PlaceSearchView: View {
         failed = false
         // 先带上城市/国家搜一次(同 PlaceGeocoder):「清水寺 京都 日本」比光搜
         // 「清水寺」更容易落在对的地方。这一次在目标国家里没结果才退回单搜。
-        if let qualified = qualifiedQuery(text), await run(qualified), !inRegion.isEmpty {
-            searching = false
-            return
+        // 多目的地时每个目的地的城市/国家各带一次。
+        for qualified in qualifiedQueries(text) {
+            if await run(qualified), !inRegion.isEmpty {
+                searching = false
+                return
+            }
+            guard !Task.isCancelled else { return }
         }
         guard !Task.isCancelled else { return }
         _ = await run(text)
@@ -258,16 +274,16 @@ struct PlaceSearchView: View {
         // OpenStreetMap 的结果,不用再点一次。Nominatim 不许边打字边查,所以再等
         // 一会儿、确认用户停手了才发——这段等待和上面的搜索同在 searchTask 里,
         // 用户接着打字就会被取消;同一个词只查一次(searchOSM 自己挡)。
-        guard inRegion.isEmpty || (region == nil && results.isEmpty) else { return }
+        guard inRegion.isEmpty || (regions.isEmpty && results.isEmpty) else { return }
         try? await Task.sleep(for: .milliseconds(800))
         guard !Task.isCancelled, text == trimmedQuery else { return }
         searchOSM()
     }
 
-    private func qualifiedQuery(_ text: String) -> String? {
-        guard let hint = hint?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !hint.isEmpty, !text.contains(hint) else { return nil }
-        return "\(text) \(hint)"
+    private func qualifiedQueries(_ text: String) -> [String] {
+        hints.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !text.contains($0) }
+            .map { "\(text) \($0)" }
     }
 
     /// 发一次搜索,回传"这次有没有拿到结果"(取消/失败都算没有)。
