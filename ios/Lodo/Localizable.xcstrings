@@ -2216,6 +2216,22 @@
     "内容" : {
 
     },
+    "日程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Itinerary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日程"
+          }
+        }
+      }
+    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {

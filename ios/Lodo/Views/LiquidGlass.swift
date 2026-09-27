@@ -39,6 +39,13 @@ extension View {
         modifier(GlassBackground(shape: shape))
     }
 
+    /// 可点的玻璃块(如分段切换里的一格):`tint` 非 nil 时染成那个颜色(选中态),
+    /// 并带上玻璃的按压反馈。旧系统/减弱透明度时,染色的退回实心填充,不染色的
+    /// 退回和 `glassBackground` 一样的底。
+    func glassBackground(_ shape: some Shape, tint: Color?) -> some View {
+        modifier(GlassBackground(shape: shape, tint: tint, interactive: true))
+    }
+
     /// 所有页面顶部统一使用柔和的透明模糊渐变，让滚动内容进入导航栏时
     /// 逐渐消隐。修饰符配置整个子树，因此根视图调用一次即可覆盖其中的
     /// List/ScrollView；旧系统保留原有的系统滚动边缘表现。
@@ -63,16 +70,32 @@ extension View {
 /// 换成更厚的材质只是减轻、没有满足它。
 struct GlassBackground<S: Shape>: ViewModifier {
     let shape: S
+    var tint: Color? = nil
+    var interactive = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
         if DesignMetrics.reducesTransparency(reduceTransparency) {
-            content.background(DesignMetrics.opaqueSurface, in: shape)
+            if let tint {
+                content.background(tint, in: shape)
+            } else {
+                content.background(DesignMetrics.opaqueSurface, in: shape)
+            }
         } else if #available(iOS 26.0, macOS 26.0, *) {
-            content.glassEffect(.regular, in: shape)
+            content.glassEffect(glass, in: shape)
+        } else if let tint {
+            content.background(tint, in: shape)
         } else {
             content.background(.thinMaterial, in: shape)
         }
+    }
+
+    @available(iOS 26.0, macOS 26.0, *)
+    private var glass: Glass {
+        var glass = Glass.regular
+        if let tint { glass = glass.tint(tint) }
+        if interactive { glass = glass.interactive() }
+        return glass
     }
 }
 

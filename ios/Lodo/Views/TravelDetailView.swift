@@ -65,7 +65,7 @@ struct TravelDetailView: View {
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
-            case .days: return "按天"
+            case .days: return "日程"
             case .cost: return "价格"
             }
         }
@@ -181,14 +181,9 @@ struct TravelDetailView: View {
     private var panel: some View {
         VStack(spacing: 0) {
             header
-            Picker("视图", selection: $mode) {
-                ForEach(Mode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.bottom, 8)
+            modePicker
+                .padding(.horizontal)
+                .padding(.bottom, 8)
 
             switch mode {
             case .days: dayList
@@ -202,6 +197,8 @@ struct TravelDetailView: View {
         .presentationDetents([Self.peekDetent, .medium, .large], selection: $panelDetent)
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .presentationDragIndicator(.visible)
+        // 拉到全屏时系统 sheet 默认换成不透明底;显式给一层 Liquid Glass,三档都是玻璃。
+        .presentationBackground { GlassSurface() }
         .interactiveDismissDisabled()
         // sheet 是独立呈现宿主,不继承根上的 tint(同 SettingsView)。
         .tint(lodoAccent.accent)
@@ -224,6 +221,30 @@ struct TravelDetailView: View {
         .sheet(isPresented: $editingTrip) {
             TripEditView(trip: trip)
         }
+    }
+
+    /// 「日程 / 价格」切换:两颗并排的 Liquid Glass 胶囊,选中的那颗染强调色。
+    /// 不用系统分段控件——它在玻璃面板上是一块不透明的灰底,和整张面板的材质对不上。
+    private var modePicker: some View {
+        HStack(spacing: 8) {
+            ForEach(Mode.allCases) { option in
+                let selected = mode == option
+                Button {
+                    withAnimation(.lodoAware(.snappy)) { mode = option }
+                } label: {
+                    Text(option.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selected ? lodoAccent.onFill : Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .contentShape(Capsule())
+                        .glassBackground(Capsule(), tint: selected ? lodoAccent.fill : nil)
+                }
+                .pressable()
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .glassGroup()
     }
 
     #if DEBUG
@@ -368,6 +389,8 @@ struct TravelDetailView: View {
                 }
             }
         }
+        // 列表自己不铺底色,透出面板那层玻璃。
+        .scrollContentBackground(.hidden)
         .onChange(of: panelScrollToken) { _, _ in
             guard let target = panelScrollDay ?? trip.days.first else { return }
             // 等面板从露头升到半高、分段切回「按天」这一帧布局完再滚。
@@ -544,30 +567,22 @@ struct TravelDetailView: View {
 
     /// 地图左上角那条玻璃胶囊:全部 / 第几天。选中某一天时地图只画那天的点和线,
     /// 并缩放到把那一天完整框进来(`focusCamera`)。天数多了能上下滑。
-    /// 胶囊宽度和左上角返回键一样(48pt),里面的按钮 36pt。
+    /// 胶囊宽度和左上角返回键一样(48pt),里面的按钮一律 36pt 圆。
     private static let railWidth: CGFloat = 48
     private static let railButtonSize: CGFloat = 36
-    /// 首尾两颗(「全部」和最后一天)压扁一点,贴合胶囊两头的圆角。
-    private static let railEndHeight: CGFloat = 30
     private static let railSpacing: CGFloat = 6
     private static var railInset: CGFloat { (railWidth - railButtonSize) / 2 }
-    /// 一次最多露出几格(「全部」+ 天数),再多就滚。面板半高时地图只露出上半截。
-    private static let railVisibleSlots = 6
-
-    /// 胶囊里某一格的位置:首尾两颗的外侧两角和胶囊圆角同心(胶囊半径 - 内边距),
-    /// 里侧两角收小,整颗是扁的;中间各天仍是正圆。
-    private enum RailSlot { case first, middle, last }
+    /// 一次最多露出几格(「全部」+ 天数),再多就滚。
+    private static let railVisibleSlots = 7
 
     private var dayFilterRail: some View {
-        let lastIndex = trip.days.count - 1
-        return ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: Self.railSpacing) {
-                    railButton(title: "全部", slot: .first, selected: mapDay == nil) { selectDay(nil) }
+                    railButton(title: "全部", selected: mapDay == nil) { selectDay(nil) }
                         .id(-1)
                     ForEach(Array(trip.days.enumerated()), id: \.element) { index, day in
-                        railButton(title: "\(index + 1)", slot: index == lastIndex ? .last : .middle,
-                                   selected: mapDay == day) {
+                        railButton(title: "\(index + 1)", selected: mapDay == day) {
                             selectDay(mapDay == day ? nil : day)
                         }
                         .id(index)
@@ -575,7 +590,9 @@ struct TravelDetailView: View {
                 }
                 .padding(Self.railInset)
             }
-            .frame(width: Self.railWidth, height: railHeight)
+            .frame(width: Self.railWidth,
+                   height: CGFloat(min(trip.days.count + 1, Self.railVisibleSlots))
+                       * (Self.railButtonSize + Self.railSpacing) - Self.railSpacing + Self.railInset * 2)
             .glassBackground(RoundedRectangle(cornerRadius: Self.railWidth / 2, style: .continuous))
             // 天数比能露出的格数多时,选中某天后让它后面两天也露出来(选 4 看得到 6、
             // 选 5 看得到 7),往后翻不用自己拖;选「全部」回到顶上。
@@ -592,44 +609,19 @@ struct TravelDetailView: View {
         }
     }
 
-    /// 胶囊高度:全部放得下时正好包住所有格(首尾两颗是扁的);放不下时露出 6 格,
-    /// 露出来的最后一格是中间的某一天(正圆高度)。
-    private var railHeight: CGFloat {
-        let slots = trip.days.count + 1
-        let shown = min(slots, Self.railVisibleSlots)
-        let endsShown = slots <= Self.railVisibleSlots ? 2 : 1
-        let heights = CGFloat(endsShown) * Self.railEndHeight
-            + CGFloat(shown - endsShown) * Self.railButtonSize
-        return heights + CGFloat(shown - 1) * Self.railSpacing + Self.railInset * 2
-    }
-
-    private func railButton(title: LocalizedStringKey, slot: RailSlot, selected: Bool,
+    private func railButton(title: LocalizedStringKey, selected: Bool,
                             action: @escaping () -> Void) -> some View {
-        let outer = Self.railWidth / 2 - Self.railInset
-        let inner: CGFloat = 10
-        let shape: UnevenRoundedRectangle = switch slot {
-        case .first:
-            UnevenRoundedRectangle(topLeadingRadius: outer, bottomLeadingRadius: inner,
-                                   bottomTrailingRadius: inner, topTrailingRadius: outer, style: .continuous)
-        case .last:
-            UnevenRoundedRectangle(topLeadingRadius: inner, bottomLeadingRadius: outer,
-                                   bottomTrailingRadius: outer, topTrailingRadius: inner, style: .continuous)
-        case .middle:
-            UnevenRoundedRectangle(cornerRadii: .init(topLeading: outer, bottomLeading: outer,
-                                                      bottomTrailing: outer, topTrailing: outer))
-        }
-        return Button(action: action) {
+        Button(action: action) {
             Text(title)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(selected ? lodoAccent.onFill : .primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .frame(width: Self.railButtonSize,
-                       height: slot == .middle ? Self.railButtonSize : Self.railEndHeight)
+                .frame(width: Self.railButtonSize, height: Self.railButtonSize)
                 .background {
-                    if selected { shape.fill(lodoAccent.fill) }
+                    if selected { Circle().fill(lodoAccent.fill) }
                 }
-                .contentShape(shape)
+                .contentShape(Circle())
         }
         .pressable()
     }
@@ -978,6 +970,7 @@ struct TravelDetailView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
         .task { await ExchangeRateStore.shared.refreshIfNeeded() }
     }
 
