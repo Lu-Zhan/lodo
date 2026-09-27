@@ -161,7 +161,7 @@ struct CountdownListView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(event.title.isEmpty
-                             ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                             ? String(localized: "(未命名)", bundle: .appLanguage(), locale: AppSettings.language.locale)
                              : event.title)
                             .font(.body.weight(.medium))
                             .foregroundStyle(.primary)
@@ -273,7 +273,8 @@ struct CountdownListView: View {
             return
         }
         #endif
-        guard let text = try? await DeepSeekClient.countdownInsight(summary: input) else { return }
+        guard let text = try? await DeepSeekClient.countdownInsight(
+            summary: input, language: MenuStore.targetLanguageName(AppSettings.language)) else { return }
         defaults.set(key, forKey: Self.insightKeyKey)
         defaults.set(text, forKey: Self.insightTextKey)
         insight = text
@@ -285,8 +286,8 @@ struct CountdownListView: View {
         guard let end = event.endDate else { return start }
         let endText = CountdownText.dateText(end, allDay: event.allDay)
         let locale = AppSettings.language.locale
-        return String(localized: "开始 \(start)", locale: locale) + " · "
-            + String(localized: "结束 \(endText)", locale: locale)
+        return String(localized: "开始 \(start)", bundle: .appLanguage(), locale: locale) + " · "
+            + String(localized: "结束 \(endText)", bundle: .appLanguage(), locale: locale)
     }
 
     #if DEBUG

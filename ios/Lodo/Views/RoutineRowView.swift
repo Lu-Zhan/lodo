@@ -28,7 +28,7 @@ struct RoutineRowView: View {
                         Image(systemName: "sparkles")
                             .foregroundStyle(Color.accentColor)
                         Text(routine.name.isEmpty
-                             ? String(localized: "未命名任务", locale: AppSettings.language.locale)
+                             ? String(localized: "未命名任务", bundle: .appLanguage(), locale: AppSettings.language.locale)
                              : routine.name)
                         Text("AI 定时任务")
                             .font(.caption)

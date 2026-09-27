@@ -135,7 +135,7 @@ struct ContactListView: View {
             avatar(contact)
             VStack(alignment: .leading, spacing: 3) {
                 Text(contact.title.isEmpty
-                     ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                     ? String(localized: "(未命名)", bundle: .appLanguage(), locale: AppSettings.language.locale)
                      : contact.title)
                     .font(.body.weight(.medium))
                 if !subtitle(contact).isEmpty {

@@ -229,7 +229,7 @@ struct AgentAskRecordCard: View {
                     let answer = index < snapshot.answers.count
                         ? snapshot.answers[index].joined(separator: "、") : ""
                     Text(answer.isEmpty
-                         ? String(localized: "未回答", locale: AppSettings.language.locale)
+                         ? String(localized: "未回答", bundle: .appLanguage(), locale: AppSettings.language.locale)
                          : answer)
                         .font(.body)
                         .foregroundStyle(answer.isEmpty ? .secondary : .primary)

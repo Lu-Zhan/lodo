@@ -334,7 +334,7 @@ struct NewsListView: View {
             } label: {
                 if let newsRoutine {
                     Label(String(localized: "定时推送:\(LocalizedContent.routineCaption(newsRoutine))",
-                                 locale: language.locale), systemImage: "bell.badge")
+                                 bundle: .appLanguage(language), locale: language.locale), systemImage: "bell.badge")
                 } else {
                     Label("定时推送", systemImage: "bell.badge")
                 }
@@ -410,8 +410,8 @@ struct NewsListView: View {
 
     private func dayTitle(_ day: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(day) { return String(localized: "今天", locale: language.locale) }
-        if calendar.isDateInYesterday(day) { return String(localized: "昨天", locale: language.locale) }
+        if calendar.isDateInToday(day) { return String(localized: "今天", bundle: .appLanguage(language), locale: language.locale) }
+        if calendar.isDateInYesterday(day) { return String(localized: "昨天", bundle: .appLanguage(language), locale: language.locale) }
         return day.formatted(.dateTime.month().day().weekday().locale(language.locale))
     }
 

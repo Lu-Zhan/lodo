@@ -71,7 +71,7 @@ struct TravelPackingList: View {
                     ForEach(group.items) { item in row(item) }
                 } header: {
                     Text(group.category.isEmpty
-                         ? String(localized: "其他", locale: language.locale) : group.category)
+                         ? String(localized: "其他", bundle: .appLanguage(language), locale: language.locale) : group.category)
                 }
                 .listRowBackground(TravelDetailView.panelRowBackground)
             }
@@ -122,7 +122,7 @@ struct TravelPackingList: View {
         let title = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
         context.insert(PackingItem(tripUUID: trip.uuid, title: title,
-                                   category: String(localized: "其他", locale: language.locale),
+                                   category: String(localized: "其他", bundle: .appLanguage(language), locale: language.locale),
                                    sortIndex: nextIndex))
         try? context.save()
         newTitle = ""
@@ -160,7 +160,7 @@ struct TravelPackingList: View {
                 let fresh = PackingPlan.newSuggestions(result, existing: existing)
                 if fresh.isEmpty {
                     suggestError = String(localized: "AI 没有想到清单里还缺什么。",
-                                          locale: language.locale)
+                                          bundle: .appLanguage(language), locale: language.locale)
                 } else {
                     suggestions = fresh
                 }

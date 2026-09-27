@@ -116,7 +116,7 @@ struct AgentMessageBubble: View {
                     ForEach(attachments, id: \.uuid) { item in
                         Label(item.title.isEmpty
                               ? (item.originalFileName ?? String(localized: "附件",
-                                                                 locale: AppSettings.language.locale))
+                                                                 bundle: .appLanguage(), locale: AppSettings.language.locale))
                               : item.title,
                               systemImage: item.kind.symbol)
                             .font(.footnote)
@@ -288,7 +288,7 @@ struct AgentMessageBubble: View {
     private var taskResultContent: some View {
         if let taskSnapshot {
             AgentResultReply(status: Text(taskSnapshot.createdRemoved == true
-                     ? String(localized: "已取消新建", locale: AppSettings.language.locale)
+                     ? String(localized: "已取消新建", bundle: .appLanguage(), locale: AppSettings.language.locale)
                      : localizedSystemStatus)) {
                 if taskSnapshot.createdUUID != nil {
                     AgentTaskCard(snapshot: taskSnapshot,
@@ -333,7 +333,7 @@ struct AgentMessageBubble: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.title.isEmpty
                                  ? (item.originalFileName ?? String(localized: "正在整理…",
-                                                                    locale: AppSettings.language.locale))
+                                                                    bundle: .appLanguage(), locale: AppSettings.language.locale))
                                  : item.title)
                             if !item.summary.isEmpty {
                                 Text(item.summary)
@@ -541,9 +541,9 @@ private struct AgentTaskCard: View {
         .accessibilityLabel(isActive == nil ? snapshot.parsed.title
                             : (isActive == true
                                ? String(localized: "已新建:\(snapshot.parsed.title),点两下取消",
-                                        locale: AppSettings.language.locale)
+                                        bundle: .appLanguage(), locale: AppSettings.language.locale)
                                : String(localized: "已取消:\(snapshot.parsed.title),点两下重新新建",
-                                        locale: AppSettings.language.locale)))
+                                        bundle: .appLanguage(), locale: AppSettings.language.locale)))
     }
 }
 

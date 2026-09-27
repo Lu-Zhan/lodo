@@ -140,7 +140,7 @@ struct ContactDetailView: View {
                         } label: {
                             LabeledContent(
                                 entry.other.title.isEmpty
-                                    ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                                    ? String(localized: "(未命名)", bundle: .appLanguage(), locale: AppSettings.language.locale)
                                     : entry.other.title,
                                 value: entry.relationship.label)
                         }
@@ -181,7 +181,7 @@ struct ContactDetailView: View {
             }
         }
         .navigationTitle(item.title.isEmpty
-                         ? String(localized: "人脉", locale: AppSettings.language.locale)
+                         ? String(localized: "人脉", bundle: .appLanguage(), locale: AppSettings.language.locale)
                          : item.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -215,7 +215,7 @@ struct ContactDetailView: View {
                 ContactExportView(contact: exportMutableContact) { saved in
                     showExportSheet = false
                     exportResultMessage = saved
-                        ? String(localized: "已导出到通讯录。", locale: AppSettings.language.locale)
+                        ? String(localized: "已导出到通讯录。", bundle: .appLanguage(), locale: AppSettings.language.locale)
                         : nil
                 }
             }
@@ -361,7 +361,7 @@ private struct AddContactRelationshipSheet: View {
                             Text("请选择").tag(Optional<MemoryItem>.none)
                             ForEach(candidates) { contact in
                                 Text(contact.title.isEmpty
-                                     ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                                     ? String(localized: "(未命名)", bundle: .appLanguage(), locale: AppSettings.language.locale)
                                      : contact.title)
                                     .tag(Optional(contact))
                             }

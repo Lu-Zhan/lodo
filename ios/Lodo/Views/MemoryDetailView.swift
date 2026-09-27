@@ -116,7 +116,7 @@ struct MemoryDetailView: View {
                             previewURL = fileURL
                         } label: {
                             Label(item.originalFileName ?? String(localized: "查看原文件",
-                                                                   locale: AppSettings.language.locale),
+                                                                   bundle: .appLanguage(), locale: AppSettings.language.locale),
                                   systemImage: item.kind.symbol)
                         }
                     } else {
@@ -142,7 +142,7 @@ struct MemoryDetailView: View {
             }
         }
         .navigationTitle(item.title.isEmpty
-                         ? String(localized: "记忆", locale: AppSettings.language.locale)
+                         ? String(localized: "记忆", bundle: .appLanguage(), locale: AppSettings.language.locale)
                          : item.title)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

@@ -126,7 +126,7 @@ struct AddTaskIntent: AppIntent {
             LodoIntentSupport.handOffToAgent(text)
             return .result(dialog: IntentDialog(stringLiteral: String(localized:
                 "暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。",
-                locale: AppSettings.language.locale)))
+                bundle: .appLanguage(), locale: AppSettings.language.locale)))
         }
     }
 }

@@ -1015,11 +1015,12 @@ public enum DeepSeekClient {
 
     /// 「倒数日」页顶部那一句(每天一句):根据各件事已经/还有几天和接下来的节点
     /// (`CountdownPlan.promptSummary` 给的素材),挑最值得说的写一句。
-    public static func countdownInsight(summary: String) async throws -> String {
+    public static func countdownInsight(summary: String,
+                                        language: String = "中文") async throws -> String {
         let system = """
         你是提醒事项应用 lodo 的倒数日助手。下面是用户记下的日子:还没到的(倒数日)和已经\
         过去、在往上数的(正数日,如在一起、入职、宝宝出生),以及它们接下来的节点(周年、整百天)。\
-        挑今天**最值得一提**的一两件,写一句不超过 30 个字的话:像朋友提醒,有温度、具体,\
+        挑今天**最值得一提**的一两件,用\(language)写一句不超过 30 个字(英文不超过 20 个词)的话:像朋友提醒,有温度、具体,\
         比如"在一起马上两周年啦,想想怎么庆祝""还有 5 天考研,稳住"。
         规则:
         - 每一行是**一件**事,节点(几天后开始、满几周年、满几百天)只属于它那一行;\

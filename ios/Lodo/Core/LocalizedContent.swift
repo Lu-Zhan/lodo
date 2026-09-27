@@ -260,3 +260,22 @@ enum LocalizedContent {
         return calendar
     }
 }
+
+extension Bundle {
+    /// 应用内语言对应的语言包(`en.lproj` / `zh-Hans.lproj`);找不到时退回主包。
+    ///
+    /// 视图外面拼的文案(通知正文、小组件快照、倒数日"还有 12 天"这类)要用
+    /// `String(localized: …, bundle: .appLanguage(), locale: …)`:**光传 `locale:` 不够**,
+    /// 它只管数字日期的格式,取哪种语言的翻译仍然跟系统语言走——应用内选了中文、
+    /// 系统是英文时就会出来"Starts in 3 d"。视图里的 `Text("…")` 不受影响(根上下发了
+    /// `\.locale`)。
+    static func appLanguage(_ language: AppLanguage = AppSettings.language) -> Bundle {
+        if let cached = appLanguageBundles[language] { return cached }
+        let bundle = Bundle.main.path(forResource: language.rawValue, ofType: "lproj")
+            .flatMap(Bundle.init(path:)) ?? .main
+        appLanguageBundles[language] = bundle
+        return bundle
+    }
+}
+
+nonisolated(unsafe) private var appLanguageBundles: [AppLanguage: Bundle] = [:]

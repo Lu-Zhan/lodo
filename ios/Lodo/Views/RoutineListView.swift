@@ -105,7 +105,7 @@ struct RoutineListView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(routine.name.isEmpty
-                         ? String(localized: "未命名任务", locale: AppSettings.language.locale)
+                         ? String(localized: "未命名任务", bundle: .appLanguage(), locale: AppSettings.language.locale)
                          : routine.name)
                         .foregroundStyle(.primary)
                     Text(subtitle(routine))

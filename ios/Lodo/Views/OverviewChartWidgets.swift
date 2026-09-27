@@ -116,10 +116,10 @@ struct OverviewActivityRingsWidget: View {
                         VStack(spacing: 10) {
                             OverviewRingLegend(color: OverviewRingColor.move, title: "活动",
                                                value: String(localized: "\(format(energy))/\(Int(ActivityRingGoal.activeEnergy)) 千卡",
-                                                             locale: AppSettings.language.locale))
+                                                             bundle: .appLanguage(), locale: AppSettings.language.locale))
                             OverviewRingLegend(color: OverviewRingColor.exercise, title: "锻炼",
                                                value: String(localized: "\(format(exercise))/\(Int(ActivityRingGoal.exerciseMinutes)) 分钟",
-                                                             locale: AppSettings.language.locale))
+                                                             bundle: .appLanguage(), locale: AppSettings.language.locale))
                             OverviewRingLegend(color: OverviewRingColor.steps, title: "步数",
                                                value: "\(format(steps))/\(Int(ActivityRingGoal.steps))")
                         }
@@ -207,7 +207,7 @@ struct OverviewWeeklyDoneWidget: View {
         // 半宽卡片放不下「标题 + 件数 + ›」,小卡把件数挪到图表上方。
         OverviewWidgetCard(kind: .weeklyDone,
                            trailing: size == .large
-                               ? String(localized: "\(total) 件", locale: AppSettings.language.locale)
+                               ? String(localized: "\(total) 件", bundle: .appLanguage(), locale: AppSettings.language.locale)
                                : nil,
                            action: onOpen) {
             if size == .small {

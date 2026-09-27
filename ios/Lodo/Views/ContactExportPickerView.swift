@@ -30,7 +30,7 @@ struct ContactExportPickerView: View {
                             HStack {
                                 Label(
                                     contact.title.isEmpty
-                                        ? String(localized: "(未命名)", locale: AppSettings.language.locale)
+                                        ? String(localized: "(未命名)", bundle: .appLanguage(), locale: AppSettings.language.locale)
                                         : contact.title,
                                     systemImage: "person.crop.circle")
                                 Spacer()

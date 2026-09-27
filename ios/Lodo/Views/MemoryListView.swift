@@ -306,7 +306,7 @@ private struct MemoryRow: View {
                 HStack {
                     Text(item.title.isEmpty
                          ? (item.originalFileName ?? String(localized: "正在整理…",
-                                                            locale: AppSettings.language.locale))
+                                                            bundle: .appLanguage(), locale: AppSettings.language.locale))
                          : item.title)
                         .font(.body.weight(.medium))
                         .lineLimit(1)

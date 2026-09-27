@@ -4,7 +4,7 @@ import UserNotifications
 import LodoCore
 
 /// 倒数日的展示文案。页面、锁屏小组件快照、通知共用这一份,都按应用内语言出
-/// (`String(localized:locale:)`,同 ContactListView 的「(未命名)」写法),
+/// (`String(localized:bundle: .appLanguage(), locale:)`,见 `Bundle.appLanguage` 的注释),
 /// 字符串目录里的 key 就是这里的中文原文。
 enum CountdownText {
     private static var locale: Locale { AppSettings.language.locale }
@@ -18,39 +18,39 @@ enum CountdownText {
         switch span.milestone {
         case .untilStart:
             if let minutes, span.days == 0 {
-                if minutes < 1 { return String(localized: "马上开始", locale: locale) }
+                if minutes < 1 { return String(localized: "马上开始", bundle: .appLanguage(), locale: locale) }
                 let duration = durationText(minutes)
-                return hasEnd ? String(localized: "还有 \(duration)开始", locale: locale)
-                    : String(localized: "还有 \(duration)", locale: locale)
+                return hasEnd ? String(localized: "还有 \(duration)开始", bundle: .appLanguage(), locale: locale)
+                    : String(localized: "还有 \(duration)", bundle: .appLanguage(), locale: locale)
             }
             if span.days == 0 {
-                return hasEnd ? String(localized: "今天开始", locale: locale)
-                    : String(localized: "就是今天", locale: locale)
+                return hasEnd ? String(localized: "今天开始", bundle: .appLanguage(), locale: locale)
+                    : String(localized: "就是今天", bundle: .appLanguage(), locale: locale)
             }
-            return hasEnd ? String(localized: "还有 \(span.days) 天开始", locale: locale)
-                : String(localized: "还有 \(span.days) 天", locale: locale)
+            return hasEnd ? String(localized: "还有 \(span.days) 天开始", bundle: .appLanguage(), locale: locale)
+                : String(localized: "还有 \(span.days) 天", bundle: .appLanguage(), locale: locale)
         case .sinceStart:
             if span.days == 0 {
                 if let minutes, !hasEnd {
-                    return minutes < 1 ? String(localized: "就是现在", locale: locale)
-                        : String(localized: "已过去 \(durationText(minutes))", locale: locale)
+                    return minutes < 1 ? String(localized: "就是现在", bundle: .appLanguage(), locale: locale)
+                        : String(localized: "已过去 \(durationText(minutes))", bundle: .appLanguage(), locale: locale)
                 }
-                return hasEnd ? String(localized: "今天开始", locale: locale)
-                    : String(localized: "就是今天", locale: locale)
+                return hasEnd ? String(localized: "今天开始", bundle: .appLanguage(), locale: locale)
+                    : String(localized: "就是今天", bundle: .appLanguage(), locale: locale)
             }
             // 只有一个日子、已经过去的是「正数日」(在一起、入职、宝宝出生):往上数。
-            return hasEnd ? String(localized: "已开始 \(span.days) 天", locale: locale)
-                : String(localized: "已经 \(span.days) 天", locale: locale)
+            return hasEnd ? String(localized: "已开始 \(span.days) 天", bundle: .appLanguage(), locale: locale)
+                : String(localized: "已经 \(span.days) 天", bundle: .appLanguage(), locale: locale)
         case .untilEnd:
             if let minutes, span.days == 0 {
-                return minutes < 1 ? String(localized: "马上结束", locale: locale)
-                    : String(localized: "还有 \(durationText(minutes))结束", locale: locale)
+                return minutes < 1 ? String(localized: "马上结束", bundle: .appLanguage(), locale: locale)
+                    : String(localized: "还有 \(durationText(minutes))结束", bundle: .appLanguage(), locale: locale)
             }
-            if span.days == 0 { return String(localized: "今天结束", locale: locale) }
-            return String(localized: "还有 \(span.days) 天结束", locale: locale)
+            if span.days == 0 { return String(localized: "今天结束", bundle: .appLanguage(), locale: locale) }
+            return String(localized: "还有 \(span.days) 天结束", bundle: .appLanguage(), locale: locale)
         case .sinceEnd:
-            if span.days == 0 { return String(localized: "刚刚结束", locale: locale) }
-            return String(localized: "已结束 \(span.days) 天", locale: locale)
+            if span.days == 0 { return String(localized: "刚刚结束", bundle: .appLanguage(), locale: locale) }
+            return String(localized: "已结束 \(span.days) 天", bundle: .appLanguage(), locale: locale)
         }
     }
 
@@ -58,31 +58,31 @@ enum CountdownText {
     static func durationText(_ minutes: Int) -> String {
         let hours = minutes / 60
         let rest = minutes % 60
-        if hours == 0 { return String(localized: "\(rest) 分钟", locale: locale) }
-        if rest == 0 { return String(localized: "\(hours) 小时", locale: locale) }
-        return String(localized: "\(hours) 小时 \(rest) 分钟", locale: locale)
+        if hours == 0 { return String(localized: "\(rest) 分钟", bundle: .appLanguage(), locale: locale) }
+        if rest == 0 { return String(localized: "\(hours) 小时", bundle: .appLanguage(), locale: locale) }
+        return String(localized: "\(hours) 小时 \(rest) 分钟", bundle: .appLanguage(), locale: locale)
     }
 
     /// 提醒选项的名字:准时 / 提前 5 分钟 / 提前 1 小时 / 提前 2 天 / 提前 1 周。
     static func offsetText(_ minutes: Int) -> String {
         switch minutes {
-        case 0: return String(localized: "准时", locale: locale)
+        case 0: return String(localized: "准时", bundle: .appLanguage(), locale: locale)
         case let m where m % 10080 == 0:
-            return String(localized: "提前 \(m / 10080) 周", locale: locale)
+            return String(localized: "提前 \(m / 10080) 周", bundle: .appLanguage(), locale: locale)
         case let m where m % 1440 == 0:
-            return String(localized: "提前 \(m / 1440) 天", locale: locale)
+            return String(localized: "提前 \(m / 1440) 天", bundle: .appLanguage(), locale: locale)
         case let m where m % 60 == 0:
-            return String(localized: "提前 \(m / 60) 小时", locale: locale)
+            return String(localized: "提前 \(m / 60) 小时", bundle: .appLanguage(), locale: locale)
         default:
-            return String(localized: "提前 \(minutes) 分钟", locale: locale)
+            return String(localized: "提前 \(minutes) 分钟", bundle: .appLanguage(), locale: locale)
         }
     }
 
     /// 表单里那一行的摘要:"准时、提前 1 天";一个都没选时"不提醒"。
     static func offsetsSummary(_ offsets: [Int]) -> String {
         let sorted = Array(Set(offsets)).sorted()
-        guard !sorted.isEmpty else { return String(localized: "不提醒", locale: locale) }
-        return sorted.map(offsetText).joined(separator: String(localized: "、", locale: locale))
+        guard !sorted.isEmpty else { return String(localized: "不提醒", bundle: .appLanguage(), locale: locale) }
+        return sorted.map(offsetText).joined(separator: String(localized: "、", bundle: .appLanguage(), locale: locale))
     }
 
     /// 起讫时间:全天只写日期,有时刻的带时刻。
@@ -121,7 +121,7 @@ enum CountdownNotifier {
                                               hasEnd: entry.end != nil)
                 }
                 let title = reminder.title.isEmpty
-                    ? String(localized: "倒数日", locale: AppSettings.language.locale)
+                    ? String(localized: "倒数日", bundle: .appLanguage(), locale: AppSettings.language.locale)
                     : reminder.title
                 return ("\(prefix)\(index)", title, body, reminder.eventID.uuidString,
                         reminder.fireDate)
@@ -161,7 +161,7 @@ enum CountdownStore {
             guard wanted, !already else { return wanted }
             guard widgetCount < CountdownPlan.widgetLimit else {
                 record.skipped.append(String(localized: "「\(title)」没放上小组件(最多 3 件)",
-                                             locale: AppSettings.language.locale))
+                                             bundle: .appLanguage(), locale: AppSettings.language.locale))
                 return false
             }
             widgetCount += 1
@@ -184,7 +184,7 @@ enum CountdownStore {
             case .update(let id, let change):
                 guard let event = find(id) else {
                     record.skipped.append(String(localized: "有一个倒数日没找到",
-                                                 locale: AppSettings.language.locale))
+                                                 bundle: .appLanguage(), locale: AppSettings.language.locale))
                     continue
                 }
                 record.updatedBefore.append(event.backup)
@@ -223,7 +223,7 @@ enum CountdownStore {
             case .delete(let id):
                 guard let event = find(id) else {
                     record.skipped.append(String(localized: "有一个倒数日没找到",
-                                                 locale: AppSettings.language.locale))
+                                                 bundle: .appLanguage(), locale: AppSettings.language.locale))
                     continue
                 }
                 record.deleted.append(event.backup)

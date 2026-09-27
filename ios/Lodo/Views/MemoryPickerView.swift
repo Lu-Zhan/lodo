@@ -94,7 +94,7 @@ struct MemoryPickerView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title.isEmpty
                      ? (item.originalFileName ?? String(localized: "正在整理…",
-                                                        locale: AppSettings.language.locale))
+                                                        bundle: .appLanguage(), locale: AppSettings.language.locale))
                      : item.title)
                     .foregroundStyle(.primary)
                     .lineLimit(1)

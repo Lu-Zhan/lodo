@@ -362,7 +362,7 @@ struct OverviewAgendaWidget: View {
 
     private func timeLabel(_ event: CalendarEvent) -> String {
         event.isAllDay
-            ? String(localized: "全天", locale: AppSettings.language.locale)
+            ? String(localized: "全天", bundle: .appLanguage(), locale: AppSettings.language.locale)
             : LocalizedContent.time(event.start)
     }
 }

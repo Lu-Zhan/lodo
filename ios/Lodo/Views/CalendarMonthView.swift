@@ -226,7 +226,7 @@ struct CalendarEventRow: View {
     private var timeLabel: String {
         let calendar = Calendar.current
         if event.showsInAllDayRow(on: day, calendar: calendar) {
-            return String(localized: "全天", locale: AppSettings.language.locale)
+            return String(localized: "全天", bundle: .appLanguage(), locale: AppSettings.language.locale)
         }
         let startsToday = calendar.isDate(event.start, inSameDayAs: day)
         let endsToday = calendar.isDate(event.end, inSameDayAs: day)
@@ -236,7 +236,7 @@ struct CalendarEventRow: View {
         case (true, true): return "\(start) – \(end)"
         case (true, false): return "\(start) –"
         case (false, true): return "– \(end)"
-        case (false, false): return String(localized: "全天", locale: AppSettings.language.locale)
+        case (false, false): return String(localized: "全天", bundle: .appLanguage(), locale: AppSettings.language.locale)
         }
     }
 }

@@ -37,7 +37,7 @@ struct TimeZonePickerView: View {
         List {
             if query.isEmpty {
                 Section {
-                    row(id: nil, title: String(localized: "跟随手机", locale: language.locale),
+                    row(id: nil, title: String(localized: "跟随手机", bundle: .appLanguage(language), locale: language.locale),
                         detail: LocalizedContent.timeZoneName(.current, language: language))
                 }
             }

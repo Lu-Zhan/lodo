@@ -328,7 +328,7 @@ struct CustomSkillEditView: View {
         }
         .formStyle(.grouped)
         .navigationTitle(slug == nil
-                         ? String(localized: "新建 skill", locale: AppSettings.language.locale)
+                         ? String(localized: "新建 skill", bundle: .appLanguage(), locale: AppSettings.language.locale)
                          : name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -408,8 +408,8 @@ struct AgentPromptPreviewView: View {
                         Text(block.title)
                         Spacer()
                         Text(block.enabled
-                             ? String(localized: "\(block.count) 字", locale: AppSettings.language.locale)
-                             : String(localized: "已停用", locale: AppSettings.language.locale))
+                             ? String(localized: "\(block.count) 字", bundle: .appLanguage(), locale: AppSettings.language.locale)
+                             : String(localized: "已停用", bundle: .appLanguage(), locale: AppSettings.language.locale))
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
                     }

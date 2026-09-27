@@ -108,7 +108,7 @@ struct TravelDetailView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         #else
         .navigationTitle(trip.title.isEmpty
-                         ? String(localized: "未命名旅行", locale: language.locale)
+                         ? String(localized: "未命名旅行", bundle: .appLanguage(language), locale: language.locale)
                          : trip.title)
         #endif
         // 页面自己的操作收在右上角(原来「⋯」在左上角、紧挨着返回键)。
@@ -559,7 +559,7 @@ struct TravelDetailView: View {
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(file.title.isEmpty
-                         ? (file.originalFileName ?? String(localized: "未命名", locale: language.locale))
+                         ? (file.originalFileName ?? String(localized: "未命名", bundle: .appLanguage(language), locale: language.locale))
                          : file.title)
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
@@ -741,7 +741,7 @@ struct TravelDetailView: View {
         return tripLacksLocation
             ? fillLocationReminder
             : String(localized: "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。",
-                     locale: language.locale)
+                     bundle: .appLanguage(language), locale: language.locale)
     }
 
     // MARK: - 没填城市和国家的提醒
@@ -762,7 +762,7 @@ struct TravelDetailView: View {
 
     private var fillLocationReminder: String {
         String(localized: "这次旅行还没填城市和国家,地点查不到位置。填上以后地图才能准确定位。",
-               locale: language.locale)
+               bundle: .appLanguage(language), locale: language.locale)
     }
 
     /// 查位置之后还有地点没找到、并且旅行没填城市国家时,挂一条带「去填写」的提醒。
@@ -917,7 +917,7 @@ struct TravelDetailView: View {
         guard locatingEntry == nil, let item = item(for: entry) else { return }
         locatingEntry = entry.id
         showNotice(String(localized: "正在查找「\(entry.placeName ?? entry.title)」的位置…",
-                          locale: language.locale), sticky: true)
+                          bundle: .appLanguage(language), locale: language.locale), sticky: true)
         Task {
             let found = await TravelStore.locate(item, in: trip, context: context)
             locatingEntry = nil
@@ -935,7 +935,7 @@ struct TravelDetailView: View {
                 showNotice(fillLocationReminder, sticky: true, offersTripEdit: true)
             } else {
                 showNotice(String(localized: "没找到「\(entry.placeName ?? entry.title)」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。",
-                                  locale: language.locale))
+                                  bundle: .appLanguage(language), locale: language.locale))
             }
         }
     }
@@ -955,7 +955,7 @@ struct TravelDetailView: View {
 
     private func relocate() {
         relocating = true
-        showNotice(String(localized: "正在按地名重新查找位置…", locale: language.locale), sticky: true)
+        showNotice(String(localized: "正在按地名重新查找位置…", bundle: .appLanguage(language), locale: language.locale), sticky: true)
         Task {
             let result = await TravelStore.relocateAll(for: trip, context: context)
             relocating = false
@@ -978,24 +978,24 @@ struct TravelDetailView: View {
     private func relocateMessage(_ result: TravelStore.RelocateResult) -> String {
         if result.destinationUnknown {
             return String(localized: "认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。",
-                          locale: language.locale)
+                          bundle: .appLanguage(language), locale: language.locale)
         }
         if result.total == 0 {
-            return String(localized: "这次旅行里没有可以查位置的地点。", locale: language.locale)
+            return String(localized: "这次旅行里没有可以查位置的地点。", bundle: .appLanguage(language), locale: language.locale)
         }
         if result.moved == 0 && result.missed == 0 {
             return String(localized: "已重新查找 \(result.total) 个地点,位置都没有变化。",
-                          locale: language.locale)
+                          bundle: .appLanguage(language), locale: language.locale)
         }
         if result.missed == 0 {
             return result.unchanged == 0
                 ? String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新。",
-                         locale: language.locale)
+                         bundle: .appLanguage(language), locale: language.locale)
                 : String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变。",
-                         locale: language.locale)
+                         bundle: .appLanguage(language), locale: language.locale)
         }
         return String(localized: "已重新查找 \(result.total) 个地点:\(result.moved) 个位置有更新,\(result.unchanged) 个没变,\(result.missed) 个没搜到(保留原来的位置)。",
-                      locale: language.locale)
+                      bundle: .appLanguage(language), locale: language.locale)
     }
 
     // MARK: - 路线

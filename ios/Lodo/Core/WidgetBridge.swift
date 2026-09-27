@@ -180,14 +180,14 @@ enum WidgetBridge {
         }
 
         let labels = LockScreenSnapshot.Labels(
-            today: String(localized: "今日", locale: locale),
-            pinned: String(localized: "重要的事", locale: locale),
-            countdown: String(localized: "倒数日", locale: locale),
-            allDay: String(localized: "全天", locale: locale),
-            emptyToday: String(localized: "今天没有安排", locale: locale),
-            emptyPinned: String(localized: "长按任务即可置顶", locale: locale),
-            emptyCountdown: String(localized: "在倒数日里选要显示的", locale: locale),
-            agent: String(localized: "AI 助手", locale: locale))
+            today: String(localized: "今日", bundle: .appLanguage(), locale: locale),
+            pinned: String(localized: "重要的事", bundle: .appLanguage(), locale: locale),
+            countdown: String(localized: "倒数日", bundle: .appLanguage(), locale: locale),
+            allDay: String(localized: "全天", bundle: .appLanguage(), locale: locale),
+            emptyToday: String(localized: "今天没有安排", bundle: .appLanguage(), locale: locale),
+            emptyPinned: String(localized: "长按任务即可置顶", bundle: .appLanguage(), locale: locale),
+            emptyCountdown: String(localized: "在倒数日里选要显示的", bundle: .appLanguage(), locale: locale),
+            agent: String(localized: "AI 助手", bundle: .appLanguage(), locale: locale))
         let snapshot = LockScreenSnapshot(today: Array(today), pinned: Array(pinned),
                                           countdown: countdown, labels: labels)
         guard let data = try? JSONEncoder().encode(snapshot), data != lastLockScreenSnapshot else {

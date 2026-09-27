@@ -239,7 +239,7 @@ struct TravelListView: View {
         let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid && $0.travelKind != nil }.count
         return VStack(alignment: .leading, spacing: 3) {
             Text(trip.title.isEmpty
-                 ? String(localized: "未命名旅行", locale: language.locale)
+                 ? String(localized: "未命名旅行", bundle: .appLanguage(language), locale: language.locale)
                  : trip.title)
                 .font(.body.weight(.medium))
             if let location = trip.locationText {
