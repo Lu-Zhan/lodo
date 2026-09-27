@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 import MapKit
+import PhotosUI
+import UniformTypeIdentifiers
 import LodoCore
 
 /// 一次旅行:**整屏是地图**,行程放在底部一张常驻的半高面板里(系统 sheet 的
@@ -61,15 +63,25 @@ struct TravelDetailView: View {
     private static let peekDetent = PresentationDetent.height(200)
 
     enum Mode: String, CaseIterable, Identifiable {
-        case days, cost
+        case overview, days, cost, files
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
+            case .overview: return "总览"
             case .days: return "日程"
-            case .cost: return "价格"
+            case .cost: return "消费"
+            case .files: return "文件"
             }
         }
     }
+
+    // 「文件」页的几个入口。
+    @State private var importingFiles = false
+    @State private var pickingPhotos = false
+    @State private var photoSelection: [PhotosPickerItem] = []
+    @State private var pickingMemories = false
+    @State private var viewingFile: MemoryItem?
+    @Namespace private var modeThumb
 
     private var items: [MemoryItem] {
         memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid }
@@ -186,8 +198,10 @@ struct TravelDetailView: View {
                 .padding(.bottom, 8)
 
             switch mode {
+            case .overview: overviewList
             case .days: dayList
             case .cost: costList
+            case .files: filesList
             }
         }
         .padding(.top, 14)
@@ -195,10 +209,14 @@ struct TravelDetailView: View {
         // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
         .askBar(focus: .travel(trip: trip.title))
         .presentationDetents([Self.peekDetent, .medium, .large], selection: $panelDetent)
-        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        // 三档都允许和背后的地图交互:只放到半高的话,拉满时系统会把背后压暗,
+        // 玻璃采样到的颜色跟着变,面板一拉一放就跳色。
+        .presentationBackgroundInteraction(.enabled)
         .presentationDragIndicator(.visible)
-        // 拉到全屏时系统 sheet 默认换成不透明底;显式给一层 Liquid Glass,三档都是玻璃。
-        .presentationBackground { GlassSurface() }
+        // 三档用**同一种**底色:纯玻璃采样的是面板正后方的地图,半高时压在海面上偏蓝、
+        // 拉满后盖住的多是街道就发白,一拉一放颜色就跳。这里是一层薄模糊上叠几乎不透明
+        // 的分组底色——看得出是浮在地图上的一层,但颜色不再跟着背后的内容变。
+        .presentationBackground { TravelPanelBackground() }
         .interactiveDismissDisabled()
         // sheet 是独立呈现宿主,不继承根上的 tint(同 SettingsView)。
         .tint(lodoAccent.accent)
@@ -223,10 +241,11 @@ struct TravelDetailView: View {
         }
     }
 
-    /// 「日程 / 价格」切换:两颗并排的 Liquid Glass 胶囊,选中的那颗染强调色。
-    /// 不用系统分段控件——它在玻璃面板上是一块不透明的灰底,和整张面板的材质对不上。
+    /// 「总览 / 日程 / 消费 / 文件」切换:一整条 Liquid Glass 轨道,选中的那一格是一块
+    /// 强调色的滑块,切换时滑过去(同系统分段控件的手感)。不用系统分段控件——它在
+    /// 玻璃面板上是一块不透明的灰底,和整张面板的材质对不上。
     private var modePicker: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
             ForEach(Mode.allCases) { option in
                 let selected = mode == option
                 Button {
@@ -235,16 +254,24 @@ struct TravelDetailView: View {
                     Text(option.title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(selected ? lodoAccent.onFill : Color.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 36)
+                        .frame(height: 32)
+                        .background {
+                            if selected {
+                                Capsule().fill(lodoAccent.fill)
+                                    .matchedGeometryEffect(id: "thumb", in: modeThumb)
+                            }
+                        }
                         .contentShape(Capsule())
-                        .glassBackground(Capsule(), tint: selected ? lodoAccent.fill : nil)
                 }
                 .pressable()
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
-        .glassGroup()
+        .padding(3)
+        .glassBackground(Capsule())
     }
 
     #if DEBUG
@@ -252,6 +279,8 @@ struct TravelDetailView: View {
         // 截图验证用:simctl 点不了分段控件/行/面板,启动参数直接摆状态。
         let args = ProcessInfo.processInfo.arguments
         if args.contains("--demo-travel-day") { mode = .days }
+        if args.contains("--demo-travel-overview") { mode = .overview }
+        if args.contains("--demo-travel-files") { mode = .files }
         if args.contains("--demo-travel-cost") { mode = .cost }
         if args.contains("--demo-travel-map-day") {
             // 走左侧胶囊同一条路(连面板滚动一起);等面板弹出来、列表建好再点。
@@ -378,6 +407,7 @@ struct TravelDetailView: View {
                 // 左侧按天胶囊选中某一天时滚到这里(见 selectDay)。List 的分区标题不能当
                 // scrollTo 的目标,实际对准的是分区第一行,锚点因此往下让出一截标题。
                 .id(day.date)
+                .listRowBackground(Self.panelRowBackground)
             }
             let extras = TravelPlan.outOfRange(entries, days: trip.days)
             if !extras.isEmpty {
@@ -388,12 +418,14 @@ struct TravelDetailView: View {
                 } footer: {
                     Text("这些行程项的时间不在这次旅行的日期范围里。改一下旅行日期,或者改这一项的时间。")
                 }
+                .listRowBackground(Self.panelRowBackground)
             }
             let pending = TravelPlan.unscheduled(entries)
             if !pending.isEmpty {
                 Section("未排期") {
                     ForEach(pending) { entry in entryRow(entry) }
                 }
+                .listRowBackground(Self.panelRowBackground)
             }
         }
         // 列表自己不铺底色,透出面板那层玻璃。
@@ -409,6 +441,189 @@ struct TravelDetailView: View {
             }
         }
         }
+    }
+
+    // MARK: - 总览
+
+    /// 总览:交通(航班/火车/客车,整趟按时间排)+ 待安排(还没定日期的地点、餐馆,
+    /// 相当于这次旅行的收件箱)。点一行和日程里一样:有坐标就在地图上定位。
+    private var overviewList: some View {
+        let transport = entries.filter { $0.kind.isTransport }
+        let pending = TravelPlan.unscheduled(entries).filter { !$0.kind.isTransport }
+        return List {
+            Section {
+                if transport.isEmpty {
+                    Text("还没有记下航班、火车或客车。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(transport) { entry in entryRow(entry) }
+                }
+            } header: {
+                Label("交通", systemImage: "airplane")
+            }
+            .listRowBackground(Self.panelRowBackground)
+            Section {
+                if pending.isEmpty {
+                    Text("想去但还没定哪天的地点和餐馆会放在这里。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(pending) { entry in entryRow(entry) }
+                }
+            } header: {
+                Label("待安排", systemImage: "tray")
+            } footer: {
+                if !pending.isEmpty {
+                    Text("点行尾的 ⓘ 给它排个时间,就会出现在日程里。")
+                }
+            }
+            .listRowBackground(Self.panelRowBackground)
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    // MARK: - 文件
+
+    private var tripFiles: [MemoryItem] {
+        TravelStore.files(for: trip.uuid, from: memoryItems)
+    }
+
+    /// 文件:这次旅行相关的资料。就是挂着这次旅行的记忆条目,所以和记忆库是同一份
+    /// ——在这里加的文件照常 AI 整理、能在记忆页和「问问 AI」里搜到;从记忆库也能
+    /// 挑已有的条目挂过来。只显示这一次旅行的。
+    private var filesList: some View {
+        List {
+            Section {
+                Menu {
+                    Button {
+                        importingFiles = true
+                    } label: {
+                        Label("选择文件", systemImage: "folder")
+                    }
+                    Button {
+                        pickingPhotos = true
+                    } label: {
+                        Label("照片", systemImage: "photo.on.rectangle")
+                    }
+                    Button {
+                        pickingMemories = true
+                    } label: {
+                        Label("从记忆库选择", systemImage: "tray.full")
+                    }
+                } label: {
+                    Label("添加文件", systemImage: "plus.circle.fill")
+                        .font(.body.weight(.medium))
+                }
+            }
+            .listRowBackground(Self.panelRowBackground)
+            if tripFiles.isEmpty {
+                Section {
+                    Text("机票行程单、签证、保险、攻略截图……放在这里,在记忆里也能搜到。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .listRowBackground(Self.panelRowBackground)
+            } else {
+                Section {
+                    ForEach(tripFiles) { file in fileRow(file) }
+                } footer: {
+                    Text("和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。")
+                }
+                .listRowBackground(Self.panelRowBackground)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .fileImporter(isPresented: $importingFiles, allowedContentTypes: [.item],
+                      allowsMultipleSelection: true) { result in
+            guard case .success(let urls) = result else { return }
+            for url in urls {
+                let scoped = url.startAccessingSecurityScopedResource()
+                TravelStore.attachFile(url, to: trip, context: context)
+                if scoped { url.stopAccessingSecurityScopedResource() }
+            }
+        }
+        .photosPicker(isPresented: $pickingPhotos, selection: $photoSelection, matching: .images)
+        .onChange(of: photoSelection) { _, selection in
+            guard !selection.isEmpty else { return }
+            Task {
+                for item in selection {
+                    if let data = try? await item.loadTransferable(type: Data.self) {
+                        TravelStore.attachImage(data, to: trip, context: context)
+                    }
+                }
+                photoSelection = []
+            }
+        }
+        .sheet(isPresented: $pickingMemories) {
+            MemoryPickerView(excluding: Set(tripFiles.map(\.uuid))) { picked in
+                TravelStore.attachMemories(picked, to: trip, context: context)
+            }
+            .tint(lodoAccent.accent)
+            .environment(\.lodoAccent, lodoAccent)
+        }
+        .sheet(item: $viewingFile) { file in
+            NavigationStack { MemoryDetailView(item: file) }
+                .tint(lodoAccent.accent)
+                .environment(\.lodoAccent, lodoAccent)
+        }
+    }
+
+    private func fileRow(_ file: MemoryItem) -> some View {
+        Button {
+            viewingFile = file
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: file.kind.symbol)
+                    .foregroundStyle(.tint)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(file.title.isEmpty ? (file.originalFileName ?? String(localized: "未命名")) : file.title)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(file.summary.isEmpty ? (file.originalFileName ?? "") : file.summary)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                if file.travelKind != nil {
+                    // 行程项自带的附件(导入订单时存下的确认单),标一下它属于哪一条。
+                    Image(systemName: "paperclip")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .pressableCard()
+        .swipeActions(edge: .trailing) {
+            // 行程项的附件在日程里管,这里只管挂到旅行上的文件。
+            if file.travelKind == nil {
+                Button(role: .destructive) {
+                    MemoryPipeline.delete(file, context: context)
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+                Button {
+                    TravelStore.detachFile(file, context: context)
+                } label: {
+                    Label("移出旅行", systemImage: "tray.and.arrow.up")
+                }
+                .tint(LodoColor.neutralAction)
+            }
+        }
+    }
+
+    /// 面板里各个列表的行底色。**固定下来**,不跟系统走:系统面板拉到全屏时会把
+    /// 列表行和底板都换成更实的白色,半高时又是透明的,一拉一放颜色就跳。
+    static var panelRowBackground: Color {
+        // 固定色值,不用 secondarySystemGroupedBackground:实测面板在半高时系统会把那个
+        // 语义色解析成更深的一档,和全屏时的白卡片对不上。
+        Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor(white: 0.17, alpha: 1) : .white
+        })
     }
 
     // MARK: - 拖动改天
@@ -901,7 +1116,7 @@ struct TravelDetailView: View {
                 pins.append(MapPin(
                     id: "\(entry.id)-place", entryID: entry.id, isTransport: entry.kind.isTransport,
                     title: entry.placeName ?? entry.title,
-                    systemImage: entry.kind.systemImage,
+                    systemImage: entry.symbolName,
                     coordinate: CLLocationCoordinate2D(latitude: coordinate.latitude,
                                                        longitude: coordinate.longitude),
                     color: color))
@@ -910,7 +1125,7 @@ struct TravelDetailView: View {
                 pins.append(MapPin(
                     id: "\(entry.id)-origin", entryID: entry.id, isTransport: true,
                     title: entry.originName ?? entry.title,
-                    systemImage: entry.kind == .flight ? "airplane.departure" : entry.kind.systemImage,
+                    systemImage: entry.kind == .flight ? "airplane.departure" : entry.symbolName,
                     coordinate: CLLocationCoordinate2D(latitude: origin.latitude,
                                                        longitude: origin.longitude),
                     color: color))
@@ -942,6 +1157,7 @@ struct TravelDetailView: View {
             } footer: {
                 Text("按「设置 → 资产显示币种」折算,汇率与资产总览共用同一份。")
             }
+            .listRowBackground(Self.panelRowBackground)
 
             let lines = TravelPlan.costs(entries)
             if !lines.isEmpty {
@@ -953,6 +1169,7 @@ struct TravelDetailView: View {
                         }
                     }
                 }
+                .listRowBackground(Self.panelRowBackground)
             }
 
             ForEach(TravelItemKind.allCases, id: \.self) { kind in
@@ -976,6 +1193,7 @@ struct TravelDetailView: View {
                         Label(LocalizedStrings.text(kind.titleKey, language: language),
                               systemImage: kind.systemImage)
                     }
+                    .listRowBackground(Self.panelRowBackground)
                 }
             }
 
@@ -1003,7 +1221,7 @@ struct TravelDetailView: View {
             select(entry)
         } label: {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: entry.kind.systemImage)
+                Image(systemName: entry.symbolName)
                     .foregroundStyle(.tint)
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 2) {
@@ -1053,7 +1271,10 @@ struct TravelDetailView: View {
             .pressable()
             .accessibilityLabel("详情")
         }
-        .listRowBackground(isSelected(entry) ? lodoAccent.accent.opacity(0.12) : nil)
+        // 没选中时也要显式给固定底色:给 nil 就回到系统默认,而系统默认的行底色
+        // 半高时是灰色半透明、全屏时是白色,面板一拉一放卡片就跳色。
+        .listRowBackground(Self.panelRowBackground
+            .overlay(isSelected(entry) ? lodoAccent.accent.opacity(0.12) : Color.clear))
         // 行操作一律收在向左滑那一侧(全 app 没有 leading swipeActions,见 CLAUDE.md)。
         .swipeActions(edge: .trailing) {
             if let item = item(for: entry) {
@@ -1167,5 +1388,28 @@ private struct LodgingNightBadge: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(color.opacity(0.15), in: Capsule())
+    }
+}
+
+/// 旅行详情行程面板的底色(见 `.presentationBackground` 那段注释)。「减弱透明度」时
+/// 直接不透明。
+private struct TravelPanelBackground: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    /// 固定色值(同 panelRowBackground 的理由):浅色 242/242/247,深色纯黑一档。
+    static let panelColor = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(white: 0.06, alpha: 1)
+            : UIColor(red: 242 / 255, green: 242 / 255, blue: 247 / 255, alpha: 1)
+    })
+
+    var body: some View {
+        ZStack {
+            if !DesignMetrics.reducesTransparency(reduceTransparency) {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+            Self.panelColor
+                .opacity(DesignMetrics.reducesTransparency(reduceTransparency) ? 1 : 0.9)
+        }
     }
 }

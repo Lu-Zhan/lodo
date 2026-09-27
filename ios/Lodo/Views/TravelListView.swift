@@ -241,7 +241,7 @@ struct TravelListView: View {
     // MARK: - 行
 
     private func row(_ trip: TravelTrip) -> some View {
-        let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid }.count
+        let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid && $0.travelKind != nil }.count
         return VStack(alignment: .leading, spacing: 3) {
             Text(trip.title.isEmpty ? "未命名旅行" : trip.title)
                 .font(.body.weight(.medium))
@@ -295,6 +295,18 @@ struct TravelListView: View {
         // 验证"没填城市国家时提醒去填"用:名字里也看不出目的地。
         if args.contains("--demo-travel-no-location") {
             trip = trips.first { $0.title == "毕业旅行" } ?? seedUnknownCountryTrip(title: "毕业旅行")
+        }
+        // 截图验证用:给这次旅行挂两份样板文件(「文件」页),只铺一遍。
+        if args.contains("--demo-travel-file-sample"),
+           !TravelStore.files(for: trip.uuid, from: memoryItems).contains(where: { $0.title == "日本签证" }) {
+            context.insert(MemoryItem(
+                kind: .text, title: "日本签证", summary: "单次入境,停留 15 天,有效期至 2027 年 3 月",
+                tags: [MemoryItem.travelTagName], sourceText: "日本签证 单次入境", status: .ready,
+                travelTripUUID: trip.uuid))
+            context.insert(MemoryItem(
+                kind: .image, title: "酒店预订截图", summary: "新宿王子酒店 3 晚,含早",
+                tags: [MemoryItem.travelTagName], status: .ready, travelTripUUID: trip.uuid))
+            try? context.save()
         }
         if args.contains("--demo-travel-flight") {
             attachDemoFlight(to: trip)

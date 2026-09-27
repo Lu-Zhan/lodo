@@ -928,3 +928,12 @@ travel.close_reminder,关闭提醒,Dismiss,ios_view,旅行详情
 place_search.not_found_fill_location,"没有找到这个地方。这次旅行还没填城市和国家,先回「编辑旅行」填上再搜会准得多。",No results. This trip has no city or country yet; add them in Edit Trip first for much better results.,ios_view,旅行详情
 place_search.osm_retry,重新搜索 OpenStreetMap,Search OpenStreetMap Again,ios_view,选地点
 travel.mode_itinerary,日程,Itinerary,ios_view,旅行详情
+travel.mode_spending,消费,Spending,ios_view,旅行详情
+travel.overview_transport,交通,Transport,ios_view,旅行详情
+travel.overview_pending,待安排,To Schedule,ios_view,旅行详情
+travel.overview_no_transport,还没有记下航班、火车或客车。,"No flights, trains or coaches yet.",ios_view,旅行详情
+travel.overview_pending_empty,想去但还没定哪天的地点和餐馆会放在这里。,Places and restaurants you want to visit but haven't scheduled show up here.,ios_view,旅行详情
+travel.overview_pending_footer,"点行尾的 ⓘ 给它排个时间,就会出现在日程里。",Tap ⓘ at the end of a row to give it a time and it will appear in the itinerary.,ios_view,旅行详情
+travel.files_empty,"机票行程单、签证、保险、攻略截图……放在这里,在记忆里也能搜到。","Itineraries, visas, insurance, guide screenshots… keep them here — they're searchable in Memories too.",ios_view,旅行详情
+travel.files_footer,"和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。","These are the same items as in Memories: deleting removes them there too, while “Remove from Trip” just unlinks them from this trip.",ios_view,旅行详情
+travel.files_detach,移出旅行,Remove from Trip,ios_view,旅行详情

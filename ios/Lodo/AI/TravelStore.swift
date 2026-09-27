@@ -20,9 +20,59 @@ enum TravelStore {
     }
 
     /// 某次旅行的行程项(记忆条目本体)。
+    /// 某次旅行的**行程项**(有类型的:交通/住宿/地点)。旅行文件(`files`)虽然也挂着
+    /// 这次旅行,但没有类型,不在这里——查坐标、撤销规划、导入去重这些路径只该看行程项,
+    /// 把一份 PDF 当地点拿去查坐标就闹笑话了。
     static func items(for tripUUID: UUID, in context: ModelContext) -> [MemoryItem] {
         let all = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
-        return all.filter { $0.isTravel && $0.travelTripUUID == tripUUID }
+        return all.filter { $0.isTravel && $0.travelTripUUID == tripUUID && $0.travelKind != nil }
+    }
+
+    // MARK: - 旅行文件
+
+    /// 旅行详情「文件」页:这次旅行相关的资料——专门挂到这次旅行上的记忆条目
+    /// (机票行程单、签证、保险、攻略、截图……,没有行程类型),加上带着附件的行程项
+    /// (导入订单时存下的确认单)。**只看这一次旅行**。新的在前。
+    static func files(for tripUUID: UUID, from items: [MemoryItem]) -> [MemoryItem] {
+        items.filter { item in
+            guard item.travelTripUUID == tripUUID else { return false }
+            return item.travelKind == nil
+                || item.relativeFilePath != nil || !item.attachmentRelativePaths.isEmpty
+        }
+        .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// 把一份本地文件收进这次旅行:落成一条记忆(照常 AI 整理、能被搜到),挂上
+    /// 这次旅行和「旅行」标签,没有行程类型。
+    @discardableResult
+    static func attachFile(_ url: URL, to trip: TravelTrip, context: ModelContext) -> MemoryItem? {
+        MemoryPipeline.saveFile(url, context: context, extraTags: [MemoryItem.travelTagName]) {
+            $0.travelTripUUID = trip.uuid
+        }
+    }
+
+    @discardableResult
+    static func attachImage(_ data: Data, to trip: TravelTrip, context: ModelContext) -> MemoryItem? {
+        MemoryPipeline.saveImageData(data, context: context, extraTags: [MemoryItem.travelTagName]) {
+            $0.travelTripUUID = trip.uuid
+        }
+    }
+
+    /// 把记忆库里已有的条目挂到这次旅行上(行程项不在此列,它们本来就属于某次旅行)。
+    static func attachMemories(_ items: [MemoryItem], to trip: TravelTrip, context: ModelContext) {
+        for item in items where item.travelKind == nil {
+            item.travelTripUUID = trip.uuid
+            if !item.tags.contains(MemoryItem.travelTagName) { item.tags.append(MemoryItem.travelTagName) }
+        }
+        try? context.save()
+    }
+
+    /// 从这次旅行里摘下一份文件,条目本身留在记忆库里。行程项不走这里(它们用 `remove`)。
+    static func detachFile(_ item: MemoryItem, context: ModelContext) {
+        guard item.travelKind == nil else { return }
+        item.travelTripUUID = nil
+        item.tags.removeAll { $0 == MemoryItem.travelTagName }
+        try? context.save()
     }
 
     /// 某次旅行的行程项值快照(喂给 TravelPlan 那套纯逻辑)。
@@ -186,6 +236,12 @@ enum TravelStore {
     static func deleteTrip(_ trip: TravelTrip, context: ModelContext) {
         for item in items(for: trip.uuid, in: context) {
             MemoryPipeline.delete(item, context: context)
+        }
+        // 旅行文件是用户自己的资料(签证、保险单……),旅行删了它们照样该留在记忆库里:
+        // 只摘下来,不删。
+        let all = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+        for file in all where file.travelTripUUID == trip.uuid && file.travelKind == nil {
+            detachFile(file, context: context)
         }
         context.delete(trip)
         try? context.save()
