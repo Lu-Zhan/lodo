@@ -221,6 +221,8 @@ struct TravelDetailView: View {
            let entry = entries.first(where: { $0.coordinate != nil && $0.kind == .place }) {
             select(entry)
         }
+        // 截图验证用:simctl 点不了右上角菜单,直接跑一遍「刷新地点位置」(真发网络请求)。
+        if args.contains("--demo-travel-relocate") { relocate() }
         if args.contains("--demo-travel-add") { addingItem = true }
         if args.contains("--demo-travel-import") { importing = true }
         // 截图验证用:simctl 点不了行,直接打开第一条非航班项的详情 / 编辑旅行。

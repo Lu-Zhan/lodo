@@ -16,6 +16,14 @@ import LodoCore
 /// 的「Tokyo」。照单全收的后果是整趟日本行程画到中国地图上,而**画错位置比不画更糟**。
 /// 所以调用方带上这趟旅行的预期国家(`region`,见 `PlaceRegion`),国家对不上的
 /// 结果一律不要;宁可地图上少几个点,也不拿一个大概的位置糊弄。
+///
+/// **苹果查不到时退到 OpenStreetMap Nominatim**(2026-09):上面那条限制意味着在国内
+/// 网络上,国外旅行的地点用苹果的服务**一个都查不到**(`CLGeocoder`、iOS 26 的
+/// `MKGeocodingRequest` 实测同样只给中国数据),「刷新地点位置」也就全军覆没。
+/// Nominatim 在同样的网络下能正常返回,且能按国家筛;它是模糊匹配,结果还要过
+/// 名字校验(`OSMGeocode.nameScore`)。发出去的只有地名本身 + 国家码(+ 锚点附近的
+/// 范围),不带任何用户信息;遵守它的使用规定——带可识别的 User-Agent、串行、
+/// 每秒最多 1 次(`osmThrottle`)。
 enum PlaceGeocoder {
     /// 这次运行里查过、并且没找到的地名。找不到的地方(用户随手写的"朋友家")
     /// 每次打开详情页都重查一遍纯属浪费,记下来这一轮不再问;重开 app 会再试一次
@@ -24,10 +32,15 @@ enum PlaceGeocoder {
     /// 键要带上预期国家:同一个地名在"限定日本"和"不限国家"两种前提下结果不同,
     /// 混用一个键会让换了旅行之后的查询被上一趟的失败挡掉。
     private static var missed: Set<String> = []
+    /// Nominatim 那一路查过没找到的(键同 missed)。
+    private static var osmMissed: Set<String> = []
+    /// 上一次打 Nominatim 的时间:它要求每秒最多 1 次。
+    private static var lastOSMRequest = Date.distantPast
 
     /// 手动「刷新地点位置」时清掉:用户主动要求重查,上一轮没搜到的也该再试一次。
     static func resetMisses() {
         missed.removeAll()
+        osmMissed.removeAll()
         regionCache.removeAll()
     }
 
@@ -68,7 +81,44 @@ enum PlaceGeocoder {
             guard !missed.contains(missKey(query, region: region)) else { continue }
             if let found = await search(query, anchor: anchor, region: region) { return found }
         }
-        return nil
+        // 苹果那边没有(国内网络上查国外地点就是这样),退到 Nominatim。只拿地名本身查:
+        // 国家已经用 countrycodes 限定、附近用 viewbox 偏置了,再把"东京 日本"拼进去
+        // 反而会让它的模糊匹配跑偏。没有国家也没有锚点时不查——没有判据,查到也不敢用。
+        guard region != nil || anchor != nil else { return nil }
+        let key = missKey(place, region: region)
+        guard !osmMissed.contains(key) else { return nil }
+        guard let places = await osmSearch(place, region: region, anchor: anchor) else { return nil }
+        let picked = OSMGeocode.pick(
+            places, query: place, region: region, anchor: anchor.map(Self.travelCoordinate),
+            maxDistance: region == nil ? maxDistanceFromAnchor : nil)
+        guard let picked else {
+            osmMissed.insert(key)
+            return nil
+        }
+        return CLLocationCoordinate2D(latitude: picked.latitude, longitude: picked.longitude)
+    }
+
+    private static func travelCoordinate(_ c: CLLocationCoordinate2D) -> TravelCoordinate {
+        TravelCoordinate(latitude: c.latitude, longitude: c.longitude)
+    }
+
+    /// 打一次 Nominatim。网络失败/被限流返回 nil(不算"没找到",下次还能再试)。
+    private static func osmSearch(_ query: String, region: String?,
+                                  anchor: CLLocationCoordinate2D?) async -> [OSMGeocode.Place]? {
+        guard let url = OSMGeocode.searchURL(
+            query: query, region: region, anchor: anchor.map(travelCoordinate),
+            // 只影响返回的显示名;名字校验看的是 namedetails 里的全部语言名。
+            language: UserDefaults.standard.string(forKey: AppSettings.languageKey) == AppLanguage.en.rawValue
+                ? "en" : "zh") else { return nil }
+        let wait = 1.1 - Date().timeIntervalSince(lastOSMRequest)
+        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        lastOSMRequest = Date()
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("lodo/1.0 (https://github.com/Lu-Zhan/lodo)", forHTTPHeaderField: "User-Agent")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return OSMGeocode.parse(data)
     }
 
     /// 一个坐标落在哪个国家/地区(ISO 码),查不到返回 nil。
@@ -128,6 +178,11 @@ enum PlaceGeocoder {
                 }
                 if matched { return placemark.coordinate }
             }
+        }
+        // 苹果那边验不出来时同样退到 Nominatim,只认城市级的结果(不认店名)。
+        if let places = await osmSearch(name, region: region, anchor: nil),
+           let picked = OSMGeocode.pick(places, query: name, region: region, anchor: nil, areasOnly: true) {
+            return CLLocationCoordinate2D(latitude: picked.latitude, longitude: picked.longitude)
         }
         return nil
     }
