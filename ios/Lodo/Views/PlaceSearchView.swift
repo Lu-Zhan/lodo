@@ -14,8 +14,9 @@ import LodoCore
 ///
 /// **苹果搜不到时可以改搜 OpenStreetMap**(Nominatim,见 `PlaceGeocoder` 文件头:
 /// 国内网络上苹果只给中国数据,国外地点在上面那两段里根本不会出现)。
-/// Nominatim 的使用规定**不允许边打字边搜**,所以它只在按下键盘上的搜索键、
-/// 或点列表里那一行「在 OpenStreetMap 中搜索」时才发一次;打字过程中仍然只用苹果。
+/// **苹果在目标国家里没搜到时自动补上 OpenStreetMap 的结果**,不用再点一次。
+/// Nominatim 的使用规定不允许边打字边搜,所以要等苹果那次搜完、输入又停了一会儿
+/// (0.8 秒)才发,同一个词只查一次;按下键盘上的搜索键则立刻查。
 /// 按旅行的国家筛,数据按 ODbL 要求在分段脚注里署名。
 struct PlaceSearchView: View {
     /// 选中后回传:显示名 + 坐标。
@@ -118,17 +119,15 @@ struct PlaceSearchView: View {
             }
             .onDisappear { searchTask?.cancel() }
             #if DEBUG
-            // 截图验证用:--demo-place-search 后面跟一个词,填进去并在苹果搜完后查一次 OSM。
+            // 截图验证用:--demo-place-search 后面跟一个词,填进去(苹果搜不到时会自动补 OSM)。
             .task {
                 let args = ProcessInfo.processInfo.arguments
                 guard let index = args.firstIndex(of: "--demo-place-search"),
                       index + 1 < args.count else { return }
                 query = args[index + 1]
-                try? await Task.sleep(for: .seconds(4))
-                searchOSM()
                 // 再加 --demo-place-pick:OSM 结果回来后自动选第一条(simctl 点不了行)。
                 guard args.contains("--demo-place-pick") else { return }
-                for _ in 0..<20 where osmResults.isEmpty {
+                for _ in 0..<30 where osmResults.isEmpty {
                     try? await Task.sleep(for: .milliseconds(500))
                 }
                 if let place = osmResults.first {
@@ -174,16 +173,17 @@ struct PlaceSearchView: View {
                     ProgressView().controlSize(.small)
                     Text("正在搜索 OpenStreetMap…").foregroundStyle(.secondary)
                 }
-            } else if osmQuery != trimmedQuery && (inRegion.isEmpty || region == nil) {
+            } else if osmFailed && osmQuery != trimmedQuery {
+                // 苹果没搜到时会自动接着查 OpenStreetMap(见 search);这一行只在那次
+                // 查失败(网络问题)时留作重试。
                 Section {
                     Button {
                         searchOSM()
                     } label: {
-                        Label("在 OpenStreetMap 中搜索「\(trimmedQuery)」", systemImage: "globe.asia.australia")
+                        Label("重新搜索 OpenStreetMap", systemImage: "arrow.clockwise")
                     }
                 } footer: {
-                    Text(osmFailed ? "OpenStreetMap 搜索失败,检查一下网络再试。"
-                                   : "苹果地图在当前网络下可能只有中国大陆的数据,找不到国外地点时可以试试这里。")
+                    Text("OpenStreetMap 搜索失败,检查一下网络再试。")
                 }
             }
         }
@@ -254,6 +254,14 @@ struct PlaceSearchView: View {
         guard !Task.isCancelled else { return }
         _ = await run(text)
         searching = false
+        // 苹果那边在目标国家里没搜到(国内网络上查国外地点就是这样),直接补上
+        // OpenStreetMap 的结果,不用再点一次。Nominatim 不许边打字边查,所以再等
+        // 一会儿、确认用户停手了才发——这段等待和上面的搜索同在 searchTask 里,
+        // 用户接着打字就会被取消;同一个词只查一次(searchOSM 自己挡)。
+        guard inRegion.isEmpty || (region == nil && results.isEmpty) else { return }
+        try? await Task.sleep(for: .milliseconds(800))
+        guard !Task.isCancelled, text == trimmedQuery else { return }
+        searchOSM()
     }
 
     private func qualifiedQuery(_ text: String) -> String? {

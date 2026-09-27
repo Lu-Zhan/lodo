@@ -926,3 +926,4 @@ travel.fill_location_reminder,"这次旅行还没填城市和国家,地点查不
 travel.fill_location_button,去填写城市和国家,Add City & Country,ios_view,旅行详情
 travel.close_reminder,关闭提醒,Dismiss,ios_view,旅行详情
 place_search.not_found_fill_location,"没有找到这个地方。这次旅行还没填城市和国家,先回「编辑旅行」填上再搜会准得多。",No results. This trip has no city or country yet; add them in Edit Trip first for much better results.,ios_view,旅行详情
+place_search.osm_retry,重新搜索 OpenStreetMap,Search OpenStreetMap Again,ios_view,选地点
