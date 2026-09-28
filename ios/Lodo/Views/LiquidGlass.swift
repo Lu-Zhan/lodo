@@ -180,25 +180,3 @@ struct GlassRowBackground<Fallback: View>: View {
     }
 }
 
-/// 整块面板(侧栏抽屉、AI 右栏)用的玻璃面。和 `glassBackground` 是两个入口:
-/// 那个是给输入栏、悬浮条那种小块 chrome 的,旧系统回退到 `thinMaterial`;面板
-/// 这边回退要落回 `DesignMetrics.panelBackground`——旧系统上「面板和被推开的
-/// 页面卡取同色、只靠投影分层」那套配色还得照旧,退成 thinMaterial 会把那道
-/// 刻意做平的边界又拉出来。
-///
-/// 「减弱透明度」同 `GlassBackground`:不换更厚的材质,直接走 panelBackground
-/// 的不透明分支。
-struct GlassSurface: View {
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        if DesignMetrics.reducesTransparency(reduceTransparency) {
-            Rectangle().fill(DesignMetrics.panelBackground(scheme, reduceTransparency: true))
-        } else if #available(iOS 26.0, macOS 26.0, *) {
-            Color.clear.glassEffect(.regular, in: Rectangle())
-        } else {
-            Rectangle().fill(DesignMetrics.panelBackground(scheme))
-        }
-    }
-}

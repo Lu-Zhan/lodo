@@ -6,6 +6,48 @@ import LodoCore
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
 enum AppSection: Hashable, CaseIterable {
     case overview, todo, calendar, countdown, memory, contact, assets, health, travel, menu, news, agent
+
+    /// 宽屏系统侧边栏(`SystemSidebarList`)的行,顺序同窄屏抽屉。
+    static let pages: [AppSection] = [
+        .overview, .todo, .calendar, .countdown, .memory, .contact,
+        .assets, .health, .travel, .menu, .news, .agent,
+    ]
+
+    /// `LocalizedStringKey` 而**不是 String**:传 String 会走 `Label` 的 StringProtocol
+    /// 重载,那条不查本地化表,英文界面下整排会是中文。
+    var title: LocalizedStringKey {
+        switch self {
+        case .overview: return "总览"
+        case .todo: return "任务"
+        case .calendar: return "日历"
+        case .countdown: return "倒数日"
+        case .memory: return "记忆"
+        case .contact: return "人脉"
+        case .assets: return "资产"
+        case .health: return "健康"
+        case .travel: return "旅行"
+        case .menu: return "菜单"
+        case .news: return "新闻"
+        case .agent: return "AI 助手"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .overview: return "square.stack.3d.up"
+        case .todo: return "checklist"
+        case .calendar: return "calendar"
+        case .countdown: return "hourglass"
+        case .memory: return "sparkles.rectangle.stack"
+        case .contact: return "person.crop.circle"
+        case .assets: return "banknote"
+        case .health: return "heart.text.square"
+        case .travel: return "suitcase.rolling"
+        case .menu: return "menucard"
+        case .news: return "newspaper"
+        case .agent: return "sparkles"
+        }
+    }
 }
 
 // MARK: - 「进到某个条目里」(经 Environment 下发)
@@ -54,6 +96,8 @@ struct SidebarChrome {
     let collapse: () -> Void
     /// 页面右侧的其他工具栏按钮在抽屉展开时收起。
     let hidesChrome: Bool
+    /// 页面左上角给不给 ☰。宽屏是系统侧边栏,收起/展开按钮由系统给,不再要这颗。
+    var showsMenuButton = true
 }
 
 private struct SidebarChromeKey: EnvironmentKey {
@@ -72,7 +116,7 @@ private struct SidebarToolbarButton: ViewModifier {
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if let chrome {
+            if let chrome, chrome.showsMenuButton {
                 ToolbarItem(placement: .navigation) {
                     Button(action: chrome.open) {
                         Image(systemName: "line.3.horizontal")
@@ -179,6 +223,8 @@ struct AppShellView: View {
     /// 关闭时它瞬间变 0,而页面还在往回滑——右上角其他工具栏项要等页面到位
     /// 再恢复。收起期间靠这个标记压住它们,动画回调里才放开。
     @State private var isClosingSidebar = false
+    /// 宽屏系统侧边栏的显示状态(系统自己的收起按钮改它)。
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     init() {
         let initial: AppSection = Self.shouldOpenAgentOnLaunch() ? .agent : .overview
         _section = State(initialValue: initial)
@@ -250,7 +296,8 @@ struct AppShellView: View {
         )
         .environment(\.sidebarChrome,
                      SidebarChrome(open: toggleSidebar, go: go, collapse: closeSidebar,
-                                   hidesChrome: hidesToolbarChrome))
+                                   hidesChrome: hidesToolbarChrome,
+                                   showsMenuButton: !usesRegularLayout))
         .environment(\.itemNavigator, ItemNavigator(open: open))
         .sheet(isPresented: $showSettings) { SettingsView() }
         .onChange(of: section) { _, new in visited.insert(new) }
@@ -386,11 +433,7 @@ struct AppShellView: View {
         .padding(.bottom, usesRegularLayout ? 0 : deviceBottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 窄屏抽屉里面板自己不铺底色,由 compactLayout 整个容器那层 drawerBackdrop
-        // 统一铺(理由见那里)——**玻璃尤其不能两层叠**,玻璃采样不到玻璃,面板
-        // 一层叠在容器一层上面那块会直接失真。
-        .background {
-            if usesRegularLayout { GlassSurface() }
-        }
+        // 统一铺(理由见那里)。宽屏用的是系统侧边栏(SystemSidebarList),不走这里。
     }
 
     /// 窄屏抽屉的旁白语义。收起时面板只是被 offset 推到屏幕外,**元素还在**
@@ -621,20 +664,15 @@ struct AppShellView: View {
         // pageBottomRefill 以 safeAreaInset 的形式补,不靠系统缩小整张卡。
     }
 
-    /// 抽屉容器的整块底色,也就是侧栏面板看上去的那层材质(面板自己不铺,见
-    /// sidebarPanel)。iOS 26 起是 Liquid Glass:侧栏是导航层,按 Liquid Glass
-    /// 的分工就该是玻璃。
+    /// 抽屉容器的整块底色,也就是侧栏面板看上去的那层底(面板自己不铺,见
+    /// sidebarPanel)。**不用 Liquid Glass**(2026-09,用户要求侧栏去掉玻璃样式),
+    /// 所有系统版本都是 `panelBackground` 这层面色。
     ///
-    /// **夜间原来叠两层材质的那个 hack 只留给旧系统**:那是为了让"面板材质叠在
-    /// 容器材质上"和只有容器一层的圆角缺口处亮度对齐,不然侧栏右边缘会出现一道
-    /// 竖直明暗分界。玻璃这条路上侧栏和缺口本来就是同一层(GlassSurface 只铺一次),
-    /// 没有两层可叠,也就没有那道边。
+    /// 夜间叠两层:`panelBackground` 夜间是半透明材质,叠两层才和原来"面板一层 +
+    /// 容器一层"的亮度一致,侧栏右边缘不会出现一道竖直明暗分界。
     @ViewBuilder
     private var drawerBackdrop: some View {
-        if #available(iOS 26.0, macOS 26.0, *),
-           !DesignMetrics.reducesTransparency(reduceTransparency) {
-            GlassSurface()
-        } else if colorScheme == .dark {
+        if colorScheme == .dark {
             ZStack {
                 Rectangle().fill(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
                 Rectangle().fill(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
@@ -644,30 +682,24 @@ struct AppShellView: View {
         }
     }
 
-    /// 宽屏(iPad 横屏、macOS):侧栏常驻并排,同一颗 ☰ 收起/展开,不做推移动画,
-    /// 也没有边缘唤出手势(桌面/大屏上靠按钮,不靠边缘滑)。
+    /// 宽屏(iPad 常规宽度、macOS):系统 `NavigationSplitView` 侧边栏(2026-09,用户要求
+    /// 宽屏用原生侧边栏;窄屏仍是 ☰ 抽屉)。收起/展开按钮、选中态、行样式都是系统的,
+    /// 设置是侧栏右上角的齿轮。
+    ///
+    /// 详情列**只放当前这一页**(`.id(section)`,换页即重建),不像窄屏那样把打开过的
+    /// 页面叠在 ZStack 里:每页自带 NavigationStack,叠着放进详情列时系统会把排在最前面
+    /// 那个(总览)的导航栏接到外层,切到旅行页标题栏还是「总览」和它的「编辑」(实测过)。
+    /// 键盘走系统让位(不像窄屏抽屉那样整张卡忽略键盘再补 inset)。
     private var regularLayout: some View {
-        HStack(spacing: 0) {
-            if showSidebar {
-                sidebarPanel
-                    .frame(width: DesignMetrics.sidebarWidth)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                Divider()
-                    .transition(.opacity)
-            }
-            // 同样补页面底色(理由见 compactLayout),但常驻侧栏不推移、不裁圆角,
-            // 容器安全区不用忽略。**键盘那一档仍要忽略**:理由同 compactLayout——
-            // 让页面卡的高度不随键盘变,背景才不会在键盘弹起时换一层;键盘该让开的
-            // 那截照样以 safeAreaInset 的形式补给内容。
-            sectionStack
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    Color.clear.frame(height: keyboardOverlap)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(DesignMetrics.panelBackground(colorScheme, reduceTransparency: reduceTransparency))
-                .ignoresSafeArea(.keyboard)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            SystemSidebarList(
+                selection: Binding(get: { section }, set: { if let target = $0 { go(target) } }),
+                onOpenSettings: { showSettings = true })
+        } detail: {
+            content(for: section)
+                .environment(\.sectionIsActive, true)
+                .id(section)
         }
-        .animation(sidebarAnimation, value: showSidebar)
     }
 
     // MARK: - 路由交接

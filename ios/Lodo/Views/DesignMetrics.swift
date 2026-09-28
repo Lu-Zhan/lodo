@@ -24,8 +24,6 @@ enum DesignMetrics {
     /// 文本多行长高时圆角不跟着变,上下两端仍是半圆。
     /// (原来 26 是给"文本框 + 控件行"那张合并卡片用的,单行胶囊套 26 会被夹掉。)
     static let composerRadius: CGFloat = aiInputHeight / 2
-    /// 应用导航侧栏(窄屏抽屉 / 宽屏常驻列)的固定宽度。
-    static let sidebarWidth: CGFloat = 300
     /// HIG 规定的最小可点尺寸。app 里有几处图标按钮的**视觉**尺寸刻意小于它
     /// (AI 输入栏的内嵌按钮仍小于 44pt,彼此必须同尺寸同圆心,见
     /// `AgentView.composerInlineControlSize`),这些地方放大的是热区不是外观——见

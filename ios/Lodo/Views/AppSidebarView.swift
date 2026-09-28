@@ -62,26 +62,11 @@ struct AppSidebarView: View {
         .frame(maxHeight: .infinity)
     }
 
-    /// 导航行的行背景。新系统每行一块 Liquid Glass(选中那行染强调色),旧系统 /
-    /// 「减弱透明度」退回原来那套:选中的一块圆角浅灰底,没选中的什么都不铺。
-    /// 版本判断收在 `GlassRowBackground` 里,这里只写形状和回退长什么样。
-    ///
-    /// 玻璃块铺满整行宽、横向内缩 16 对上参考图里高亮块距面板边的距离;
-    /// 和行文字 24 的缩进正好差出那 8pt 留白。
-    private func rowBackground(_ selected: Bool) -> some View {
-        GlassRowBackground(
-            selected: selected,
-            // 透明的玻璃上染色要压得很淡:满色会盖住背后的内容,那就不是玻璃了。
-            tint: lodoAccent.accent.opacity(0.28),
-            shape: RoundedRectangle(cornerRadius: DesignMetrics.sidebarRowRadius, style: .continuous)
-        ) {
-            rowHighlight(selected)
-        }
-    }
-
-    /// 旧系统上的选中底(也是「减弱透明度」时的样子)。
+    /// 导航行的行背景:选中的一块圆角浅灰底,没选中的什么都不铺。**不用 Liquid Glass**
+    /// (2026-09,用户要求侧栏去掉玻璃样式;原来每行一块玻璃、选中染强调色)。
+    /// 高亮块铺满整行宽、横向内缩 16,和行文字 24 的缩进差出 8pt 留白。
     @ViewBuilder
-    private func rowHighlight(_ selected: Bool) -> some View {
+    private func rowBackground(_ selected: Bool) -> some View {
         if selected {
             RoundedRectangle(cornerRadius: DesignMetrics.sidebarRowRadius, style: .continuous)
                 .fill(Color.primary.opacity(0.09))
@@ -202,11 +187,40 @@ struct AppSidebarView: View {
                 .font(.body.weight(.medium))
                 .foregroundStyle(selected ? lodoAccent.accent : .primary)
                 .frame(width: controlSize, height: controlSize)
-                .glassBackground(Circle())
+                // 和选中行同一种浅灰底,不用玻璃(同 rowBackground)。
+                .background(Circle().fill(Color.primary.opacity(0.09)))
                 .contentShape(Circle())
         }
         .pressable()
         .accessibilityLabel(label)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// 宽屏(iPad 常规宽度 / macOS)的系统侧边栏:`NavigationSplitView` 的侧栏列。和上面的
+/// 窄屏抽屉面板(`AppSidebarView`)分开写——这边全用系统样式(`List(selection:)` +
+/// `.sidebar` + 系统 `Label`,选中态、行高、玻璃都交给系统),那边是自绘的玻璃行。
+struct SystemSidebarList: View {
+    @Binding var selection: AppSection?
+    let onOpenSettings: () -> Void
+
+    var body: some View {
+        List(selection: $selection) {
+            ForEach(AppSection.pages, id: \.self) { page in
+                NavigationLink(value: page) {
+                    Label(page.title, systemImage: page.systemImage)
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .navigationTitle("Lodo")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: onOpenSettings) {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("设置")
+            }
+        }
     }
 }

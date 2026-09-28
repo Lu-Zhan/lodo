@@ -2023,6 +2023,17 @@ private struct AgentMessageListView: View {
                 if let last = messages.first { proxy.scrollTo(last.uuid, anchor: .bottom) }
                 onPendingAskChange(hasPendingAsk)
             }
+            // 键盘弹起时贴回底部。宽屏的系统侧边栏布局走系统键盘让位,滚动位置不会跟着挪,
+            // 最后一条会压在键盘和输入栏后面(实测过);窄屏抽屉把键盘当 safeAreaInset
+            // 补给页面、本来守得住,这里多滚一次也无害。(不用 onGeometryChange 量可视
+            // 高度:那个要 iOS 18,部署目标是 17。)
+            #if os(iOS)
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIResponder.keyboardDidShowNotification)) { _ in
+                guard let last = messages.first else { return }
+                withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }
+            }
+            #endif
             .onChange(of: hasPendingAsk) { _, pending in onPendingAskChange(pending) }
         }
     }
