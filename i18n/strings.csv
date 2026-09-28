@@ -1578,3 +1578,7 @@ ios_view.sync_env_adhoc,Production(Ad Hoc),Production (Ad Hoc),ios_view,旅行�
 ios_view.sync_env_mac,macOS:取决于签名方式,macOS: depends on signing,ios_view,旅行共享
 ios_view.trip_emoji,旅行图标,Trip Icon,ios_view,旅行共享
 ios_view.trip_emoji_footer,"左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。","The icon on the left appears before the trip name. Tap one below to change it, or type any emoji.",ios_view,旅行共享
+ios_view.relocate_ai_progress,"正在按地名重新查找位置,AI 会从候选里挑最合理的…",Looking up places again. AI will pick the best match from the candidates…,ios_view,旅行共享
+ios_view.relocate_ai_picked,其中 %lld 个由 AI 从候选里挑选。,AI picked %lld of them from the candidates.,ios_view,旅行共享
+ios_view.share_preparing,正在建立共享…,Setting up sharing…,ios_view,旅行共享
+ios_view.share_loading_members,正在读取共享成员…,Loading members…,ios_view,旅行共享

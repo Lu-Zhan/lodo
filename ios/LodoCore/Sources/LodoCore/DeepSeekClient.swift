@@ -923,6 +923,35 @@ public enum DeepSeekClient {
         return note
     }
 
+    /// 重新选点时的 AI 校准:给整趟旅行的地点和各自的 OpenStreetMap 候选,让模型
+    /// 每项挑一个最合理的(或判定都不对)。拼清单和解析在 `PlaceCalibration`。
+    /// 失败照常抛错,调用方退回按距离 + 知名度的自动挑选,不影响刷新本身。
+    public static func calibratePlaces(trip: String,
+                                       items: [PlaceCalibration.Item]) async throws
+        -> [UUID: PlaceCalibration.Choice] {
+        guard !items.isEmpty else { return [:] }
+        let system = """
+        你是旅行应用 lodo 的地图助手。用户旅行里的每个地点都在 OpenStreetMap 上搜到了\
+        几个同名或近似的候选,你要替每个地点挑出用户**真正要去的那一个**。
+
+        只返回 JSON:{"choices": [{"id": "地点的 id", "pick": 候选编号}]},每个地点一条,\
+        不要任何其他文字。编号从 1 开始;所有候选都明显不对时 pick 写 null。
+
+        判断依据,按重要程度:
+        - 位置要和这趟旅行对得上:目的地城市、同一天其他地点在哪。同一天的地点一般在同一个\
+        城市或相邻城市;离目的地几百公里的候选,除非行程里写了当天去那里,否则不选。
+        - 类型要对得上:景点选景点本身(寺庙、公园、博物馆),不选同名的车站、公交站、\
+        停车场、商店;住宿选酒店本身,不选旁边的车站或商场;写的是区域(「新宿」「浅草」)\
+        时选那个区域或它的中心,不选区域里某家店。
+        - 名字要真的是同一个地方:只是有几个字相同(「新宿王子酒店」对「喜多屋酒店仓库」)不算。
+        - 同样合适时选知名度高的——游客去的多半是有名的那一座。
+        - 拿不准也要选一个最可能的;只有所有候选都明显是另一个地方时才写 null。
+        """
+        let user = PlaceCalibration.prompt(trip: trip, items: items)
+        return PlaceCalibration.parse(try await payload(system: system, user: user, timeout: 90),
+                                      items: items)
+    }
+
     /// 旅行用品清单「AI 建议」:根据这次旅行(目的地、日期、行程、已有清单)建议要带
     /// 的东西。只是建议,调用方让用户勾选后才落库。
     public static func suggestPackingList(summary: String, existing: [String],

@@ -200,12 +200,20 @@ struct TravelDetailView: View {
     /// 清单随后在后台全量上传,面板头部报进度。
     private func share() {
         preparingShare = true
+        // 第一次共享要先在 iCloud 上建 zone 和 share,要等几秒;不给提示的话点完菜单
+        // 什么都没发生,用户会以为没点上。已经共享过的只是取回 share,同样挂一下。
+        showNotice(trip.isShared
+                   ? String(localized: "正在读取共享成员…", bundle: .appLanguage(language), locale: language.locale)
+                   : String(localized: "正在建立共享…", bundle: .appLanguage(language), locale: language.locale),
+                   sticky: true)
         Task {
             defer { preparingShare = false }
             do {
                 let share = try await SharedTripSync.shared.prepareShare(for: trip)
+                showNotice(nil)
                 CloudSharingPresenter.present(share: share, trip: trip)
             } catch {
+                showNotice(nil)
                 SharedTripSync.shared.report(error.localizedDescription)
             }
         }
@@ -829,7 +837,7 @@ struct TravelDetailView: View {
             if let notice = mapNotice ?? emptyMapNotice {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top, spacing: 8) {
-                        if relocating { ProgressView().controlSize(.small) }
+                        if relocating || preparingShare { ProgressView().controlSize(.small) }
                         Text(notice)
                             .font(.subheadline)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1099,7 +1107,11 @@ struct TravelDetailView: View {
 
     private func relocate() {
         relocating = true
-        showNotice(String(localized: "正在按地名重新查找位置…", bundle: .appLanguage(language), locale: language.locale), sticky: true)
+        showNotice(DeepSeekClient.isConfigured
+                   ? String(localized: "正在按地名重新查找位置,AI 会从候选里挑最合理的…",
+                            bundle: .appLanguage(language), locale: language.locale)
+                   : String(localized: "正在按地名重新查找位置…", bundle: .appLanguage(language), locale: language.locale),
+                   sticky: true)
         Task {
             let result = await TravelStore.relocateAll(for: trip, context: context)
             relocating = false
@@ -1118,8 +1130,15 @@ struct TravelDetailView: View {
         }
     }
 
-    /// 分开说"变了几个 / 没变 / 没搜到",看得出刷新到底有没有生效。
+    /// 分开说"变了几个 / 没变 / 没搜到",看得出刷新到底有没有生效;有 AI 挑过的再补一句。
     private func relocateMessage(_ result: TravelStore.RelocateResult) -> String {
+        let base = relocateCounts(result)
+        guard result.aiPicked > 0 else { return base }
+        return base + " " + String(localized: "其中 \(result.aiPicked) 个由 AI 从候选里挑选。",
+                                   bundle: .appLanguage(language), locale: language.locale)
+    }
+
+    private func relocateCounts(_ result: TravelStore.RelocateResult) -> String {
         if result.destinationUnknown {
             return String(localized: "认不出这次旅行在哪个城市,请在「编辑旅行」里填上城市或国家。",
                           bundle: .appLanguage(language), locale: language.locale)

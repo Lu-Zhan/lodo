@@ -18161,6 +18161,70 @@
           }
         }
       }
+    },
+    "正在按地名重新查找位置,AI 会从候选里挑最合理的…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking up places again. AI will pick the best match from the candidates…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在按地名重新查找位置,AI 会从候选里挑最合理的…"
+          }
+        }
+      }
+    },
+    "其中 %lld 个由 AI 从候选里挑选。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI picked %lld of them from the candidates."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中 %lld 个由 AI 从候选里挑选。"
+          }
+        }
+      }
+    },
+    "正在建立共享…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting up sharing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在建立共享…"
+          }
+        }
+      }
+    },
+    "正在读取共享成员…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading members…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取共享成员…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

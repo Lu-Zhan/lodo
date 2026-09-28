@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import CoreLocation
+import OSLog
 import LodoCore
 
 /// 旅行的应用层操作:行程项的增删改查,以及给 AI 的行程摘要。
@@ -460,6 +461,8 @@ enum TravelStore {
         var moved = 0
         var unchanged = 0
         var missed = 0
+        /// 其中有几个位置是 AI 从 OpenStreetMap 候选里挑的(见 `calibratedLookUp`)。
+        var aiPicked = 0
         /// 认不出这趟旅行在哪个城市,一个都没查。
         var destinationUnknown = false
         var total: Int { moved + unchanged + missed }
@@ -472,6 +475,7 @@ enum TravelStore {
     /// 查到了就覆盖旧坐标,**查不到就留着旧的**——宁可停在原来的位置,也不把一个
     /// 好好的点清掉。判据见 `geocodeContext`,上一轮记下的"查不到"和"已验证"一并清掉重来。
     /// 交通类不查:起降点、车站来自订单和表单,不拿地名搜索去猜。
+    /// 选哪一个由 AI 从 OpenStreetMap 候选里校准(`calibratedLookUp`),没配 AI 时退回自动挑。
     static func relocateAll(for trip: TravelTrip, context: ModelContext) async -> RelocateResult {
         PlaceGeocoder.resetMisses()
         verifiedCoordinates.removeAll()
@@ -487,13 +491,14 @@ enum TravelStore {
             return result
         }
         let tripItems = items(for: trip.uuid, in: context)
-        for item in targets.prefix(geocodeBudget) {
-            guard let coordinate = await lookUp(item, in: contexts,
-                                                near: neighborCoordinates(of: item, among: tripItems))
-            else {
+        let batch = Array(targets.prefix(geocodeBudget))
+        let outcomes = await calibratedLookUp(batch, trip: trip, contexts: contexts, tripItems: tripItems)
+        for item in batch {
+            guard case .found(let coordinate, let byAI) = outcomes[item.uuid] else {
                 result.missed += 1
                 continue
             }
+            if byAI { result.aiPicked += 1 }
             let moved = item.travelLatitude.map { abs($0 - coordinate.latitude) > 1e-5 } ?? true
                 || item.travelLongitude.map { abs($0 - coordinate.longitude) > 1e-5 } ?? true
             if moved {
@@ -516,8 +521,9 @@ enum TravelStore {
         guard !geocodeQuery(for: item).isEmpty, item.travelKind?.isTransport != true else { return false }
         let contexts = await geocodeContexts(
             for: trip, existingAnchor: anchorCoordinate(for: trip, context: context))
-        guard let coordinate = await lookUp(item, in: contexts, near: neighborCoordinates(
-            of: item, among: items(for: trip.uuid, in: context))) else { return false }
+        let outcomes = await calibratedLookUp([item], trip: trip, contexts: contexts,
+                                              tripItems: items(for: trip.uuid, in: context))
+        guard case .found(let coordinate, _) = outcomes[item.uuid] else { return false }
         item.travelLatitude = coordinate.latitude
         item.travelLongitude = coordinate.longitude
         if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
@@ -675,19 +681,7 @@ enum TravelStore {
                   let coordinate = await lookUp(item, with: only) else { return nil }
             return (coordinate, 0)
         }
-        let text = [item.title, item.travelPlaceName ?? "", item.summary].joined(separator: " ")
-        let destinations = contexts.map { $0.destination ?? TripDestination() }
-        var order = TripDestination.preferredOrder(destinations, text: text)
-        let anyMentioned = destinations.contains { TripDestination.mentioned($0, in: text) }
-        if !anyMentioned, let center = neighbors.first {
-            func distance(_ index: Int) -> CLLocationDistance {
-                guard let anchor = contexts[index].anchor else { return .greatestFiniteMagnitude }
-                return CLLocation(latitude: anchor.latitude, longitude: anchor.longitude)
-                    .distance(from: CLLocation(latitude: center.latitude, longitude: center.longitude))
-            }
-            order = order.sorted { distance($0) < distance($1) }
-        }
-        for (rank, index) in order.enumerated() {
+        for (rank, index) in destinationOrder(item, in: contexts, near: neighbors).enumerated() {
             let geo = contexts[index]
             if rank > 0 && geo.anchor == nil { continue }
             guard let coordinate = await lookUp(item, with: geo) else { continue }
@@ -700,6 +694,173 @@ enum TravelStore {
             return (coordinate, index)
         }
         return nil
+    }
+
+    /// 多目的地时去各个目的地里查的先后(下标),规则见 `lookUpWithContext`。
+    private static func destinationOrder(_ item: MemoryItem, in contexts: [GeocodeContext],
+                                         near neighbors: [CLLocationCoordinate2D]) -> [Int] {
+        guard contexts.count > 1 else { return Array(contexts.indices) }
+        let text = [item.title, item.travelPlaceName ?? "", item.summary].joined(separator: " ")
+        let destinations = contexts.map { $0.destination ?? TripDestination() }
+        var order = TripDestination.preferredOrder(destinations, text: text)
+        let anyMentioned = destinations.contains { TripDestination.mentioned($0, in: text) }
+        if !anyMentioned, let center = neighbors.first {
+            func distance(_ index: Int) -> CLLocationDistance {
+                guard let anchor = contexts[index].anchor else { return .greatestFiniteMagnitude }
+                return CLLocation(latitude: anchor.latitude, longitude: anchor.longitude)
+                    .distance(from: CLLocation(latitude: center.latitude, longitude: center.longitude))
+            }
+            order = order.sorted { distance($0) < distance($1) }
+        }
+        return order
+    }
+
+    // MARK: - 重新选点的 AI 校准
+
+    private static let calibrationLog = Logger(subsystem: "com.lodo.app", category: "TravelGeocode")
+
+    /// 一条行程项重新选点的结果。
+    enum RelocateOutcome {
+        /// 找到了;`byAI` = 这个位置是 AI 从候选里挑的。
+        case found(CLLocationCoordinate2D, byAI: Bool)
+        /// 没找到,或者 AI 判定候选都不对——调用方保留原坐标。
+        case notFound
+    }
+
+    /// 重新选点(「刷新地点位置」、点没坐标的地点当场查)用:每条先从 OpenStreetMap 拿
+    /// 一组候选,再把整趟的候选**一次**交给 AI 挑最合理的(见 `PlaceCalibration`)。
+    ///
+    /// 退路:① OSM 一个候选都没有(或网络失败)→ 走原来的 `lookUpWithContext`(苹果地名
+    /// 服务在前,国内的旅行主要靠它);② 没配 AI / AI 请求失败 / AI 没给这条结论 → 在
+    /// 候选里按"离行程近 + 知名度"自动挑(`OSMGeocode.pick`,和原来一样);③ AI 明说
+    /// 候选都不对 → 算没找到,**不退回自动挑**——那等于把 AI 否掉的那条又选回来。
+    static func calibratedLookUp(_ targets: [MemoryItem], trip: TravelTrip,
+                                 contexts: [GeocodeContext],
+                                 tripItems: [MemoryItem]) async -> [UUID: RelocateOutcome] {
+        var outcomes: [UUID: RelocateOutcome] = [:]
+        var pending: [(item: MemoryItem, places: [OSMGeocode.Place], context: Int)] = []
+        for item in targets {
+            let neighbors = neighborCoordinates(of: item, among: tripItems)
+            if let (places, index) = await osmCandidates(item, in: contexts, near: neighbors) {
+                pending.append((item, places, index))
+            } else if let coordinate = await lookUp(item, in: contexts, near: neighbors) {
+                outcomes[item.uuid] = .found(coordinate, byAI: false)
+            } else {
+                outcomes[item.uuid] = .notFound
+            }
+        }
+        guard !pending.isEmpty else { return outcomes }
+
+        let calibrationItems = pending.map { entry in
+            calibrationItem(entry.item, places: entry.places, anchor: contexts[entry.context].anchor, trip: trip)
+        }
+        var choices: [UUID: PlaceCalibration.Choice] = [:]
+        if DeepSeekClient.isConfigured {
+            do {
+                choices = try await DeepSeekClient.calibratePlaces(
+                    trip: calibrationTripLine(trip), items: calibrationItems)
+            } catch {
+                calibrationLog.error("AI calibration failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        // 每条:标题、候选数、AI 的结论(Console.app 里按 com.lodo.app / TravelGeocode 过滤)。
+        for entry in pending {
+            let verdict: String
+            switch choices[entry.item.uuid] {
+            case .pick(let index): verdict = "AI → #\(index + 1) \(entry.places[index].displayName)"
+            case .none?: verdict = "AI → none"
+            case nil: verdict = "auto"
+            }
+            calibrationLog.info("\(entry.item.title, privacy: .public): \(entry.places.count) candidates, \(verdict, privacy: .public)")
+            for (index, place) in entry.places.enumerated() {
+                calibrationLog.info("  #\(index + 1) \(place.name, privacy: .public) [\(place.addressType, privacy: .public) \(place.importance)] \(place.displayName, privacy: .public)")
+            }
+        }
+        for entry in pending {
+            let place: OSMGeocode.Place?
+            let byAI: Bool
+            switch choices[entry.item.uuid] {
+            case .pick(let index):
+                place = entry.places[index]
+                byAI = true
+            case .none?:
+                outcomes[entry.item.uuid] = .notFound
+                continue
+            case nil:
+                let geo = contexts[entry.context]
+                place = OSMGeocode.pick(
+                    entry.places, query: geocodeQueries(for: entry.item).first ?? entry.item.title,
+                    region: geo.region,
+                    anchor: geo.anchor.map { TravelCoordinate(latitude: $0.latitude, longitude: $0.longitude) })
+                    ?? entry.places.first
+                byAI = false
+            }
+            outcomes[entry.item.uuid] = place.map {
+                .found(CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude), byAI: byAI)
+            } ?? .notFound
+        }
+        return outcomes
+    }
+
+    /// 按目的地顺序去 OSM 拿候选,第一个拿到候选的目的地就用它(不是首选的目的地只认
+    /// 离它不远的,同 `lookUpWithContext`)。一个都没有时返回 nil。
+    private static func osmCandidates(
+        _ item: MemoryItem, in contexts: [GeocodeContext], near neighbors: [CLLocationCoordinate2D]
+    ) async -> ([OSMGeocode.Place], Int)? {
+        for (rank, index) in destinationOrder(item, in: contexts, near: neighbors).enumerated() {
+            let geo = contexts[index]
+            if rank > 0 && geo.anchor == nil { continue }
+            // 标题和地点名两路都搜、合在一起给 AI(见 PlaceCalibration.queries)。
+            var lists: [[OSMGeocode.Place]] = []
+            for query in PlaceCalibration.queries(title: item.title, place: item.travelPlaceName ?? "",
+                                                  isLodging: item.travelKind == .lodging) {
+                guard var places = await PlaceGeocoder.osmCandidates(
+                    for: query, anchor: geo.anchor, region: geo.region) else { continue }
+                if rank > 0, let anchor = geo.anchor {
+                    let center = CLLocation(latitude: anchor.latitude, longitude: anchor.longitude)
+                    places = places.filter {
+                        center.distance(from: CLLocation(latitude: $0.latitude, longitude: $0.longitude))
+                            <= fallbackDestinationRadius
+                    }
+                }
+                lists.append(places)
+            }
+            let merged = PlaceCalibration.merge(lists)
+            if !merged.isEmpty { return (merged, index) }
+        }
+        return nil
+    }
+
+    private static func calibrationItem(_ item: MemoryItem, places: [OSMGeocode.Place],
+                                        anchor: CLLocationCoordinate2D?,
+                                        trip: TravelTrip) -> PlaceCalibration.Item {
+        let center = anchor.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+        let candidates = places.map { place in
+            PlaceCalibration.Candidate(
+                latitude: place.latitude, longitude: place.longitude, name: place.name,
+                address: place.displayName, type: place.addressType, importance: place.importance,
+                distanceKm: center.map {
+                    $0.distance(from: CLLocation(latitude: place.latitude, longitude: place.longitude)) / 1000
+                })
+        }
+        var when: String?
+        if let start = item.travelStart {
+            let calendar = Calendar.current
+            let day = (calendar.dateComponents([.day], from: calendar.startOfDay(for: trip.startDate),
+                                               to: calendar.startOfDay(for: start)).day ?? 0) + 1
+            when = "第 \(day) 天 " + start.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute())
+        }
+        return PlaceCalibration.Item(
+            id: item.uuid, title: item.title, place: item.travelPlaceName ?? "",
+            kind: item.travelKind == .lodging ? "住宿" : "地点", when: when,
+            note: item.summary, candidates: candidates)
+    }
+
+    /// 清单开头那一行:旅行名、目的地、日期。
+    private static func calibrationTripLine(_ trip: TravelTrip) -> String {
+        let format = Date.FormatStyle().year().month(.twoDigits).day(.twoDigits)
+        return "旅行:\(trip.title);目的地:\(trip.locationText ?? "未填");"
+            + "日期:\(trip.startDate.formatted(format)) 至 \(trip.endDate.formatted(format))"
     }
 
     /// 按 `geocodeQueries` 的顺序查,第一个查到的就用。

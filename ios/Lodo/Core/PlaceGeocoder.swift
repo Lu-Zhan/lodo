@@ -104,6 +104,30 @@ enum PlaceGeocoder {
         return CLLocationCoordinate2D(latitude: picked.latitude, longitude: picked.longitude)
     }
 
+    /// 重新选点时交给 AI 校准的 OpenStreetMap 候选:过了国家和名字校验(同 `coordinate`
+    /// 走 OSM 那一段的判据),坐标重合的去重,离锚点近的排前,最多
+    /// `PlaceCalibration.maxCandidates` 个。没有国家也没有锚点时不查(没有判据);
+    /// 网络失败返回 nil,和"查到了但一个都不对"(空数组)分开。
+    static func osmCandidates(for name: String, anchor: CLLocationCoordinate2D?,
+                              region: String?) async -> [OSMGeocode.Place]? {
+        let place = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !place.isEmpty, region != nil || anchor != nil else { return [] }
+        guard let places = await osmSearch(place, region: region, anchor: anchor) else { return nil }
+        let travelAnchor = anchor.map(travelCoordinate)
+        let valid = places.filter { candidate in
+            guard PlaceRegion.matches(region, candidate.countryCode),
+                  OSMGeocode.nameScore(query: place, names: candidate.names) >= OSMGeocode.minimumNameScore
+            else { return false }
+            // 国家未知时同 coordinate 的兜底:离锚点太远的不要。
+            guard region == nil, let travelAnchor else { return true }
+            return TravelMapFraming.distance(
+                travelAnchor, TravelCoordinate(latitude: candidate.latitude, longitude: candidate.longitude))
+                <= maxDistanceFromAnchor
+        }
+        return Array(OSMGeocode.arrangeForPicker(valid, anchor: travelAnchor)
+            .prefix(PlaceCalibration.maxCandidates))
+    }
+
     private static func travelCoordinate(_ c: CLLocationCoordinate2D) -> TravelCoordinate {
         TravelCoordinate(latitude: c.latitude, longitude: c.longitude)
     }
