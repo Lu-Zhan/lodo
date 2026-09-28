@@ -85,6 +85,7 @@ public enum SharedTripMapping {
         f["city"] = .string(trip.city)
         f["country"] = .string(trip.country)
         f["extraDestinations"] = .string(trip.extraDestinations)
+        f["emoji"] = .string(trip.emoji)
         f["createdAt"] = .date(trip.createdAt)
         return SharedRecordSnapshot(type: .trip, uuid: trip.uuid, fields: f)
     }
@@ -97,6 +98,7 @@ public enum SharedTripMapping {
         trip.city = f.string("city") ?? ""
         trip.country = f.string("country") ?? ""
         trip.extraDestinations = f.string("extraDestinations") ?? ""
+        trip.emoji = f.string("emoji") ?? ""
         trip.createdAt = f.date("createdAt") ?? trip.createdAt
     }
 

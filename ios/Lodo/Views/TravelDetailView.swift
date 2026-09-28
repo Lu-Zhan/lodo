@@ -262,18 +262,10 @@ struct TravelDetailView: View {
     /// 「问问 AI」和面板里要弹的那几张表单都挂在它里面。
     private var panel: some View {
         // 经 PanelModeContent 读 mode(见它的注释),不在这里直接 switch。
-        PanelModeContent(mode: $mode) { mode in
-            switch mode {
-            case .overview: overviewList
-            case .days: dayList
-            case .packing: TravelPackingList(trip: trip)
-            case .cost: costList
-            case .files: filesList
-            }
-        }
-        // 旅行信息 + 切换条钉在列表顶上,行程从它们底下滚过去:背后是系统的 .soft
-        // 滚动边缘效果(见 softTopScrollEdgeTransition),不再是一条硬边。
-        .topScrollEdgeBar {
+        // 旅行信息 + 切换条固定在上面,列表只在切换条**下面**那一截里滚,裁掉超出的部分
+        // (用户要求)。原来是钉成 topScrollEdgeBar、行从它们底下滚过去:切换条是半透明
+        // 玻璃,拉满往上滑时日程会透到切换条后面。
+        VStack(spacing: 0) {
             VStack(spacing: 0) {
                 header
                 modePicker
@@ -281,6 +273,17 @@ struct TravelDetailView: View {
                     .padding(.bottom, 8)
             }
             .padding(.top, 14)
+            PanelModeContent(mode: $mode) { mode in
+                switch mode {
+                case .overview: overviewList
+                case .days: dayList
+                case .packing: TravelPackingList(trip: trip)
+                case .cost: costList
+                case .files: filesList
+                }
+            }
+            .frame(maxHeight: .infinity)
+            .clipped()
         }
         // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
         // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
@@ -290,6 +293,9 @@ struct TravelDetailView: View {
         // 玻璃采样到的颜色跟着变,面板一拉一放就跳色。
         .presentationBackgroundInteraction(.enabled)
         .presentationDragIndicator(.visible)
+        // 半高时在列表上滑动 = 滚列表,不把面板拉满;改高度只能拖顶上那根小条(用户要求)。
+        // 系统默认是先改 detent、拉到最高档才轮到列表滚。
+        .presentationContentInteraction(.scrolls)
         // 面板底色透明,上拉时地图会透到旅行标题与切换条周围;列表卡片仍用固定行底色。
         .presentationBackground { TravelPanelBackground() }
         // Sheet 是独立呈现宿主,页面根上的滚动边缘效果不会传进来。
@@ -390,22 +396,25 @@ struct TravelDetailView: View {
             editingTrip = true
         } label: {
             VStack(alignment: .leading, spacing: 6) {
-                Group {
-                    if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
-                }
+                // 共享状态挂在标题同一行右侧,不单独占一行:单独一行时它随共享状态
+                // 出现/消失,头部高度跟着变,钉在顶上的切换条下面那段列表不会跟着
+                // 重新对齐,日程顶部就被压到切换条底下。
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(trip.displayEmoji)
+                        if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
+                    }
                     .font(.title.weight(.semibold))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    Spacer(minLength: 0)
+                    shareStatus
+                }
                 Group {
                     if let location = trip.locationText {
                         Label(location, systemImage: "mappin.and.ellipse")
                     }
                     Label("\(dateRangeText) · 共 \(trip.dayCount) 天", systemImage: "calendar")
-                    // 共享旅行还有改动没推上去(刚开始共享时的全量上传最明显)。
-                    if let pending = SharedTripSync.shared.pendingCounts[trip.uuid], pending > 0 {
-                        Label("正在同步 \(pending) 项", systemImage: "arrow.triangle.2.circlepath")
-                    } else if trip.isShared {
-                        Label("已共享", systemImage: "person.2.fill")
-                    }
                     // 备注(那句概述)只在旅行列表页显示:进到这一页要看的是行程本身,
                     // 那句话每天翻十遍不再带来信息,反而把第一天压到屏幕外面去。
                 }
@@ -420,6 +429,23 @@ struct TravelDetailView: View {
         .accessibilityHint("编辑旅行")
         .padding(.horizontal)
         .padding(.bottom, 12)
+    }
+
+    /// 标题右侧的共享状态:还有改动没推上去(刚开始共享时的全量上传最明显)时报
+    /// 「正在同步 N 项」,否则共享中的旅行标「已共享」,没共享什么都不放。
+    @ViewBuilder
+    private var shareStatus: some View {
+        Group {
+            if let pending = SharedTripSync.shared.pendingCounts[trip.uuid], pending > 0 {
+                Label("正在同步 \(pending) 项", systemImage: "arrow.triangle.2.circlepath")
+            } else if trip.isShared {
+                Label("已共享", systemImage: "person.2.fill")
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .fixedSize()
     }
 
     // MARK: - 按天
@@ -1620,10 +1646,10 @@ private struct TravelPanelGroupGlass: View {
         // 必须裁在列表自己的范围里:玻璃按行的锚点位置画,列表往上滚时,滚出顶部那几行
         // 的玻璃会画到列表外面去。
         .clipped()
-        // 列表顶上钉着旅行信息和切换条(`topScrollEdgeBar`),行从它们底下滚过去。系统的
-        // .soft 滚动边缘效果只作用于列表里的内容,画在列表背后的这层玻璃够不着,所以
-        // 自己跟着淡掉:切换条底边往上 `fadeHeight` 之内渐隐,再往上完全不画——不然行文字
-        // 已经虚掉了,一块硬边的玻璃还留在切换条后面。
+        // 列表顶上若钉着别的栏(安全区顶部 inset > 0),行从它底下滚过去时系统的 .soft
+        // 滚动边缘效果够不着画在列表背后的这层玻璃,所以自己跟着淡掉:栏底边往上
+        // `fadeHeight` 之内渐隐,再往上完全不画。旅行详情面板现在把切换条放在列表
+        // 外面(列表本身就从切换条下面开始),那里 top 为 0,这层遮罩不起作用。
         .mask {
             GeometryReader { proxy in
                 let top = proxy.safeAreaInsets.top

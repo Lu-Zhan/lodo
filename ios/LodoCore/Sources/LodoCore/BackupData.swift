@@ -435,11 +435,13 @@ public struct BackupTravelTrip: Codable {
     public var country: String
     /// 第二个起的目的地(`TravelTrip.extraDestinations`),老备份没有这个 key。
     public var extraDestinations: String
+    /// 标题前的 emoji(`TravelTrip.emoji`),老备份没有这个 key。
+    public var emoji: String
     public var createdAt: Date
 
     public init(uuid: UUID, title: String, startDate: Date, endDate: Date,
                 notes: String, city: String = "", country: String = "",
-                extraDestinations: String = "", createdAt: Date) {
+                extraDestinations: String = "", emoji: String = "", createdAt: Date) {
         self.uuid = uuid
         self.title = title
         self.startDate = startDate
@@ -448,6 +450,7 @@ public struct BackupTravelTrip: Codable {
         self.city = city
         self.country = country
         self.extraDestinations = extraDestinations
+        self.emoji = emoji
         self.createdAt = createdAt
     }
 
@@ -462,6 +465,7 @@ public struct BackupTravelTrip: Codable {
         city = try c.decodeIfPresent(String.self, forKey: .city) ?? ""
         country = try c.decodeIfPresent(String.self, forKey: .country) ?? ""
         extraDestinations = try c.decodeIfPresent(String.self, forKey: .extraDestinations) ?? ""
+        emoji = try c.decodeIfPresent(String.self, forKey: .emoji) ?? ""
         createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
@@ -470,7 +474,7 @@ extension TravelTrip {
     public var backup: BackupTravelTrip {
         BackupTravelTrip(uuid: uuid, title: title, startDate: startDate, endDate: endDate,
                          notes: notes, city: city, country: country,
-                         extraDestinations: extraDestinations, createdAt: createdAt)
+                         extraDestinations: extraDestinations, emoji: emoji, createdAt: createdAt)
     }
 }
 
@@ -484,6 +488,7 @@ extension BackupTravelTrip {
         trip.city = city
         trip.country = country
         trip.extraDestinations = extraDestinations
+        trip.emoji = emoji
         trip.createdAt = createdAt
     }
 }

@@ -18129,6 +18129,38 @@
           }
         }
       }
+    },
+    "旅行图标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trip Icon"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旅行图标"
+          }
+        }
+      }
+    },
+    "左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The icon on the left appears before the trip name. Tap one below to change it, or type any emoji."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

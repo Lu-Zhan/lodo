@@ -159,7 +159,8 @@ struct TravelListView: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(trip.isOngoing() || trip.isUpcoming() ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
             HStack(spacing: 8) {
-                Group {
+                HStack(spacing: 6) {
+                    Text(trip.displayEmoji)
                     if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
                 }
                 .font(.title2.weight(.semibold))
@@ -249,9 +250,9 @@ struct TravelListView: View {
         let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid && $0.travelKind != nil }.count
         return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
-                Text(trip.title.isEmpty
+                Text(trip.displayEmoji + " " + (trip.title.isEmpty
                      ? String(localized: "未命名旅行", bundle: .appLanguage(language), locale: language.locale)
-                     : trip.title)
+                     : trip.title))
                     .font(.body.weight(.medium))
                 sharedBadge(trip)
             }
@@ -299,6 +300,10 @@ struct TravelListView: View {
         // 种子只在空库时铺,但"直接 push 进详情"每次都要生效——第二次启动时库里
         // 已经有旅行了,不能连 push 一起挡掉。
         var trip = trips.first ?? seedDemoTrip()
+        // 看共享旅行的头部(「已共享」标记)用:只改本地标记,不碰 CloudKit。
+        if args.contains("--demo-travel-shared") {
+            trip.shareRoleRaw = SharedTripRole.owner.rawValue
+        }
         // 验证"认不出国家时刷新地点位置"用:一趟只有名字、城市国家都空、行程项都没坐标的旅行。
         if args.contains("--demo-travel-unknown-country") {
             trip = trips.first { $0.title == "京都三日" } ?? seedUnknownCountryTrip()
@@ -475,6 +480,8 @@ struct TripEditView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var title = ""
+    /// 标题前的 emoji,空串 = 默认 ✈️。
+    @State private var emoji = ""
     @State private var start = Date()
     @State private var end = Date()
     @State private var notes = ""
@@ -486,6 +493,12 @@ struct TripEditView: View {
     @State private var regenerating = false
     @State private var noteError: String?
     @Query private var memoryItems: [MemoryItem]
+
+    /// 常用的旅行图标(交通、海岛、雪山、城市、美食……)。
+    private static let emojiChoices = [
+        "✈️", "🏖️", "🏝️", "🏔️", "⛷️", "🏙️", "🗼", "🏯", "⛩️", "🗽",
+        "🎡", "🍜", "🍣", "🚄", "🚗", "⛺️", "🌸", "🍁", "🎒", "💼",
+    ]
 
     private var hasInvalidRange: Bool {
         Calendar.current.startOfDay(for: end) < Calendar.current.startOfDay(for: start)
@@ -499,7 +512,44 @@ struct TripEditView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("名字,如 东京四日", text: $title)
+                    HStack(spacing: 12) {
+                        // 系统没有 emoji 选择器控件:这一格就是个输入框,切到 emoji 键盘
+                        // 选一个即可,只留最后一个(见 TravelTrip.normalizedEmoji);
+                        // 下面一排常用的点一下直接换。
+                        TextField(TravelTrip.defaultEmoji, text: $emoji)
+                            .font(.title2)
+                            .multilineTextAlignment(.center)
+                            .frame(width: 44)
+                            .accessibilityLabel("旅行图标")
+                            .onChange(of: emoji) { _, value in
+                                let normalized = TravelTrip.normalizedEmoji(value)
+                                if normalized != value { emoji = normalized }
+                            }
+                        Divider()
+                        TextField("名字,如 东京四日", text: $title)
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            ForEach(Self.emojiChoices, id: \.self) { choice in
+                                Button {
+                                    emoji = choice
+                                } label: {
+                                    Text(choice)
+                                        .font(.title3)
+                                        .frame(width: 40, height: 40)
+                                        .background(
+                                            Circle().fill(Color.accentColor.opacity(
+                                                (emoji.isEmpty ? TravelTrip.defaultEmoji : emoji) == choice
+                                                    ? 0.18 : 0)))
+                                }
+                                .pressable()
+                                .accessibilityLabel(choice)
+                            }
+                        }
+                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                } footer: {
+                    Text("左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。")
                 }
                 // 一次去好几个地方(北海道 + 上海)时每个目的地一段:搜地点、补地图坐标
                 // 都会在这几个地方里找(见 TravelStore.geocodeContexts)。
@@ -631,6 +681,7 @@ struct TripEditView: View {
             return
         }
         title = trip.title
+        emoji = trip.emoji
         start = trip.startDate
         end = trip.endDate
         notes = trip.notes
@@ -641,6 +692,7 @@ struct TripEditView: View {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if let trip {
             trip.title = trimmed
+            trip.emoji = emoji
             trip.startDate = start
             trip.endDate = end
             trip.notes = notes
@@ -649,6 +701,7 @@ struct TripEditView: View {
         } else {
             let created = TravelTrip(title: trimmed, startDate: start, endDate: end, notes: notes)
             created.destinations = destinations
+            created.emoji = emoji
             context.insert(created)
             try? context.save()
             onCreated(created)

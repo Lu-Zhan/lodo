@@ -133,3 +133,23 @@ final class SharedTripSyncTests: XCTestCase {
         XCTAssertEqual(copy.sortIndex, 2)
     }
 }
+
+final class TravelTripEmojiTests: XCTestCase {
+    func testNormalizedKeepsLastEmoji() {
+        XCTAssertEqual(TravelTrip.normalizedEmoji("🗼🏖️"), "🏖️")
+        XCTAssertEqual(TravelTrip.normalizedEmoji("去🇯🇵"), "🇯🇵")
+        XCTAssertEqual(TravelTrip.normalizedEmoji("✈️"), "✈️")
+    }
+
+    func testNormalizedDropsNonEmoji() {
+        XCTAssertEqual(TravelTrip.normalizedEmoji("东京 12#"), "")
+        XCTAssertEqual(TravelTrip.normalizedEmoji(""), "")
+    }
+
+    func testDisplayEmojiDefaults() {
+        let trip = TravelTrip(title: "东京")
+        XCTAssertEqual(trip.displayEmoji, TravelTrip.defaultEmoji)
+        trip.emoji = "🍣"
+        XCTAssertEqual(trip.displayEmoji, "🍣")
+    }
+}

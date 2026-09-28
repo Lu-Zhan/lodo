@@ -24,6 +24,8 @@ public final class TravelTrip {
     /// 读写走 `destinations`。
     public var extraDestinations: String = ""
     public var createdAt: Date = Date.now
+    /// 标题前的 emoji(编辑旅行里改),空串 = 用默认的 ✈️,读的时候走 `displayEmoji`。
+    public var emoji: String = ""
     /// 共享身份(`SharedTripRole` 的存储值):空串 = 没共享,`owner` = 我分享出去的,
     /// `participant` = 别人分享给我的。见 `SharedTripSync`。
     public var shareRoleRaw: String = ""
@@ -41,6 +43,19 @@ public final class TravelTrip {
         self.city = city
         self.country = country
         self.createdAt = createdAt
+    }
+
+    public static let defaultEmoji = "✈️"
+
+    /// 标题前显示的 emoji:没设置过就是 ✈️。
+    public var displayEmoji: String { emoji.isEmpty ? Self.defaultEmoji : emoji }
+
+    /// 编辑框里输入的东西只留**最后一个** emoji(换一个时直接在后面打新的就行,
+    /// 不用先删旧的);一个 emoji 都没有时返回空串(= 用默认)。组合 emoji(国旗、
+    /// 带肤色、家庭)是一个字符,整颗保留。
+    public static func normalizedEmoji(_ text: String) -> String {
+        guard let last = text.last(where: \.isEmojiCharacter) else { return "" }
+        return String(last)
     }
 
     /// "东京 · 日本";多个目的地用「+」连起来("北海道 · 日本 + 上海 · 中国");
@@ -77,5 +92,15 @@ public final class TravelTrip {
 
     public func isUpcoming(now: Date = .now) -> Bool {
         Calendar.current.startOfDay(for: startDate) > now
+    }
+}
+
+extension Character {
+    /// 是不是一个 emoji:默认按 emoji 显示的码位(✈ 这类要带 FE0F 变体选择符才算,
+    /// 所以看"标量多于一个");单独的数字、# 虽然 isEmoji 为 true,不算。
+    var isEmojiCharacter: Bool {
+        guard let first = unicodeScalars.first else { return false }
+        return first.properties.isEmojiPresentation
+            || (first.properties.isEmoji && unicodeScalars.count > 1)
     }
 }

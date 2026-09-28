@@ -1576,3 +1576,5 @@ ios_view.sync_env_prod,Production(TestFlight / App Store),Production (TestFlight
 ios_view.sync_env_dev,Development(Xcode 调试安装),Development (installed from Xcode),ios_view,旅行共享
 ios_view.sync_env_adhoc,Production(Ad Hoc),Production (Ad Hoc),ios_view,旅行共享
 ios_view.sync_env_mac,macOS:取决于签名方式,macOS: depends on signing,ios_view,旅行共享
+ios_view.trip_emoji,旅行图标,Trip Icon,ios_view,旅行共享
+ios_view.trip_emoji_footer,"左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。","The icon on the left appears before the trip name. Tap one below to change it, or type any emoji.",ios_view,旅行共享
