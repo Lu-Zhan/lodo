@@ -61,6 +61,9 @@ struct TravelDetailView: View {
     /// 左侧按天胶囊点了哪一天,面板列表滚过去(nil 且 token 变了 = 滚到第一天)。
     @State private var panelScrollDay: Date?
     @State private var panelScrollToken = 0
+    /// 还没滚过去的那次请求。面板停在别的视图时点胶囊,「日程」列表是切回来那一刻才
+    /// 建出来的,onChange 赶不上那次 token 变化——列表出现时看这个标记补滚一次。
+    @State private var panelScrollPending = false
     /// 正在按地名查位置的那一条(点了还没坐标的地点)。
     @State private var locatingEntry: UUID?
 
@@ -216,24 +219,27 @@ struct TravelDetailView: View {
     /// 全屏。半高及以下地图照常可以操作。面板是独立的呈现宿主,所以强调色、
     /// 「问问 AI」和面板里要弹的那几张表单都挂在它里面。
     private var panel: some View {
-        VStack(spacing: 0) {
-            header
-            modePicker
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-
-            // 经 PanelModeContent 读 mode(见它的注释),不在这里直接 switch。
-            PanelModeContent(mode: $mode) { mode in
-                switch mode {
-                case .overview: overviewList
-                case .days: dayList
-                case .packing: TravelPackingList(trip: trip)
-                case .cost: costList
-                case .files: filesList
-                }
+        // 经 PanelModeContent 读 mode(见它的注释),不在这里直接 switch。
+        PanelModeContent(mode: $mode) { mode in
+            switch mode {
+            case .overview: overviewList
+            case .days: dayList
+            case .packing: TravelPackingList(trip: trip)
+            case .cost: costList
+            case .files: filesList
             }
         }
-        .padding(.top, 14)
+        // 旅行信息 + 切换条钉在列表顶上,行程从它们底下滚过去:背后是系统的 .soft
+        // 滚动边缘效果(见 softTopScrollEdgeTransition),不再是一条硬边。
+        .topScrollEdgeBar {
+            VStack(spacing: 0) {
+                header
+                modePicker
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+            }
+            .padding(.top, 14)
+        }
         // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
         // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
         .askBar(focus: .travel(trip: trip.title))
@@ -374,10 +380,10 @@ struct TravelDetailView: View {
         ScrollViewReader { proxy in
         List {
             ForEach(TravelPlan.group(entries, into: trip.days)) { day in
-                // 住宿不逐天占一行:当晚住哪写在日期那一行上(「第 2 天 · 日期 · 🛏 酒店」),
-                // 酒店本身的信息在「总览」的住宿一组里。
+                // 当晚住的酒店排在这一天的最后一行:一天玩下来最后回到哪儿(住几晚就在
+                // 每一天末尾各出现一次)。酒店本身的信息在「总览」的住宿一组里。
                 let rows = day.entries.filter { $0.kind != .lodging }
-                let tonight = TravelPlan.lodgings(on: day.date, in: entries)
+                    + TravelPlan.lodgings(on: day.date, in: entries)
                 Section {
                     if rows.isEmpty {
                         Text("这天还没安排")
@@ -406,7 +412,9 @@ struct TravelDetailView: View {
                     // 手动填仍在右上角菜单里。
                     // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
                     // verbatim 的,拼好的字符串进不了字符串目录。
-                    dayHeader(day.date, tonight: tonight)
+                    // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
+                    // verbatim 的,拼好的字符串进不了字符串目录。
+                    Text("第 \(dayIndex(day.date)) 天 · \(LocalizedContent.dateAndWeekday(day.date, language: language))")
                         .dropDestination(for: String.self) { ids, _ in
                             moveDropped(ids, to: day.date)
                         }
@@ -436,15 +444,10 @@ struct TravelDetailView: View {
         .scrollContentBackground(.hidden)
         .travelPanelGroupGlass()
         .onChange(of: panelScrollToken) { _, _ in
-            guard let target = panelScrollDay ?? trip.days.first else { return }
-            // 等面板从露头升到半高、分段切回「按天」这一帧布局完再滚。
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(60))
-                withAnimation(.lodoAware(.snappy)) {
-                    proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.14))
-                }
-            }
+            scrollToPendingDay(proxy, delay: .milliseconds(60))
         }
+        // 从总览/清单/消费/文件切过来时列表是新建的,多等一会儿让它先布局好。
+        .onAppear { scrollToPendingDay(proxy, delay: .milliseconds(250)) }
         }
     }
 
@@ -941,7 +944,22 @@ struct TravelDetailView: View {
         if mode != .days { mode = .days }
         if panelDetent == Self.peekDetent { panelDetent = .medium }
         panelScrollDay = day
+        panelScrollPending = true
         panelScrollToken += 1
+    }
+
+    /// 把「日程」列表滚到胶囊选中的那一天(「全部」= 第一天)。等面板从露头升到半高、
+    /// 分段切回「日程」这一帧布局完再滚。
+    private func scrollToPendingDay(_ proxy: ScrollViewProxy, delay: Duration) {
+        guard panelScrollPending else { return }
+        panelScrollPending = false
+        guard let target = panelScrollDay ?? trip.days.first else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            withAnimation(.lodoAware(.snappy)) {
+                proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.14))
+            }
+        }
     }
 
     /// 点列表里的一行:有坐标就让地图飞过去并选中那个点(面板在全屏时降回半高,
@@ -1413,31 +1431,6 @@ struct TravelDetailView: View {
 
     // MARK: - 住宿
 
-    /// 日程里每一天的标题行:「第 2 天 · 9月29日 周二」,当晚有住宿时后面接上
-    /// 「· 🛏 酒店名」。酒店名可点:和点行一样在地图上定位它。
-    private func dayHeader(_ date: Date, tonight: [TravelEntry]) -> some View {
-        HStack(spacing: 4) {
-            // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
-            // verbatim 的,拼好的字符串进不了字符串目录。
-            Text("第 \(dayIndex(date)) 天 · \(LocalizedContent.dateAndWeekday(date, language: language))")
-                .layoutPriority(1)
-            ForEach(tonight) { hotel in
-                Text(verbatim: "·")
-                Button {
-                    select(hotel)
-                } label: {
-                    Label(hotel.title, systemImage: "bed.double.fill")
-                        .labelStyle(.titleAndIcon)
-                        .foregroundStyle(.tint)
-                        .lineLimit(1)
-                }
-                .pressable()
-                .accessibilityLabel(Text("当晚住宿:\(hotel.title)"))
-            }
-        }
-        .lineLimit(1)
-    }
-
     /// 总览里住宿那一行的第二行:住几晚 + 备注(日程里不再逐天列住宿,
     /// 酒店的具体信息集中在这里看)。
     private func lodgingExtraLine(_ entry: TravelEntry) -> String? {
@@ -1540,6 +1533,8 @@ private struct TravelPanelGroupGlass: View {
 
     /// 分组玻璃的圆角,对上 List 分区自己的圆角。
     private static let radius: CGFloat = 22
+    /// 滚进顶部钉住那一截时,玻璃渐隐的高度。
+    private static let fadeHeight: CGFloat = 36
 
     var body: some View {
         GeometryReader { proxy in
@@ -1568,9 +1563,25 @@ private struct TravelPanelGroupGlass: View {
             }
         }
         // 必须裁在列表自己的范围里:玻璃按行的锚点位置画,列表往上滚时,滚出顶部那几行
-        // 的玻璃会画到列表上方——正好盖在「总览/日程…」切换条上(面板里切换条在列表
-        // 前面,列表的背景层叠在它上面)。
+        // 的玻璃会画到列表外面去。
         .clipped()
+        // 列表顶上钉着旅行信息和切换条(`topScrollEdgeBar`),行从它们底下滚过去。系统的
+        // .soft 滚动边缘效果只作用于列表里的内容,画在列表背后的这层玻璃够不着,所以
+        // 自己跟着淡掉:切换条底边往上 `fadeHeight` 之内渐隐,再往上完全不画——不然行文字
+        // 已经虚掉了,一块硬边的玻璃还留在切换条后面。
+        .mask {
+            GeometryReader { proxy in
+                let top = proxy.safeAreaInsets.top
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: max(top - Self.fadeHeight, 0))
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: min(Self.fadeHeight, top))
+                    Color.black
+                }
+                // GeometryReader 默认从安全区顶上开始摆内容,那样会再往下错开一个顶栏的高度。
+                .ignoresSafeArea()
+            }
+        }
         .allowsHitTesting(false)
     }
 }

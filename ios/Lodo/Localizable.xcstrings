@@ -3520,38 +3520,6 @@
         }
       }
     },
-    "已添加" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Added"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已添加"
-          }
-        }
-      }
-    },
-    "当晚住宿:%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Staying at %@ tonight"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当晚住宿:%@"
-          }
-        }
-      }
-    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -7023,6 +6991,22 @@
         }
       }
     },
+    "已添加" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已添加"
+          }
+        }
+      }
+    },
     "已经 %lld 天" : {
       "localizations" : {
         "en" : {
@@ -9841,6 +9825,7 @@
       }
     },
     "明日离开" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

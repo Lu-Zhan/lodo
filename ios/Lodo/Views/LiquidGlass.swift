@@ -46,6 +46,20 @@ extension View {
         modifier(GlassBackground(shape: shape, tint: tint, interactive: true))
     }
 
+    /// 把 `bar` 钉在滚动内容的顶上,内容从它底下滚过去。iOS 26 起用 `safeAreaBar`:
+    /// 系统会在它背后做滚动边缘效果(配合 `softTopScrollEdgeTransition` 就是 .soft
+    /// 那种柔和的模糊渐隐);旧系统退回 `safeAreaInset` + 一层材质底,免得文字直接叠在一起。
+    @ViewBuilder
+    func topScrollEdgeBar<Bar: View>(@ViewBuilder _ bar: () -> Bar) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            safeAreaBar(edge: .top, spacing: 0, content: bar)
+        } else {
+            safeAreaInset(edge: .top, spacing: 0) {
+                bar().background(.regularMaterial)
+            }
+        }
+    }
+
     /// 所有页面顶部统一使用柔和的透明模糊渐变，让滚动内容进入导航栏时
     /// 逐渐消隐。修饰符配置整个子树，因此根视图调用一次即可覆盖其中的
     /// List/ScrollView；旧系统保留原有的系统滚动边缘表现。

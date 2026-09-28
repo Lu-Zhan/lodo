@@ -298,8 +298,8 @@ public enum TravelPlan {
         return days > 0 ? days : nil
     }
 
-    /// 某一天晚上住在哪(day 是当天 0 点)。日程视图把它写在日期那一行上,
-    /// 不再逐天重复一行住宿。换酒店那天只有新酒店算(旧酒店退房当天不算那一晚)。
+    /// 某一天晚上住在哪(day 是当天 0 点)。日程视图把它排在这一天的最后一行。
+    /// 换酒店那天只有新酒店算(旧酒店退房当天不算那一晚)。
     public static func lodgings(on day: Date, in entries: [TravelEntry],
                                 calendar: Calendar = .current) -> [TravelEntry] {
         entries.filter { $0.kind == .lodging && lodgingNight($0, day: day, calendar: calendar) != nil }
