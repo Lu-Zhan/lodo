@@ -12,6 +12,8 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case tripPlanner
     case news
     case countdown
+    case assetLedger
+    case feeds
     case assets
     case duration
     case routineWeb
@@ -29,6 +31,8 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .tripPlanner: return "规划行程"
         case .news: return "新闻"
         case .countdown: return "倒数日"
+        case .assetLedger: return "资产台账"
+        case .feeds: return "订阅管理"
         case .assets: return "资产与负债"
         case .duration: return "时长建议"
         case .routineWeb: return "定时任务联网"
@@ -46,6 +50,8 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .tripPlanner: return "按目的地、天数和偏好自动排行程,确认后写进「旅行」"
         case .news: return "在订阅的新闻与博客里找文章、回答最近发生了什么(仅有订阅后生效)"
         case .countdown: return "新建、修改、删除倒数日与它们的提醒"
+        case .assetLedger: return "在「资产」页新增、更新资产与负债(房产、存款、投资、贷款…)"
+        case .feeds: return "订阅新闻与博客(贴链接、一次多个、只说名字也行),改名、停用"
         case .assets: return "收藏时识别资产金额、币种、负债与利率的规则"
         case .duration: return "没说时长时,按时长记忆给新事项建议时长(停用则不再建议)"
         case .routineWeb: return "定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)"
@@ -55,10 +61,10 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     public var group: AgentSkillGroup {
         switch self {
         case .agent, .todo, .webSearch, .duration, .countdown: return .system
-        case .memory, .assets: return .memory
+        case .memory, .assets, .assetLedger: return .memory
         case .travel, .tripPlanner: return .travel
         case .health: return .health
-        case .news: return .news
+        case .news, .feeds: return .news
         case .routineWeb: return .routine
         }
     }
@@ -321,6 +327,8 @@ public enum AgentSkillStore {
         case .tripPlanner: return defaultTripPlanner
         case .news: return defaultNews
         case .countdown: return defaultCountdown
+        case .assetLedger: return defaultAssetLedger
+        case .feeds: return defaultFeeds
         case .assets: return defaultAssets
         case .duration: return defaultDuration
         case .routineWeb: return defaultRoutineWeb
@@ -449,6 +457,11 @@ public enum AgentSkillStore {
     不能连续再查、也不能一直用这个占位不给结果)
 
     额外判断规则:
+    - **"记录/记一下/记下"不等于收藏**:先看记的是什么——旅行行程、机票酒店 → 旅行\
+    (plan_trip 带 "record": true / edit_trip);资产、存款、贷款的金额 → create_asset/update_asset;\
+    某个日子(考试、纪念日)→ 倒数日;要去做的事 → 待办。这些专门的地方都对不上时才 memorize。\
+    例:"记录一段旅行行程:10月1日到4日东京…"→ plan_trip(record),不是 memorize;\
+    "记一下招行存款还有32万"→ create_asset,不是 memorize。
     - 用户明确要求"记住/收藏/存一下"一段内容本身(而不是要提醒做某事)→ memorize,\
     text 原样保留内容部分,只去掉"帮我记住"这类指令词,不要改写、不要总结;\
     可与其他操作并存(如"明天9点开会,再记住门禁码1234"→ 一条 create + 一条 memorize)。
@@ -551,6 +564,48 @@ public enum AgentSkillStore {
     - 一句话里可以有好几条倒数日操作,也可以和待办等其他操作放在同一个 actions 数组里。
     """
 
+    private static let defaultAssetLedger = """
+    额外支持的操作(资产台账:房产、车辆、存款、投资、保险这类"值多少钱"的东西,\
+    以及房贷车贷这类负债;隔几个月更新一次的台账,**不记日常消费**):
+    - 新增资产:{"action": "create_asset", "title": "名称(如 招商银行储蓄、望京的房子)", \
+    "category": "房产 / 车辆 / 存款 / 投资 / 保险 / 其他", "value": 数字金额, \
+    "currency": "ISO 4217 币种码,没说外币就是 CNY", "liability": 负债本金数字(可选), \
+    "interest_rate": 年化利率百分比数值(可选,4.5 表示 4.5%), "note": "备注(可选)"}
+    - 修改资产:{"action": "update_asset", "id": "资产 id", 只写要改的字段}\
+    (用户说"存款现在 35 万了""房贷还剩 200 万""把理财改成投资类"时用)
+
+    额外判断规则:
+    - 用户说"记一下/记录/更新 + 某项资产或负债的金额"是资产台账,不是收藏(memorize)也不是待办。
+    - 修改必须用下面「当前资产列表」里的 id,按名称对上用户说的那一项;列表里已经有同一项\
+    (同一个账户、同一套房)时用 update_asset,不要重复新建;对不上又拿不准时用 ask 反问,不要编 id。
+    - 金额按用户说的换算成数字("32 万" → 320000),没说金额的不要编;只记了一笔贷款时 value 可以不写、\
+    只写 liability。
+    - 收入、固定支出、信用卡不在这里记,如实告诉用户去「资产」页右上角的「+」里加。
+    - 可以和待办等其他操作放在同一个 actions 数组里。
+    """
+
+    private static let defaultFeeds = """
+    额外支持的操作(订阅新闻与博客,抓的是 RSS/Atom):
+    - 订阅:{"action": "subscribe_feed", "feeds": [{"url": "订阅地址或网站首页(可选)", \
+    "name": "来源名称(可选)", "kind": "news / blog"}, ...]}\
+    (用户一次贴了好几个链接就在 feeds 里放好几条;url 可以是 feed 地址,也可以是博客/网站首页,\
+    app 会自己从首页找订阅地址)
+    - 修改订阅:{"action": "update_feed", "id": "订阅 id", "title": "新名称", "kind": "news / blog", \
+    "enabled": true/false}(只写要改的字段;"先别推送这个""停掉某某"→ enabled: false)
+
+    额外判断规则:
+    - 用户消息里有链接、说"订阅/关注/加到新闻"→ subscribe_feed,每个链接原样作为一条 url,不要改写;\
+    文字里夹着的一串链接(一行一个、逗号分隔)都算。
+    - 只说了名字没给链接("订阅少数派""关注一下 Hacker News")→ name 写这个名字,\
+    你确定这个站点的首页或订阅地址时同时填上 url,不确定就只写 name(app 会按名字模糊匹配常见源);\
+    有 web_search 工具时也可以先搜一下它的 RSS 地址再订。不要编一个不存在的地址。
+    - 博客、个人站点 kind 写 blog,新闻媒体写 news;说不清就 news。
+    - 修改必须用下面「当前订阅列表」里的 id,按名称或地址模糊对上用户说的那个;已经订过的\
+    不要再 subscribe_feed。对不上就用 ask 反问,不要编 id。
+    - 问订阅里文章的内容仍然用 search_news(如果可用),不是这里的操作。
+    - 可以和其他操作放在同一个 actions 数组里。
+    """
+
     private static let defaultTravel = """
     额外支持的操作:
     - 先读行程再回答:{"thought": "为什么需要读", "tool": "read_trip", "name": "旅行名称"}\
@@ -593,8 +648,8 @@ public enum AgentSkillStore {
     会在结果里如实列出来。
     - 用户要你**新增/修改行程项**时,不要用 actions 里的待办操作去凑\
     (待办和行程是两回事)。还没有这次旅行、要从头规划的,按「规划行程」的规则给 plan_trip;\
-    只是记一张已经订好的机票/酒店,如实说明要在「旅行」页里加,或者把订单\
-    文本贴进那一页让 app 解析。
+    用户要**记录**自己已经定好的一段行程(说了日期和去哪)的,也给 plan_trip 并带上 \
+    "record": true(见「规划行程」);这次旅行已经记过的,用 edit_trip 往里加。
     """
 
     private static let defaultTripPlanner = """
@@ -622,6 +677,11 @@ public enum AgentSkillStore {
     "第二天坐新干线 10:03 到京都")时才写,车次填进 code、时刻填进 start/end;\
     用户没说就不要编航班号、车次和起降时刻,写成地点/住宿的安排即可,\
     要坐什么车可以写在 note 里(如"从大阪坐特急过去,约 1 小时")。
+    - 用户是在**记录**自己已经定好的行程("记录一段旅行行程""帮我记一下这趟行程:…"),\
+    不是要你规划 → 同样返回 plan_trip,但加上 "record": true,它会**直接写进「旅行」**。\
+    此时只照用户说的记:用户给了的航班/车次/酒店名/时刻原样写进去(交通类可以写),\
+    **不要补用户没说的景点**,也不要改他的安排;summary 仍按下面的写法。\
+    只说了"记录一段旅行"却没说去哪、哪几天时,用 ask 问。
     - 规划的是已经记过的某次旅行时(用户提到了那次旅行,或说"这趟"),有 read_trip 工具就先读行程:\
     trip 原样填那次旅行的名字,start_date/end_date 用它的日期;已经记下的航班、住宿、地点不要\
     重复生成,新安排避开航班落地之前和起飞之后的时间。新的旅行,trip 起一个"目的地+天数"的\

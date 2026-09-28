@@ -1522,3 +1522,11 @@ ios_view.countdown_archive_3,已归档 · %lld,Archived · %lld,ios_view,倒数�
 ios_view.countdown_archive_4,归档,Archive,ios_view,倒数日:正数日/归档
 ios_view.countdown_archive_5,取消归档,Unarchive,ios_view,倒数日:正数日/归档
 ios_view.countdown_archive_6,"归档后不再显示在列表、小组件和总览里,也不再提醒;在列表最下面「已归档」里可以找回来。","Archived dates leave the list, widgets and Overview and stop reminding you. Find them under Archived at the bottom of the list.",ios_view,倒数日:正数日/归档
+ios_view.agent_library_1,资产已更新,Assets updated,ios_view,AI 结果回复/资产与订阅
+ios_view.agent_library_2,订阅已更新,Subscriptions updated,ios_view,AI 结果回复/资产与订阅
+ios_view.agent_library_3,已添加,Added,ios_view,AI 结果回复/资产与订阅
+ios_view.agent_library_4,没有改动,No changes,ios_view,AI 结果回复/资产与订阅
+ios_view.travel_lodging_1,住宿,Lodging,ios_view,旅行详情:总览住宿/日程标题行酒店
+ios_view.travel_lodging_2,还没有记下住宿。,No lodging recorded yet.,ios_view,旅行详情:总览住宿/日程标题行酒店
+ios_view.travel_lodging_3,当晚住宿:%@,Staying at %@ tonight,ios_view,旅行详情:总览住宿/日程标题行酒店
+ios_view.travel_lodging_4,共 %lld 晚,%lld nights,ios_view,旅行详情:总览住宿/日程标题行酒店

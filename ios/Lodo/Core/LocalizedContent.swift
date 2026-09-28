@@ -154,6 +154,8 @@ enum LocalizedContent {
         case .tripPlanner: key = .ios_core_skill_trip_planner_title
         case .news: key = .ios_core_skill_news_title
         case .countdown: key = .ios_core_skill_countdown_title
+        case .assetLedger: key = .ios_core_skill_asset_ledger_title
+        case .feeds: key = .ios_core_skill_feeds_title
         case .assets: key = .ios_core_skill_assets_title
         case .duration: key = .ios_core_skill_duration_title
         case .routineWeb: key = .ios_core_skill_routine_web_title
@@ -174,6 +176,8 @@ enum LocalizedContent {
         case .tripPlanner: key = .ios_core_skill_trip_planner_subtitle
         case .news: key = .ios_core_skill_news_subtitle
         case .countdown: key = .ios_core_skill_countdown_subtitle
+        case .assetLedger: key = .ios_core_skill_asset_ledger_subtitle
+        case .feeds: key = .ios_core_skill_feeds_subtitle
         case .assets: key = .ios_core_skill_assets_subtitle
         case .duration: key = .ios_core_skill_duration_subtitle
         case .routineWeb: key = .ios_core_skill_routine_web_subtitle

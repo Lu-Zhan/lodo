@@ -34,6 +34,8 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     case weeklyDone
     /// 步数趋势:最近 7 天步数柱状图(健康开关开着才有)。
     case stepsTrend
+    /// 正数日:「倒数日」页里已经过去的日子(在一起、入职……)往上数,带下一个周年/整百天。
+    case countUp
 
     public var title: String {
         switch self {
@@ -51,6 +53,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .taskProgress: return "今日进度"
         case .weeklyDone: return "本周完成"
         case .stepsTrend: return "步数趋势"
+        case .countUp: return "正数日"
         }
     }
 
@@ -70,6 +73,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .taskProgress: return "chart.pie"
         case .weeklyDone: return "chart.bar"
         case .stepsTrend: return "figure.walk"
+        case .countUp: return "calendar.badge.checkmark"
         }
     }
 
@@ -78,7 +82,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     public var allowedSizes: [OverviewWidgetSize] {
         switch self {
         case .clock: return [.small]
-        case .nextUp, .today, .agenda, .countdown,
+        case .nextUp, .today, .agenda, .countdown, .countUp,
              .activityRings, .taskProgress, .weeklyDone, .stepsTrend: return [.small, .large]
         case .due, .routines, .suggestion, .memories, .health: return [.large]
         }
@@ -86,7 +90,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
 
     public var defaultSize: OverviewWidgetSize {
         switch self {
-        case .clock, .nextUp, .countdown,
+        case .clock, .nextUp, .countdown, .countUp,
              .activityRings, .taskProgress, .weeklyDone, .stepsTrend: return .small
         default: return .large
         }
@@ -127,7 +131,7 @@ public struct OverviewLayout: Equatable, Sendable {
     public static let `default` = OverviewLayout(items: [
         .init(kind: .clock), .init(kind: .nextUp),
         .init(kind: .due), .init(kind: .today), .init(kind: .agenda),
-        .init(kind: .countdown), .init(kind: .taskProgress),
+        .init(kind: .countdown), .init(kind: .countUp), .init(kind: .taskProgress),
         .init(kind: .weeklyDone), .init(kind: .activityRings),
         .init(kind: .routines, size: .large),
         .init(kind: .suggestion), .init(kind: .memories),

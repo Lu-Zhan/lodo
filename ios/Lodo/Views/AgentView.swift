@@ -1061,7 +1061,7 @@ struct AgentView: View {
         relatedTitles: [String] = [], askSnapshotData: Data? = nil,
         taskSnapshotData: Data? = nil, resultMemoryUUID: UUID? = nil,
         tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil,
-        countdownSnapshotData: Data? = nil
+        countdownSnapshotData: Data? = nil, librarySnapshotData: Data? = nil
     ) -> AgentMessage {
         let message = AgentMessage(role: .assistant, kind: kind,
                                    content: content, relatedTitles: relatedTitles,
@@ -1069,7 +1069,8 @@ struct AgentView: View {
                                    resultMemoryUUID: resultMemoryUUID,
                                    tripPlanSnapshotData: tripPlanSnapshotData,
                                    tripEditSnapshotData: tripEditSnapshotData,
-                                   countdownSnapshotData: countdownSnapshotData)
+                                   countdownSnapshotData: countdownSnapshotData,
+                                   librarySnapshotData: librarySnapshotData)
         context.insert(message)
         try? context.save()
         return message
@@ -1476,6 +1477,9 @@ struct AgentView: View {
                 case .countdownEdited(let record):
                     appendAssistant(kind: .countdownEdit, content: record.transcript,
                                     countdownSnapshotData: try? JSONEncoder().encode(record))
+                case .libraryEdited(let record):
+                    appendAssistant(kind: .libraryEdit, content: record.transcript,
+                                    librarySnapshotData: try? JSONEncoder().encode(record))
                 }
                 compactHistoryIfNeeded()
             } catch {

@@ -142,4 +142,23 @@ final class CountdownPlanTests: XCTestCase {
         XCTAssertEqual(try DeepSeekClient.parseCountdownInsight(["text": " 马上两周年啦 "]), "马上两周年啦")
         XCTAssertThrowsError(try DeepSeekClient.parseCountdownInsight([:]))
     }
+
+    func testCountUpsOnlyPastAndMilestoneFirst() {
+        let calendar = Calendar(identifier: .gregorian)
+        func day(_ y: Int, _ m: Int, _ d: Int) -> Date {
+            calendar.date(from: DateComponents(year: y, month: m, day: d))!
+        }
+        let now = day(2026, 7, 8)
+        let together = CountdownEntry(title: "在一起", start: day(2024, 7, 11))   // 3 天后满两周年
+        let job = CountdownEntry(title: "入职", start: day(2025, 1, 1))           // 下个整百天较远
+        let trip = CountdownEntry(title: "旅行", start: day(2026, 6, 1), end: day(2026, 6, 5))
+        let future = CountdownEntry(title: "考试", start: day(2026, 8, 1))
+        let archived = CountdownEntry(title: "旧", start: day(2020, 1, 1), archived: true)
+        let result = CountdownPlan.countUps([job, trip, future, archived, together],
+                                            now: now, calendar: calendar)
+        XCTAssertEqual(result.map(\.entry.title), ["在一起", "入职", "旅行"])
+        XCTAssertEqual(result[0].next?.kind, .anniversary(years: 2))
+        XCTAssertEqual(result[0].next?.daysAway, 3)
+        XCTAssertNil(result[2].next)
+    }
 }

@@ -220,6 +220,8 @@ struct AgentMessageBubble: View {
             AgentTripEditCard(message: message)
         case .countdownEdit:
             AgentCountdownCard(message: message)
+        case .libraryEdit:
+            AgentLibraryCard(message: message)
         }
     }
 

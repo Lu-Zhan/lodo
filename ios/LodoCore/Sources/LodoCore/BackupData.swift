@@ -163,6 +163,7 @@ public struct BackupMemoryItem: Codable {
     public var assetCurrency: String?
     public var assetLiability: Double?
     public var assetInterestRate: Double?
+    public var assetUpdatedAt: Date?
     public var contactNickname: String?
     public var contactPhone: String?
     public var contactEmail: String?
@@ -197,7 +198,7 @@ public struct BackupMemoryItem: Codable {
         sourceText: String, urlString: String?, originalFileName: String?,
         relativeFilePath: String?, statusRaw: String, createdAt: Date, assetValue: Double? = nil,
         assetCurrency: String? = nil, assetLiability: Double? = nil,
-        assetInterestRate: Double? = nil,
+        assetInterestRate: Double? = nil, assetUpdatedAt: Date? = nil,
         contactNickname: String? = nil, contactPhone: String? = nil, contactEmail: String? = nil,
         contactBirthday: Date? = nil, contactPreferences: String? = nil,
         contactAvatarRelativePath: String? = nil, attachmentRelativePaths: [String] = [],
@@ -234,6 +235,7 @@ public struct BackupMemoryItem: Codable {
         self.assetCurrency = assetCurrency
         self.assetLiability = assetLiability
         self.assetInterestRate = assetInterestRate
+        self.assetUpdatedAt = assetUpdatedAt
         self.contactNickname = contactNickname
         self.contactPhone = contactPhone
         self.contactEmail = contactEmail
@@ -280,6 +282,7 @@ public struct BackupMemoryItem: Codable {
         assetCurrency = try c.decodeIfPresent(String.self, forKey: .assetCurrency)
         assetLiability = try c.decodeIfPresent(Double.self, forKey: .assetLiability)
         assetInterestRate = try c.decodeIfPresent(Double.self, forKey: .assetInterestRate)
+        assetUpdatedAt = try c.decodeIfPresent(Date.self, forKey: .assetUpdatedAt)
         contactNickname = try c.decodeIfPresent(String.self, forKey: .contactNickname)
         contactPhone = try c.decodeIfPresent(String.self, forKey: .contactPhone)
         contactEmail = try c.decodeIfPresent(String.self, forKey: .contactEmail)
@@ -317,6 +320,7 @@ extension MemoryItem {
             relativeFilePath: relativeFilePath, statusRaw: statusRaw, createdAt: createdAt,
             assetValue: assetValue, assetCurrency: assetCurrency,
             assetLiability: assetLiability, assetInterestRate: assetInterestRate,
+            assetUpdatedAt: assetUpdatedAt,
             contactNickname: contactNickname, contactPhone: contactPhone,
             contactEmail: contactEmail, contactBirthday: contactBirthday,
             contactPreferences: contactPreferences,
@@ -359,6 +363,7 @@ extension BackupMemoryItem {
         item.assetCurrency = assetCurrency
         item.assetLiability = assetLiability
         item.assetInterestRate = assetInterestRate
+        item.assetUpdatedAt = assetUpdatedAt
         item.contactNickname = contactNickname
         item.contactPhone = contactPhone
         item.contactEmail = contactEmail
@@ -906,6 +911,99 @@ extension BackupPackingItem {
     }
 }
 
+/// 资产页的收入/固定支出/信用卡(`FinanceEntry`)。还款提醒的防重复标记
+/// (reminderCycle/reminderTaskUUID)不备份:它指向的是本机那条任务,换台设备恢复
+/// 后重新生成下一期即可。
+public struct BackupFinanceEntry: Codable {
+    public var uuid: UUID
+    public var kindRaw: String
+    public var title: String
+    public var amount: Double?
+    public var currency: String
+    public var cadenceRaw: String
+    public var dayOfMonth: Int?
+    public var statementDay: Int?
+    public var institution: String
+    public var endDate: Date?
+    public var notes: String
+    public var remindEnabled: Bool
+    public var sortIndex: Int
+    public var updatedAt: Date
+    public var createdAt: Date
+
+    public init(uuid: UUID, kindRaw: String, title: String, amount: Double?, currency: String,
+                cadenceRaw: String, dayOfMonth: Int?, statementDay: Int?, institution: String,
+                endDate: Date?, notes: String, remindEnabled: Bool, sortIndex: Int,
+                updatedAt: Date, createdAt: Date) {
+        self.uuid = uuid
+        self.kindRaw = kindRaw
+        self.title = title
+        self.amount = amount
+        self.currency = currency
+        self.cadenceRaw = cadenceRaw
+        self.dayOfMonth = dayOfMonth
+        self.statementDay = statementDay
+        self.institution = institution
+        self.endDate = endDate
+        self.notes = notes
+        self.remindEnabled = remindEnabled
+        self.sortIndex = sortIndex
+        self.updatedAt = updatedAt
+        self.createdAt = createdAt
+    }
+
+    /// 手写 init(from:):以后加字段时老备份缺 key 不至于整份解不开(同 BackupPayload)。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        uuid = try c.decode(UUID.self, forKey: .uuid)
+        kindRaw = try c.decode(String.self, forKey: .kindRaw)
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        amount = try c.decodeIfPresent(Double.self, forKey: .amount)
+        currency = try c.decodeIfPresent(String.self, forKey: .currency) ?? "CNY"
+        cadenceRaw = try c.decodeIfPresent(String.self, forKey: .cadenceRaw)
+            ?? FinanceCadence.monthly.rawValue
+        dayOfMonth = try c.decodeIfPresent(Int.self, forKey: .dayOfMonth)
+        statementDay = try c.decodeIfPresent(Int.self, forKey: .statementDay)
+        institution = try c.decodeIfPresent(String.self, forKey: .institution) ?? ""
+        endDate = try c.decodeIfPresent(Date.self, forKey: .endDate)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        remindEnabled = try c.decodeIfPresent(Bool.self, forKey: .remindEnabled) ?? true
+        sortIndex = try c.decodeIfPresent(Int.self, forKey: .sortIndex) ?? 0
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
+    }
+}
+
+extension FinanceEntry {
+    public var backup: BackupFinanceEntry {
+        BackupFinanceEntry(uuid: uuid, kindRaw: kindRaw, title: title, amount: amount,
+                           currency: currency, cadenceRaw: cadenceRaw, dayOfMonth: dayOfMonth,
+                           statementDay: statementDay, institution: institution, endDate: endDate,
+                           notes: notes, remindEnabled: remindEnabled, sortIndex: sortIndex,
+                           updatedAt: updatedAt, createdAt: createdAt)
+    }
+}
+
+extension BackupFinanceEntry {
+    public func apply(to entry: FinanceEntry) {
+        entry.uuid = uuid
+        entry.kindRaw = kindRaw
+        entry.title = title
+        entry.amount = amount
+        entry.currency = currency
+        entry.cadenceRaw = cadenceRaw
+        entry.dayOfMonth = dayOfMonth
+        entry.statementDay = statementDay
+        entry.institution = institution
+        entry.endDate = endDate
+        entry.notes = notes
+        entry.remindEnabled = remindEnabled
+        entry.sortIndex = sortIndex
+        entry.updatedAt = updatedAt
+        entry.createdAt = createdAt
+    }
+}
+
 /// zip 里 `manifest.json` 的内容:格式版本 + 导出时间 + 各类目数量,供导入前的
 /// 预览确认页读取,不需要先解出整份 `data.json` 就能展示"包含 N 条待办…"。
 public struct BackupManifest: Codable {
@@ -993,6 +1091,8 @@ public struct BackupPayload: Codable {
     /// 倒数日与旅行用品清单。都是新增字段,老备份缺 key 时兜底为空。
     public var countdownEvents: [BackupCountdownEvent] = []
     public var packingItems: [BackupPackingItem] = []
+    /// 资产页的收入/固定支出/信用卡。新增字段,老备份缺 key 时兜底为空。
+    public var financeEntries: [BackupFinanceEntry] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
@@ -1005,7 +1105,8 @@ public struct BackupPayload: Codable {
         customSkills: [BackupCustomSkill] = [],
         disabledSkills: [String] = [],
         countdownEvents: [BackupCountdownEvent] = [],
-        packingItems: [BackupPackingItem] = []
+        packingItems: [BackupPackingItem] = [],
+        financeEntries: [BackupFinanceEntry] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -1021,6 +1122,7 @@ public struct BackupPayload: Codable {
         self.disabledSkills = disabledSkills
         self.countdownEvents = countdownEvents
         self.packingItems = packingItems
+        self.financeEntries = financeEntries
     }
 
     /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
@@ -1049,5 +1151,7 @@ public struct BackupPayload: Codable {
             [BackupCountdownEvent].self, forKey: .countdownEvents) ?? []
         packingItems = try c.decodeIfPresent(
             [BackupPackingItem].self, forKey: .packingItems) ?? []
+        financeEntries = try c.decodeIfPresent(
+            [BackupFinanceEntry].self, forKey: .financeEntries) ?? []
     }
 }

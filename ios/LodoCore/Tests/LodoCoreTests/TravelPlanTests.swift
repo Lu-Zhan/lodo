@@ -88,6 +88,17 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertNil(TravelPlan.lodgingNight(hotel, day: date(day: 11)))
     }
 
+    /// 住几晚按日子算;没填退房不报晚数。日期那一行只写当晚住的那一家。
+    func testLodgingNightsAndNightlyLookup() {
+        let hotel = entry(.lodging, "新宿某酒店",
+                          start: date(day: 8, hour: 18), end: date(day: 11, hour: 10))
+        let open = entry(.lodging, "未定退房", start: date(day: 11, hour: 15))
+        XCTAssertEqual(TravelPlan.nights(hotel), 3)
+        XCTAssertNil(TravelPlan.nights(open))
+        XCTAssertEqual(TravelPlan.lodgings(on: date(day: 10), in: [hotel, open]).map(\.title), ["新宿某酒店"])
+        XCTAssertEqual(TravelPlan.lodgings(on: date(day: 11), in: [hotel, open]).map(\.title), ["未定退房"])
+    }
+
     /// 只住一晚:同一晚既是入住也是最后一晚。
     func testSingleNightLodgingIsBothCheckInAndLastNight() {
         let hotel = entry(.lodging, "机场酒店",

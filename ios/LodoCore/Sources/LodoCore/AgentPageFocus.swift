@@ -3,7 +3,7 @@ import Foundation
 /// 用户是从哪一页唤出 AI 助手的(底部「问问 AI」条)。只影响含糊指令的默认领域,
 /// 不收窄也不放宽任何工具/能力开关;侧栏里的全局 AI 页不传,各领域优先级一致。
 public enum AgentPageFocus: String, CaseIterable, Sendable {
-    case overview, todo, calendar, countdown, memory, contact, health, travel, menu, news
+    case overview, todo, calendar, countdown, memory, contact, assets, health, travel, menu, news
 
     /// 页面名(和侧栏一致)。
     public var pageName: String {
@@ -14,6 +14,7 @@ public enum AgentPageFocus: String, CaseIterable, Sendable {
         case .countdown: return "倒数日"
         case .memory: return "记忆"
         case .contact: return "人脉"
+        case .assets: return "资产"
         case .health: return "健康"
         case .travel: return "旅行"
         case .menu: return "菜单"
@@ -30,6 +31,7 @@ public enum AgentPageFocus: String, CaseIterable, Sendable {
         case .countdown: return "倒数日(新建/修改/删除用 create_countdown 等操作,不要改成新建待办)"
         case .memory: return "记忆库里收藏的内容"
         case .contact: return "人脉/联系人"
+        case .assets: return "资产台账:车子、房产、存款、投资这类资产(收藏成打「资产」标签的记忆,memorize 时带上金额字段)。收入、固定支出和信用卡在资产页里手动维护,你读不到也改不了——用户要记这些时,告诉他在资产页右上角「+」里添加"
         case .health: return "健康数据(需要时先 read_health)"
         case .travel: return "旅行与行程(需要时先 read_trip)"
         case .menu: return "菜单与点菜"
@@ -69,6 +71,7 @@ public struct AgentFocus: Equatable, Sendable {
     public static let countdown = AgentFocus(page: .countdown)
     public static let memory = AgentFocus(page: .memory)
     public static let contact = AgentFocus(page: .contact)
+    public static let assets = AgentFocus(page: .assets)
     public static let health = AgentFocus(page: .health)
     public static let travel = AgentFocus(page: .travel)
     public static let menu = AgentFocus(page: .menu)

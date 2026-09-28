@@ -23,6 +23,9 @@ public struct TripPlanProposal: Codable, Equatable, Sendable {
     /// 老消息里没有这两个键,所以是 Optional。
     public var city: String?
     public var country: String?
+    /// 用户在**记**自己已经定好的行程("记录一段旅行行程:…"),不是让 AI 规划。
+    /// 这种直接写进「旅行」(卡片上带撤销),不等用户点「写入行程」。老消息没有这个键。
+    public var recorded: Bool?
 
     /// 写入到了哪次旅行。nil = 还没写入过。
     public var appliedTripUUID: UUID?
@@ -34,7 +37,8 @@ public struct TripPlanProposal: Codable, Equatable, Sendable {
     public var reverted: Bool?
 
     public init(tripTitle: String, startDate: Date, endDate: Date, summary: String = "",
-                items: [TripPlanItem], city: String? = nil, country: String? = nil) {
+                items: [TripPlanItem], city: String? = nil, country: String? = nil,
+                recorded: Bool? = nil) {
         self.tripTitle = tripTitle
         self.startDate = startDate
         self.endDate = endDate
@@ -42,6 +46,7 @@ public struct TripPlanProposal: Codable, Equatable, Sendable {
         self.items = items
         self.city = city
         self.country = country
+        self.recorded = recorded
     }
 
     /// 当前是否处于"已写入、没撤销"。

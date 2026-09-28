@@ -70,6 +70,9 @@ public final class MemoryItem {
     public var assetLiability: Double?
     /// 负债的年化利率,存百分比数值本身(如 4.5 表示 4.5%),不是小数形式。
     public var assetInterestRate: Double?
+    /// 资产金额/负债最近一次更新的时间(资产页"上次更新 3 个月前")。老数据为 nil,
+    /// 按 createdAt 算(见 assetUpdatedAtOrCreated)。
+    public var assetUpdatedAt: Date?
 
     // MARK: - 人脉字段(tags 含 contactTagName 时才有意义,与 assetValue 同思路)
     /// 昵称;姓名复用 title,备注复用 summary(和资产复用 summary 当备注同思路)。
@@ -218,6 +221,7 @@ public final class MemoryItem {
     /// 老数据(多币种支持加入前创建)没有 assetCurrency,统一按人民币对待——
     /// 展示格式化、汇总换算都读这个,不直接读 assetCurrency。
     public var assetCurrencyOrDefault: String { assetCurrency ?? "CNY" }
+    public var assetUpdatedAtOrCreated: Date { assetUpdatedAt ?? createdAt }
     /// 保留标签:打了这个标签的记忆条目按"人脉"对待。人脉有自己的一页
     /// (ContactListView),所以它比资产更彻底——记忆列表里一律不出现,
     /// 不像资产那样还能靠侧栏那一行显式筛出来。

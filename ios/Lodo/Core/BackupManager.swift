@@ -58,6 +58,7 @@ enum BackupManager {
         let newsFeeds = ((try? context.fetch(FetchDescriptor<NewsFeed>())) ?? [])
         let countdownEvents = ((try? context.fetch(FetchDescriptor<CountdownEvent>())) ?? [])
         let packingItems = ((try? context.fetch(FetchDescriptor<PackingItem>())) ?? [])
+        let financeEntries = ((try? context.fetch(FetchDescriptor<FinanceEntry>())) ?? [])
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -81,7 +82,8 @@ enum BackupManager {
             newsFeeds: newsFeeds.map { $0.backup },
             customSkills: customSkills, disabledSkills: disabledSkills,
             countdownEvents: countdownEvents.map { $0.backup },
-            packingItems: packingItems.map { $0.backup })
+            packingItems: packingItems.map { $0.backup },
+            financeEntries: financeEntries.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -254,6 +256,19 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: item)
+        }
+
+        // 资产页的收入/支出/信用卡:按 uuid 去重合并,同上。还款提醒下次对账时重新生成。
+        for dto in payload.financeEntries {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<FinanceEntry>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let entry = existing ?? {
+                let created = FinanceEntry(uuid: dto.uuid, kind: .income, title: dto.title)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: entry)
         }
 
         // 新闻订阅:只恢复订阅本身,文章下次打开新闻页时重新抓。按 uuid 去重合并。

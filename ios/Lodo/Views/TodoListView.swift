@@ -39,6 +39,8 @@ enum AgentReply {
     case tripEdited(TripEditRecord)
     /// AI 新建/修改/删除了倒数日(已经落库):同上,卡片自带撤销。
     case countdownEdited(CountdownEditRecord)
+    /// AI 新增/修改了资产、订阅了新闻源(已经落库):同上,卡片自带撤销。
+    case libraryEdited(LibraryEditRecord)
 }
 
 /// 记忆条目左滑"转为待办"交接的载荷(见 ContentView)。

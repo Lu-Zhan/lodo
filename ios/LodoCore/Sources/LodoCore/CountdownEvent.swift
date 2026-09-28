@@ -251,6 +251,41 @@ public enum CountdownPlan {
         }
     }
 
+    // MARK: - 正数日(总览小组件)
+
+    /// 总览「正数日」小组件上的一件:往上数的那件事,和它接下来的节点(没有就是 nil)。
+    public struct CountUp: Equatable, Sendable, Identifiable {
+        public let entry: CountdownEntry
+        public let next: Milestone?
+        public var id: UUID { entry.id }
+    }
+
+    /// 正数日 = 页面「正数日」那一组(已经过去、没归档的)。**快到周年/整百天的排前面**
+    /// ——小组件只放得下几件,"3 天后满两周年"比一件三年前结束的旅行值得占位;
+    /// 没有节点的(有结束日的事不算周年)按页面顺序排在后面。
+    /// 节点只看一年之内,一年里总有下一个周年。
+    public static func countUps(_ entries: [CountdownEntry], now: Date,
+                                calendar: Calendar = .current) -> [CountUp] {
+        let past = sorted(entries.filter { !$0.archived && isPast($0, now: now, calendar: calendar) },
+                          now: now, calendar: calendar)
+        let items = past.map { entry in
+            // 有结束日的(一次旅行、一段项目)"满几周年"没意义,只给单日的纪念日算节点。
+            CountUp(entry: entry,
+                    next: entry.end == nil
+                        ? milestones(entry, now: now, horizonDays: 366, calendar: calendar).first
+                        : nil)
+        }
+        let order = Dictionary(uniqueKeysWithValues: items.enumerated().map { ($1.id, $0) })
+        return items.sorted { a, b in
+            switch (a.next?.daysAway, b.next?.daysAway) {
+            case let (x?, y?) where x != y: return x < y
+            case (_?, nil): return true
+            case (nil, _?): return false
+            default: return order[a.id]! < order[b.id]!
+            }
+        }
+    }
+
     // MARK: - 接下来的节点(AI 建议的素材)
 
     /// 一件事接下来值得一提的节点。

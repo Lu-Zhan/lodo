@@ -327,6 +327,10 @@ struct OverviewView: View {
         case .countdown:
             OverviewCountdownWidget(size: item.size, entries: countdownEntries, now: now,
                                     action: { chrome?.go(.countdown) })
+        case .countUp:
+            OverviewCountUpWidget(size: item.size,
+                                  items: CountdownPlan.countUps(countdownEvents.map(\.entry), now: now),
+                                  now: now, action: { chrome?.go(.countdown) })
         case .routines:
             OverviewRoutinesWidget(runs: todayRoutineRuns)
         case .suggestion:

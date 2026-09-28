@@ -5,7 +5,7 @@ import LodoCore
 /// app 的八个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
 enum AppSection: Hashable, CaseIterable {
-    case overview, todo, calendar, countdown, memory, contact, health, travel, menu, news, agent
+    case overview, todo, calendar, countdown, memory, contact, assets, health, travel, menu, news, agent
 }
 
 // MARK: - 「进到某个条目里」(经 Environment 下发)
@@ -17,6 +17,9 @@ enum AppDestination: Hashable {
     case trip(UUID)
     /// 倒数日页(不定位到某一件:一页就放得下,新改的那件按日子排在该在的位置)。
     case countdown
+    /// 资产页 / 新闻页(AI 改了资产、订阅之后的落脚点)。
+    case assets
+    case news
 }
 
 /// 跨页"进到某个条目里"的统一出口。单独一个 Environment 而不是塞进
@@ -342,6 +345,8 @@ struct AppShellView: View {
                            path: $memoryPath, tagFilter: $memoryTagFilter)
         case .contact:
             ContactListView()
+        case .assets:
+            AssetsView()
         case .health:
             HealthView()
         case .travel:
@@ -358,6 +363,7 @@ struct AppShellView: View {
     private var sidebarPanel: some View {
         AppSidebarView(
             section: section,
+            headerHeight: usesRegularLayout ? nil : DesignMetrics.minimumHitTarget,
             onOpenSettings: { showSettings = true },
             onSelect: { target in
                 // 目标页先在抽屉背后建立,页面切换不参加接下来的收起弹簧。
@@ -367,8 +373,10 @@ struct AppShellView: View {
                 if !usesRegularLayout { closeSidebarAfterSelection() }
             }
         )
-        // 导航栏的 ☰ 在抽屉展开时仍可见;侧栏头部让开这颗按钮的高度。
-        .padding(.top, usesRegularLayout ? 0 : deviceTopInset + DesignMetrics.minimumHitTarget)
+        // 导航栏的 ☰ 在抽屉展开时仍可见(它在推开的那张页面上,不在侧栏里)。侧栏从
+        // 安全区顶端开始,「Lodo」那一行和导航栏同高、竖直居中——和 ☰ 在同一条水平线上
+        // (原来整个侧栏又往下让了一行 44pt,Lodo 比 ☰ 低一截,下面的导航行也跟着往下掉)。
+        .padding(.top, usesRegularLayout ? 0 : deviceTopInset)
         .padding(.bottom, usesRegularLayout ? 0 : deviceBottomInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 窄屏抽屉里面板自己不铺底色,由 compactLayout 整个容器那层 drawerBackdrop
@@ -407,6 +415,10 @@ struct AppShellView: View {
             go(.travel)
         case .countdown:
             go(.countdown)
+        case .assets:
+            go(.assets)
+        case .news:
+            go(.news)
         }
     }
 
@@ -687,6 +699,7 @@ struct AppShellView: View {
         let args = ProcessInfo.processInfo.arguments
         let sectionFlags: [(AppSection, [String])] = [
             (.overview, ["--demo-overview-tab", "--demo-settings", "--demo-reschedule"]),
+            (.assets, ["--demo-assets"]),
             (.memory, ["--demo-memory-tab", "--demo-memory-filters", "--demo-seed-memory",
                        "--demo-assets-view"]),
             (.contact, ["--demo-contacts", "--demo-contact-compose", "--demo-contact-graph",

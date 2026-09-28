@@ -238,6 +238,8 @@ public enum LK: String, CaseIterable {
     case ios_core_skill_trip_planner_title
     case ios_core_skill_news_title
     case ios_core_skill_countdown_title
+    case ios_core_skill_asset_ledger_title
+    case ios_core_skill_feeds_title
     case ios_core_skill_assets_title
     case ios_core_skill_duration_title
     case ios_core_skill_routine_web_title
@@ -250,6 +252,8 @@ public enum LK: String, CaseIterable {
     case ios_core_skill_trip_planner_subtitle
     case ios_core_skill_news_subtitle
     case ios_core_skill_countdown_subtitle
+    case ios_core_skill_asset_ledger_subtitle
+    case ios_core_skill_feeds_subtitle
     case ios_core_skill_assets_subtitle
     case ios_core_skill_duration_subtitle
     case ios_core_skill_routine_web_subtitle
@@ -551,6 +555,8 @@ public enum LocalizedStrings {
         .ios_core_skill_trip_planner_title: [.zhHans: "规划行程", .en: "Trip planning"],
         .ios_core_skill_news_title: [.zhHans: "新闻", .en: "News"],
         .ios_core_skill_countdown_title: [.zhHans: "倒数日", .en: "Countdown"],
+        .ios_core_skill_asset_ledger_title: [.zhHans: "资产台账", .en: "Asset Ledger"],
+        .ios_core_skill_feeds_title: [.zhHans: "订阅管理", .en: "Subscriptions"],
         .ios_core_skill_assets_title: [.zhHans: "资产与负债", .en: "Assets and liabilities"],
         .ios_core_skill_duration_title: [.zhHans: "时长建议", .en: "Duration suggestions"],
         .ios_core_skill_routine_web_title: [.zhHans: "定时任务联网", .en: "Web search for routines"],
@@ -563,6 +569,8 @@ public enum LocalizedStrings {
         .ios_core_skill_trip_planner_subtitle: [.zhHans: "按目的地、天数和偏好自动排行程,确认后写进「旅行」", .en: "Plan a trip from the destination, duration, and your preferences; add it to Travel after you confirm."],
         .ios_core_skill_news_subtitle: [.zhHans: "在订阅的新闻与博客里找文章、回答最近发生了什么(仅有订阅后生效)", .en: "Search subscribed news and blogs for articles and recent events (requires subscriptions)"],
         .ios_core_skill_countdown_subtitle: [.zhHans: "新建、修改、删除倒数日与它们的提醒", .en: "Create, edit and delete countdowns and their reminders"],
+        .ios_core_skill_asset_ledger_subtitle: [.zhHans: "在「资产」页新增、更新资产与负债(房产、存款、投资、贷款…)", .en: "Add and update assets and liabilities on the Assets page (property, savings, investments, loans…)"],
+        .ios_core_skill_feeds_subtitle: [.zhHans: "订阅新闻与博客(贴链接、一次多个、只说名字也行),改名、停用", .en: "Subscribe to news and blogs (paste links, several at once, or just a name), rename or pause"],
         .ios_core_skill_assets_subtitle: [.zhHans: "收藏时识别资产金额、币种、负债与利率的规则", .en: "Rules for recognizing asset values, currencies, liabilities, and interest rates when saving"],
         .ios_core_skill_duration_subtitle: [.zhHans: "没说时长时,按时长记忆给新事项建议时长(停用则不再建议)", .en: "Suggest task durations from duration memory when none is specified (disabled means no suggestions)"],
         .ios_core_skill_routine_web_subtitle: [.zhHans: "定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)", .en: "Web search for routines that need current information (requires a Tavily key)"],

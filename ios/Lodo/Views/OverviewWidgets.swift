@@ -428,6 +428,96 @@ struct OverviewCountdownWidget: View {
     }
 }
 
+// MARK: - 正数日
+
+/// 「倒数日」页里已经过去的日子(在一起、入职、宝宝出生)往上数。快到周年/整百天的
+/// 排前面(`CountdownPlan.countUps`),下面一行写"3 天后满 2 周年"。颜色同页面里的
+/// 正数日组:`LodoColor.positive`,和倒数日的强调色分开。
+struct OverviewCountUpWidget: View {
+    let size: OverviewWidgetSize
+    let items: [CountdownPlan.CountUp]
+    let now: Date
+    /// 点卡片:进「倒数日」页(正数日就在那一页的第二组)。
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        OverviewWidgetCard(kind: .countUp, action: action) {
+            if let first = items.first {
+                if size == .small {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(days(first)) 天")
+                            .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+                            .foregroundStyle(LodoColor.positive)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text(first.entry.title)
+                            .font(.body.weight(.medium))
+                            .lineLimit(1)
+                        Text(subtitle(first))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(items.prefix(4)) { item in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.entry.title).font(.body).lineLimit(1)
+                                    if let next = item.next {
+                                        Text(milestoneText(next))
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                Spacer(minLength: 8)
+                                Text(CountdownText.text(span(item), hasEnd: item.entry.end != nil,
+                                                        precise: false))
+                                    .font(.subheadline.monospacedDigit().weight(.medium))
+                                    .foregroundStyle(LodoColor.positive)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                }
+            } else {
+                OverviewEmptyText(text: "过去的纪念日会在这里往上数")
+            }
+        }
+    }
+
+    private func span(_ item: CountdownPlan.CountUp) -> CountdownSpan {
+        CountdownPlan.primary(item.entry, now: now)
+    }
+
+    private func days(_ item: CountdownPlan.CountUp) -> Int { span(item).days }
+
+    /// 小卡第三行:有节点写节点,没有(有结束日的事)写"已结束 N 天"。
+    private func subtitle(_ item: CountdownPlan.CountUp) -> String {
+        item.next.map(milestoneText)
+            ?? CountdownText.text(span(item), hasEnd: item.entry.end != nil, precise: false)
+    }
+
+    private func milestoneText(_ milestone: CountdownPlan.Milestone) -> String {
+        let locale = AppSettings.language.locale
+        switch milestone.kind {
+        case .anniversary(let years):
+            return milestone.daysAway == 0
+                ? String(localized: "今天满 \(years) 周年", bundle: .appLanguage(), locale: locale)
+                : String(localized: "\(milestone.daysAway) 天后满 \(years) 周年",
+                         bundle: .appLanguage(), locale: locale)
+        case .dayCount(let count):
+            return milestone.daysAway == 0
+                ? String(localized: "今天满 \(count) 天", bundle: .appLanguage(), locale: locale)
+                : String(localized: "\(milestone.daysAway) 天后满 \(count) 天",
+                         bundle: .appLanguage(), locale: locale)
+        case .start:
+            return ""
+        }
+    }
+}
+
 // MARK: - 文字类(例行 / AI)
 
 struct OverviewTextWidget: View {

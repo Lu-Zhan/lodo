@@ -129,6 +129,7 @@ extension AgentFocus {
         case .countdown: return "还有几天？"
         case .memory: return "想找点什么？"
         case .contact: return "想起谁了？"
+        case .assets: return "资产有变化吗？"
         case .health: return "最近身体怎么样？"
         // 旅行详情页带着那次旅行(subject),问的是"这一趟"。
         case .travel: return subject == nil ? "想去哪玩？" : "这趟还想去哪？"

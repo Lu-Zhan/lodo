@@ -305,6 +305,22 @@
         }
       }
     },
+    "%@ 还款 · 还有 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due %1$@ · in %2$lld d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 还款 · 还有 %lld 天"
+          }
+        }
+      }
+    },
     "%@(%@)" : {
       "localizations" : {
         "en" : {
@@ -349,6 +365,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@/%lld 千卡"
+          }
+        }
+      }
+    },
+    "%@/季" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/qtr"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/季"
+          }
+        }
+      }
+    },
+    "%@/年" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/yr"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/年"
+          }
+        }
+      }
+    },
+    "%@/月" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/mo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@/月"
           }
         }
       }
@@ -401,6 +465,22 @@
         }
       }
     },
+    "%lld 个月前更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated %lld mo ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个月前更新"
+          }
+        }
+      }
+    },
     "%lld 件" : {
       "localizations" : {
         "en" : {
@@ -433,6 +513,22 @@
         }
       }
     },
+    "%lld 号" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 号"
+          }
+        }
+      }
+    },
     "%lld 天" : {
       "localizations" : {
         "en" : {
@@ -445,6 +541,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 天"
+          }
+        }
+      }
+    },
+    "%lld 天后满 %lld 周年" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$lld-year anniversary in %1$lld d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 天后满 %lld 周年"
+          }
+        }
+      }
+    },
+    "%lld 天后满 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$lld days in %1$lld d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 天后满 %lld 天"
           }
         }
       }
@@ -1250,6 +1378,22 @@
         }
       }
     },
+    "上次更新:%@。保存一次就算核对过了。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last updated %@. Saving counts as a check-in."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次更新:%@。保存一次就算核对过了。"
+          }
+        }
+      }
+    },
     "上车点" : {
       "localizations" : {
         "en" : {
@@ -1362,6 +1506,22 @@
         }
       }
     },
+    "不填" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不填"
+          }
+        }
+      }
+    },
     "不填时间也能存,会收进「未排期」。" : {
       "localizations" : {
         "en" : {
@@ -1374,6 +1534,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不填时间也能存,会收进「未排期」。"
+          }
+        }
+      }
+    },
+    "不定期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Irregular"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不定期"
+          }
+        }
+      }
+    },
+    "不定期的不折算进每月收支,只在列表里记着。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Irregular items aren't folded into the monthly totals; they're just kept in the list."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不定期的不折算进每月收支,只在列表里记着。"
           }
         }
       }
@@ -1860,6 +2052,38 @@
         }
       }
     },
+    "今天满 %lld 周年" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld-year anniversary today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天满 %lld 周年"
+          }
+        }
+      }
+    },
+    "今天满 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld days today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天满 %lld 天"
+          }
+        }
+      }
+    },
     "今天的任务都完成了" : {
       "localizations" : {
         "en" : {
@@ -1905,6 +2129,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今天结束"
+          }
+        }
+      }
+    },
+    "今天还款" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天还款"
           }
         }
       }
@@ -2122,6 +2362,38 @@
         }
       }
     },
+    "付给谁(可选),如 建设银行" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid to (optional), e.g. a bank"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "付给谁(可选),如 建设银行"
+          }
+        }
+      }
+    },
+    "以下币种暂时换不到汇率,没有计入:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No exchange rate yet for these currencies, not included: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以下币种暂时换不到汇率,没有计入:%@"
+          }
+        }
+      }
+    },
     "以下币种暂时换不到汇率,没有计入合计:%@" : {
       "localizations" : {
         "en" : {
@@ -2283,6 +2555,22 @@
         }
       }
     },
+    "住宿" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lodging"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "住宿"
+          }
+        }
+      }
+    },
     "住宿名称,如 新宿王子酒店" : {
       "localizations" : {
         "en" : {
@@ -2395,6 +2683,23 @@
         }
       }
     },
+    "保险" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insurance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保险"
+          }
+        }
+      }
+    },
     "信息来自你导入的订单和截图,更新于 %@。不会自动刷新,请以航司和机场通知为准。" : {
       "localizations" : {
         "en" : {
@@ -2407,6 +2712,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "信息来自你导入的订单和截图,更新于 %@。不会自动刷新,请以航司和机场通知为准。"
+          }
+        }
+      }
+    },
+    "信用卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credit Cards"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信用卡"
           }
         }
       }
@@ -2943,6 +3264,22 @@
         }
       }
     },
+    "共 %lld 晚" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld nights"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共 %lld 晚"
+          }
+        }
+      }
+    },
     "关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。" : {
       "localizations" : {
         "en" : {
@@ -3183,18 +3520,34 @@
         }
       }
     },
-    "搜地点、在地图上找位置时会在这几个地方里找。" : {
+    "已添加" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Place search and map locations will look in all of these destinations."
+            "value" : "Added"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜地点、在地图上找位置时会在这几个地方里找。"
+            "value" : "已添加"
+          }
+        }
+      }
+    },
+    "当晚住宿:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Staying at %@ tonight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当晚住宿:%@"
           }
         }
       }
@@ -3488,6 +3841,22 @@
         }
       }
     },
+    "分类" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分类"
+          }
+        }
+      }
+    },
     "分类(可选),如 银行卡、房产、保险" : {
       "localizations" : {
         "en" : {
@@ -3632,6 +4001,22 @@
         }
       }
     },
+    "删除这一项?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this item?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这一项?"
+          }
+        }
+      }
+    },
     "删除这个倒数日?提醒也会一起取消。" : {
       "localizations" : {
         "en" : {
@@ -3676,6 +4061,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。"
+          }
+        }
+      }
+    },
+    "删除这张信用卡?还没完成的还款提醒也会一起删掉。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this card? Its pending payment reminder will be deleted too."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这张信用卡?还没完成的还款提醒也会一起删掉。"
           }
         }
       }
@@ -3760,6 +4161,38 @@
         }
       }
     },
+    "删除这项资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Asset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这项资产"
+          }
+        }
+      }
+    },
+    "删除这项资产?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this asset?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这项资产?"
+          }
+        }
+      }
+    },
     "利率 %@" : {
       "localizations" : {
         "en" : {
@@ -3772,6 +4205,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "利率 %@"
+          }
+        }
+      }
+    },
+    "利率(可选),年化百分比,如 3.85" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interest rate (optional), annual %, e.g. 3.85"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利率(可选),年化百分比,如 3.85"
           }
         }
       }
@@ -3804,6 +4253,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "利率无法识别为数字,改成数字或清空这一栏才能保存。"
+          }
+        }
+      }
+    },
+    "到 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Until %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "到 %@"
           }
         }
       }
@@ -4018,6 +4483,22 @@
         }
       }
     },
+    "卡片名称(可选),如 经典白" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Card name (optional)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "卡片名称(可选),如 经典白"
+          }
+        }
+      }
+    },
     "即将出发" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4160,6 +4641,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "反复提醒"
+          }
+        }
+      }
+    },
+    "发放日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payday"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发放日"
           }
         }
       }
@@ -4321,6 +4818,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消置顶"
+          }
+        }
+      }
+    },
+    "另有 %lld 项不定期的没有折算进每月。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld irregular items aren't included in the monthly totals."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另有 %lld 项不定期的没有折算进每月。"
           }
         }
       }
@@ -4518,6 +5031,38 @@
         }
       }
     },
+    "名称,如 工资、年终奖" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, e.g. Salary, Annual bonus"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称,如 工资、年终奖"
+          }
+        }
+      }
+    },
+    "名称,如 房贷月供、房租" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, e.g. Mortgage, Rent"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称,如 房贷月供、房租"
+          }
+        }
+      }
+    },
     "名称,如 招商银行储蓄卡" : {
       "localizations" : {
         "en" : {
@@ -4530,6 +5075,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名称,如 招商银行储蓄卡"
+          }
+        }
+      }
+    },
+    "名称,如 望京的房子" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, e.g. My apartment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称,如 望京的房子"
           }
         }
       }
@@ -4701,6 +5262,22 @@
         }
       }
     },
+    "周期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequency"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周期"
+          }
+        }
+      }
+    },
     "和记忆库是同一份:删掉会从记忆里一起删掉,「移出旅行」只是不再挂在这次旅行上。" : {
       "localizations" : {
         "en" : {
@@ -4745,6 +5322,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "回看天数"
+          }
+        }
+      }
+    },
+    "固定支出" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed Expenses"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定支出"
           }
         }
       }
@@ -5203,6 +5796,22 @@
         }
       }
     },
+    "备注(可选)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes (optional)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注(可选)"
+          }
+        }
+      }
+    },
     "复制" : {
       "localizations" : {
         "en" : {
@@ -5329,6 +5938,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "姓名"
+          }
+        }
+      }
+    },
+    "存款" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Savings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存款"
           }
         }
       }
@@ -5940,6 +6566,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "左滑可以把这道菜从清单里去掉。"
+          }
+        }
+      }
+    },
+    "已于 %@ 结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已于 %@ 结束"
           }
         }
       }
@@ -6930,6 +7572,22 @@
         }
       }
     },
+    "开了提醒的卡,会在还款日前一天自动生成一条还款任务。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cards with reminders on get a payment task the day before each due date."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开了提醒的卡,会在还款日前一天自动生成一条还款任务。"
+          }
+        }
+      }
+    },
     "开启健康分析" : {
       "localizations" : {
         "en" : {
@@ -7138,6 +7796,22 @@
         }
       }
     },
+    "开着时,每期还款日的前一天会自动生成一条「还信用卡」任务,在全天提醒的时刻响,没点完成会一直提醒。遇到小月,31 号落在月末那天。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When on, a \"Pay credit card\" task is created the day before each due date. It fires at your all-day reminder time and keeps reminding until you mark it done. In shorter months, day 31 falls on the last day."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开着时,每期还款日的前一天会自动生成一条「还信用卡」任务,在全天提醒的时刻响,没点完成会一直提醒。遇到小月,31 号落在月末那天。"
+          }
+        }
+      }
+    },
     "引用" : {
       "localizations" : {
         "en" : {
@@ -7263,6 +7937,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "待安排"
+          }
+        }
+      }
+    },
+    "很久没更新了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not updated in a while"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "很久没更新了"
           }
         }
       }
@@ -7508,6 +8198,39 @@
         }
       }
     },
+    "房产" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Property"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "房产"
+          }
+        }
+      }
+    },
+    "房贷车贷这类会还完的,过了截止日期就不再算进每月支出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For loans that will be paid off, the expense stops counting after the end date."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "房贷车贷这类会还完的,过了截止日期就不再算进每月支出。"
+          }
+        }
+      }
+    },
     "所有" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7701,6 +8424,22 @@
         }
       }
     },
+    "扣款日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debit day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扣款日"
+          }
+        }
+      }
+    },
     "批量导出到通讯录" : {
       "localizations" : {
         "en" : {
@@ -7761,6 +8500,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "把订票邮件、酒店确认信或行程单贴进来,AI 会拆成航班/住宿/地点。"
+          }
+        }
+      }
+    },
+    "投资" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Investments"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "投资"
           }
         }
       }
@@ -7891,6 +8647,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按币种"
+          }
+        }
+      }
+    },
+    "按月折算进总览里的每月收支(每年的 ÷12、每季度的 ÷3)。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folded into the monthly totals (yearly ÷12, quarterly ÷3)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按月折算进总览里的每月收支(每年的 ÷12、每季度的 ÷3)。"
           }
         }
       }
@@ -8247,6 +9019,22 @@
         }
       }
     },
+    "搜地点、在地图上找位置时会在这几个地方里找。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place search and map locations will look in all of these destinations."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜地点、在地图上找位置时会在这几个地方里找。"
+          }
+        }
+      }
+    },
     "搜索" : {
       "localizations" : {
         "en" : {
@@ -8372,6 +9160,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "撤销"
+          }
+        }
+      }
+    },
+    "收入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收入"
           }
         }
       }
@@ -9390,6 +10194,22 @@
         }
       }
     },
+    "更新资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update Asset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新资产"
+          }
+        }
+      }
+    },
     "有 %lld 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒" : {
       "localizations" : {
         "en" : {
@@ -9422,6 +10242,38 @@
         }
       }
     },
+    "有 %lld 项资产没填金额,不计入总额。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld assets have no value and aren't counted."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 项资产没填金额,不计入总额。"
+          }
+        }
+      }
+    },
+    "有 %lld 项超过 %lld 个月没更新了,点进去核对一下金额。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld items haven't been updated in over %2$lld months. Tap to check the amounts."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 项超过 %lld 个月没更新了,点进去核对一下金额。"
+          }
+        }
+      }
+    },
     "有一个倒数日没找到" : {
       "localizations" : {
         "en" : {
@@ -9434,6 +10286,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有一个倒数日没找到"
+          }
+        }
+      }
+    },
+    "有截止日期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has End Date"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有截止日期"
           }
         }
       }
@@ -9729,6 +10597,22 @@
         }
       }
     },
+    "本月更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated this month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本月更新"
+          }
+        }
+      }
+    },
     "机场" : {
       "localizations" : {
         "en" : {
@@ -9822,6 +10706,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "来源"
+          }
+        }
+      }
+    },
+    "来源(可选),如 公司名" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source (optional), e.g. employer"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源(可选),如 公司名"
           }
         }
       }
@@ -10535,6 +11435,38 @@
         }
       }
     },
+    "每季度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quarterly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每季度"
+          }
+        }
+      }
+    },
+    "每年" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yearly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每年"
+          }
+        }
+      }
+    },
     "每日任务汇总" : {
       "localizations" : {
         "en" : {
@@ -10547,6 +11479,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "每日任务汇总"
+          }
+        }
+      }
+    },
+    "每月" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月"
+          }
+        }
+      }
+    },
+    "每月 %lld 号" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly on day %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月 %lld 号"
+          }
+        }
+      }
+    },
+    "每月收入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Income"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月收入"
+          }
+        }
+      }
+    },
+    "每月结余" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Surplus"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月结余"
+          }
+        }
+      }
+    },
+    "每期金额" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amount per period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每期金额"
           }
         }
       }
@@ -10740,6 +11752,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有找到这个地方。这次旅行还没填城市和国家,先回「编辑旅行」填上再搜会准得多。"
+          }
+        }
+      }
+    },
+    "没有改动" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No changes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有改动"
           }
         }
       }
@@ -10938,6 +11966,22 @@
         }
       }
     },
+    "添加信用卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Credit Card"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加信用卡"
+          }
+        }
+      }
+    },
     "添加倒数日" : {
       "localizations" : {
         "en" : {
@@ -10966,6 +12010,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加关系"
+          }
+        }
+      }
+    },
+    "添加固定支出" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Fixed Expense"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加固定支出"
           }
         }
       }
@@ -11014,6 +12074,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加截图"
+          }
+        }
+      }
+    },
+    "添加收入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Income"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加收入"
           }
         }
       }
@@ -11403,6 +12479,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "玫红"
+          }
+        }
+      }
+    },
+    "现在值多少" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current value"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在值多少"
           }
         }
       }
@@ -13327,6 +14419,22 @@
         }
       }
     },
+    "订阅已更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscriptions updated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订阅已更新"
+          }
+        }
+      }
+    },
     "订阅新闻网站或博客的 RSS,文章会按天排在这里。AI 可以总结单篇、生成今日简报,也能在订阅里帮你找文章。" : {
       "localizations" : {
         "en" : {
@@ -13404,6 +14512,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记一笔资产"
+          }
+        }
+      }
+    },
+    "记一项资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Asset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记一项资产"
+          }
+        }
+      }
+    },
+    "记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Track your home, car and savings, monthly income and fixed expenses, and credit cards. No need to log everyday spending — just check back every few months."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。"
           }
         }
       }
@@ -13765,6 +14905,22 @@
         }
       }
     },
+    "负债(可选),如房贷/车贷还欠多少" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liability (optional), e.g. remaining mortgage"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债(可选),如房贷/车贷还欠多少"
+          }
+        }
+      }
+    },
     "负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。" : {
       "localizations" : {
         "en" : {
@@ -13777,6 +14933,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "负债与利率跟资产金额同币种,用于在资产总览里算净资产,均可留空。"
+          }
+        }
+      }
+    },
+    "负债按同一个币种填。每月的月供记在「固定支出」里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter liabilities in the same currency. Put monthly loan payments under Fixed Expenses."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债按同一个币种填。每月的月供记在「固定支出」里。"
           }
         }
       }
@@ -13797,6 +14969,38 @@
         }
       }
     },
+    "账单日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statement Day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账单日"
+          }
+        }
+      }
+    },
+    "账单日 %lld 号" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statement day %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账单日 %lld 号"
+          }
+        }
+      }
+    },
     "资产" : {
       "localizations" : {
         "en" : {
@@ -13813,6 +15017,38 @@
         }
       }
     },
+    "资产 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assets %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "资产 %@"
+          }
+        }
+      }
+    },
+    "资产已更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assets updated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "资产已更新"
+          }
+        }
+      }
+    },
     "资产总览" : {
       "localizations" : {
         "en" : {
@@ -13825,6 +15061,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "资产总览"
+          }
+        }
+      }
+    },
+    "资产有变化吗？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Any changes to your assets?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "资产有变化吗？"
           }
         }
       }
@@ -14038,6 +15290,23 @@
         }
       }
     },
+    "车辆" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicles"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "车辆"
+          }
+        }
+      }
+    },
     "转为任务" : {
       "localizations" : {
         "en" : {
@@ -14099,6 +15368,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "输入文字"
+          }
+        }
+      }
+    },
+    "过去的纪念日会在这里往上数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Past anniversaries count up here"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "过去的纪念日会在这里往上数"
           }
         }
       }
@@ -14179,6 +15464,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "返程早于出发,改一下才能保存。"
+          }
+        }
+      }
+    },
+    "还信用卡:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pay credit card: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还信用卡:%@"
+          }
+        }
+      }
+    },
+    "还到" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Until"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还到"
           }
         }
       }
@@ -14339,6 +15656,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还有几天？"
+          }
+        }
+      }
+    },
+    "还款提醒已开启" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment reminder on"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款提醒已开启"
+          }
+        }
+      }
+    },
+    "还款日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due Day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款日"
+          }
+        }
+      }
+    },
+    "还款日前一天提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remind Day Before Due"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款日前一天提醒"
           }
         }
       }
@@ -14616,6 +15981,22 @@
         }
       }
     },
+    "还没有记下住宿。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No lodging recorded yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有记下住宿。"
+          }
+        }
+      }
+    },
     "还没有记下航班、火车或客车。" : {
       "localizations" : {
         "en" : {
@@ -14644,6 +16025,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有记过花费"
+          }
+        }
+      }
+    },
+    "还没有记过资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Assets Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有记过资产"
           }
         }
       }
@@ -15545,6 +16942,22 @@
         }
       }
     },
+    "银行,如 招商银行" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bank"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "银行,如 招商银行"
+          }
+        }
+      }
+    },
     "链接" : {
       "localizations" : {
         "en" : {
@@ -15798,6 +17211,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "预计起飞"
+          }
+        }
+      }
+    },
+    "额度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credit limit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "额度"
+          }
+        }
+      }
+    },
+    "额度 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limit %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "额度 %@"
           }
         }
       }

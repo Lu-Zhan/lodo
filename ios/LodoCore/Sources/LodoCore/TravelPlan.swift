@@ -289,6 +289,22 @@ public enum TravelPlan {
         return LodgingNight(isCheckIn: startDay == day, isLastNight: isLastNight)
     }
 
+    /// 住宿住几晚(入住日到退房日相差几天)。没填退房、或退房不晚于入住那天时返回 nil
+    /// ——那样的住宿只知道哪天入住,报"1 晚"是猜的。
+    public static func nights(_ entry: TravelEntry, calendar: Calendar = .current) -> Int? {
+        guard entry.kind == .lodging, let start = entry.start, let end = entry.end else { return nil }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start),
+                                           to: calendar.startOfDay(for: end)).day ?? 0
+        return days > 0 ? days : nil
+    }
+
+    /// 某一天晚上住在哪(day 是当天 0 点)。日程视图把它写在日期那一行上,
+    /// 不再逐天重复一行住宿。换酒店那天只有新酒店算(旧酒店退房当天不算那一晚)。
+    public static func lodgings(on day: Date, in entries: [TravelEntry],
+                                calendar: Calendar = .current) -> [TravelEntry] {
+        entries.filter { $0.kind == .lodging && lodgingNight($0, day: day, calendar: calendar) != nil }
+    }
+
     /// 这一项是否属于某一天(day 是当天 0 点)。
     static func covers(_ entry: TravelEntry, day: Date, calendar: Calendar = .current) -> Bool {
         guard let start = entry.start else { return false }

@@ -374,8 +374,12 @@ struct TravelDetailView: View {
         ScrollViewReader { proxy in
         List {
             ForEach(TravelPlan.group(entries, into: trip.days)) { day in
+                // 住宿不逐天占一行:当晚住哪写在日期那一行上(「第 2 天 · 日期 · 🛏 酒店」),
+                // 酒店本身的信息在「总览」的住宿一组里。
+                let rows = day.entries.filter { $0.kind != .lodging }
+                let tonight = TravelPlan.lodgings(on: day.date, in: entries)
                 Section {
-                    if day.entries.isEmpty {
+                    if rows.isEmpty {
                         Text("这天还没安排")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -385,11 +389,10 @@ struct TravelDetailView: View {
                                 moveDropped(ids, to: day.date)
                             }
                     } else {
-                        ForEach(day.entries) { entry in
+                        ForEach(rows) { entry in
                             draggable(entry) {
                                 entryRow(entry, group: "day-\(day.date.timeIntervalSince1970)",
-                                         showDate: false,
-                                         night: TravelPlan.lodgingNight(entry, day: day.date))
+                                         showDate: false)
                             }
                             // 拖到这天任意一行上都算放进这一天。
                             .dropDestination(for: String.self) { ids, _ in
@@ -403,7 +406,7 @@ struct TravelDetailView: View {
                     // 手动填仍在右上角菜单里。
                     // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
                     // verbatim 的,拼好的字符串进不了字符串目录。
-                    Text("第 \(dayIndex(day.date)) 天 · \(LocalizedContent.dateAndWeekday(day.date, language: language))")
+                    dayHeader(day.date, tonight: tonight)
                         .dropDestination(for: String.self) { ids, _ in
                             moveDropped(ids, to: day.date)
                         }
@@ -451,7 +454,10 @@ struct TravelDetailView: View {
     /// 相当于这次旅行的收件箱)。点一行和日程里一样:有坐标就在地图上定位。
     private var overviewList: some View {
         let transport = entries.filter { $0.kind.isTransport }
-        let pending = TravelPlan.unscheduled(entries).filter { !$0.kind.isTransport }
+        // 住宿:排了日子的按入住时间排,还没定日子的(没填入住)放最后。
+        let lodgings = entries.filter { $0.kind == .lodging }
+            .sorted { ($0.start ?? .distantFuture) < ($1.start ?? .distantFuture) }
+        let pending = TravelPlan.unscheduled(entries).filter { !$0.kind.isTransport && $0.kind != .lodging }
         return List {
             Section {
                 if transport.isEmpty {
@@ -464,6 +470,20 @@ struct TravelDetailView: View {
                 }
             } header: {
                 Label("交通", systemImage: "airplane")
+            }
+            Section {
+                if lodgings.isEmpty {
+                    Text("还没有记下住宿。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .travelPanelRow(group: "lodging")
+                } else {
+                    ForEach(lodgings) { entry in
+                        entryRow(entry, group: "lodging", extraLine: lodgingExtraLine(entry))
+                    }
+                }
+            } header: {
+                Label("住宿", systemImage: "bed.double")
             }
             Section {
                 if pending.isEmpty {
@@ -1263,7 +1283,7 @@ struct TravelDetailView: View {
     /// `group` 标出这一行属于哪一组(哪一天、交通、待安排……),同组的行在列表背后
     /// 共用一整块玻璃,见 `travelPanelRow`。
     private func entryRow(_ entry: TravelEntry, group: String, showDate: Bool = true,
-                          night: LodgingNight? = nil) -> some View {
+                          extraLine: String? = nil) -> some View {
         HStack(spacing: 8) {
         Button {
             select(entry)
@@ -1281,12 +1301,6 @@ struct TravelDetailView: View {
                         if let status = entry.flight?.status, showsStatus(entry) {
                             FlightStatusBadge(status: status)
                         }
-                        if night?.isCheckIn == true {
-                            LodgingNightBadge(title: "入住", color: lodoAccent.accent)
-                        }
-                        if night?.isLastNight == true {
-                            LodgingNightBadge(title: "明日离开", color: LodoColor.muted)
-                        }
                     }
                     // 一行副标题就够:时间 · 地点 · 单号。备注、航班的航站楼登机口
                     // 那些都收进详情页——按天这一页要的是密度,一眼扫完一天有几件事。
@@ -1294,7 +1308,14 @@ struct TravelDetailView: View {
                         Text(detail)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            // 总览里的住宿要看全入住退房时间,放两行。
+                            .lineLimit(extraLine == nil ? 1 : 2)
+                    }
+                    if let extraLine {
+                        Text(extraLine)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
                     }
                 }
                 Spacer(minLength: 4)
@@ -1390,6 +1411,45 @@ struct TravelDetailView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
+    // MARK: - 住宿
+
+    /// 日程里每一天的标题行:「第 2 天 · 9月29日 周二」,当晚有住宿时后面接上
+    /// 「· 🛏 酒店名」。酒店名可点:和点行一样在地图上定位它。
+    private func dayHeader(_ date: Date, tonight: [TravelEntry]) -> some View {
+        HStack(spacing: 4) {
+            // 拆成插值而不是先拼好 String 再塞进 Text:String 那个重载是
+            // verbatim 的,拼好的字符串进不了字符串目录。
+            Text("第 \(dayIndex(date)) 天 · \(LocalizedContent.dateAndWeekday(date, language: language))")
+                .layoutPriority(1)
+            ForEach(tonight) { hotel in
+                Text(verbatim: "·")
+                Button {
+                    select(hotel)
+                } label: {
+                    Label(hotel.title, systemImage: "bed.double.fill")
+                        .labelStyle(.titleAndIcon)
+                        .foregroundStyle(.tint)
+                        .lineLimit(1)
+                }
+                .pressable()
+                .accessibilityLabel(Text("当晚住宿:\(hotel.title)"))
+            }
+        }
+        .lineLimit(1)
+    }
+
+    /// 总览里住宿那一行的第二行:住几晚 + 备注(日程里不再逐天列住宿,
+    /// 酒店的具体信息集中在这里看)。
+    private func lodgingExtraLine(_ entry: TravelEntry) -> String? {
+        var parts: [String] = []
+        if let nights = TravelPlan.nights(entry) {
+            parts.append(String(localized: "共 \(nights) 晚", bundle: .appLanguage(language), locale: language.locale))
+        }
+        let note = entry.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !note.isEmpty { parts.append(note) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
     // MARK: - 格式化
 
     private var dateRangeText: String {
@@ -1410,23 +1470,6 @@ private struct PanelModeContent<Content: View>: View {
     @ViewBuilder let content: (TravelDetailView.Mode) -> Content
 
     var body: some View { content(mode) }
-}
-
-/// 按天视图里住宿行上的那两枚小标签(「入住」/「明日离开」)。
-/// 样式对齐 `FlightStatusBadge`,只是颜色由调用方给:入住是强调色(这一天的
-/// 起点),明日离开是灰(提个醒,不是主操作)。
-private struct LodgingNightBadge: View {
-    let title: LocalizedStringKey
-    let color: Color
-
-    var body: some View {
-        Text(title)
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.15), in: Capsule())
-    }
 }
 
 /// 旅行详情行程面板的底色。「减弱透明度」开启时使用不透明面色,其余情况保持透明。
@@ -1524,6 +1567,10 @@ private struct TravelPanelGroupGlass: View {
                 }
             }
         }
+        // 必须裁在列表自己的范围里:玻璃按行的锚点位置画,列表往上滚时,滚出顶部那几行
+        // 的玻璃会画到列表上方——正好盖在「总览/日程…」切换条上(面板里切换条在列表
+        // 前面,列表的背景层叠在它上面)。
+        .clipped()
         .allowsHitTesting(false)
     }
 }

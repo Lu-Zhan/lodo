@@ -50,6 +50,9 @@ extension AgentHostView {
         // 倒数日:主 app 恒开(从零新建也要用),当前的倒数日带 id 放进 prompt。
         let countdowns = ((try? context.fetch(FetchDescriptor<CountdownEvent>())) ?? [])
             .map(\.entry)
+        // 资产、订阅:主 app 恒开(从零新增也要用),现有的带 id 放进 prompt。
+        let assets = LibraryStore.assetEntries(in: context)
+        let feeds = LibraryStore.feedEntries(in: context)
 
         for _ in 0..<3 {
             switch try await DeepSeekClient.command(
@@ -59,6 +62,8 @@ extension AgentHostView {
                 // 规划行程不看库里有没有旅行:"帮我规划东京四天"本来就是从零开始的。
                 tripPlanEnabled: true, newsEnabled: newsEnabled,
                 countdownEnabled: true, countdowns: countdowns,
+                assetsEnabled: true, assets: assets,
+                feedsEnabled: true, feeds: feeds,
                 pageFocus: pageFocus, history: reasoningHistory,
                 // 窗口之外的历史压成的常驻摘要。ReAct 每轮都带同一份——它不像
                 // history 那样随轮次增长。
@@ -183,6 +188,39 @@ extension AgentHostView {
                         try? context.save()
                     }
                 }
+                // 资产、订阅同倒数日:直接执行,结果卡片带撤销;混着别的操作时两样都做。
+                let assetOps = actions.compactMap { action -> AssetOp? in
+                    if case .asset(let op) = action { return op }
+                    return nil
+                }
+                let feedOps = actions.compactMap { action -> FeedOp? in
+                    if case .feed(let op) = action { return op }
+                    return nil
+                }
+                actions.removeAll {
+                    switch $0 {
+                    case .asset, .feed: return true
+                    default: return false
+                    }
+                }
+                if !assetOps.isEmpty || !feedOps.isEmpty {
+                    if !feedOps.isEmpty { onThought("正在订阅…") }
+                    let record = await LibraryStore.apply(assets: assetOps, feeds: feedOps,
+                                                          context: context)
+                    if actions.isEmpty {
+                        guard record.hasChanges else {
+                            return .answer(text: record.skipped.isEmpty ? "资产和订阅没有改动。"
+                                           : record.skipped.joined(separator: ";") + "。", related: [])
+                        }
+                        return .libraryEdited(record)
+                    }
+                    if record.hasChanges {
+                        context.insert(AgentMessage(
+                            role: .assistant, kind: .libraryEdit, content: record.transcript,
+                            librarySnapshotData: try? JSONEncoder().encode(record)))
+                        try? context.save()
+                    }
+                }
                 guard !actions.isEmpty else {
                     if let autoMemorizedUUID {
                         return .autoMemorized(uuid: autoMemorizedUUID)
@@ -241,6 +279,13 @@ extension AgentHostView {
                         return .answer(text: text, related: [])
                     }
                     if case .planTrip(let plan) = actions[0] {
+                        // 用户在**记录**自己定好的行程("记录一段旅行行程…"):那是事实不是建议,
+                        // 直接写进「旅行」,卡片显示已写入 + 撤销(同 edit_trip 的取舍)。
+                        if plan.recorded == true {
+                            let applied = TravelStore.applyPlan(plan, context: context)
+                            Haptics.success()
+                            return .tripPlan(applied)
+                        }
                         // 规划不落库,交给聊天卡片;用户点「写入行程」才写。
                         return .tripPlan(plan)
                     }
@@ -470,6 +515,18 @@ extension AgentHostView {
             }
             return String(format: LocalizedStrings.text(.ios_core_action_countdown, language: language),
                           name)
+        case .asset(let op):
+            // 防御性分支:资产操作在 route() 里就直接执行了,不会进确认清单。
+            switch op {
+            case .create(let draft): return draft.title
+            case .update(_, let change): return change.title ?? ""
+            }
+        case .feed(let op):
+            // 防御性分支:同上。
+            switch op {
+            case .subscribe(let draft): return draft.label
+            case .update(_, let change): return change.title ?? ""
+            }
         }
     }
 
@@ -520,7 +577,7 @@ extension AgentHostView {
                     undoOps.append(.memorized(uuid: created.uuid))
                 }
             case .askMemory, .answer, .suggestMemorize, .rememberPreference, .autoMemorize, .planTrip,
-                 .editTrip, .countdown:
+                 .editTrip, .countdown, .asset, .feed:
                 // 防御性分支:查询/回答/建议收藏类操作没有可执行的落库动作
                 // (suggest_memorize 要用户点了"收藏这条"才真正落库,不能在这里
                 // 静默自动执行——那样就和 memorize 没区别了);偏好、自动记录都在

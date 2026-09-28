@@ -13,6 +13,9 @@ import SwiftUI
 /// 没有"按标签筛选"这个入口了。
 struct AppSidebarView: View {
     let section: AppSection
+    /// 窄屏抽屉里「Lodo」那一行的高度 = 导航栏那一行(和 ☰ 竖直居中对齐);
+    /// 宽屏常驻列没有 ☰ 可对,传 nil 按内边距排。
+    var headerHeight: CGFloat? = nil
     let onOpenSettings: () -> Void
     /// 外层先切到目标页面,再收起窄屏抽屉。
     let onSelect: (AppSection) -> Void
@@ -30,6 +33,8 @@ struct AppSidebarView: View {
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
                 // 人脉/健康/旅行/菜单都是建在记忆库上的功能,紧跟在记忆行后面。
                 navRow(.contact, title: "人脉", systemImage: "person.crop.circle")
+                // 资产:车房存款是打了「资产」标签的记忆条目,收入/支出/信用卡另存。
+                navRow(.assets, title: "资产", systemImage: "banknote")
                 navRow(.health, title: "健康", systemImage: "heart.text.square")
                 navRow(.travel, title: "旅行", systemImage: "suitcase.rolling")
                 navRow(.menu, title: "菜单", systemImage: "menucard")
@@ -153,7 +158,10 @@ struct AppSidebarView: View {
         }
         .padding(.leading, 20)
         .padding(.trailing, 20)
-        .padding(.vertical, 12)
+        .padding(.vertical, headerHeight == nil ? 12 : 0)
+        .frame(height: headerHeight)
+        // 标题和第一行导航之间留一点,不然贴得太紧。
+        .padding(.bottom, headerHeight == nil ? 0 : 8)
     }
 
     /// 底部浮层:左对齐的「设置」一颗玻璃圆(全 app 唯一设置入口),叠在列表上方、

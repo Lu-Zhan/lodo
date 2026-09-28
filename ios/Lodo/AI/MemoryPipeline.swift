@@ -114,13 +114,14 @@ enum MemoryPipeline {
     /// 向量索引,备注也能被"问 AI"检索到。category 非空时额外打一个子分类标签,
     /// 和保留的 assetTagName 一起构成 tags,列表页据此归到"资产"分组里隐藏。
     /// 负债/利率与资产金额同币种,不单独存币种;两者可以独立于金额存在。
+    @discardableResult
     static func saveAsset(
         title: String, value: Double?, currency: String = "CNY", liability: Double? = nil,
         interestRate: Double? = nil, category: String, note: String,
         context: ModelContext
-    ) {
+    ) -> MemoryItem? {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty else { return }
+        guard !trimmedTitle.isEmpty else { return nil }
         var tags = [MemoryItem.assetTagName]
         let trimmedCategory = category.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedCategory.isEmpty { tags.append(trimmedCategory) }
@@ -129,8 +130,10 @@ enum MemoryPipeline {
             sourceText: MemorySearch.truncate(note), status: .ready, assetValue: value,
             assetCurrency: value != nil ? currency : nil,
             assetLiability: liability, assetInterestRate: interestRate)
+        item.assetUpdatedAt = Date()
         context.insert(item)
         saveAndReindex(item, context: context)
+        return item
     }
 
     /// 记一位人脉:字段是结构化的(姓名/昵称/联系方式/生日/喜好/备注),不需要

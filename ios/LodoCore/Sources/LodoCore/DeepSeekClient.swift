@@ -93,6 +93,11 @@ public enum AIAction {
     /// 新建/修改/删除倒数日(countdownEnabled 时才会出现)。直接执行,结果卡片带撤销;
     /// 一句话里可以有好几条,但不和待办写操作混(混着时丢掉)。
     case countdown(CountdownOp)
+    /// 新增/修改资产台账里的一项(assetsEnabled 时才会出现)。同倒数日:直接执行,
+    /// 结果卡片带撤销,可以和待办等别的操作混在一句话里。
+    case asset(AssetOp)
+    /// 订阅/修改新闻与博客订阅源(feedsEnabled 时才会出现)。同上。
+    case feed(FeedOp)
 }
 
 /// AI 总入口的返回:操作列表、关键信息缺失时的反问(一次可问多道,每道带
@@ -285,6 +290,12 @@ public enum DeepSeekClient {
         /// 倒数日:主 app 恒开(从零新建也要用),Watch 不传 ⇒ prompt 逐字不变。
         countdownEnabled: Bool = false,
         countdowns: [CountdownEntry] = [],
+        /// 资产台账:主 app 恒开,当前资产带 id 放进 prompt;Watch 不传 ⇒ prompt 逐字不变。
+        assetsEnabled: Bool = false,
+        assets: [AssetEntry] = [],
+        /// 订阅管理:主 app 恒开(从零订阅也要用),当前订阅带 id 放进 prompt。
+        feedsEnabled: Bool = false,
+        feeds: [FeedEntry] = [],
         /// 从哪一页唤出;nil ⇒ 整段不出现(侧栏 AI 页、Watch)。
         pageFocus: AgentFocus? = nil,
         history: [(role: String, content: String)] = [],
@@ -300,10 +311,11 @@ public enum DeepSeekClient {
         let caps = CommandCapabilities(
             memory: memoryEnabled, webSearch: webSearchEnabled, health: healthEnabled,
             travel: travelEnabled, tripPlan: tripPlanEnabled, news: newsEnabled,
-            countdown: countdownEnabled)
+            countdown: countdownEnabled, assets: assetsEnabled, feeds: feedsEnabled)
         let (system, tasks) = commandSystemPrompt(
             tasks: allTasks, capabilities: caps, pageFocus: pageFocus, history: history,
-            summary: summary, existingProjects: existingProjects, countdowns: countdowns)
+            summary: summary, existingProjects: existingProjects, countdowns: countdowns,
+            assets: assets, feeds: feeds)
         let memoryEnabled = caps.memory && AgentSkillStore.isEnabled(.memory)
         let webSearchEnabled = caps.webSearch && AgentSkillStore.isEnabled(.webSearch)
         let healthEnabled = caps.health && AgentSkillStore.isEnabled(.health)
@@ -311,6 +323,8 @@ public enum DeepSeekClient {
         let tripPlanEnabled = caps.tripPlan && AgentSkillStore.isEnabled(.tripPlanner)
         let newsEnabled = caps.news && AgentSkillStore.isEnabled(.news)
         let countdownEnabled = caps.countdown && AgentSkillStore.isEnabled(.countdown)
+        let assetsEnabled = caps.assets && AgentSkillStore.isEnabled(.assetLedger)
+        let feedsEnabled = caps.feeds && AgentSkillStore.isEnabled(.feeds)
         let hasCatalog = AgentSkillStore.catalogBlock() != nil
         // 模型按 prompt 约定用 {"error": "原因"} 表示"这句话里没有我能执行的操作"
         // (带了张照片却没说要拿它干什么就是最常见的一种),decodePayload 会把那句
@@ -338,6 +352,8 @@ public enum DeepSeekClient {
             newsEnabled: newsEnabled,
             countdownEnabled: countdownEnabled,
             validCountdownIDs: countdowns.map(\.id.uuidString),
+            assetsEnabled: assetsEnabled, validAssetIDs: assets.map(\.id.uuidString),
+            feedsEnabled: feedsEnabled, validFeedIDs: feeds.map(\.id.uuidString),
             loadSkillEnabled: hasCatalog)
     }
 
@@ -351,10 +367,12 @@ public enum DeepSeekClient {
         public var tripPlan = false
         public var news = false
         public var countdown = false
+        public var assets = false
+        public var feeds = false
 
         public init(memory: Bool = false, webSearch: Bool = false, health: Bool = false,
                     travel: Bool = false, tripPlan: Bool = false, news: Bool = false,
-                    countdown: Bool = false) {
+                    countdown: Bool = false, assets: Bool = false, feeds: Bool = false) {
             self.memory = memory
             self.webSearch = webSearch
             self.health = health
@@ -362,6 +380,8 @@ public enum DeepSeekClient {
             self.tripPlan = tripPlan
             self.news = news
             self.countdown = countdown
+            self.assets = assets
+            self.feeds = feeds
         }
     }
 
@@ -375,7 +395,9 @@ public enum DeepSeekClient {
         history: [(role: String, content: String)] = [],
         summary: String? = nil,
         existingProjects: [String] = [],
-        countdowns: [CountdownEntry] = []
+        countdowns: [CountdownEntry] = [],
+        assets: [AssetEntry] = [],
+        feeds: [FeedEntry] = []
     ) -> (system: String, tasks: [(uuid: String, task: ParsedTask)]) {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
         let tasks = Array(allTasks.prefix(50))
@@ -396,6 +418,14 @@ public enum DeepSeekClient {
             ? "\n\n" + AgentSkillStore.content(for: .countdown) + "\n\n当前倒数日列表:\n"
                 + (countdowns.isEmpty ? "(还没有)" : json(countdownList(countdowns)))
             : ""
+        let assetBlock = capabilities.assets && AgentSkillStore.isEnabled(.assetLedger)
+            ? "\n\n" + AgentSkillStore.content(for: .assetLedger) + "\n\n当前资产列表:\n"
+                + (assets.isEmpty ? "(还没有)" : json(assetList(assets)))
+            : ""
+        let feedBlock = capabilities.feeds && AgentSkillStore.isEnabled(.feeds)
+            ? "\n\n" + AgentSkillStore.content(for: .feeds) + "\n\n当前订阅列表:\n"
+                + (feeds.isEmpty ? "(还没有)" : json(feedList(feeds)))
+            : ""
         let catalog = AgentSkillStore.catalogBlock()
         let system = """
         \(AgentSkillStore.content(for: .agent))
@@ -408,6 +438,8 @@ public enum DeepSeekClient {
         \(tripPlanEnabled ? "\n\n" + AgentSkillStore.content(for: .tripPlanner) : "")\
         \(newsEnabled ? "\n\n" + AgentSkillStore.content(for: .news) : "")\
         \(countdownBlock)\
+        \(assetBlock)\
+        \(feedBlock)\
         \(catalog.map { "\n\n" + $0 } ?? "")
 
         \(timeContext)\(preferencesBlock)\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")
@@ -429,6 +461,8 @@ public enum DeepSeekClient {
         healthEnabled: Bool = false, travelEnabled: Bool = false,
         tripPlanEnabled: Bool = false, newsEnabled: Bool = false,
         countdownEnabled: Bool = false, validCountdownIDs: [String] = [],
+        assetsEnabled: Bool = false, validAssetIDs: [String] = [],
+        feedsEnabled: Bool = false, validFeedIDs: [String] = [],
         loadSkillEnabled: Bool = false
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
@@ -554,6 +588,10 @@ public enum DeepSeekClient {
                 && ["create_countdown", "update_countdown", "delete_countdown"].contains(name):
                 actions.append(.countdown(try parseCountdownOp(raw, action: name,
                                                                validIDs: validCountdownIDs)))
+            case let name? where assetsEnabled && ["create_asset", "update_asset"].contains(name):
+                actions.append(.asset(try parseAssetOp(raw, action: name, validIDs: validAssetIDs)))
+            case let name? where feedsEnabled && ["subscribe_feed", "update_feed"].contains(name):
+                actions += try parseFeedOps(raw, action: name, validIDs: validFeedIDs).map(AIAction.feed)
             default:
                 // 带上 action 名:模型编出来的名字是排查这类报错唯一的线索,
                 // 光说"未知 action"用户和日志都看不出它到底返回了什么。
@@ -572,8 +610,15 @@ public enum DeepSeekClient {
         // 倒数日操作不参与下面的归一化:和待办写操作混在一句话里("加个元旦倒数日,
         // 另外明天三点提醒我交报告")很自然,两样都该做。route() 先把它们摘出来
         // 单独执行、单独出结果卡片(带撤销),剩下的再走原来的路径。
-        let countdownActions = actions.filter { if case .countdown = $0 { return true } else { return false } }
-        actions.removeAll { if case .countdown = $0 { return true } else { return false } }
+        // 资产、订阅操作同倒数日:不参与归一化,排在前面、两样都做。
+        func isDirectEdit(_ action: AIAction) -> Bool {
+            switch action {
+            case .countdown, .asset, .feed: return true
+            default: return false
+            }
+        }
+        let countdownActions = actions.filter(isDirectEdit)
+        actions.removeAll(where: isDirectEdit)
         guard !actions.isEmpty else { return .actions(countdownActions) }
         func isInformational(_ action: AIAction) -> Bool {
             switch action {
@@ -676,7 +721,8 @@ public enum DeepSeekClient {
             tripTitle: text("trip") ?? "旅行规划",
             startDate: startDate, endDate: endDate,
             summary: text("summary") ?? "", items: items,
-            city: text("city"), country: text("country"))
+            city: text("city"), country: text("country"),
+            recorded: (raw["record"] as? Bool) == true ? true : nil)
     }
 
     /// 规划/调整里的一条安排。五种类型都认(交通类是用户明确说了车次/航班和时刻时
