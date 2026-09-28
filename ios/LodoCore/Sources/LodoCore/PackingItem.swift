@@ -20,6 +20,8 @@ public final class PackingItem {
     /// 同一分类里的先后(添加顺序)。
     public var sortIndex: Int = 0
     public var createdAt: Date = Date.now
+    /// 共享旅行里别人加的这件东西:添加人的显示名。自己加的、没共享的为 nil。
+    public var sharedAddedBy: String?
 
     public init(uuid: UUID = UUID(), tripUUID: UUID, title: String, category: String = "",
                 packed: Bool = false, sortIndex: Int = 0, createdAt: Date = .now) {

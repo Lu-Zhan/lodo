@@ -55,6 +55,8 @@ struct TravelDetailView: View {
     @State private var noticeTask: Task<Void, Never>?
     /// 当前这条提示是"没填城市和国家"的提醒:带「去填写」和关闭两颗按钮,一直挂着。
     @State private var noticeOffersTripEdit = false
+    /// 当前提示带关闭按钮(共享失败这类要留着看清楚、又不该一直挂着的)。
+    @State private var noticeDismissible = false
     /// 切换 mapDay 后要选中的点。行选中需要先把按天筛选退回「全部」,而 mapDay 的
     /// onChange 默认会清掉选中、框全部点——有这个就改成飞到这个点。
     @State private var pendingPin: String?
@@ -66,6 +68,8 @@ struct TravelDetailView: View {
     @State private var panelScrollPending = false
     /// 正在按地名查位置的那一条(点了还没坐标的地点)。
     @State private var locatingEntry: UUID?
+    /// 正在建 zone / 取 share,共享菜单项先置灰。
+    @State private var preparingShare = false
 
     private static let peekDetent = PresentationDetent.height(200)
 
@@ -166,6 +170,14 @@ struct TravelDetailView: View {
             guard showsRoutes else { return }
             if await TravelRouteLoader.load(selectedDayLegs) { routeRevision += 1 }
         }
+        // 共享失败(建 zone/share、系统共享界面、同步推送)如实挂在地图顶上,
+        // 不自动消失——原来这些错误只存不显示,用户只看到"发不出去"。
+        .onChange(of: SharedTripSync.shared.lastError) { _, message in
+            guard let message else { return }
+            SharedTripSync.shared.lastError = nil
+            showNotice(String(localized: "共享失败:\(message)", bundle: .appLanguage(language),
+                              locale: language.locale), sticky: true, dismissible: true)
+        }
         .onChange(of: pinSignature) { _, _ in
             if selectedPin == nil { focusCamera(animated: true) }
         }
@@ -182,6 +194,23 @@ struct TravelDetailView: View {
             dismiss()
         }
     }
+
+    #if os(iOS)
+    /// 建 zone + CKShare(已共享时取回现有的),再弹系统共享界面。已有的行程、文件、
+    /// 清单随后在后台全量上传,面板头部报进度。
+    private func share() {
+        preparingShare = true
+        Task {
+            defer { preparingShare = false }
+            do {
+                let share = try await SharedTripSync.shared.prepareShare(for: trip)
+                CloudSharingPresenter.present(share: share, trip: trip)
+            } catch {
+                SharedTripSync.shared.report(error.localizedDescription)
+            }
+        }
+    }
+    #endif
 
     private var actionMenu: some View {
         Menu {
@@ -208,6 +237,19 @@ struct TravelDetailView: View {
             } label: {
                 Label("编辑旅行", systemImage: "pencil")
             }
+            #if os(iOS)
+            // 邀请/管理成员/停止共享都在系统的共享界面里(见 CloudSharingPresenter)。
+            Button {
+                share()
+            } label: {
+                if trip.isShared {
+                    Label("共享成员…", systemImage: "person.2.fill")
+                } else {
+                    Label("共享旅行…", systemImage: "person.2")
+                }
+            }
+            .disabled(preparingShare)
+            #endif
         } label: {
             Label("行程操作", systemImage: "ellipsis.circle")
         }
@@ -358,6 +400,12 @@ struct TravelDetailView: View {
                         Label(location, systemImage: "mappin.and.ellipse")
                     }
                     Label("\(dateRangeText) · 共 \(trip.dayCount) 天", systemImage: "calendar")
+                    // 共享旅行还有改动没推上去(刚开始共享时的全量上传最明显)。
+                    if let pending = SharedTripSync.shared.pendingCounts[trip.uuid], pending > 0 {
+                        Label("正在同步 \(pending) 项", systemImage: "arrow.triangle.2.circlepath")
+                    } else if trip.isShared {
+                        Label("已共享", systemImage: "person.2.fill")
+                    }
                     // 备注(那句概述)只在旅行列表页显示:进到这一页要看的是行程本身,
                     // 那句话每天翻十遍不再带来信息,反而把第一天压到屏幕外面去。
                 }
@@ -759,7 +807,7 @@ struct TravelDetailView: View {
                         Text(notice)
                             .font(.subheadline)
                             .fixedSize(horizontal: false, vertical: true)
-                        if noticeOffersTripEdit {
+                        if noticeOffersTripEdit || noticeDismissible {
                             Spacer(minLength: 0)
                             Button {
                                 showNotice(nil)
@@ -1009,10 +1057,12 @@ struct TravelDetailView: View {
     }
 
     /// 地图顶上的提示。sticky 的一直挂着(进行中/需要用户处理),否则几秒后自己消失。
-    private func showNotice(_ text: String?, sticky: Bool = false, offersTripEdit: Bool = false) {
+    private func showNotice(_ text: String?, sticky: Bool = false, offersTripEdit: Bool = false,
+                            dismissible: Bool = false) {
         noticeTask?.cancel()
         mapNotice = text
         noticeOffersTripEdit = text != nil && offersTripEdit
+        noticeDismissible = text != nil && dismissible
         guard text != nil, !sticky else { return }
         noticeTask = Task {
             try? await Task.sleep(for: .seconds(4))
@@ -1425,6 +1475,11 @@ struct TravelDetailView: View {
                 span += " – " + endText
             }
             parts.append(span)
+        }
+        // 共享旅行里别人加的那几行,末尾标出是谁加的。
+        if let name = item(for: entry)?.sharedAddedBy, !name.isEmpty {
+            parts.append(String(localized: "由 \(name) 添加", bundle: .appLanguage(language),
+                                locale: language.locale))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

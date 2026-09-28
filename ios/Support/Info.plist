@@ -11,7 +11,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<!-- 旅行共享的 CKSyncEngine 靠静默推送得知服务器上有变化。 -->
+		<string>remote-notification</string>
 	</array>
+	<!-- 允许接受 CloudKit 共享邀请(旅行共享,见 SharedTripSync)。 -->
+	<key>CKSharingSupported</key>
+	<true/>
 	<key>NSContactsUsageDescription</key>
 	<string>用于从通讯录导入联系人到记忆库,或将记忆库里的联系人导出到通讯录。</string>
 	<key>NSCameraUsageDescription</key>

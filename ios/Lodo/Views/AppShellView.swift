@@ -271,6 +271,12 @@ struct AppShellView: View {
                 consumeRescheduleHandoff()
             }
         }
+        // 接受了共享邀请、数据拉下来之后,直接进到那一趟旅行。
+        .onChange(of: SharedTripSync.shared.openTripRequest) { _, uuid in
+            guard let uuid else { return }
+            SharedTripSync.shared.openTripRequest = nil
+            open(.trip(uuid))
+        }
         #if os(iOS)
         // Siri Intent 交接的快路径(app 已在运行时即时弹出)
         .onReceive(NotificationCenter.default.publisher(
@@ -725,7 +731,8 @@ struct AppShellView: View {
             go(target)
             break
         }
-        if args.contains("--demo-settings") || args.contains("--demo-reminder-settings") {
+        if args.contains("--demo-settings") || args.contains("--demo-reminder-settings")
+            || args.contains("--demo-sync-status") {
             showSettings = true
         }
         // 抽屉本身:simctl 既点不了 ☰ 也滑不了手势,直接摆成展开。

@@ -1529,3 +1529,50 @@ ios_view.agent_library_4,没有改动,No changes,ios_view,AI 结果回复/资产
 ios_view.travel_lodging_1,住宿,Lodging,ios_view,旅行详情:总览住宿
 ios_view.travel_lodging_2,还没有记下住宿。,No lodging recorded yet.,ios_view,旅行详情:总览住宿
 ios_view.travel_lodging_4,共 %lld 晚,%lld nights,ios_view,旅行详情:总览住宿
+ios_view.share_trip,共享旅行…,Share Trip…,ios_view,旅行共享
+ios_view.share_members,共享成员…,Shared With…,ios_view,旅行共享
+ios_view.share_syncing,正在同步 %lld 项,Syncing %lld items,ios_view,旅行共享
+ios_view.share_shared,已共享,Shared,ios_view,旅行共享
+ios_view.share_added_by,由 %@ 添加,Added by %@,ios_view,旅行共享
+ios_view.share_sign_in,请先在系统设置里登录 iCloud,Sign in to iCloud in Settings first,ios_view,旅行共享
+ios_view.share_delete_owner,"这次旅行下面的航班、住宿、地点会一起删掉,并停止共享;成员会保留各自的副本,但不再同步。","Its flights, stays, and places will be deleted too, and sharing will stop. Members keep their own copies, but they won't sync anymore.",ios_view,旅行共享
+ios_view.share_delete_participant,"会退出这次共享并删掉你这边的副本,其他成员不受影响。",You'll leave this shared trip and delete your copy. Other members aren't affected.,ios_view,旅行共享
+ios_view.share_failed,共享失败:%@,Sharing failed: %@,ios_view,旅行共享
+ios_view.share_no_window,没找到可以弹出共享界面的窗口,Couldn't find a window to show sharing in,ios_view,旅行共享
+ios_view.share_not_saved,"共享没有存到 iCloud,请稍后再试",Sharing wasn't saved to iCloud. Try again later.,ios_view,旅行共享
+ios_view.share_gone,"这次共享已经不存在了,本地保留了一份副本",This share no longer exists. A copy was kept on this device.,ios_view,旅行共享
+ios_view.share_throttled,"iCloud 暂时限流,约 %lld 分钟后再试",iCloud is rate-limiting requests. Try again in about %lld min.,ios_view,旅行共享
+ios_view.sync_status,同步状态,Sync Status,ios_view,旅行共享
+ios_view.sync_account,账号,Account,ios_view,旅行共享
+ios_view.sync_account_id,账号标识,Account ID,ios_view,旅行共享
+ios_view.sync_environment,环境,Environment,ios_view,旅行共享
+ios_view.sync_database,数据库,Database,ios_view,旅行共享
+ios_view.sync_setting,设置开关,Setting,ios_view,旅行共享
+ios_view.sync_on,开,On,ios_view,旅行共享
+ios_view.sync_off,关,Off,ios_view,旅行共享
+ios_view.sync_footer,"两台设备的账号标识和环境必须相同才会互相同步。Xcode 直接安装连的是 Development,TestFlight / App Store 连的是 Production,两者数据互不相通。",Both devices need the same account ID and environment to sync. Installing from Xcode uses Development; TestFlight and the App Store use Production. The two never share data.,ios_view,旅行共享
+ios_view.sync_db_failures,数据库启动失败,Database Startup Failures,ios_view,旅行共享
+ios_view.sync_local_data,本机数据,On This Device,ios_view,旅行共享
+ios_view.sync_counts_footer,"同步完成后,两台设备上的条数应该相同。","Once syncing finishes, both devices should show the same counts.",ios_view,旅行共享
+ios_view.sync_events,同步事件,Sync Events,ios_view,旅行共享
+ios_view.sync_events_footer,"只记录这次打开 App 之后的事件。setup 是建立同步,import 是从 iCloud 拉取,export 是上传本机改动。","Only events since the app was opened are shown. setup establishes syncing, import pulls from iCloud, export uploads changes from this device.",ios_view,旅行共享
+ios_view.sync_chunks,记忆分片,Memory Chunks,ios_view,旅行共享
+ios_view.sync_articles,新闻文章,News Articles,ios_view,旅行共享
+ios_view.sync_messages,AI 对话,AI Messages,ios_view,旅行共享
+ios_view.sync_signed_in,已登录,Signed In,ios_view,旅行共享
+ios_view.sync_no_account,未登录 iCloud,Not Signed In to iCloud,ios_view,旅行共享
+ios_view.sync_restricted,受限制(家长控制/设备管理),Restricted (Screen Time or device management),ios_view,旅行共享
+ios_view.sync_temp_unavailable,暂时不可用(需在系统设置里重新验证),Temporarily unavailable (re-verify in Settings),ios_view,旅行共享
+ios_view.sync_unknown_status,无法确定,Couldn't Determine,ios_view,旅行共享
+ios_view.sync_unknown,未知,Unknown,ios_view,旅行共享
+ios_view.sync_default_icloud,默认位置 + iCloud,Default Location + iCloud,ios_view,旅行共享
+ios_view.sync_group_local,"App Group,仅本机","App Group, This Device Only",ios_view,旅行共享
+ios_view.sync_default_local,"默认位置,仅本机","Default Location, This Device Only",ios_view,旅行共享
+ios_view.sync_in_memory,内存(数据不会保存!),In Memory (data won't be saved!),ios_view,旅行共享
+ios_view.sync_no_events,还没有同步事件。,No sync events yet.,ios_view,旅行共享
+ios_view.sync_no_icloud,"这次启动没有接 iCloud,不会有同步事件。","iCloud isn't connected this launch, so there are no sync events.",ios_view,旅行共享
+ios_view.sync_env_sim,Development(模拟器),Development (Simulator),ios_view,旅行共享
+ios_view.sync_env_prod,Production(TestFlight / App Store),Production (TestFlight / App Store),ios_view,旅行共享
+ios_view.sync_env_dev,Development(Xcode 调试安装),Development (installed from Xcode),ios_view,旅行共享
+ios_view.sync_env_adhoc,Production(Ad Hoc),Production (Ad Hoc),ios_view,旅行共享
+ios_view.sync_env_mac,macOS:取决于签名方式,macOS: depends on signing,ios_view,旅行共享

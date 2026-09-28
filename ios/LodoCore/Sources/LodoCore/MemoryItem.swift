@@ -118,6 +118,9 @@ public final class MemoryItem {
     /// 机型、状态……从用户导入的订单文本/截图里解析出来。字段多且全是可选的,
     /// 拆成一堆列只会让模型和备份膨胀,所以整块存。只对航班类行程项有意义。
     public var travelFlightData: Data?
+    /// 共享旅行里别人加的行程项/文件:添加人的显示名(「由 X 添加」)。自己加的、
+    /// 不在共享旅行里的为 nil。不参与共享同步本身,由收到的一端按记录创建者算。
+    public var sharedAddedBy: String?
 
     // MARK: - 菜单字段(tags 含 menuTagName 时才有意义)
     // 和资产/人脉/旅行**反过来**:这条记忆条目是**整张菜单**(照片 + OCR 原文 +

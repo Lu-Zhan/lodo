@@ -929,6 +929,22 @@
         }
       }
     },
+    "AI 对话" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Messages"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 对话"
+          }
+        }
+      }
+    },
     "AI 已填写" : {
       "localizations" : {
         "en" : {
@@ -1137,6 +1153,22 @@
         }
       }
     },
+    "App Group,仅本机" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Group, This Device Only"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Group,仅本机"
+          }
+        }
+      }
+    },
     "App 图标" : {
       "localizations" : {
         "en" : {
@@ -1149,6 +1181,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App 图标"
+          }
+        }
+      }
+    },
+    "Development(Xcode 调试安装)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Development (installed from Xcode)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Development(Xcode 调试安装)"
+          }
+        }
+      }
+    },
+    "Development(模拟器)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Development (Simulator)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Development(模拟器)"
           }
         }
       }
@@ -1181,6 +1246,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloud 同步"
+          }
+        }
+      }
+    },
+    "iCloud 暂时限流,约 %lld 分钟后再试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud is rate-limiting requests. Try again in about %lld min."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud 暂时限流,约 %lld 分钟后再试"
           }
         }
       }
@@ -1233,6 +1314,22 @@
         }
       }
     },
+    "macOS:取决于签名方式" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS: depends on signing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS:取决于签名方式"
+          }
+        }
+      }
+    },
     "OpenStreetMap" : {
       "localizations" : {
         "en" : {
@@ -1261,6 +1358,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OpenStreetMap 搜索失败,检查一下网络再试。"
+          }
+        }
+      }
+    },
+    "Production(Ad Hoc)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Production (Ad Hoc)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Production(Ad Hoc)"
+          }
+        }
+      }
+    },
+    "Production(TestFlight / App Store)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Production (TestFlight / App Store)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Production(TestFlight / App Store)"
           }
         }
       }
@@ -1615,6 +1744,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "两个月内没有旅行或生日"
+          }
+        }
+      }
+    },
+    "两台设备的账号标识和环境必须相同才会互相同步。Xcode 直接安装连的是 Development,TestFlight / App Store 连的是 Production,两者数据互不相通。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Both devices need the same account ID and environment to sync. Installing from Xcode uses Development; TestFlight and the App Store use Production. The two never share data."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两台设备的账号标识和环境必须相同才会互相同步。Xcode 直接安装连的是 Development,TestFlight / App Store 连的是 Production,两者数据互不相通。"
           }
         }
       }
@@ -2539,6 +2684,22 @@
         }
       }
     },
+    "会退出这次共享并删掉你这边的副本,其他成员不受影响。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll leave this shared trip and delete your copy. Other members aren't affected."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会退出这次共享并删掉你这边的副本,其他成员不受影响。"
+          }
+        }
+      }
+    },
     "低" : {
       "localizations" : {
         "en" : {
@@ -3280,6 +3441,86 @@
         }
       }
     },
+    "共享失败:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing failed: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享失败:%@"
+          }
+        }
+      }
+    },
+    "共享成员…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared With…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享成员…"
+          }
+        }
+      }
+    },
+    "共享旅行…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Trip…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享旅行…"
+          }
+        }
+      }
+    },
+    "共享没有存到 iCloud,请稍后再试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing wasn't saved to iCloud. Try again later."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享没有存到 iCloud,请稍后再试"
+          }
+        }
+      }
+    },
+    "关" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关"
+          }
+        }
+      }
+    },
     "关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。" : {
       "localizations" : {
         "en" : {
@@ -3500,6 +3741,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "其他旅行"
+          }
+        }
+      }
+    },
+    "内存(数据不会保存!)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Memory (data won't be saved!)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内存(数据不会保存!)"
           }
         }
       }
@@ -4790,6 +5047,22 @@
         }
       }
     },
+    "受限制(家长控制/设备管理)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restricted (Screen Time or device management)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受限制(家长控制/设备管理)"
+          }
+        }
+      }
+    },
     "另有 %lld 项不定期的没有折算进每月。" : {
       "localizations" : {
         "en" : {
@@ -4818,6 +5091,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "只有日期、没有时间的事项,当天几点提醒。"
+          }
+        }
+      }
+    },
+    "只记录这次打开 App 之后的事件。setup 是建立同步,import 是从 iCloud 拉取,export 是上传本机改动。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only events since the app was opened are shown. setup establishes syncing, import pulls from iCloud, export uploads changes from this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只记录这次打开 App 之后的事件。setup 是建立同步,import 是从 iCloud 拉取,export 是上传本机改动。"
           }
         }
       }
@@ -4947,6 +5236,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "合计"
+          }
+        }
+      }
+    },
+    "同步事件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync Events"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步事件"
+          }
+        }
+      }
+    },
+    "同步完成后,两台设备上的条数应该相同。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once syncing finishes, both devices should show the same counts."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步完成后,两台设备上的条数应该相同。"
+          }
+        }
+      }
+    },
+    "同步状态" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync Status"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步状态"
           }
         }
       }
@@ -6635,6 +6972,22 @@
         }
       }
     },
+    "已共享" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已共享"
+          }
+        }
+      }
+    },
     "已写入行程" : {
       "localizations" : {
         "en" : {
@@ -7003,6 +7356,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已添加"
+          }
+        }
+      }
+    },
+    "已登录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed In"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已登录"
           }
         }
       }
@@ -7552,6 +7921,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "建一次旅行,把航班、住宿、想去的地方都放进去,可以按天看,也可以看花了多少。"
+          }
+        }
+      }
+    },
+    "开" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开"
           }
         }
       }
@@ -9308,6 +9693,38 @@
         }
       }
     },
+    "数据库" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Database"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据库"
+          }
+        }
+      }
+    },
+    "数据库启动失败" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Database Startup Failures"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据库启动失败"
+          }
+        }
+      }
+    },
     "整理" : {
       "localizations" : {
         "en" : {
@@ -9501,6 +9918,22 @@
         }
       }
     },
+    "新闻文章" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "News Articles"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新闻文章"
+          }
+        }
+      }
+    },
     "旅行" : {
       "localizations" : {
         "en" : {
@@ -9562,6 +9995,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法导入"
+          }
+        }
+      }
+    },
+    "无法确定" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Determine"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法确定"
           }
         }
       }
@@ -10082,6 +10531,22 @@
         }
       }
     },
+    "暂时不可用(需在系统设置里重新验证)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temporarily unavailable (re-verify in Settings)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时不可用(需在系统设置里重新验证)"
+          }
+        }
+      }
+    },
     "暂时没法直接添加。打开 lodo,AI 助手会带着这句话等你补充。" : {
       "localizations" : {
         "en" : {
@@ -10483,6 +10948,38 @@
         }
       }
     },
+    "未登录 iCloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Signed In to iCloud"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登录 iCloud"
+          }
+        }
+      }
+    },
+    "未知" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知"
+          }
+        }
+      }
+    },
     "未读" : {
       "localizations" : {
         "en" : {
@@ -10594,6 +11091,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "本月更新"
+          }
+        }
+      }
+    },
+    "本机数据" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On This Device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机数据"
           }
         }
       }
@@ -10997,6 +11510,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在分析…"
+          }
+        }
+      }
+    },
+    "正在同步 %lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Syncing %lld items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在同步 %lld 项"
           }
         }
       }
@@ -11609,6 +12138,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没找到「%@」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。"
+          }
+        }
+      }
+    },
+    "没找到可以弹出共享界面的窗口" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't find a window to show sharing in"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没找到可以弹出共享界面的窗口"
           }
         }
       }
@@ -12468,6 +13013,22 @@
         }
       }
     },
+    "环境" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Environment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "环境"
+          }
+        }
+      }
+    },
     "现在值多少" : {
       "localizations" : {
         "en" : {
@@ -12610,6 +13171,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用右下角的 + 添加,比如每天早上让 AI 总结今天的任务。"
+          }
+        }
+      }
+    },
+    "由 %@ 添加" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added by %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由 %@ 添加"
           }
         }
       }
@@ -14582,6 +15159,22 @@
         }
       }
     },
+    "记忆分片" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory Chunks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记忆分片"
+          }
+        }
+      }
+    },
     "记忆列表里点右上角「+」记一位人脉。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -14611,6 +15204,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置"
+          }
+        }
+      }
+    },
+    "设置开关" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置开关"
           }
         }
       }
@@ -14826,6 +15435,22 @@
         }
       }
     },
+    "请先在系统设置里登录 iCloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to iCloud in Settings first"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先在系统设置里登录 iCloud"
+          }
+        }
+      }
+    },
     "请在系统设置 → 隐私与安全性 → 通讯录 里允许 lodo 访问。" : {
       "localizations" : {
         "en" : {
@@ -14982,6 +15607,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "账单日 %lld 号"
+          }
+        }
+      }
+    },
+    "账号" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号"
+          }
+        }
+      }
+    },
+    "账号标识" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account ID"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号标识"
           }
         }
       }
@@ -15789,6 +16446,22 @@
         }
       }
     },
+    "还没有同步事件。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sync events yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有同步事件。"
+          }
+        }
+      }
+    },
     "还没有完成的事项" : {
       "localizations" : {
         "en" : {
@@ -16218,6 +16891,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这是一个外部 skill,导入后默认停用。请先看完下面的内容,确认可信再启用。"
+          }
+        }
+      }
+    },
+    "这次共享已经不存在了,本地保留了一份副本" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This share no longer exists. A copy was kept on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次共享已经不存在了,本地保留了一份副本"
+          }
+        }
+      }
+    },
+    "这次启动没有接 iCloud,不会有同步事件。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud isn't connected this launch, so there are no sync events."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次启动没有接 iCloud,不会有同步事件。"
+          }
+        }
+      }
+    },
+    "这次旅行下面的航班、住宿、地点会一起删掉,并停止共享;成员会保留各自的副本,但不再同步。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its flights, stays, and places will be deleted too, and sharing will stop. Members keep their own copies, but they won't sync anymore."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次旅行下面的航班、住宿、地点会一起删掉,并停止共享;成员会保留各自的副本,但不再同步。"
           }
         }
       }
@@ -17373,6 +18094,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。"
+          }
+        }
+      }
+    },
+    "默认位置 + iCloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Location + iCloud"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认位置 + iCloud"
+          }
+        }
+      }
+    },
+    "默认位置,仅本机" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Location, This Device Only"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认位置,仅本机"
           }
         }
       }

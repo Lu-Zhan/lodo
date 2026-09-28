@@ -105,7 +105,14 @@ struct TravelListView: View {
                 }
                 Button("取消", role: .cancel) { pendingDelete = nil }
             } message: {
-                Text("这次旅行下面的航班、住宿、地点会一起删掉(它们同时是记忆条目)。")
+                switch pendingDelete?.shareRole {
+                case .owner:
+                    Text("这次旅行下面的航班、住宿、地点会一起删掉,并停止共享;成员会保留各自的副本,但不再同步。")
+                case .participant:
+                    Text("会退出这次共享并删掉你这边的副本,其他成员不受影响。")
+                case nil:
+                    Text("这次旅行下面的航班、住宿、地点会一起删掉(它们同时是记忆条目)。")
+                }
             }
             #if DEBUG
             .onAppear(perform: applyDemoArgumentsIfNeeded)
@@ -151,10 +158,13 @@ struct TravelListView: View {
             statusText(trip)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(trip.isOngoing() || trip.isUpcoming() ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-            Group {
-                if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
+            HStack(spacing: 8) {
+                Group {
+                    if trip.title.isEmpty { Text("未命名旅行") } else { Text(trip.title) }
+                }
+                .font(.title2.weight(.semibold))
+                sharedBadge(trip)
             }
-            .font(.title2.weight(.semibold))
             VStack(alignment: .leading, spacing: 4) {
                 if let location = trip.locationText {
                     Label(location, systemImage: "mappin.and.ellipse")
@@ -238,10 +248,13 @@ struct TravelListView: View {
     private func row(_ trip: TravelTrip) -> some View {
         let count = memoryItems.filter { $0.isTravel && $0.travelTripUUID == trip.uuid && $0.travelKind != nil }.count
         return VStack(alignment: .leading, spacing: 3) {
-            Text(trip.title.isEmpty
-                 ? String(localized: "未命名旅行", bundle: .appLanguage(language), locale: language.locale)
-                 : trip.title)
-                .font(.body.weight(.medium))
+            HStack(spacing: 6) {
+                Text(trip.title.isEmpty
+                     ? String(localized: "未命名旅行", bundle: .appLanguage(language), locale: language.locale)
+                     : trip.title)
+                    .font(.body.weight(.medium))
+                sharedBadge(trip)
+            }
             if let location = trip.locationText {
                 Label(location, systemImage: "mappin.and.ellipse")
                     .font(.subheadline)
@@ -258,6 +271,17 @@ struct TravelListView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    /// 共享中的旅行标题旁边一枚小人像。
+    @ViewBuilder
+    private func sharedBadge(_ trip: TravelTrip) -> some View {
+        if trip.isShared {
+            Image(systemName: "person.2.fill")
+                .font(.footnote)
+                .foregroundStyle(.tint)
+                .accessibilityLabel("已共享")
+        }
     }
 
     /// 日期区间先拼成一个串,让上面那句只剩三个占位符——字符串目录里

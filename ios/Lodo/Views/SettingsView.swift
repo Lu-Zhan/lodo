@@ -44,7 +44,7 @@ struct SettingsView: View {
     /// 页面里原有的 NavigationLink { } label: { } 不走这个栈,照常工作。
     @State private var path: [SettingsRoute] = []
 
-    enum SettingsRoute: Hashable { case reminder }
+    enum SettingsRoute: Hashable { case reminder, syncStatus }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -282,6 +282,11 @@ struct SettingsView: View {
                 // ---- iCloud ----
                 Section {
                     Toggle("iCloud 同步", isOn: $icloudSyncEnabled)
+                    NavigationLink {
+                        CloudSyncStatusView()
+                    } label: {
+                        Text("同步状态")
+                    }
                 } header: {
                     Text("iCloud")
                 } footer: {
@@ -306,6 +311,7 @@ struct SettingsView: View {
             .navigationDestination(for: SettingsRoute.self) { route in
                 switch route {
                 case .reminder: ReminderSettingsView()
+                case .syncStatus: CloudSyncStatusView()
                 }
             }
             #if DEBUG
@@ -313,6 +319,9 @@ struct SettingsView: View {
             .onAppear {
                 if ProcessInfo.processInfo.arguments.contains("--demo-reminder-settings") {
                     path = [.reminder]
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-sync-status") {
+                    path = [.syncStatus]
                 }
             }
             #endif

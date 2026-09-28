@@ -24,6 +24,11 @@ public final class TravelTrip {
     /// 读写走 `destinations`。
     public var extraDestinations: String = ""
     public var createdAt: Date = Date.now
+    /// 共享身份(`SharedTripRole` 的存储值):空串 = 没共享,`owner` = 我分享出去的,
+    /// `participant` = 别人分享给我的。见 `SharedTripSync`。
+    public var shareRoleRaw: String = ""
+    /// 共享 zone 的 owner(`CKRecordZone.ID.ownerName`);没共享时为空串。
+    public var shareZoneOwner: String = ""
 
     public init(uuid: UUID = UUID(), title: String = "", startDate: Date = .now,
                 endDate: Date = .now, notes: String = "", city: String = "",
