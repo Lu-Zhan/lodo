@@ -73,6 +73,10 @@ public final class MemoryItem {
     /// 资产金额/负债最近一次更新的时间(资产页"上次更新 3 个月前")。老数据为 nil,
     /// 按 createdAt 算(见 assetUpdatedAtOrCreated)。
     public var assetUpdatedAt: Date?
+    /// 在哪本共享资产台账里(`assets-<uuid>` zone 的 uuid);nil = 没共享。只对资产
+    /// 条目有意义,见 `SharedAssetMapping`。**不进备份**(同 `TravelTrip.shareRoleRaw`):
+    /// 恢复出来就是不共享的一份。
+    public var assetLedgerUUID: UUID?
 
     // MARK: - 人脉字段(tags 含 contactTagName 时才有意义,与 assetValue 同思路)
     /// 昵称;姓名复用 title,备注复用 summary(和资产复用 summary 当备注同思路)。

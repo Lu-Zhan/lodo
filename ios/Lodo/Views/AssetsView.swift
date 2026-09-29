@@ -12,6 +12,8 @@ import LodoCore
 ///
 /// 顶上是总览卡:净资产 + 每月收支;有哪一项超过 3 个月没更新就挂一行提示。
 /// 新建收在右上角「+」——收入/支出/信用卡 AI 接不了(同人脉页右上角那两颗的道理)。
+/// 「+」旁边是共享:整本台账经 iCloud 共享给家人一起记(`SharedTripSync.prepareAssetShare`,
+/// 同旅行共享那套),对方加入之前自己记的那些不会被传过去。
 struct AssetsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.sidebarChrome) private var sidebarChrome
@@ -25,6 +27,13 @@ struct AssetsView: View {
     @State private var editingEntry: FinanceSheet?
     @State private var pendingDeleteAsset: MemoryItem?
     @State private var now = Date()
+    /// 正在建 zone / 取 share(第一次要等几秒),共享按钮先转圈。
+    @State private var preparingShare = false
+    @State private var shareError: String?
+    @Environment(\.sectionIsActive) private var isActive
+
+    private var sync: SharedTripSync { SharedTripSync.shared }
+    private var assetShare: SharedTripSync.AssetShareState? { sync.assetShare }
 
     private var rates: ExchangeRateStore { ExchangeRateStore.shared }
 
@@ -54,6 +63,9 @@ struct AssetsView: View {
             .navigationTitle("资产")
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false) {
+                    #if os(iOS)
+                    ToolbarItem(placement: .primaryAction) { shareButton }
+                    #endif
                     ToolbarItem(placement: .primaryAction) { addMenu }
                 }
             }
@@ -76,6 +88,23 @@ struct AssetsView: View {
                     if let item = pendingDeleteAsset { MemoryPipeline.delete(item, context: context) }
                     pendingDeleteAsset = nil
                 }
+            } message: {
+                if isShared(pendingDeleteAsset?.assetLedgerUUID) {
+                    Text("这项在共享台账里,删除后共享的成员那边也会一起删掉。")
+                }
+            }
+            .alert("共享没有成功", isPresented: Binding(
+                get: { shareError != nil }, set: { if !$0 { shareError = nil } })) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(shareError ?? "")
+            }
+            // 共享同步里的失败(系统共享界面、推送)经 SharedTripSync.lastError 报上来;
+            // 只在这一页显示着时接走,旅行详情页开着时归它。
+            .onChange(of: sync.lastError) { _, message in
+                guard isActive, let message else { return }
+                sync.lastError = nil
+                shareError = message
             }
             .task {
                 await rates.refreshIfNeeded()
@@ -85,6 +114,71 @@ struct AssetsView: View {
             #if DEBUG
             .onAppear(perform: applyDemoArguments)
             #endif
+        }
+    }
+
+    // MARK: - 共享
+
+    private func isShared(_ ledgerUUID: UUID?) -> Bool {
+        guard let ledgerUUID else { return false }
+        return assetShare?.ledgerUUID == ledgerUUID
+    }
+
+    #if os(iOS)
+    /// 邀请/管理成员/停止共享/退出都在系统共享界面里(见 CloudSharingPresenter)。
+    private var shareButton: some View {
+        Button(action: share) {
+            if preparingShare {
+                ProgressView()
+            } else {
+                Label(assetShare == nil ? "共享资产" : "共享成员",
+                      systemImage: assetShare == nil ? "person.crop.circle.badge.plus" : "person.2.fill")
+            }
+        }
+        .disabled(preparingShare || !sync.isAvailable)
+    }
+
+    private func share() {
+        preparingShare = true
+        Task {
+            defer { preparingShare = false }
+            do {
+                let share = try await sync.prepareAssetShare()
+                CloudSharingPresenter.presentAssets(share: share)
+            } catch {
+                sync.report(error.localizedDescription)
+                shareError = error.localizedDescription
+                sync.lastError = nil
+            }
+        }
+    }
+    #endif
+
+    /// 总览卡顶上那一行:共享状态。成员那边多说一句"加入前记的只在自己这儿"。
+    @ViewBuilder
+    private var shareStatus: some View {
+        if let assetShare {
+            let pending = sync.pendingCounts[assetShare.ledgerUUID] ?? 0
+            VStack(alignment: .leading, spacing: 2) {
+                Label {
+                    if pending > 0 {
+                        Text("正在同步 \(pending) 项")
+                    } else if assetShare.role == .owner {
+                        Text("已共享")
+                    } else {
+                        Text("加入的共享台账")
+                    }
+                } icon: {
+                    Image(systemName: "person.2.fill")
+                }
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(lodoAccent.accent)
+                if assetShare.role == .participant {
+                    Text("带 \(Image(systemName: "person.2.fill")) 的是共享台账里的;加入之前你自己记的只在这台设备上。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -156,6 +250,7 @@ struct AssetsView: View {
         let worth = netWorth
         let month = monthly
         return VStack(alignment: .leading, spacing: 12) {
+            shareStatus
             VStack(alignment: .leading, spacing: 2) {
                 Text("净资产").font(.subheadline).foregroundStyle(.secondary)
                 Text(AssetFormat.currency(worth.net, code: displayCurrency))
@@ -248,7 +343,8 @@ struct AssetsView: View {
                        amount: item.assetValue.map { AssetFormat.currency($0, code: item.assetCurrencyOrDefault) },
                        amountColor: .primary,
                        stale: FinancePlan.monthsSince(item.assetUpdatedAtOrCreated, now: now)
-                           >= FinancePlan.staleMonths)
+                           >= FinancePlan.staleMonths,
+                       shared: marksShared(item.assetLedgerUUID))
         }
         .pressableCard()
         .swipeActions(edge: .trailing) {
@@ -260,6 +356,12 @@ struct AssetsView: View {
         }
     }
 
+    /// 行上挂不挂「共享」小图标:只在成员那边挂——owner 的整本台账都在共享里,
+    /// 每行都挂一枚等于没挂;成员那边共享的和自己私下记的混在一起,才需要分开。
+    private func marksShared(_ ledgerUUID: UUID?) -> Bool {
+        assetShare?.role == .participant && isShared(ledgerUUID)
+    }
+
     private func assetDetail(_ item: MemoryItem) -> String {
         var parts: [String] = []
         if let liability = item.assetLiability {
@@ -269,6 +371,9 @@ struct AssetsView: View {
             parts.append(localized("利率 \(AssetFormat.percent(rate))"))
         }
         parts.append(updatedText(item.assetUpdatedAtOrCreated))
+        if let name = item.sharedAddedBy, !name.isEmpty, isShared(item.assetLedgerUUID) {
+            parts.append(localized("由 \(name) 添加"))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -305,7 +410,8 @@ struct AssetsView: View {
                        amountColor: entry.kind == .income ? LodoColor.positive
                            : entry.kind == .expense ? LodoColor.critical : .primary,
                        stale: FinancePlan.monthsSince(entry.updatedAt, now: now) >= FinancePlan.staleMonths,
-                       reminding: entry.kind == .creditCard && entry.remindEnabled && entry.dayOfMonth != nil)
+                       reminding: entry.kind == .creditCard && entry.remindEnabled && entry.dayOfMonth != nil,
+                       shared: marksShared(entry.ledgerUUID))
         }
         .pressableCard()
         .swipeActions(edge: .trailing) {
@@ -358,6 +464,9 @@ struct AssetsView: View {
             }
         }
         if parts.isEmpty { parts.append(updatedText(entry.updatedAt)) }
+        if let name = entry.sharedAddedBy, !name.isEmpty, isShared(entry.ledgerUUID) {
+            parts.append(localized("由 \(name) 添加"))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -434,6 +543,7 @@ private struct FinanceRow: View {
     let amountColor: Color
     var stale = false
     var reminding = false
+    var shared = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -446,6 +556,12 @@ private struct FinanceRow: View {
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
+                    if shared {
+                        Image(systemName: "person.2.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("在共享台账里")
+                    }
                     if reminding {
                         Image(systemName: "bell.fill")
                             .font(.caption)

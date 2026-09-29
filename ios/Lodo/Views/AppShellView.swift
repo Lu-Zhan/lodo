@@ -193,11 +193,14 @@ struct AppShellView: View {
     /// 旅行页消费掉之后置回 nil。
     @State private var travelTripRequest: UUID?
 
-    /// 窄屏时表示抽屉是否展开,宽屏时表示常驻侧栏是否可见;两种布局共用同一个开关。
+    /// 窄屏抽屉是否展开。宽屏用的是系统 NavigationSplitView(`columnVisibility`),
+    /// 不读这个开关。
+    ///
+    /// **初始恒为收起,也不在 onAppear 里按 sizeClass 赋值**:原来写的是
+    /// `showSidebar = usesRegularLayout`,可快捷指令/Siri(`openAppWhenRun`)把 app
+    /// 拉起来时,场景先在后台建好、第一次 onAppear 那一刻 sizeClass 可能还是
+    /// `.regular`,iPhone 上于是一打开就是抽屉展开、页面被推到右边的状态。
     @State private var showSidebar = false
-    /// 宽屏默认展开常驻侧栏,窄屏默认收起。sizeClass 在 init 阶段读不到,
-    /// 只能挂在第一次 onAppear 上做一次。
-    @State private var didSetInitialSidebar = false
     /// 设备物理安全区顶部高度(灵动岛/状态栏),不含 NavigationStack 内部给导航栏
     /// 额外预留的那截——挂在最外层的 background 上量,量到的是原始安全区,
     /// 不会被页面内部的导航栏放大。窄屏抽屉拉到物理顶部时(sidebarPanel 忽略了
@@ -302,13 +305,15 @@ struct AppShellView: View {
         .sheet(isPresented: $showSettings) { SettingsView() }
         .onChange(of: section) { _, new in visited.insert(new) }
         .onAppear {
-            if !didSetInitialSidebar {
-                didSetInitialSidebar = true
-                showSidebar = usesRegularLayout
-            }
             #if DEBUG
             applyDemoArguments()
             #endif
+        }
+        // 窄屏 ↔ 宽屏切换(分屏、旋转、后台启动时 sizeClass 晚到)时抽屉一律收起:
+        // 抽屉状态只对窄屏有意义,带着"展开"切回窄屏就是页面被推开一半。
+        .onChange(of: usesRegularLayout) { _, _ in
+            showSidebar = false
+            isClosingSidebar = false
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -318,10 +323,17 @@ struct AppShellView: View {
                 consumeRescheduleHandoff()
             }
         }
+        // 接受了资产台账的共享邀请:进资产页。
+        .onChange(of: SharedTripSync.shared.openAssetsRequest) { _, requested in
+            guard requested else { return }
+            SharedTripSync.shared.openAssetsRequest = false
+            routeFromOutside(.assets)
+        }
         // 接受了共享邀请、数据拉下来之后,直接进到那一趟旅行。
         .onChange(of: SharedTripSync.shared.openTripRequest) { _, uuid in
             guard let uuid else { return }
             SharedTripSync.shared.openTripRequest = nil
+            showSidebar = false
             open(.trip(uuid))
         }
         #if os(iOS)
@@ -336,7 +348,7 @@ struct AppShellView: View {
         .onReceive(NotificationCenter.default.publisher(
             for: NotificationManager.rescheduleHandoff)) { note in
             UserDefaults.standard.removeObject(forKey: NotificationManager.pendingRescheduleUUIDKey)
-            go(.overview)
+            routeFromOutside(.overview)
             rescheduleRequestUUID = note.userInfo?["uuid"] as? String
         }
         // 深链:lodo://add(小组件"+"、锁屏 AI 小组件)/lodo://agent?text=…(Siri Intent 回退)
@@ -353,12 +365,12 @@ struct AppShellView: View {
                 openAgent(prefill: text ?? "")
             case "memory":
                 memoryPath = []
-                go(.memory)
+                routeFromOutside(.memory)
             // 锁屏小组件:「今日」「重要的事」进任务页,「倒数日」进倒数日页。
             case "todo":
-                go(.todo)
+                routeFromOutside(.todo)
             case "countdown":
-                go(.countdown)
+                routeFromOutside(.countdown)
             default:
                 break
             }
@@ -455,6 +467,19 @@ struct AppShellView: View {
         visited.insert(target)
     }
 
+    /// 从 app 外面进来的跳转(快捷指令/Siri、深链、小组件、通知、共享邀请):切页的同时
+    /// 把抽屉直接收掉、不播动画——人是从别处点进来的,落地就该是那一页本身,不是
+    /// "抽屉还开着、页面被推在右边"。
+    private func routeFromOutside(_ target: AppSection) {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            showSidebar = false
+            isClosingSidebar = false
+            go(target)
+        }
+    }
+
     /// 进到某个条目里:切到它所在的页面,再把"打开哪一条"递给那一页。
     /// 页面自己负责 push(旅行页 `openTripRequest`),消费完把请求置回 nil。
     private func open(_ destination: AppDestination) {
@@ -472,7 +497,7 @@ struct AppShellView: View {
     }
 
     private func openAgent(prefill: String) {
-        go(.agent)
+        routeFromOutside(.agent)
         agentRequest = prefill
     }
 
@@ -725,7 +750,7 @@ struct AppShellView: View {
         guard let uuid = UserDefaults.standard.string(
             forKey: NotificationManager.pendingRescheduleUUIDKey) else { return }
         UserDefaults.standard.removeObject(forKey: NotificationManager.pendingRescheduleUUIDKey)
-        go(.overview)
+        routeFromOutside(.overview)
         rescheduleRequestUUID = uuid
     }
 

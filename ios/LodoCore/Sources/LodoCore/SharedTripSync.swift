@@ -28,6 +28,33 @@ public enum SharedRecordType: String, Codable, Sendable, CaseIterable {
     /// 行程项和旅行文件本来就是同一种 `MemoryItem`,共用一个类型。
     case entry = "TripEntry"
     case packing = "PackingItem"
+    /// 共享资产台账(`assets-<uuid>` zone)里的两种:资产条目(打「资产」标签的记忆条目)
+    /// 和收入/支出/信用卡(`FinanceEntry`)。
+    case asset = "Asset"
+    case finance = "FinanceEntry"
+}
+
+/// 共享 zone 的种类,按 zone 名前缀认(`trip-` / `assets-`)。同一套引擎、账本、合并
+/// 规则两种都用,只是"这个 zone 里装的是哪些记录"不一样。
+public enum SharedZoneKind: String, Codable, Sendable {
+    case trip
+    case assets
+
+    public init?(zoneName: String) {
+        if zoneName.hasPrefix(SharedTripMapping.zonePrefix) {
+            self = .trip
+        } else if zoneName.hasPrefix(SharedAssetMapping.zonePrefix) {
+            self = .assets
+        } else {
+            return nil
+        }
+    }
+
+    /// zone 名里带着的 uuid:旅行是 `TravelTrip.uuid`,资产台账是台账自己的 uuid
+    /// (`MemoryItem.assetLedgerUUID` / `FinanceEntry.ledgerUUID` 指向它)。
+    public static func containerUUID(fromZoneName name: String) -> UUID? {
+        SharedTripMapping.tripUUID(fromZoneName: name) ?? SharedAssetMapping.ledgerUUID(fromZoneName: name)
+    }
 }
 
 /// 一个字段的值。字段整份编码成 JSON 放进 CKRecord 的一个 `payload` 字段——合并在
@@ -86,6 +113,8 @@ public enum SharedTripMapping {
         f["country"] = .string(trip.country)
         f["extraDestinations"] = .string(trip.extraDestinations)
         f["emoji"] = .string(trip.emoji)
+        // 同行人整串同步;链接的人脉 uuid 在别人的设备上找不到,那边按存下的名字显示。
+        f["travelersData"] = .string(trip.travelersData)
         f["createdAt"] = .date(trip.createdAt)
         return SharedRecordSnapshot(type: .trip, uuid: trip.uuid, fields: f)
     }
@@ -99,6 +128,7 @@ public enum SharedTripMapping {
         trip.country = f.string("country") ?? ""
         trip.extraDestinations = f.string("extraDestinations") ?? ""
         trip.emoji = f.string("emoji") ?? ""
+        trip.travelersData = f.string("travelersData") ?? ""
         trip.createdAt = f.date("createdAt") ?? trip.createdAt
     }
 
@@ -193,6 +223,121 @@ public enum SharedTripMapping {
     }
 }
 
+// MARK: - 资产台账 ↔ 字段
+
+/// 共享资产台账(2026-09):整本台账一个 zone(`assets-<台账 uuid>`)+ zone-wide CKShare,
+/// 同旅行共享那套。**哪些条目在共享台账里**靠条目上的标记(`MemoryItem.assetLedgerUUID`、
+/// `FinanceEntry.ledgerUUID`)判定,规则见 `SharedAssetPlanner.joins`。
+public enum SharedAssetMapping {
+    public static let zonePrefix = "assets-"
+
+    public static func zoneName(for ledgerUUID: UUID) -> String {
+        zonePrefix + ledgerUUID.uuidString
+    }
+
+    public static func ledgerUUID(fromZoneName name: String) -> UUID? {
+        guard name.hasPrefix(zonePrefix) else { return nil }
+        return UUID(uuidString: String(name.dropFirst(zonePrefix.count)))
+    }
+
+    /// 资产条目。标签整份同步——资产的分类(房产/车辆/存款……)就是它的另一个标签。
+    public static func snapshot(ofAsset item: MemoryItem) -> SharedRecordSnapshot {
+        var f = SharedFields()
+        f["kindRaw"] = .string(item.kindRaw)
+        f["title"] = .string(item.title)
+        f["summary"] = .string(item.summary)
+        f["sourceText"] = .string(item.sourceText)
+        f["tags"] = .strings(item.tags)
+        f["urlString"] = item.urlString.map { .string($0) }
+        f["originalFileName"] = item.originalFileName.map { .string($0) }
+        f["relativeFilePath"] = item.relativeFilePath.map { .string($0) }
+        if !item.attachmentRelativePaths.isEmpty {
+            f["attachmentRelativePaths"] = .strings(item.attachmentRelativePaths)
+        }
+        f["statusRaw"] = .string(item.statusRaw)
+        f["createdAt"] = .date(item.createdAt)
+        f["assetValue"] = item.assetValue.map { .double($0) }
+        f["assetCurrency"] = item.assetCurrency.map { .string($0) }
+        f["assetLiability"] = item.assetLiability.map { .double($0) }
+        f["assetInterestRate"] = item.assetInterestRate.map { .double($0) }
+        f["assetUpdatedAt"] = item.assetUpdatedAt.map { .date($0) }
+        return SharedRecordSnapshot(type: .asset, uuid: item.uuid, fields: f)
+    }
+
+    public static func applyAsset(_ f: SharedFields, to item: MemoryItem) {
+        item.kindRaw = f.string("kindRaw") ?? MemoryKind.text.rawValue
+        item.title = f.string("title") ?? ""
+        item.summary = f.string("summary") ?? ""
+        item.sourceText = f.string("sourceText") ?? ""
+        var tags = f.strings("tags") ?? []
+        if !tags.contains(MemoryItem.assetTagName) { tags.insert(MemoryItem.assetTagName, at: 0) }
+        item.tags = tags
+        item.urlString = f.string("urlString")
+        item.originalFileName = f.string("originalFileName")
+        item.relativeFilePath = f.string("relativeFilePath")
+        item.attachmentRelativePaths = f.strings("attachmentRelativePaths") ?? []
+        item.statusRaw = f.string("statusRaw") ?? MemoryStatus.ready.rawValue
+        item.createdAt = f.date("createdAt") ?? item.createdAt
+        item.assetValue = f.double("assetValue")
+        item.assetCurrency = f.string("assetCurrency")
+        item.assetLiability = f.double("assetLiability")
+        item.assetInterestRate = f.double("assetInterestRate")
+        item.assetUpdatedAt = f.date("assetUpdatedAt")
+    }
+
+    /// 收入/支出/信用卡。**还款提醒的防重复标记(`reminderCycle`/`reminderTaskUUID`)
+    /// 不同步**——提醒任务是每台设备各自生成的,uuid 传过去只会指向一条不存在的任务;
+    /// `remindEnabled` 照常同步,成员那边也会各自收到还款提醒。
+    public static func snapshot(of entry: FinanceEntry) -> SharedRecordSnapshot {
+        var f = SharedFields()
+        f["kindRaw"] = .string(entry.kindRaw)
+        f["title"] = .string(entry.title)
+        f["amount"] = entry.amount.map { .double($0) }
+        f["currency"] = .string(entry.currency)
+        f["cadenceRaw"] = .string(entry.cadenceRaw)
+        f["dayOfMonth"] = entry.dayOfMonth.map { .int($0) }
+        f["statementDay"] = entry.statementDay.map { .int($0) }
+        f["institution"] = .string(entry.institution)
+        f["endDate"] = entry.endDate.map { .date($0) }
+        f["notes"] = .string(entry.notes)
+        f["remindEnabled"] = .bool(entry.remindEnabled)
+        f["sortIndex"] = .int(entry.sortIndex)
+        f["updatedAt"] = .date(entry.updatedAt)
+        f["createdAt"] = .date(entry.createdAt)
+        return SharedRecordSnapshot(type: .finance, uuid: entry.uuid, fields: f)
+    }
+
+    public static func apply(_ f: SharedFields, to entry: FinanceEntry) {
+        entry.kindRaw = f.string("kindRaw") ?? FinanceKind.income.rawValue
+        entry.title = f.string("title") ?? ""
+        entry.amount = f.double("amount")
+        entry.currency = f.string("currency") ?? "CNY"
+        entry.cadenceRaw = f.string("cadenceRaw") ?? FinanceCadence.monthly.rawValue
+        entry.dayOfMonth = f.int("dayOfMonth")
+        entry.statementDay = f.int("statementDay")
+        entry.institution = f.string("institution") ?? ""
+        entry.endDate = f.date("endDate")
+        entry.notes = f.string("notes") ?? ""
+        entry.remindEnabled = f.bool("remindEnabled") ?? true
+        entry.sortIndex = f.int("sortIndex") ?? 0
+        entry.updatedAt = f.date("updatedAt") ?? entry.updatedAt
+        entry.createdAt = f.date("createdAt") ?? entry.createdAt
+    }
+}
+
+public enum SharedAssetPlanner {
+    /// 一条还没挂到任何台账上的资产/收支,要不要自动放进这本共享台账。
+    ///
+    /// - **owner**(`joinedAt` 为 nil):共享的是"我的整本台账",全部放进去,之后新建的
+    ///   也自动跟进(不用在每个新建入口——表单、AI 的 create_asset、收藏——各挂一次钩子)。
+    /// - **成员**:只放**加入之后**新建的。加入之前自己记的那些是私人的,不能因为点了
+    ///   一个邀请链接就被传到别人的 iCloud 里去。
+    public static func joins(createdAt: Date, joinedAt: Date?) -> Bool {
+        guard let joinedAt else { return true }
+        return createdAt >= joinedAt
+    }
+}
+
 extension Dictionary where Key == String, Value == SharedFieldValue {
     func string(_ key: String) -> String? {
         if case .string(let v) = self[key] { return v }
@@ -274,17 +419,26 @@ public struct SharedZoneLedger: Codable, Equatable, Sendable {
     /// `CKCurrentUserDefaultName`。
     public var ownerName: String
     public var role: SharedTripRole
+    /// zone 名里的 uuid。字段名是历史原因(先有的旅行共享):资产台账 zone 里存的是
+    /// 台账 uuid,读的时候走 `containerUUID`。
     public var tripUUID: UUID
     public var records: [UUID: SharedLedgerRecord]
+    /// 成员加入的时间(只对资产台账有意义,见 `SharedAssetPlanner.joins`);owner 为 nil。
+    /// 老账本文件没有这个 key,合成的 Decodable 对 Optional 走 decodeIfPresent。
+    public var joinedAt: Date?
 
     public init(zoneName: String, ownerName: String, role: SharedTripRole, tripUUID: UUID,
-                records: [UUID: SharedLedgerRecord] = [:]) {
+                records: [UUID: SharedLedgerRecord] = [:], joinedAt: Date? = nil) {
         self.zoneName = zoneName
         self.ownerName = ownerName
         self.role = role
         self.tripUUID = tripUUID
         self.records = records
+        self.joinedAt = joinedAt
     }
+
+    public var kind: SharedZoneKind { SharedZoneKind(zoneName: zoneName) ?? .trip }
+    public var containerUUID: UUID { tripUUID }
 
     public var key: String { Self.key(zoneName: zoneName, ownerName: ownerName) }
 

@@ -4,7 +4,7 @@ import UIKit
 import CloudKit
 import LodoCore
 
-/// 旅行共享的系统界面。两种:
+/// 旅行 / 资产台账共享的系统界面。两种:
 /// - **还没邀请过人**(owner、share 上只有自己):系统分享面板
 ///   (`UIActivityViewController` + `NSItemProvider.registerCKShare`)——iOS 17 起苹果
 ///   推荐的发邀请方式,信息/邮件/拷贝链接都在里面。实测用 `UICloudSharingController`
@@ -20,18 +20,33 @@ enum CloudSharingPresenter {
     private static var delegate: Delegate?
 
     static func present(share: CKShare, trip: TravelTrip) {
+        present(share: share, title: trip.title, isOwner: trip.shareRole == .owner) {
+            SharedTripSync.shared.didStopSharing(trip)
+        }
+    }
+
+    /// 资产台账共享(整本台账,见 `SharedTripSync.prepareAssetShare`)。
+    static func presentAssets(share: CKShare) {
+        present(share: share, title: String(localized: "资产", bundle: .appLanguage()),
+                isOwner: SharedTripSync.shared.assetShare?.role != .participant) {
+            SharedTripSync.shared.didStopSharingAssets()
+        }
+    }
+
+    private static func present(share: CKShare, title: String, isOwner: Bool,
+                                onStop: @escaping () -> Void) {
         let container = CKContainer(identifier: SharedTripSync.containerID)
         let invitedAnyone = share.participants.contains { $0.role != .owner }
         guard let top = topController() else {
             SharedTripSync.shared.report(String(localized: "没找到可以弹出共享界面的窗口", bundle: .appLanguage()))
             return
         }
-        if trip.shareRole == .owner && !invitedAnyone {
-            top.present(activityController(share: share, container: container, trip: trip, anchor: top.view),
+        if isOwner && !invitedAnyone {
+            top.present(activityController(share: share, container: container, title: title, anchor: top.view),
                         animated: true)
         } else {
             let controller = UICloudSharingController(share: share, container: container)
-            let delegate = Delegate(trip: trip)
+            let delegate = Delegate(title: title, onStop: onStop)
             Self.delegate = delegate
             controller.delegate = delegate
             controller.availablePermissions = [.allowPrivate, .allowReadWrite]
@@ -40,13 +55,12 @@ enum CloudSharingPresenter {
     }
 
     private static func activityController(share: CKShare, container: CKContainer,
-                                           trip: TravelTrip, anchor: UIView) -> UIViewController {
+                                           title: String, anchor: UIView) -> UIViewController {
         let provider = NSItemProvider()
         provider.registerCKShare(share, container: container, allowedSharingOptions:
             CKAllowedSharingOptions(allowedParticipantPermissionOptions: .readWrite,
                                     allowedParticipantAccessOptions: .specifiedRecipientsOnly))
         let configuration = UIActivityItemsConfiguration(itemProviders: [provider])
-        let title = trip.title
         configuration.metadataProvider = { key in
             key == .title ? title : nil
         }
@@ -73,12 +87,16 @@ enum CloudSharingPresenter {
     }
 
     private final class Delegate: NSObject, UICloudSharingControllerDelegate {
-        let trip: TravelTrip
+        let title: String
+        let onStop: () -> Void
 
-        init(trip: TravelTrip) { self.trip = trip }
+        init(title: String, onStop: @escaping () -> Void) {
+            self.title = title
+            self.onStop = onStop
+        }
 
         func itemTitle(for csc: UICloudSharingController) -> String? {
-            trip.title
+            title
         }
 
         func cloudSharingController(_ csc: UICloudSharingController,
@@ -87,7 +105,7 @@ enum CloudSharingPresenter {
         }
 
         func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
-            SharedTripSync.shared.didStopSharing(trip)
+            onStop()
         }
     }
 }

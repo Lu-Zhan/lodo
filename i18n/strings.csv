@@ -1582,3 +1582,22 @@ ios_view.relocate_ai_progress,"正在按地名重新查找位置,AI 会从候选
 ios_view.relocate_ai_picked,其中 %lld 个由 AI 从候选里挑选。,AI picked %lld of them from the candidates.,ios_view,旅行共享
 ios_view.share_preparing,正在建立共享…,Setting up sharing…,ios_view,旅行共享
 ios_view.share_loading_members,正在读取共享成员…,Loading members…,ios_view,旅行共享
+ios_view.trip_people,人员,People,ios_view,旅行人员
+ios_view.trip_people_add_contacts,从人脉添加,Add from Contacts,ios_view,旅行人员
+ios_view.trip_people_new,新建同行人,New companion,ios_view,旅行人员
+ios_view.trip_people_empty_no_contacts,输入名字添加一起去的人;人脉里记过的人也能直接链接过来。,Type a name to add who's coming along; people saved in Contacts can be linked directly.,ios_view,旅行人员
+ios_view.trip_people_empty,"从人脉里挑一起去的人,或者直接输入名字新建。","Pick companions from Contacts, or type a name to add someone new.",ios_view,旅行人员
+ios_view.trip_people_count,同行 %lld 人,%lld Traveling,ios_view,旅行人员
+ios_view.trip_people_missing_contact,这台设备的人脉里没有这个人,Not in Contacts on this device,ios_view,旅行人员
+ios_view.trip_people_from_contacts,来自人脉,From Contacts,ios_view,旅行人员
+ios_view.trip_people_already,已在同行人里,Already a companion,ios_view,旅行人员
+ios_view.trip_people_companion,同行人,Companion,ios_view,旅行人员
+ios_view.trip_people_name,名字,Name,ios_view,旅行人员
+ios_view.asset_share_already,"已经在共享一本资产台账了,先停止共享或退出那一本再加入",You're already sharing an asset ledger. Stop sharing or leave it before joining another.,ios_view,资产共享
+ios_view.asset_share_delete_note,"这项在共享台账里,删除后共享的成员那边也会一起删掉。",This item is in the shared ledger. Deleting it removes it for everyone sharing.,ios_view,资产共享
+ios_view.asset_share_failed,共享没有成功,Sharing Failed,ios_view,资产共享
+ios_view.asset_share,共享资产,Share Assets,ios_view,资产共享
+ios_view.asset_share_members,共享成员,Shared With,ios_view,资产共享
+ios_view.asset_share_joined,加入的共享台账,Joined shared ledger,ios_view,资产共享
+ios_view.asset_share_participant_note,带 %@ 的是共享台账里的;加入之前你自己记的只在这台设备上。,Items marked %@ are in the shared ledger; what you recorded before joining stays on this device only.,ios_view,资产共享
+ios_view.asset_share_row,在共享台账里,In shared ledger,ios_view,资产共享

@@ -1892,6 +1892,22 @@
         }
       }
     },
+    "人员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人员"
+          }
+        }
+      }
+    },
     "人民币" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2405,6 +2421,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今日进度"
+          }
+        }
+      }
+    },
+    "从人脉添加" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add from Contacts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从人脉添加"
+          }
+        }
+      }
+    },
+    "从人脉里挑一起去的人,或者直接输入名字新建。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick companions from Contacts, or type a name to add someone new."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从人脉里挑一起去的人,或者直接输入名字新建。"
           }
         }
       }
@@ -3457,6 +3505,22 @@
         }
       }
     },
+    "共享成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared With"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享成员"
+          }
+        }
+      }
+    },
     "共享成员…" : {
       "localizations" : {
         "en" : {
@@ -3501,6 +3565,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共享没有存到 iCloud,请稍后再试"
+          }
+        }
+      }
+    },
+    "共享没有成功" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享没有成功"
+          }
+        }
+      }
+    },
+    "共享资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Assets"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享资产"
           }
         }
       }
@@ -4691,6 +4787,22 @@
         }
       }
     },
+    "加入的共享台账" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joined shared ledger"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入的共享台账"
+          }
+        }
+      }
+    },
     "博客" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5288,6 +5400,54 @@
         }
       }
     },
+    "同行 %lld 人" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Traveling"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同行 %lld 人"
+          }
+        }
+      }
+    },
+    "同行人" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Companion"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同行人"
+          }
+        }
+      }
+    },
+    "名字" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名字"
+          }
+        }
+      }
+    },
     "名字,如 东京四日" : {
       "localizations" : {
         "en" : {
@@ -5709,6 +5869,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在倒数日里选要显示的"
+          }
+        }
+      }
+    },
+    "在共享台账里" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In shared ledger"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在共享台账里"
           }
         }
       }
@@ -7069,6 +7245,22 @@
         }
       }
     },
+    "已在同行人里" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already a companion"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在同行人里"
+          }
+        }
+      }
+    },
     "已存在的人脉(按手机号/邮箱匹配)会自动跳过,不会重复导入。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7388,6 +7580,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已经 %lld 天"
+          }
+        }
+      }
+    },
+    "已经在共享一本资产台账了,先停止共享或退出那一本再加入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're already sharing an asset ledger. Stop sharing or leave it before joining another."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经在共享一本资产台账了,先停止共享或退出那一本再加入"
           }
         }
       }
@@ -7743,6 +7951,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "带 %@ 的会显示在锁屏「倒数日」小组件上。"
+          }
+        }
+      }
+    },
+    "带 %@ 的是共享台账里的;加入之前你自己记的只在这台设备上。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items marked %@ are in the shared ledger; what you recorded before joining stays on this device only."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "带 %@ 的是共享台账里的;加入之前你自己记的只在这台设备上。"
           }
         }
       }
@@ -9838,6 +10062,22 @@
         }
       }
     },
+    "新建同行人" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New companion"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建同行人"
+          }
+        }
+      }
+    },
     "新建定时任务" : {
       "localizations" : {
         "en" : {
@@ -11220,6 +11460,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "来源(可选),如 公司名"
+          }
+        }
+      }
+    },
+    "来自人脉" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From Contacts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自人脉"
           }
         }
       }
@@ -15998,6 +16254,22 @@
         }
       }
     },
+    "输入名字添加一起去的人;人脉里记过的人也能直接链接过来。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type a name to add who's coming along; people saved in Contacts can be linked directly."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入名字添加一起去的人;人脉里记过的人也能直接链接过来。"
+          }
+        }
+      }
+    },
     "输入文字" : {
       "localizations" : {
         "en" : {
@@ -16831,6 +17103,22 @@
         }
       }
     },
+    "这台设备的人脉里没有这个人" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not in Contacts on this device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台设备的人脉里没有这个人"
+          }
+        }
+      }
+    },
     "这天没有日程" : {
       "localizations" : {
         "en" : {
@@ -17003,6 +17291,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这趟还想去哪？"
+          }
+        }
+      }
+    },
+    "这项在共享台账里,删除后共享的成员那边也会一起删掉。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This item is in the shared ledger. Deleting it removes it for everyone sharing."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这项在共享台账里,删除后共享的成员那边也会一起删掉。"
           }
         }
       }

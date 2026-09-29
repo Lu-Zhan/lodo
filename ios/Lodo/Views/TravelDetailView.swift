@@ -74,13 +74,15 @@ struct TravelDetailView: View {
     private static let peekDetent = PresentationDetent.height(200)
 
     enum Mode: String, CaseIterable, Identifiable {
-        case overview, days, packing, cost, files
+        /// 「人员」排在「消费」左边(用户要求)。
+        case overview, days, packing, people, cost, files
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
             case .overview: return "总览"
             case .days: return "日程"
             case .packing: return "清单"
+            case .people: return "人员"
             case .cost: return "消费"
             case .files: return "文件"
             }
@@ -286,6 +288,7 @@ struct TravelDetailView: View {
                 case .overview: overviewList
                 case .days: dayList
                 case .packing: TravelPackingList(trip: trip)
+                case .people: TravelTravelersList(trip: trip)
                 case .cost: costList
                 case .files: filesList
                 }
@@ -347,6 +350,19 @@ struct TravelDetailView: View {
         if args.contains("--demo-travel-files") { mode = .files }
         if args.contains("--demo-travel-cost") { mode = .cost }
         if args.contains("--demo-travel-packing") { mode = .packing }
+        if args.contains("--demo-travel-people") {
+            mode = .people
+            // 塞两位样板同行人:一位链接库里第一个人脉(有的话),一位单独新建的。
+            if trip.travelers.isEmpty {
+                var list: [TripTraveler] = []
+                if let contact = memoryItems.first(where: \.isContact) {
+                    list.append(TripTraveler(contactUUID: contact.uuid, name: contact.title))
+                }
+                list.append(TripTraveler(name: "小王", note: "同事,负责订餐厅"))
+                trip.travelers = list
+                try? context.save()
+            }
+        }
         if args.contains("--demo-travel-map-day") {
             // 走左侧胶囊同一条路(连面板滚动一起);等面板弹出来、列表建好再点。
             Task { @MainActor in

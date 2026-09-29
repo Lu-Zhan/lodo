@@ -437,11 +437,14 @@ public struct BackupTravelTrip: Codable {
     public var extraDestinations: String
     /// 标题前的 emoji(`TravelTrip.emoji`),老备份没有这个 key。
     public var emoji: String
+    /// 同行人(`TravelTrip.travelersData`),老备份没有这个 key。
+    public var travelersData: String
     public var createdAt: Date
 
     public init(uuid: UUID, title: String, startDate: Date, endDate: Date,
                 notes: String, city: String = "", country: String = "",
-                extraDestinations: String = "", emoji: String = "", createdAt: Date) {
+                extraDestinations: String = "", emoji: String = "",
+                travelersData: String = "", createdAt: Date) {
         self.uuid = uuid
         self.title = title
         self.startDate = startDate
@@ -451,6 +454,7 @@ public struct BackupTravelTrip: Codable {
         self.country = country
         self.extraDestinations = extraDestinations
         self.emoji = emoji
+        self.travelersData = travelersData
         self.createdAt = createdAt
     }
 
@@ -466,6 +470,7 @@ public struct BackupTravelTrip: Codable {
         country = try c.decodeIfPresent(String.self, forKey: .country) ?? ""
         extraDestinations = try c.decodeIfPresent(String.self, forKey: .extraDestinations) ?? ""
         emoji = try c.decodeIfPresent(String.self, forKey: .emoji) ?? ""
+        travelersData = try c.decodeIfPresent(String.self, forKey: .travelersData) ?? ""
         createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
@@ -474,7 +479,8 @@ extension TravelTrip {
     public var backup: BackupTravelTrip {
         BackupTravelTrip(uuid: uuid, title: title, startDate: startDate, endDate: endDate,
                          notes: notes, city: city, country: country,
-                         extraDestinations: extraDestinations, emoji: emoji, createdAt: createdAt)
+                         extraDestinations: extraDestinations, emoji: emoji,
+                         travelersData: travelersData, createdAt: createdAt)
     }
 }
 
@@ -489,6 +495,7 @@ extension BackupTravelTrip {
         trip.country = country
         trip.extraDestinations = extraDestinations
         trip.emoji = emoji
+        trip.travelersData = travelersData
         trip.createdAt = createdAt
     }
 }

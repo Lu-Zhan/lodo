@@ -40,6 +40,10 @@ public final class FinanceEntry {
     /// 最近一次改动金额/额度的时间("上次更新 3 个月前")。
     public var updatedAt: Date = Date.now
     public var createdAt: Date = Date.now
+    /// 在哪本共享资产台账里(同 `MemoryItem.assetLedgerUUID`);nil = 没共享。不进备份。
+    public var ledgerUUID: UUID?
+    /// 共享台账里别人加的:添加人的显示名(「由 X 添加」),同 `MemoryItem.sharedAddedBy`。
+    public var sharedAddedBy: String?
 
     public init(uuid: UUID = UUID(), kind: FinanceKind, title: String, amount: Double? = nil,
                 currency: String = "CNY", cadence: FinanceCadence = .monthly,

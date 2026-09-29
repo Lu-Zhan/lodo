@@ -31,6 +31,8 @@ public final class TravelTrip {
     public var shareRoleRaw: String = ""
     /// 共享 zone 的 owner(`CKRecordZone.ID.ownerName`);没共享时为空串。
     public var shareZoneOwner: String = ""
+    /// 同行人(`TripTraveler` 数组的 JSON 串,空串 = 没填),读写走 `travelers`。
+    public var travelersData: String = ""
 
     public init(uuid: UUID = UUID(), title: String = "", startDate: Date = .now,
                 endDate: Date = .now, notes: String = "", city: String = "",

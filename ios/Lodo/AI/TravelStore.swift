@@ -999,9 +999,28 @@ enum TravelStore {
         name: String, includeIDs: Bool = false, in context: ModelContext
     ) -> String? {
         guard let trip = pickTrip(name: name, in: context) else { return nil }
-        return TravelPlan.promptSummary(
+        let summary = TravelPlan.promptSummary(
             tripTitle: trip.title, days: trip.days,
             entries: entries(for: trip.uuid, in: context), includeIDs: includeIDs)
+        // 同行人("这趟和谁去""给同行的人带什么礼物"要用得上);链接的人脉按人脉现在的名字。
+        let names = travelerNames(trip, in: context)
+        return names.isEmpty ? summary : summary + "\n同行人:" + names.joined(separator: "、")
+    }
+
+    static func travelerNames(_ trip: TravelTrip, in context: ModelContext) -> [String] {
+        let travelers = trip.travelers
+        guard !travelers.isEmpty else { return [] }
+        let ids = Set(travelers.compactMap(\.contactUUID))
+        var contactNames: [UUID: String] = [:]
+        if !ids.isEmpty {
+            let items = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+            for item in items where ids.contains(item.uuid) && item.isContact {
+                contactNames[item.uuid] = item.title
+            }
+        }
+        return travelers.map { traveler in
+            traveler.contactUUID.flatMap { contactNames[$0] } ?? traveler.name
+        }
     }
 
     /// 按名字挑一次旅行:名字包含匹配;名字为空或没匹配上时挑"正在进行的那次,
