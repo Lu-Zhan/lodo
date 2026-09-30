@@ -5,20 +5,18 @@ public struct ParsedTask: Codable, Equatable {
     public var title: String
     public var remindAt: Date
     public var allDay: Bool
-    public var durationMinutes: Int
     public var repeatType: RepeatType
     public var repeatDays: [Int]
     public var repeatTimes: [String]
     /// 这件事属于哪个项目/主题;AI 推断不出来或用户没填时为 nil。
     public var project: String?
 
-    public init(title: String, remindAt: Date, allDay: Bool, durationMinutes: Int,
+    public init(title: String, remindAt: Date, allDay: Bool,
                 repeatType: RepeatType, repeatDays: [Int], repeatTimes: [String],
                 project: String? = nil) {
         self.title = title
         self.remindAt = remindAt
         self.allDay = allDay
-        self.durationMinutes = durationMinutes
         self.repeatType = repeatType
         self.repeatDays = repeatDays
         self.repeatTimes = repeatTimes
@@ -30,12 +28,12 @@ extension ParsedTask {
     /// 从现有事项取当前字段值(编辑表单预填、AI 修改的"现有事项"上下文共用)。
     public init(from task: TaskItem) {
         self.init(title: task.title, remindAt: task.remindAt, allDay: task.allDay,
-                  durationMinutes: task.durationMinutes, repeatType: task.repeatType,
+                  repeatType: task.repeatType,
                   repeatDays: task.repeatDays, repeatTimes: task.repeatTimes,
                   project: task.project)
     }
 
-    /// 展示用说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"——对齐
+    /// 展示用说明文字,如"今天 21:00 · 每天 07:00/21:00"——对齐
     /// `TaskItem.caption`/`TaskData.repeatLabel` 的格式,但基于 `remindAt` 本身
     /// (新建/修改提案阶段还没有事项实体,没有"下一次触发"这个概念)。
     public var caption: String {
@@ -53,7 +51,6 @@ extension ParsedTask {
         } else if allDay {
             parts.append("全天")
         }
-        if durationMinutes > 0 { parts.append("\(durationMinutes) 分钟") }
         return parts.joined(separator: " · ")
     }
 }
@@ -838,22 +835,11 @@ public enum DeepSeekClient {
         return questions
     }
 
-    /// 按记忆文件为"没说时长"的新事项建议时长(分钟);
-    /// 用户明确表示不需要时长、或记忆无相近类型时返回 0。
-    public static func suggestDuration(text: String, title: String,
-                                       memory: String) async throws -> Int {
-        // skill 停用 = 不建议时长,连请求都不发。
-        guard let system = AgentSkillStore.durationPrompt(memory: memory) else { return 0 }
-        let payload = try await payload(system: system, user: "原话:\(text)\n标题:\(title)")
-        return payload["duration_minutes"] as? Int ?? 0
-    }
-
     /// 逾期事项的改期候选:2-3 个(口语化标签, 时间),时间必须晚于当前。
     public static func suggestReschedule(
-        title: String, remindAt: Date, durationMinutes: Int, isRecurring: Bool
+        title: String, remindAt: Date, isRecurring: Bool
     ) async throws -> [(label: String, date: Date)] {
         var info = "事项:\(title)\n原提醒时间:\(dateFormatter.string(from: remindAt))"
-        if durationMinutes > 0 { info += ",时长 \(durationMinutes) 分钟" }
         if isRecurring { info += ",重复事项(只顺延本次)" }
         let system = """
         你是提醒事项应用 lodo 的改期助手。一个事项已到期未完成,给出 2-3 个合理的\
@@ -1477,7 +1463,7 @@ public enum DeepSeekClient {
     public static func summarizeToday(_ items: [String]) async throws -> String {
         let system = """
         你是提醒事项应用 lodo 的汇总助手。给定今天开始或到期的事项列表\
-        (含时间与时长),用一句话给出今天怎么安排的建议——不是单纯罗列,\
+        (含时间),用一句话给出今天怎么安排的建议——不是单纯罗列,\
         要指出哪些优先处理、哪些可以往后放,具体可执行,不超过 40 个字,\
         只返回 JSON:{"summary": "一句话"},不要任何其他文字。\(personaBlock)
         """
@@ -1645,28 +1631,7 @@ public enum DeepSeekClient {
         return (answer.trimmingCharacters(in: .whitespacesAndNewlines), related)
     }
 
-    /// 用一条新样本让模型归纳更新"事项类型 → 典型时长"记忆文件,返回新文件全文。
-    public static func updateMemory(current: String?, title: String,
-                                    durationMinutes: Int) async throws -> String {
-        let system = """
-        你是提醒事项应用 lodo 的记忆管理助手,维护一份"事项类型 → 典型时长"的记忆文件。\
-        给定现有记忆文件和一条新样本,输出更新后的完整记忆文件:按大致类型归纳,\
-        相近类型合并为一条,每条含典型时长(分钟)和 1-3 个例子,最多 15 条,\
-        markdown 列表格式,首行标题为"# 事项时长记忆"。\
-        只返回 JSON:{"memory": "更新后的文件全文"},不要任何其他文字。
-
-        现有记忆文件:
-        \(current ?? "(空)")
-        """
-        let payload = try await payload(
-            system: system, user: "新样本:\(title),\(durationMinutes) 分钟", timeout: 60)
-        guard let memory = payload["memory"] as? String else {
-            throw DeepSeekError.parse("返回格式异常:缺少 memory")
-        }
-        return memory
-    }
-
-    /// 偏好条数超上限时重写整份文件(合并相近条目);与 updateMemory 同构。
+    /// 偏好条数超上限时重写整份文件(合并相近条目)。
     public static func consolidatePreferences(current: String) async throws -> String {
         let system = """
         你是提醒事项应用 lodo 的偏好管理助手,维护一份"用户长期做事偏好"的文件。\
@@ -1689,7 +1654,6 @@ public enum DeepSeekClient {
             "title": task.title,
             "remind_at": dateFormatter.string(from: task.remindAt),
             "all_day": task.allDay,
-            "duration_minutes": task.durationMinutes,
             "repeat_type": task.repeatType.rawValue,
             "repeat_days": task.repeatDays,
             "repeat_times": task.repeatTimes,
@@ -1761,7 +1725,7 @@ public enum DeepSeekClient {
     /// onStream / onReasoning 非 nil 时走 SSE 流式(只有 command 这条路径传),
     /// 端侧的苹果智能不支持,那条分支照旧一次性返回。
     /// tracksUsage:把这次请求的 token 用量记进 `AIUsageMonitor`(标题行读它)。
-    /// **只有 `command()` 传 true**——那是用户"这句话"的成本;memorize/汇总/时长建议
+    /// **只有 `command()` 传 true**——那是用户"这句话"的成本;memorize/汇总/改期建议
     /// 这些后台小请求不该混进去。端侧的苹果智能没有 usage 概念,那条路径不统计。
     private static func payload(system: String, user: String,
                                 timeout: TimeInterval = 20,
@@ -2044,11 +2008,6 @@ public enum DeepSeekClient {
             }
         }
 
-        let duration = payload["duration_minutes"] as? Int ?? 0
-        guard (0...1440).contains(duration) else {
-            throw DeepSeekError.parse("返回格式异常:时长超出范围")
-        }
-
         let rawDays = (payload["repeat_days"] as? [Any])?.compactMap { $0 as? Int } ?? []
         guard rawDays.allSatisfy({ (0...6).contains($0) }) else {
             throw DeepSeekError.parse("返回格式异常:周几超出范围")
@@ -2065,7 +2024,6 @@ public enum DeepSeekClient {
             title: title,
             remindAt: remindAt,
             allDay: payload["all_day"] as? Bool ?? false,
-            durationMinutes: duration,
             repeatType: RepeatType(rawValue: payload["repeat_type"] as? String ?? "none") ?? .none,
             repeatDays: days,
             repeatTimes: times,

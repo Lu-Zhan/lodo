@@ -14378,18 +14378,18 @@
         }
       }
     },
-    "用一句话添加任务,AI 解析时间和时长。" : {
+    "用一句话添加任务,AI 解析提醒时间。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add a task in one sentence; AI will parse the time and duration."
+            "value" : "Add a task in one sentence; AI will parse the reminder time."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "用一句话添加任务,AI 解析时间和时长。"
+            "value" : "用一句话添加任务,AI 解析提醒时间。"
           }
         }
       }

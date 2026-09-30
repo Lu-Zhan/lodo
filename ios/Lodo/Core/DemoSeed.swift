@@ -16,9 +16,8 @@ enum DemoSeed {
         // 已到期:普通事项,过期 20 分钟
         context.insert(TaskItem(title: "给妈妈回电话",
                                 remindAt: now.addingTimeInterval(-20 * 60)))
-        // 已到期:有时长事项,start 阶段
-        context.insert(TaskItem(title: "开周会", remindAt: now.addingTimeInterval(-5 * 60),
-                                durationMinutes: 60))
+        // 已到期
+        context.insert(TaskItem(title: "开周会", remindAt: now.addingTimeInterval(-5 * 60)))
         // 未到期:今天晚些
         context.insert(TaskItem(title: "取快递", remindAt: now.addingTimeInterval(3 * 3600)))
         // 未到期:明天全天

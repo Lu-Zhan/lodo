@@ -1,10 +1,10 @@
 import Foundation
 
 /// AI 在对话里自动维护的「用户偏好」文件:一行一条"以后都这样办"的做事习惯
-/// (如"开会默认留 60 分钟""说话简短点"),每轮 `command` 都拼进 system prompt。
+/// (如"开会提前半小时提醒""说话简短点"),每轮 `command` 都拼进 system prompt。
 ///
-/// 和另外两种长期记忆分工:显式收藏的资料内容归记忆库(`MemoryItem`),
-/// "事项类型 → 典型时长"归 `DurationMemory`,"希望 AI 以后怎么做事"归这里。
+/// 和记忆库分工:显式收藏的资料内容归记忆库(`MemoryItem`),
+/// "希望 AI 以后怎么做事"归这里。
 ///
 /// 放 LodoCore 而不是 app 层:`DeepSeekClient.command` 要直接读它拼 prompt
 /// (和 `AgentSkillStore` 同一个道理)。写入是静默的——模型返回

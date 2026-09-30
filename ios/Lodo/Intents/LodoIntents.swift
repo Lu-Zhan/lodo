@@ -88,7 +88,7 @@ struct TaskQuery: EntityStringQuery {
 
 struct AddTaskIntent: AppIntent {
     static let title: LocalizedStringResource = "添加事项"
-    static let description = IntentDescription("用一句话添加任务,AI 解析时间和时长。")
+    static let description = IntentDescription("用一句话添加任务,AI 解析提醒时间。")
 
     @Parameter(title: "内容", requestValueDialog: "要提醒你什么?")
     var text: String
@@ -97,25 +97,16 @@ struct AddTaskIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         LodoIntentSupport.ensureConfigured()
         do {
-            var parsed = try await DeepSeekClient.parse(
+            let parsed = try await DeepSeekClient.parse(
                 text, existingProjects: TaskProjects.all(in: LodoIntentSupport.context))
-            if parsed.durationMinutes == 0, let memory = DurationMemory.content,
-               let minutes = try? await DeepSeekClient.suggestDuration(
-                   text: text, title: parsed.title, memory: memory),
-               minutes > 0 {
-                parsed.durationMinutes = minutes
-            }
             let task = TaskItem(
-                title: parsed.title, remindAt: parsed.remindAt,
-                durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
+                title: parsed.title, remindAt: parsed.remindAt, allDay: parsed.allDay,
                 repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
                 repeatTimes: parsed.repeatTimes, project: parsed.project)
             let context = LodoIntentSupport.context
             context.insert(task)
             try? context.save()
             NotificationManager.shared.rebuild(for: task)
-            DurationMemory.learn(title: parsed.title,
-                                 durationMinutes: parsed.durationMinutes)
             let addedMessage = String(format: LocalizedStrings.text(.ios_core_intent_task_added,
                                                                      language: AppSettings.language),
                                       task.title,

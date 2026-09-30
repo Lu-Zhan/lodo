@@ -82,26 +82,6 @@ final class AgentSkillStoreTests: XCTestCase {
         XCTAssertTrue(AgentSkillStore.todoContent(existingProjects: ["装修"]).hasPrefix("前\n\n- 已有项目:装修"))
     }
 
-    func testDurationPromptMatchesOriginal() {
-        XCTAssertEqual(AgentSkillStore.durationPrompt(memory: "M"), """
-        你是提醒事项应用 lodo 的时长建议助手。下面是"事项类型 → 典型时长"的记忆文件、用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。
-
-        判断规则:
-        - 用户原话明确表示不需要时长,或记忆中没有类型相近的条目 → {"duration_minutes": 0}
-        - 否则参考记忆中相近类型的典型时长 → {"duration_minutes": 分钟数}
-
-        记忆文件:
-        M
-        """)
-        AgentSkillStore.setEnabled(false, for: .duration)
-        XCTAssertNil(AgentSkillStore.durationPrompt(memory: "M"))
-    }
-
-    func testDurationWithoutPlaceholderAppendsMemory() {
-        AgentSkillStore.save("自定义规则", for: .duration)
-        XCTAssertEqual(AgentSkillStore.durationPrompt(memory: "M"), "自定义规则\n\n记忆文件:\nM")
-    }
-
     func testAssetRulesAndRoutineWebDefaults() {
         let assets = AgentSkillStore.assetRules() ?? ""
         XCTAssertTrue(assets.hasPrefix("- 如果内容记录的是一项资产/资金的价值(比如\"存折里还有5000美元\"、"))

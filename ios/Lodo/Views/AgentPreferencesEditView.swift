@@ -2,7 +2,7 @@ import SwiftUI
 import LodoCore
 
 /// AI 用户偏好文件的查看/编辑页(设置 → AI 偏好 → 编辑偏好)。
-/// 和时长记忆那页(MemoryEditView)同一套写法,只是换了一份文件。
+/// 纯文本编辑一份 Application Support 下的文件。
 struct AgentPreferencesEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text = AgentPreferences.content ?? ""

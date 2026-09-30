@@ -1674,7 +1674,7 @@ struct AgentView: View {
 
     private static var demoParsedTask: ParsedTask {
         ParsedTask(title: "开会", remindAt: Date().addingTimeInterval(3600),
-                   allDay: false, durationMinutes: 60, repeatType: .none,
+                   allDay: false, repeatType: .none,
                    repeatDays: [], repeatTimes: [])
     }
 
@@ -1685,10 +1685,10 @@ struct AgentView: View {
                 AskOption(label: "今晚 20:00", description: "今天之内交完,明天不再惦记"),
                 AskOption(label: "后天 14:00", description: "留出两天准备时间"),
             ]),
-            AskQuestion(header: "时长", question: "这件事大概要占多久?", options: [
-                AskOption(label: "30 分钟", description: "按你以前交材料的耗时估的", recommended: true),
-                AskOption(label: "1 小时", description: "需要现场排队的话留够时间"),
-                AskOption(label: "不用记时长", description: "只要一个到点提醒"),
+            AskQuestion(header: "提前提醒", question: "要不要提前提醒你准备?", options: [
+                AskOption(label: "提前 1 天", description: "前一天晚上把材料备齐", recommended: true),
+                AskOption(label: "提前 1 小时", description: "出门前再看一眼"),
+                AskOption(label: "不用", description: "只要一个到点提醒"),
             ]),
             AskQuestion(header: "材料", question: "要带哪些材料?", multiSelect: true, options: [
                 AskOption(label: "身份证", description: "大多数窗口都要", recommended: true),

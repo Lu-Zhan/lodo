@@ -10,7 +10,7 @@ final class CommandParseTests: XCTestCase {
     ) -> [String: Any] {
         var payload: [String: Any] = [
             "action": action, "title": title, "remind_at": remindAt,
-            "all_day": false, "duration_minutes": 0,
+            "all_day": false,
             "repeat_type": "none", "repeat_days": [], "repeat_times": []
         ]
         if let uuid { payload["uuid"] = uuid }
@@ -83,13 +83,6 @@ final class CommandParseTests: XCTestCase {
             return
         }
         XCTAssertEqual(parsed.repeatDays, [0, 2])
-    }
-
-    func testCreateActionRejectsOutOfRangeDuration() {
-        var task = taskPayload(action: "create")
-        task["duration_minutes"] = 1441
-        XCTAssertThrowsError(
-            try DeepSeekClient.parseCommand(["actions": [task]], validUUIDs: [], memoryEnabled: false))
     }
 
     func testCreateActionRejectsInvalidRepeatTimeRange() {

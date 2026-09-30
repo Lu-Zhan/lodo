@@ -53,7 +53,7 @@ enum FinanceReminders {
             return false
         }
         let parsed = ParsedTask(title: title, remindAt: reminder.remindAt, allDay: false,
-                                durationMinutes: 0, repeatType: .none, repeatDays: [],
+                                repeatType: .none, repeatDays: [],
                                 repeatTimes: [])
         // 上一条还挂着、提醒时刻还没到:多半是改了还款日,原地改成新的一期,不另建一条。
         if let existing, existing.status == .pending, existing.remindAt > now {

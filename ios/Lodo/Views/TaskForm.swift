@@ -10,7 +10,6 @@ struct TaskFormModel {
     var allDay: Bool
     var weekdays: Set<Int>
     var times: [Date]
-    var duration: Int
     /// 项目名;空字符串代表"未分类",比 Optional 更适合直接绑 TextField。
     var project: String
 
@@ -23,7 +22,6 @@ struct TaskFormModel {
         allDay = source?.allDay ?? false
         weekdays = Set(source?.repeatDays ?? [])
         times = (source?.repeatTimes ?? []).map { AppSettings.time($0, on: Date()) }
-        duration = source?.durationMinutes ?? 0
         project = source?.project ?? ""
     }
 
@@ -45,7 +43,6 @@ struct TaskFormModel {
             title: title.trimmingCharacters(in: .whitespaces),
             remindAt: Date(),
             allDay: repeatType == .none && allDay,
-            durationMinutes: duration,
             repeatType: repeatType,
             repeatDays: repeatType == .weekly ? weekdays.sorted() : [],
             repeatTimes: repeatType == .none ? [] : timeStrings,
@@ -78,7 +75,6 @@ struct TaskFormModel {
         time = parsed.remindAt
         weekdays = Set(parsed.repeatDays)
         times = parsed.repeatTimes.map { AppSettings.time($0, on: Date()) }
-        duration = parsed.durationMinutes
         project = parsed.project ?? ""
     }
 }
@@ -90,8 +86,6 @@ struct TaskFormSections: View {
     var header: String?
     /// AI 解析回填后为 true,首区块标题旁显示"AI 已填写"徽标。
     var aiFilled = false
-    /// 时长来自 AI 记忆建议时为 true,时长行高亮提示。
-    var suggestedDuration = false
     /// 当前已用过的项目名,点选即回填 form.project;为空时不显示 chip 行。
     var existingProjects: [String] = []
 
@@ -182,31 +176,6 @@ struct TaskFormSections: View {
             }
         } footer: {
             Text("给这件事归个类,「按项目查看」里会按这个分组,可留空。")
-        }
-
-        Section {
-            Stepper(value: $form.duration, in: 0...480, step: 5) {
-                let language = AppSettings.language
-                let duration = form.duration == 0
-                    ? LocalizedStrings.text(.ios_core_duration_none, language: language)
-                    : "\(form.duration) \(LocalizedStrings.text(.ios_core_health_unit_minutes, language: language))"
-                let text = String(format: LocalizedStrings.text(.ios_core_duration_field,
-                                                                 language: language),
-                                  duration as NSString)
-                if suggestedDuration {
-                    Label(text, systemImage: "sparkles")
-                        .foregroundStyle(.tint)
-                } else {
-                    Text(text)
-                }
-            }
-        } footer: {
-            VStack(alignment: .leading, spacing: 2) {
-                if suggestedDuration {
-                    Text("时长为 AI 参考历史类似事项的建议")
-                }
-                Text("有时长的事项会在开始和结束各提醒一次")
-            }
         }
     }
 }

@@ -93,7 +93,6 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             ? Scheduler.catchUp(nextRemindAt: task.nextRemindAt, now: now,
                                 snoozeMinutes: AppSettings.snoozeMinutes)
             : task.nextRemindAt
-        let starting = task.phase == .start && task.durationMinutes > 0
         // 关掉「反复提醒」= 只排一条,不排后面那串纠缠。
         let count = repeats ? min(chainLength, Self.chainLength) : 1
         for i in 0..<count {
@@ -106,9 +105,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             guard fire > now else { continue }
             let content = UNMutableNotificationContent()
             content.title = task.title
-            content.body = Self.reminderBody(style: AppSettings.agentPersonaStyle, starting: starting,
-                                             isEnd: task.phase == .end,
-                                             durationMinutes: task.durationMinutes)
+            content.body = Self.reminderBody(style: AppSettings.agentPersonaStyle,
+                                             isEnd: task.phase == .end)
             content.sound = .default
             content.categoryIdentifier = Self.nagCategory
             content.userInfo = ["uuid": task.uuid.uuidString]
@@ -120,32 +118,25 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// 4 个预设说话风格各一套提醒文案模板(到点/该开始/时间到三阶段);
+    /// 4 个预设说话风格各一套提醒文案模板(到点/时间到;任务已经没有时长,
+    /// 「时间到」只剩老数据里停在 end 阶段的那几条会用到);
     /// "默认"和"自定义"(自由文本、无法预先枚举模板)沿用原文案。
     /// 通知链是预排的、不会实时调用 AI,所以这里是本地写死的文案,不引入网络依赖。
-    private static let reminderTemplates: [String: (due: String, start: String, end: String)] = [
-        "高效秘书": ("到时间了,请处理。", "该开始了,请预留 %d 分钟。", "时间已到,请确认完成情况。"),
-        "温柔陪伴": ("到时间啦,别忘了哦~", "要开始啦~大概需要 %d 分钟,加油!", "时间到啦,完成了吗?"),
-        "严格教练": ("时间到了,马上行动!", "该开始了!给自己 %d 分钟,专注去做。", "时间到,完成了没有?"),
-        "幽默轻松": ("叮!你的专属提醒到啦~", "开工时间到~预计 %d 分钟,冲鸭!", "时间到啦,搞定了没?别偷懒哦~"),
+    private static let reminderTemplates: [String: (due: String, end: String)] = [
+        "高效秘书": ("到时间了,请处理。", "时间已到,请确认完成情况。"),
+        "温柔陪伴": ("到时间啦,别忘了哦~", "时间到啦,完成了吗?"),
+        "严格教练": ("时间到了,马上行动!", "时间到,完成了没有?"),
+        "幽默轻松": ("叮!你的专属提醒到啦~", "时间到啦,搞定了没?别偷懒哦~"),
     ]
 
     /// 通知内容不经过 SwiftUI 的 .environment(\.locale)(通知在 app 未运行时也要
     /// 投递),用 AppSettings.language 显式取当前语言;翻译走 LocalizedStrings
     /// 的中文原文反查(通知模板本身不含动态数据,精确匹配即可)。
-    private static func reminderBody(style: String, starting: Bool, isEnd: Bool,
-                                     durationMinutes: Int) -> String {
+    private static func reminderBody(style: String, isEnd: Bool) -> String {
         let language = AppSettings.language
         guard let template = reminderTemplates[style] else {
-            if starting {
-                let prefix = LocalizedStrings.translate("该开始了!(时长 ", language: language)
-                return "\(prefix)\(durationMinutes) \(language == .en ? "min)" : "分钟)")"
-            }
             if isEnd { return LocalizedStrings.translate("时间到 — 完成了吗?", language: language) }
             return LocalizedStrings.translate("到时间了", language: language)
-        }
-        if starting {
-            return String(format: LocalizedStrings.translate(template.start, language: language), durationMinutes)
         }
         if isEnd { return LocalizedStrings.translate(template.end, language: language) }
         return LocalizedStrings.translate(template.due, language: language)
@@ -222,14 +213,9 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// 无 key/未返回前先用机械文案兜底,AI 成功后重排。
     private func refreshDigest(for todayTasks: [TaskItem]) {
         let titles = todayTasks.map(\.title)
-        // 事项带时间与时长,供模型判断重点
+        // 事项带时间,供模型判断重点
         let items = todayTasks.map { task in
-            var line = "\(task.title)(\(LocalizedContent.dateCaption(task.nextRemindAt))"
-            if task.durationMinutes > 0 {
-                let unit = LocalizedStrings.text(.ios_core_health_unit_minutes, language: AppSettings.language)
-                line += ",\(task.durationMinutes) \(unit)"
-            }
-            return line + ")"
+            "\(task.title)(\(LocalizedContent.dateCaption(task.nextRemindAt)))"
         }
         let day = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
         let input = "\(day)|" + items.joined(separator: ";")
@@ -313,18 +299,13 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     /// 完成/开始了:advance;重复事项完成一次会记入历史并排下一次。
     @MainActor
-    /// 返回值:重复事项完成一次时插入的已完成历史记录(非重复/两阶段"开始了"
-    /// 时为 nil)。撤销(AgentHostView+Routing.swift 的 undo)靠这个 uuid 把这条
+    /// 返回值:重复事项完成一次时插入的已完成历史记录(非重复时为 nil)。撤销(AgentHostView+Routing.swift 的 undo)靠这个 uuid 把这条
     /// 历史记录也一并删掉,单纯 fire-and-forget 的调用方可以忽略返回值。
     @discardableResult
     func complete(_ task: TaskItem, context: ModelContext) -> TaskItem? {
         var d = task.data
         let finished = Scheduler.advance(&d, now: Date())
         task.apply(d)
-        if finished {
-            // 完成一次(含重复事项)即作为时长记忆样本
-            DurationMemory.learn(title: d.title, durationMinutes: d.durationMinutes)
-        }
         var history: TaskItem?
         if finished && d.status == .pending {
             // 重复事项完成一次:插入一条已完成历史

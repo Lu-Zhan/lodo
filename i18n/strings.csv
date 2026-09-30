@@ -1086,7 +1086,7 @@ ios_view.catalog_85aa5be8493e,添加(%lld),Add (%lld),ios_view,Xcode 提取的 i
 ios_view.catalog_515ffeab667e,添加事项,Add Task,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_dba9e8228bf3,添加附件,Add Attachment,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_aece71c3bd50,玫红,Magenta,ios_view,Xcode 提取的 iOS UI 文案
-ios_view.catalog_a1f2b10aacd0,"用一句话添加任务,AI 解析时间和时长。",Add a task in one sentence; AI will parse the time and duration.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a1f2b10aacd0,"用一句话添加任务,AI 解析提醒时间。",Add a task in one sentence; AI will parse the reminder time.,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_d3a812ceaacc,"用右下角的 + 添加,比如每天早上让 AI 总结今天的任务。","Tap + at the bottom right to add one, such as a daily morning summary of your tasks.",ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_e203a4c76038,目的地,Destination,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_94fb25ffb82c,石墨,Graphite,ios_view,Xcode 提取的 iOS UI 文案

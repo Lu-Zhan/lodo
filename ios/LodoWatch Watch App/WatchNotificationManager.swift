@@ -49,14 +49,12 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
             let missed = (now.timeIntervalSince(anchor) / interval).rounded(.down) + 1
             anchor = anchor.addingTimeInterval(missed * interval)
         }
-        let starting = task.phase == .start && task.durationMinutes > 0
         for i in 0..<min(chainLength, Self.chainLength) {
             let fire = anchor.addingTimeInterval(interval * Double(i))
             guard fire > now else { continue }
             let content = UNMutableNotificationContent()
             content.title = task.title
-            content.body = Self.reminderBody(starting: starting, isEnd: task.phase == .end,
-                                             durationMinutes: task.durationMinutes)
+            content.body = Self.reminderBody(isEnd: task.phase == .end)
             content.sound = .default
             content.categoryIdentifier = Self.nagCategory
             content.userInfo = ["uuid": task.uuid.uuidString]
@@ -68,8 +66,7 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
         }
     }
 
-    private static func reminderBody(starting: Bool, isEnd: Bool, durationMinutes: Int) -> String {
-        if starting { return "该开始了!(时长 \(durationMinutes) 分钟)" }
+    private static func reminderBody(isEnd: Bool) -> String {
         if isEnd { return "时间到 — 完成了吗?" }
         return "到时间了"
     }

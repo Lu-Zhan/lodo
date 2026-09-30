@@ -262,7 +262,13 @@ enum CalendarSync {
         let descriptor = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" })
         let tasks = (try? context.fetch(descriptor)) ?? []
-        let mirrors = tasks.compactMap { CalendarTaskMirror.from($0.data, uuid: $0.uuid) }
+        let mirrors = tasks.compactMap { task -> CalendarTaskMirror? in
+            // `data` 给调度器的时长恒为 0(任务已经没有时长);日历事件的长度
+            // 另存在 durationMinutes 里,镜像时补回去,免得把事件压成 30 分钟。
+            var data = task.data
+            data.durationMinutes = task.durationMinutes
+            return CalendarTaskMirror.from(data, uuid: task.uuid)
+        }
             .filter { window.contains($0.start) }
         let tasksByUUID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.uuid, $0) })
 
@@ -291,9 +297,12 @@ enum CalendarSync {
             // 提醒还挂在旧时刻上。
             TaskActions.apply(ParsedTask(
                 title: update.title, remindAt: update.start, allDay: update.isAllDay,
-                durationMinutes: update.durationMinutes, repeatType: task.repeatType,
+                repeatType: task.repeatType,
                 repeatDays: task.repeatDays, repeatTimes: task.repeatTimes,
                 project: task.project), to: task, context: context)
+            // 事件长度只用来镜像回日历(见 TaskItem.durationMinutes),不影响提醒。
+            task.durationMinutes = update.durationMinutes
+            try? context.save()
         }
         // ③ 任务侧:日历里删掉事件 = 删掉任务(用户确认过的语义,不可撤销)
         for uuid in plan.deleteTaskUUIDs {
@@ -320,8 +329,10 @@ enum CalendarSync {
         let minutes = max(0, Int(event.end.timeIntervalSince(event.start) / 60))
         let task = TaskActions.create(ParsedTask(
             title: event.title, remindAt: event.start, allDay: event.isAllDay,
-            durationMinutes: event.isAllDay ? 0 : minutes,
             repeatType: .none, repeatDays: [], repeatTimes: []), context: context)
+        // 记下事件长度,之后镜像回去时不改动人家日程的结束时间。
+        task.durationMinutes = event.isAllDay ? 0 : minutes
+        try? context.save()
         CalendarSyncLedger.append(.from(event, taskUUID: task.uuid, isOwnCalendar: false))
         WidgetBridge.sync(context: context)
         return task

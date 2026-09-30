@@ -12,6 +12,11 @@ public final class TaskItem {
     public var uuid: UUID = UUID()
     public var title: String = ""
     public var remindAt: Date = Date.now
+    /// **不再是用户可见的"时长"**(iOS 2026-09 去掉了任务时长,只保留提醒)。
+    /// 列留着(SwiftData/CloudKit schema 与老备份兼容),现在只记**日历事件的长度**:
+    /// 日历双向同步回写/「转为任务」时写入,镜像回日历时用(`CalendarSync`),
+    /// 免得把用户的日程压成默认的 30 分钟。`data` 恒给调度器 0,所以它不会再
+    /// 触发"该开始了/完成了吗"两阶段提醒;表单/AI 不读也不写它。
     public var durationMinutes: Int = 0
     public var allDay: Bool = false
     public var repeatTypeRaw: String = "none"
@@ -105,7 +110,7 @@ public final class TaskItem {
     /// 转成纯数据结构做调度计算。
     public var data: TaskData {
         TaskData(
-            title: title, remindAt: remindAt, durationMinutes: durationMinutes,
+            title: title, remindAt: remindAt, durationMinutes: 0,
             allDay: allDay, repeatType: repeatType, repeatDays: repeatDays,
             repeatTimes: repeatTimes, status: status, phase: phase,
             nextRemindAt: nextRemindAt, doneAt: doneAt, ignoreStreak: ignoreStreak
@@ -128,7 +133,7 @@ public final class TaskItem {
         ignoreStreak = d.ignoreStreak
     }
 
-    /// 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"。
+    /// 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00"。
     public var caption: String {
         var parts = [Self.format(nextRemindAt)]
         if isRecurring {
@@ -136,8 +141,6 @@ public final class TaskItem {
         } else if allDay {
             parts.append("全天")
         }
-        if durationMinutes > 0 { parts.append("\(durationMinutes) 分钟") }
-        if phase == .end { parts.append("进行中") }
         return parts.joined(separator: " · ")
     }
 

@@ -228,15 +228,7 @@ extension AgentHostView {
                     return .answer(text: "好的,我记住了。", related: [])
                 }
                 if actions.count == 1 {
-                    if case .create(var parsed) = actions[0] {
-                        // 时长记忆本来只有 Siri 快捷指令在用(LodoIntents.swift),
-                        // 聊天入口这条主路径反而没消费过——补上。
-                        if parsed.durationMinutes == 0, let memory = DurationMemory.content,
-                           let minutes = try? await DeepSeekClient.suggestDuration(
-                               text: text, title: parsed.title, memory: memory),
-                           minutes > 0 {
-                            parsed.durationMinutes = minutes
-                        }
+                    if case .create(let parsed) = actions[0] {
                         // 新建不再先出一张确认卡片等用户点"确认新建"——**默认就建**,
                         // 结果卡片右边给一颗 ✕ 兜底。用户在对话里说的就是要加这件事,
                         // 多点一次确认没带来信息量;真解析错了,✕(和批量执行同一套

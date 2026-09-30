@@ -152,9 +152,7 @@ struct WatchAgentView: View {
     private func describe(_ action: AIAction) -> String {
         switch action {
         case .create(let parsed):
-            var caption = TaskItem.format(parsed.remindAt)
-            if parsed.durationMinutes > 0 { caption += " · \(parsed.durationMinutes) 分钟" }
-            return "新建:\(parsed.title)(\(caption))"
+            return "新建:\(parsed.title)(\(TaskItem.format(parsed.remindAt)))"
         case .update(_, let parsed):
             return "修改:\(parsed.title)(\(TaskItem.format(parsed.remindAt)))"
         case .complete(let uuid):
@@ -185,8 +183,7 @@ struct WatchAgentView: View {
             switch action {
             case .create(let parsed):
                 let task = TaskItem(
-                    title: parsed.title, remindAt: parsed.remindAt,
-                    durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
+                    title: parsed.title, remindAt: parsed.remindAt, allDay: parsed.allDay,
                     repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
                     repeatTimes: parsed.repeatTimes)
                 context.insert(task)
@@ -195,7 +192,6 @@ struct WatchAgentView: View {
                 guard let task = pending.first(where: { $0.uuid.uuidString == uuid }) else { continue }
                 task.title = parsed.title
                 task.remindAt = parsed.remindAt
-                task.durationMinutes = parsed.durationMinutes
                 task.allDay = parsed.allDay
                 task.repeatTypeRaw = parsed.repeatType.rawValue
                 task.repeatDays = parsed.repeatDays

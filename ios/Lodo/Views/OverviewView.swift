@@ -47,7 +47,6 @@ struct OverviewView: View {
     /// 每分钟刷新一次(「接下来」的倒计时要走),回前台/下拉时也刷新。
     @State private var now = Date()
     @State private var editingTask: TaskItem?
-    @State private var askDurationQueue: [(title: String, planned: Int)] = []
     @State private var suggestion: String?
     @State private var memorySummary: String?
     @State private var healthTip: String?
@@ -255,14 +254,6 @@ struct OverviewView: View {
                 }
             }
         }
-        if let ask = askDurationQueue.first {
-            bannerCard {
-                AskDurationBanner(
-                    title: ask.title, planned: ask.planned,
-                    onPick: { _ in popAskDuration() },
-                    onSkip: { popAskDuration() })
-            }
-        }
     }
 
     private func bannerCard(@ViewBuilder _ content: () -> some View) -> some View {
@@ -392,9 +383,7 @@ struct OverviewView: View {
             task: task, now: now,
             onComplete: {
                 withAnimation(.lodoAware(.snappy)) {
-                    if let ask = TaskActions.complete(task, context: context) {
-                        askDurationQueue.append(ask)
-                    }
+                    TaskActions.complete(task, context: context)
                 }
             },
             onEdit: { editingTask = task },
@@ -541,12 +530,6 @@ struct OverviewView: View {
                     .accessibilityLabel("收起改期候选")
                 }
             }
-        }
-    }
-
-    private func popAskDuration() {
-        withAnimation(.lodoAware(.snappy)) {
-            if !askDurationQueue.isEmpty { askDurationQueue.removeFirst() }
         }
     }
 

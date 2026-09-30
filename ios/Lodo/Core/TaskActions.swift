@@ -8,29 +8,26 @@ import LodoCore
 @MainActor
 enum TaskActions {
     /// 新建落库(表单保存、AI 新建、演示数据播种共用)。和 `apply` 一样把
-    /// NotificationManager.rebuild / DurationMemory.learn 这些容易漏掉的连带
+    /// NotificationManager.rebuild 这类容易漏掉的连带
     /// 更新收在一处——之前这段只存在于 `TodoListView.saveNew`,agent 路由从
     /// TodoListView 拆到 AgentHostView 之后两边都要用,所以提上来。
     @discardableResult
     static func create(_ parsed: ParsedTask, attachment: TaskAttachment? = nil,
                        context: ModelContext) -> TaskItem {
         let task = TaskItem(
-            title: parsed.title, remindAt: parsed.remindAt,
-            durationMinutes: parsed.durationMinutes, allDay: parsed.allDay,
+            title: parsed.title, remindAt: parsed.remindAt, allDay: parsed.allDay,
             repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
             repeatTimes: parsed.repeatTimes, project: parsed.project)
         task.attachment = attachment
         context.insert(task)
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
-        DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
         return task
     }
 
     static func apply(_ parsed: ParsedTask, to task: TaskItem, context: ModelContext) {
         task.title = parsed.title
         task.remindAt = parsed.remindAt
-        task.durationMinutes = parsed.durationMinutes
         task.allDay = parsed.allDay
         task.repeatTypeRaw = parsed.repeatType.rawValue
         task.repeatDays = parsed.repeatDays
@@ -41,24 +38,10 @@ enum TaskActions {
         task.ignoreStreak = 0
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
-        DurationMemory.learn(title: parsed.title, durationMinutes: parsed.durationMinutes)
     }
 
-    /// 完成 + 实际耗时采样判断:仅真正"完成一次"(非两阶段的"开始了")且命中
-    /// 采样条件时返回 (title, planned),调用方据此把耗时问询轻量条排队展示;
-    /// 否则返回 nil。
-    @discardableResult
-    static func complete(_ task: TaskItem, context: ModelContext) -> (title: String, planned: Int)? {
-        let title = task.title
-        let planned = task.durationMinutes
-        // phase==start 且有时长的这次点按是"开始了",不算完成
-        let isFinishing = !(task.phase == .start && task.durationMinutes > 0)
+    static func complete(_ task: TaskItem, context: ModelContext) {
         NotificationManager.shared.complete(task, context: context)
-        if isFinishing, planned > 0,
-           DurationMemory.shouldAskActual(title: title, planned: planned) {
-            return (title, planned)
-        }
-        return nil
     }
 
     static func delete(_ task: TaskItem, context: ModelContext) {
@@ -88,8 +71,7 @@ enum TaskActions {
     /// 逾期事项的 AI 改期候选(只读,不落库)。
     static func requestReschedule(for task: TaskItem) async throws -> [(label: String, date: Date)] {
         try await DeepSeekClient.suggestReschedule(
-            title: task.title, remindAt: task.remindAt,
-            durationMinutes: task.durationMinutes, isRecurring: task.isRecurring)
+            title: task.title, remindAt: task.remindAt, isRecurring: task.isRecurring)
     }
 
     /// 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。
@@ -99,15 +81,5 @@ enum TaskActions {
         task.nextRemindAt = date
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
-    }
-
-    static func durationChips(planned: Int) -> [Int] {
-        let lower = max(5, (planned / 2 + 2) / 5 * 5)
-        let upper = (planned * 3 / 2 + 2) / 5 * 5
-        var chips: [Int] = []
-        for value in [lower, planned, upper] where !chips.contains(value) {
-            chips.append(value)
-        }
-        return chips
     }
 }

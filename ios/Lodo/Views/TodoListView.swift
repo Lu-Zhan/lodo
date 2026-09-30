@@ -103,8 +103,6 @@ struct TodoListView: View {
     @State var filter: TodoFilter = .today
     @State var sheet: SheetMode?
     /// 工具栏"项目视图"菜单的两个入口。
-    /// 完成后询问实际耗时的轻量条(队列,连续完成不互相覆盖)。
-    @State var askDurationQueue: [(title: String, planned: Int)] = []
     /// 通知权限被拒绝(app 内唯一提醒渠道失效)时提示用户去系统设置开启。
     @State private var notificationsDenied = false
     @State private var insight: String?
@@ -129,7 +127,6 @@ struct TodoListView: View {
     /// 待办 List 动画的聚合触发键,见 body 里的 .animation 用法。
     private struct ListAnimationKey: Equatable {
         let dueUUIDs: [UUID]
-        let askTitles: [String]
         let filter: TodoFilter
     }
 
@@ -305,10 +302,6 @@ struct TodoListView: View {
                     notificationOverflowSection
                 }
                 filterBar
-                if let ask = askDurationQueue.first {
-                    askDurationSection(ask)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
                 // 置顶的「重要的事」在已完成之外的三档里都排最上面。
                 if filter != .done, !pinnedTasks.isEmpty {
                     pinnedSection
@@ -321,12 +314,12 @@ struct TodoListView: View {
                 case .done: doneSections
                 }
             }
-            // 三路各自独立的触发源(到期列表变化/时长反问队列变化/筛选切换)
+            // 两路各自独立的触发源(到期列表变化/筛选切换)
             // 合并成一个 Equatable 聚合值,用一个 .animation 修饰符盯——之前
-            // 三个 .animation(value:) 各自挂在同一个 List 上,同一时刻多个
+            // 几个 .animation(value:) 各自挂在同一个 List 上,同一时刻多个
             // 修饰符各管一段,冗余且不好看出这几路本质上是"同一份列表的动画"。
             .animation(.lodoAware(.snappy), value: ListAnimationKey(
-                dueUUIDs: due.map(\.uuid), askTitles: askDurationQueue.map(\.title), filter: filter))
+                dueUUIDs: due.map(\.uuid), filter: filter))
             // 顶部筛选贴近导航栏:分组列表默认在第一个分区上面留一大截空白。
             .contentMargins(.top, 4, for: .scrollContent)
             .navigationTitle("任务")
@@ -368,9 +361,6 @@ struct TodoListView: View {
                 consumeConvertToTodo(convertToTodoRequest)
                 checkNotificationAuthorization()
                 #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("--demo-ask-duration") {
-                    askDurationQueue.append((title: "开周会", planned: 60))
-                }
                 if ProcessInfo.processInfo.arguments.contains("--demo-seed-data"), pending.isEmpty {
                     seedDemoData()
                 }
@@ -451,10 +441,7 @@ struct TodoListView: View {
         switch row.kind {
         case .task(let task):
             TaskRowView(task: task, now: now,
-                        onEdit: { sheet = .edit(task, nil) },
-                        onAskDuration: { title, planned in
-                            askDurationQueue.append((title, planned))
-                        })
+                        onEdit: { sheet = .edit(task, nil) })
         case .routine(let routine):
             RoutineRowView(routine: routine, now: now,
                           latestRunToday: latestRunToday(routine),
@@ -473,16 +460,6 @@ struct TodoListView: View {
     }
 
     // MARK: - 区块
-
-    /// 完成后的实际耗时轻量条(智能采样,队列化;选择/跳过后出下一条)。
-    private func askDurationSection(_ ask: (title: String, planned: Int)) -> some View {
-        Section {
-            AskDurationBanner(
-                title: ask.title, planned: ask.planned,
-                onPick: { _ in popAskDuration() },
-                onSkip: { popAskDuration() })
-        }
-    }
 
     /// "今天"筛选态:今天该做的 + 全部到期未处理的(含遗漏的过去几天,冒泡到
     /// 这里、时间标红,见 effectiveDay/taskRow),不再单独有一个"到期提醒"区块。

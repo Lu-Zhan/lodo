@@ -13,9 +13,6 @@ enum LocalizedContent {
         } else if task.allDay {
             parts.append(LocalizedStrings.text(.shared_all_day, language: language))
         }
-        if task.durationMinutes > 0 {
-            parts.append("\(task.durationMinutes) \(LocalizedStrings.text(.ios_core_health_unit_minutes, language: language))")
-        }
         if task.phase == .end {
             parts.append(LocalizedStrings.text(.ios_core_task_in_progress, language: language))
         }
@@ -29,9 +26,6 @@ enum LocalizedContent {
                                        times: task.repeatTimes, language: language))
         } else if task.allDay {
             parts.append(LocalizedStrings.text(.shared_all_day, language: language))
-        }
-        if task.durationMinutes > 0 {
-            parts.append("\(task.durationMinutes) \(LocalizedStrings.text(.ios_core_health_unit_minutes, language: language))")
         }
         return parts.joined(separator: " · ")
     }
@@ -66,10 +60,6 @@ enum LocalizedContent {
         guard let nextRun else { return caption }
         let next = LocalizedStrings.text(.ios_core_next_occurrence, language: language)
         return "\(caption) · \(next) \(dateCaption(nextRun, language: language))"
-    }
-
-    static func taskStartCaption(_ task: TaskItem, language: AppLanguage = AppSettings.language) -> String {
-        "\(taskCaption(task, language: language)) — \(LocalizedStrings.text(.ios_core_start_task_hint, language: language))"
     }
 
     /// `timeZone` 给了就按那个时区显示(交通项的出发/到达地当地时间),nil = 本机时区。
@@ -157,7 +147,6 @@ enum LocalizedContent {
         case .assetLedger: key = .ios_core_skill_asset_ledger_title
         case .feeds: key = .ios_core_skill_feeds_title
         case .assets: key = .ios_core_skill_assets_title
-        case .duration: key = .ios_core_skill_duration_title
         case .routineWeb: key = .ios_core_skill_routine_web_title
         }
         return LocalizedStrings.text(key, language: language)
@@ -179,7 +168,6 @@ enum LocalizedContent {
         case .assetLedger: key = .ios_core_skill_asset_ledger_subtitle
         case .feeds: key = .ios_core_skill_feeds_subtitle
         case .assets: key = .ios_core_skill_assets_subtitle
-        case .duration: key = .ios_core_skill_duration_subtitle
         case .routineWeb: key = .ios_core_skill_routine_web_subtitle
         }
         return LocalizedStrings.text(key, language: language)

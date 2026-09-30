@@ -15,7 +15,6 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
     case assetLedger
     case feeds
     case assets
-    case duration
     case routineWeb
 
     public var id: String { rawValue }
@@ -34,7 +33,6 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .assetLedger: return "资产台账"
         case .feeds: return "订阅管理"
         case .assets: return "资产与负债"
-        case .duration: return "时长建议"
         case .routineWeb: return "定时任务联网"
         }
     }
@@ -53,14 +51,13 @@ public enum AgentSkillID: String, CaseIterable, Identifiable {
         case .assetLedger: return "在「资产」页新增、更新资产与负债(房产、存款、投资、贷款…)"
         case .feeds: return "订阅新闻与博客(贴链接、一次多个、只说名字也行),改名、停用"
         case .assets: return "收藏时识别资产金额、币种、负债与利率的规则"
-        case .duration: return "没说时长时,按时长记忆给新事项建议时长(停用则不再建议)"
         case .routineWeb: return "定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)"
         }
     }
 
     public var group: AgentSkillGroup {
         switch self {
-        case .agent, .todo, .webSearch, .duration, .countdown: return .system
+        case .agent, .todo, .webSearch, .countdown: return .system
         case .memory, .assets, .assetLedger: return .memory
         case .travel, .tripPlanner: return .travel
         case .health: return .health
@@ -192,16 +189,6 @@ public enum AgentSkillStore {
         isEnabled(.assets) ? content(for: .assets) : nil
     }
 
-    /// 时长建议的 system prompt;停用时为 nil,调用方直接返回 0(不建议)。
-    public static func durationPrompt(memory: String) -> String? {
-        guard isEnabled(.duration) else { return nil }
-        let text = content(for: .duration)
-        if text.contains(memoryPlaceholder) {
-            return text.replacingOccurrences(of: memoryPlaceholder, with: memory)
-        }
-        return text + "\n\n记忆文件:\n" + memory
-    }
-
     /// 定时任务的联网工具说明(已带前导空行);停用时为空串。
     public static func routineWebTools() -> String {
         isEnabled(.routineWeb) ? "\n\n" + content(for: .routineWeb) : ""
@@ -330,12 +317,11 @@ public enum AgentSkillStore {
         case .assetLedger: return defaultAssetLedger
         case .feeds: return defaultFeeds
         case .assets: return defaultAssets
-        case .duration: return defaultDuration
         case .routineWeb: return defaultRoutineWeb
         }
     }
 
-    // 下面三份原来内联在 DeepSeekClient 里。抽出来时逐字保持,默认渲染结果与之前一致。
+    // 下面两份原来内联在 DeepSeekClient 里。抽出来时逐字保持,默认渲染结果与之前一致。
 
     private static let defaultAssets = """
     - 如果内容记录的是一项资产/资金的价值(比如"存折里还有5000美元"、\
@@ -348,21 +334,6 @@ public enum AgentSkillStore {
     "interest_rate"(数字,年化利率的百分比数值,如 4.5 表示 4.5%),两者不要求\
     成对出现,只返回内容里明确提到的那个;同样要确保 tags 里包含"资产"这个\
     标签。不是负债内容时不要返回 liability_value/interest_rate。
-    """
-
-    /// `{{memory}}` 是时长记忆文件的插入位置;文本里没写就补在末尾。
-    public static let memoryPlaceholder = "{{memory}}"
-
-    private static let defaultDuration = """
-    你是提醒事项应用 lodo 的时长建议助手。下面是"事项类型 → 典型时长"的记忆文件、\
-    用户创建事项的原话和解析出的事项标题,只返回 JSON,不要任何其他文字。
-
-    判断规则:
-    - 用户原话明确表示不需要时长,或记忆中没有类型相近的条目 → {"duration_minutes": 0}
-    - 否则参考记忆中相近类型的典型时长 → {"duration_minutes": 分钟数}
-
-    记忆文件:
-    {{memory}}
     """
 
     private static let defaultRoutineWeb = """
@@ -393,9 +364,9 @@ public enum AgentSkillStore {
     - 一句话里包含多件事时返回多个操作,如"明天上午开会,周五交报告"→ 两条 create。
     - 修改/完成/删除按标题语义匹配列表中的事项("开会完成了"→ complete,\
     "把取快递删了"→ delete);匹配不到时返回 {"error": "原因"}。
-    - 用户表达的是"以后都这样办"的长期做事习惯/口味(如"以后开会默认留一小时"\
+    - 用户表达的是"以后都这样办"的长期做事习惯/口味(如"以后开会都提前半小时提醒"\
     "跟我说话简短点""我一般 9 点上班")→ remember_preference,text 写成一句陈述句;\
-    可与其他操作并存(如"明天9点开会,以后开会都留一小时"→ 一条 create + 一条 remember_preference)。\
+    可与其他操作并存(如"明天9点开会,以后开会都提前半小时提醒"→ 一条 create + 一条 remember_preference)。\
     只在用户确实表达了长期规则时才记,一次性的要求(如"这次提前十分钟提醒我")不要记;\
     已经出现在"用户偏好"里的内容不要重复记。
     - 新建缺少关键信息且无法按常理推断时(如只说"提醒我交材料"),不要猜,改为提问:\
@@ -409,7 +380,7 @@ public enum AgentSkillStore {
 
     提问规则:
     - 最多问 3 个问题,每题给 2-4 个选项;恰好一个选项的 recommended 为 true,并放在第一个。
-    - header 是这道题的短标签,不超过 6 个字(如"提醒时间""时长")。
+    - header 是这道题的短标签,不超过 6 个字(如"提醒时间""日期")。
     - 选项之间互相排斥;确实可以多选时把 multi_select 设为 true。
     - label 简短、可直接采用(如"明天 09:00");description 用一句话说清选它的后果,别重复 label。
     - 能从上下文、对话历史或常理推断出来的信息一律不要问,别为了凑数提问。
@@ -425,8 +396,7 @@ public enum AgentSkillStore {
     {"title": "事项内容(去掉时间词,保留做什么)",
       "remind_at": "YYYY-MM-DD HH:MM",
       "all_day": false,
-      "duration_minutes": 0,
-      "repeat_type": "none",
+        "repeat_type": "none",
       "repeat_days": [],
       "repeat_times": [],
       "project": ""}
@@ -434,7 +404,6 @@ public enum AgentSkillStore {
     规则:
     - "今天/明天/后天/周X/X月X日" 等相对时间基于当前时间换算成具体日期。
     - 只说了点数没说上下午时,按常理推断(如"9点开会"在当前时间之前则理解为最近的将来时间)。
-    - 未提到时长时 duration_minutes 为 0;"开会一小时"之类则换算成分钟数。
     - 只有日期、没有具体时间点的事项(如"明天要交报告"):all_day 设为 true,remind_at 用 "YYYY-MM-DD 00:00"。
     - 重复事项:"每天…"时 repeat_type 为 "daily";"每周一三五…"之类时 repeat_type 为 "weekly",\
     repeat_days 为选中的周几(0=周一 … 6=周日)。repeat_times 为当天的提醒时间点列表,可以有多个\

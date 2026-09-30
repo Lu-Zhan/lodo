@@ -1,7 +1,7 @@
 import SwiftUI
 import LodoCore
 
-/// 待办行:标题+说明,到期未处理的标红并带"该开始了/完成了吗"提示,滑动
+/// 待办行:标题+说明,到期未处理的标红并带到期提示,滑动
 /// 操作换成完成+改期+稍等;没到期的完成+删除。今天/未来/全部三个筛选态
 /// (TodoListView)和总览 tab(OverviewView)共用同一份实现。改期候选/loading/
 /// 错误是这一行自己的 @State,互相独立、互不干扰(SwiftData 的 @Model 天然
@@ -10,9 +10,6 @@ struct TaskRowView: View {
     let task: TaskItem
     let now: Date
     var onEdit: () -> Void
-    /// 完成时命中耗时采样条件,把 (title, planned) 交给调用方排队展示
-    /// (各自维护自己的 askDurationQueue,见 TodoListView/OverviewView)。
-    var onAskDuration: (String, Int) -> Void = { _, _ in }
 
     @Environment(\.modelContext) private var context
     @State private var rescheduleLoading = false
@@ -24,7 +21,6 @@ struct TaskRowView: View {
 
     private var dueCaption: String {
         if task.phase == .end { return LocalizedContent.taskFinishedCaption() }
-        if task.durationMinutes > 0 { return LocalizedContent.taskStartCaption(task) }
         return LocalizedContent.taskCaption(task)
     }
 
@@ -96,10 +92,7 @@ struct TaskRowView: View {
                 Haptics.success()
                 complete()
             } label: {
-                Label(task.phase == .start && task.durationMinutes > 0
-                      ? "开始了" : "完成",
-                      systemImage: task.phase == .start && task.durationMinutes > 0
-                      ? "play.fill" : "checkmark")
+                Label("完成", systemImage: "checkmark")
             }
             .tint(LodoColor.positive)
             if overdue {
@@ -167,9 +160,7 @@ struct TaskRowView: View {
 
     private func complete() {
         withAnimation(.lodoAware(.snappy)) {
-            if let (title, planned) = TaskActions.complete(task, context: context) {
-                onAskDuration(title, planned)
-            }
+            TaskActions.complete(task, context: context)
         }
     }
 
@@ -195,36 +186,5 @@ struct TaskRowView: View {
         Haptics.success()
         TaskActions.applyReschedule(task, to: date, context: context)
         withAnimation(.lodoAware(.snappy)) { rescheduleCandidates = nil }
-    }
-}
-
-/// 完成后的实际耗时轻量条(智能采样);今天/未来/全部/总览 共用同一个展示,
-/// 各自维护自己的 askDurationQueue 决定何时展示/出队哪一条。
-struct AskDurationBanner: View {
-    let title: String
-    let planned: Int
-    var onPick: (Int) -> Void
-    var onSkip: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("「\(title)」实际用了多久?").font(.body)
-            HorizontalChipRow {
-                ForEach(TaskActions.durationChips(planned: planned), id: \.self) { minutes in
-                    Button("\(minutes) 分钟") {
-                        Haptics.success()
-                        DurationMemory.recordActual(title: title, planned: planned, minutes: minutes)
-                        onPick(minutes)
-                    }
-                    .buttonStyle(.bordered)
-                    .font(.subheadline)
-                }
-                Button("跳过") { onSkip() }
-                    .pressable()
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 2)
     }
 }
