@@ -1599,5 +1599,79 @@ ios_view.asset_share_failed,共享没有成功,Sharing Failed,ios_view,资产共
 ios_view.asset_share,共享资产,Share Assets,ios_view,资产共享
 ios_view.asset_share_members,共享成员,Shared With,ios_view,资产共享
 ios_view.asset_share_joined,加入的共享台账,Joined shared ledger,ios_view,资产共享
-ios_view.asset_share_participant_note,带 %@ 的是共享台账里的;加入之前你自己记的只在这台设备上。,Items marked %@ are in the shared ledger; what you recorded before joining stays on this device only.,ios_view,资产共享
 ios_view.asset_share_row,在共享台账里,In shared ledger,ios_view,资产共享
+ios_view.asset_share_ledger,共享资产台账,Share Asset Ledger,ios_view,资产共享
+ios_view.asset_share_leave_footer,"关掉就是退出这本共享台账:别人加的条目会留一份在本机,不再同步。",Turning this off leaves the shared ledger. Items others added stay on this device but stop syncing.,ios_view,资产共享
+ios_view.asset_share_owner_footer,"经 iCloud 共享给你邀请的人,双方都能查看和修改勾选的条目。没勾的只在你自己的设备上。",Shared via iCloud with people you invite; everyone can view and edit the checked items. Unchecked items stay on your devices only.,ios_view,资产共享
+ios_view.asset_share_leave_q,退出共享台账?,Leave Shared Ledger?,ios_view,资产共享
+ios_view.asset_share_stop_q,停止共享资产台账?,Stop Sharing Asset Ledger?,ios_view,资产共享
+ios_view.asset_share_leave,退出,Leave,ios_view,资产共享
+ios_view.asset_share_stop,停止共享,Stop Sharing,ios_view,资产共享
+ios_view.asset_share_leave_msg,"别人加的条目会留一份在本机,之后不再同步。",Items others added stay on this device and stop syncing.,ios_view,资产共享
+ios_view.asset_share_stop_msg,"成员那边会留一份当前的副本,之后不再同步。","Members keep a copy of the current items, which stops syncing.",ios_view,资产共享
+ios_view.asset_share_remove_q,移出共享?,Remove from Sharing?,ios_view,资产共享
+ios_view.asset_share_remove_n,移出 %lld 项,Remove %lld Items,ios_view,资产共享
+ios_view.asset_share_remove_msg,"这些条目会从共享成员那边删掉,你这边保留。",These items will be removed for other members; you keep them.,ios_view,资产共享
+ios_view.asset_share_status,当前状态,Status,ios_view,资产共享
+ios_view.asset_share_role,身份,Role,ios_view,资产共享
+ios_view.asset_share_role_member,成员(别人分享给我),Member (shared with me),ios_view,资产共享
+ios_view.asset_share_role_owner,发起人,Owner,ios_view,资产共享
+ios_view.asset_share_sync,同步,Sync,ios_view,资产共享
+ios_view.asset_share_synced,已同步,Up to date,ios_view,资产共享
+ios_view.asset_share_me,%@(我),%@ (Me),ios_view,资产共享
+ios_view.asset_share_accepted,已加入,Joined,ios_view,资产共享
+ios_view.asset_share_pending,待接受,Invited,ios_view,资产共享
+ios_view.asset_share_view_members,查看成员,View Members,ios_view,资产共享
+ios_view.asset_share_manage_members,邀请 / 管理成员,Invite / Manage Members,ios_view,资产共享
+ios_view.asset_share_which,共享哪些条目,Items to Share,ios_view,资产共享
+ios_view.asset_share_select_none,全不选,Deselect All,ios_view,资产共享
+ios_view.asset_share_select_all,全选,Select All,ios_view,资产共享
+ios_view.asset_share_locked,"别人加的,不能在这里移出",Added by someone else; can't be removed here,ios_view,资产共享
+ios_view.asset_share_selected_footer,"已选 %lld 项。之后新记的条目默认不共享,回到这里勾上才会共享。",%lld selected. New items aren't shared by default; check them here to share.,ios_view,资产共享
+ios_view.asset_share_unknown_member,未知成员,Unknown member,ios_view,资产共享
+ios_view.asset_share_status_owner,已共享 %lld 项,Sharing %lld Items,ios_view,资产共享
+ios_view.asset_share_status_member,加入的共享台账 · %lld 项,Joined shared ledger · %lld Items,ios_view,资产共享
+ios_view.trip_no_location,无地点,No location,ios_view,旅行地点
+ios_view.trip_no_location_ax,没有地图位置,Not on the map,ios_view,旅行地点
+ios_view.trip_pin_action,标注位置,Place Pin,ios_view,旅行地点
+ios_view.trip_pin_on_map,在地图上标注,Place on Map,ios_view,旅行地点
+ios_view.trip_pin_saved,已标注「%@」的位置。,Location set for “%@”.,ios_view,旅行地点
+ios_view.trip_pin_not_found,"没找到「%@」的位置,可以在地图上手动标注。",Couldn't find “%@”. You can place it on the map yourself.,ios_view,旅行地点
+ios_view.trip_relocate_start,刷新地点中…,Refreshing locations…,ios_view,旅行地点
+ios_view.trip_relocate_ai,刷新地点中:%lld/%lld · AI 正在从候选里挑选…,Refreshing locations: %lld/%lld · AI is picking from candidates…,ios_view,旅行地点
+ios_view.trip_relocate_progress,刷新地点中:%lld/%lld,Refreshing locations: %lld/%lld,ios_view,旅行地点
+ios_view.trip_pin_hint2,"移动、缩放地图,把针尖对准「%@」",Pan and zoom the map to put the pin on “%@”,ios_view,旅行地点
+ios_view.trip_pin_ok,确认,Confirm,ios_view,旅行地点
+ios_view.trip_refresh_one,刷新位置,Refresh Location,ios_view,旅行地点
+ios_view.trip_refreshing_one,正在刷新「%@」的位置…,Refreshing location for “%@”…,ios_view,旅行地点
+ios_view.trip_refresh_one_missed,"没找到「%@」的新位置,保留原来的。不对的话可以在地图上手动标注。","Couldn't find a new location for “%@”, so the old one is kept. You can place it on the map yourself.",ios_view,旅行地点
+ios_view.trip_refresh_one_done,已刷新「%@」的位置。,Location refreshed for “%@”.,ios_view,旅行地点
+ios_view.news_today_summary,今日总结,Today's Summary,ios_view,新闻今日
+ios_view.news_today_needs_ai,"在设置里配置 AI 服务商后,这里会把最近 24 小时的文章整理成今日总结。",Set up an AI provider in Settings to turn the last 24 hours of articles into a daily summary here.,ios_view,新闻今日
+ios_view.news_today_generate,生成今日总结,Generate Today's Summary,ios_view,新闻今日
+ios_view.news_today_generating,正在整理今日总结…,Summarizing today's news…,ios_view,新闻今日
+ios_view.news_today_no_articles,"还没有抓到文章,下拉可以手动刷新。",No articles yet. Pull down to refresh.,ios_view,新闻今日
+ios_view.news_reference_hint,打开参考新闻,Opens the referenced article,ios_view,新闻今日
+ios_view.news_summary_expanded,已展开,Expanded,ios_view,新闻阅读
+ios_view.news_summary_collapsed,已收起,Collapsed,ios_view,新闻阅读
+ios_view.news_author_label,作者,Author,ios_view,新闻阅读
+ios_view.news_published_label,发布时间,Published,ios_view,新闻阅读
+ios_view.news_site_label,网址,Website,ios_view,新闻阅读
+ios_view.news_reading_settings,阅读设置,Reading Settings,ios_view,新闻阅读设置
+ios_view.news_summary_language,总结语言,Summary Language,ios_view,新闻阅读设置
+ios_view.news_summary_follow_app,跟随应用语言,Same as App,ios_view,新闻阅读设置
+ios_view.news_summary_original,与原文相同,Same as Article,ios_view,新闻阅读设置
+ios_view.news_summary_language_footer,"文章的 AI 总结和「今日」总结都用这种语言写。已经总结过的文章不会自动重写,可以在文章里的 AI 总结下点「重新总结」。",Used for article AI summaries and the Today summary. Articles already summarized aren't rewritten automatically — tap “Summarize Again” under an article's AI summary.,ios_view,新闻阅读设置
+ios_view.news_font_size,字号,Text Size,ios_view,新闻阅读设置
+ios_view.news_font_standard,标准,Standard,ios_view,新闻阅读设置
+ios_view.news_font_larger,较大,Larger,ios_view,新闻阅读设置
+ios_view.news_font_largest,特大,Largest,ios_view,新闻阅读设置
+ios_view.news_margin,边距,Margins,ios_view,新闻阅读设置
+ios_view.news_margin_narrow,窄,Narrow,ios_view,新闻阅读设置
+ios_view.news_margin_wide,宽,Wide,ios_view,新闻阅读设置
+ios_view.news_preview,预览,Preview,ios_view,新闻阅读设置
+ios_view.news_preview_title,苹果秋季发布会定档,Apple sets date for fall event,ios_view,新闻阅读设置
+ios_view.news_preview_body,"新 iPhone 与 Apple Watch 预计同场亮相,端侧 AI 是这次的重点。阅读页的正文会按这里的字号和边距排版。","New iPhone and Apple Watch models are expected, with on-device AI in focus. Articles use the text size and margins set here.",ios_view,新闻阅读设置
+ios_view.news_resummarize,重新总结,Summarize Again,ios_view,新闻阅读
+ios_view.news_from_source,来自%@,From %@,ios_view,新闻今日
+ios_view.news_reference_ax,"参考:%@,%@","Source: %1$@, %2$@",ios_view,新闻今日

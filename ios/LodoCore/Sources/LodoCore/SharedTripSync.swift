@@ -227,7 +227,7 @@ public enum SharedTripMapping {
 
 /// 共享资产台账(2026-09):整本台账一个 zone(`assets-<台账 uuid>`)+ zone-wide CKShare,
 /// 同旅行共享那套。**哪些条目在共享台账里**靠条目上的标记(`MemoryItem.assetLedgerUUID`、
-/// `FinanceEntry.ledgerUUID`)判定,规则见 `SharedAssetPlanner.joins`。
+/// `FinanceEntry.ledgerUUID`)判定——**逐条手动勾选**,见 `SharedAssetPlanner`。
 public enum SharedAssetMapping {
     public static let zonePrefix = "assets-"
 
@@ -325,16 +325,31 @@ public enum SharedAssetMapping {
     }
 }
 
+/// 共享哪些条目**一条一条由用户手动勾**(资产页右上角的共享确认页),不自动加入——
+/// 新记的资产默认不共享,之前记的也不会因为开了共享就整本传出去。
 public enum SharedAssetPlanner {
-    /// 一条还没挂到任何台账上的资产/收支,要不要自动放进这本共享台账。
-    ///
-    /// - **owner**(`joinedAt` 为 nil):共享的是"我的整本台账",全部放进去,之后新建的
-    ///   也自动跟进(不用在每个新建入口——表单、AI 的 create_asset、收藏——各挂一次钩子)。
-    /// - **成员**:只放**加入之后**新建的。加入之前自己记的那些是私人的,不能因为点了
-    ///   一个邀请链接就被传到别人的 iCloud 里去。
-    public static func joins(createdAt: Date, joinedAt: Date?) -> Bool {
-        guard let joinedAt else { return true }
-        return createdAt >= joinedAt
+    /// 确认页里勾选的结果和现状比:哪些要挂上标记、哪些要摘掉。`locked` 是别人加进
+    /// 共享台账的条目——这台设备不能把它们"移出共享"(那等于替别人删掉),勾选框
+    /// 也是锁着的,这里再兜一次底。
+    public static func selectionChanges(current: Set<UUID>, selected: Set<UUID>,
+                                        locked: Set<UUID> = []) -> (add: Set<UUID>, remove: Set<UUID>) {
+        let wanted = selected.union(locked.intersection(current))
+        return (wanted.subtracting(current), current.subtracting(wanted))
+    }
+
+    public enum RemoteDeletion: Equatable, Sendable {
+        /// 别人加的条目被移出共享(或删了):本地这份一起删掉,拿不到了就是拿不到了。
+        case deleteLocal
+        /// 自己加的条目(在自己另一台设备上移出了共享):只摘标记,条目本身还是自己的。
+        case detachOnly
+    }
+
+    /// 服务器上一条共享资产没了,本地怎么办。判据是**这条记录是不是自己建的**:
+    /// 自己的条目本来就在自己的 SwiftData 私有库里、会自己同步到自己的其他设备,
+    /// 在另一台设备上"移出共享"不能在这台上把条目删掉——删了还会经私有库同步把
+    /// 所有设备上的都删掉。拿不准(没有系统字段)时按自己的算,宁可留着不删。
+    public static func onRemoteDeletion(createdByMe: Bool?) -> RemoteDeletion {
+        createdByMe == false ? .deleteLocal : .detachOnly
     }
 }
 
@@ -423,18 +438,14 @@ public struct SharedZoneLedger: Codable, Equatable, Sendable {
     /// 台账 uuid,读的时候走 `containerUUID`。
     public var tripUUID: UUID
     public var records: [UUID: SharedLedgerRecord]
-    /// 成员加入的时间(只对资产台账有意义,见 `SharedAssetPlanner.joins`);owner 为 nil。
-    /// 老账本文件没有这个 key,合成的 Decodable 对 Optional 走 decodeIfPresent。
-    public var joinedAt: Date?
 
     public init(zoneName: String, ownerName: String, role: SharedTripRole, tripUUID: UUID,
-                records: [UUID: SharedLedgerRecord] = [:], joinedAt: Date? = nil) {
+                records: [UUID: SharedLedgerRecord] = [:]) {
         self.zoneName = zoneName
         self.ownerName = ownerName
         self.role = role
         self.tripUUID = tripUUID
         self.records = records
-        self.joinedAt = joinedAt
     }
 
     public var kind: SharedZoneKind { SharedZoneKind(zoneName: zoneName) ?? .trip }

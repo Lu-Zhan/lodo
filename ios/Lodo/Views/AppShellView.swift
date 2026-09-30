@@ -762,7 +762,7 @@ struct AppShellView: View {
         let args = ProcessInfo.processInfo.arguments
         let sectionFlags: [(AppSection, [String])] = [
             (.overview, ["--demo-overview-tab", "--demo-settings", "--demo-reschedule"]),
-            (.assets, ["--demo-assets"]),
+            (.assets, ["--demo-assets", "--demo-assets-empty"]),
             (.memory, ["--demo-memory-tab", "--demo-memory-filters", "--demo-seed-memory",
                        "--demo-assets-view"]),
             (.contact, ["--demo-contacts", "--demo-contact-compose", "--demo-contact-graph",

@@ -306,8 +306,7 @@ final class SharedTripSync {
             zones[ledger.key] = ledger
             saveZones(zones)
         }
-        // 已有的资产和收支全量挂上标记、排队上传(见 reconcile 里的 autoJoin)。
-        reconcile()
+        // 条目不自动加入:共享哪些由调用方(确认页)接着 `applyAssetSelection` 挂标记。
         return saved
     }
 
@@ -316,6 +315,67 @@ final class SharedTripSync {
     func didStopSharingAssets() {
         guard let entry = assetZoneEntry() else { return }
         dropAssetZone(entry, deleteOnServer: true)
+    }
+
+    /// 确认页里勾选的结果:挂上 / 摘掉共享标记,保存后由 didSave → 对账推上去。
+    /// 摘掉的那几条在服务器上删除,其他成员那边随之删掉他们的副本(见 applyDeletions)。
+    func applyAssetSelection(add: Set<UUID>, remove: Set<UUID>) {
+        guard let context, let ledgerUUID = assetShare?.ledgerUUID,
+              !(add.isEmpty && remove.isEmpty) else { return }
+        let items = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+        for item in items where item.isAsset {
+            if add.contains(item.uuid) { item.assetLedgerUUID = ledgerUUID }
+            if remove.contains(item.uuid), item.assetLedgerUUID == ledgerUUID { item.assetLedgerUUID = nil }
+        }
+        let entries = (try? context.fetch(FetchDescriptor<FinanceEntry>())) ?? []
+        for entry in entries {
+            if add.contains(entry.uuid) { entry.ledgerUUID = ledgerUUID }
+            if remove.contains(entry.uuid), entry.ledgerUUID == ledgerUUID { entry.ledgerUUID = nil }
+        }
+        try? context.save()
+        reconcile()
+    }
+
+    /// 共享台账里别人加的条目:确认页上锁住、不能从这台设备移出共享。
+    func assetUUIDsAddedByOthers() -> Set<UUID> {
+        guard let entry = assetZoneEntry() else { return [] }
+        return Set(entry.records.compactMap { uuid, record in
+            createdByMe(record) == false ? uuid : nil
+        })
+    }
+
+    /// 共享成员(确认页上「当前状态」那一段用)。
+    struct AssetShareMember: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let isOwner: Bool
+        let isMe: Bool
+        let accepted: Bool
+    }
+
+    func assetShareMembers() async -> [AssetShareMember] {
+        guard let ckContainer, let entry = assetZoneEntry() else { return [] }
+        let zoneID = CKRecordZone.ID(zoneName: entry.zoneName, ownerName: entry.ownerName)
+        let database = entry.role == .owner ? ckContainer.privateCloudDatabase : ckContainer.sharedCloudDatabase
+        let id = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)
+        guard let share = try? await database.record(for: id) as? CKShare else { return [] }
+        await loadParticipants(share)
+        let me = share.currentUserParticipant
+        return share.participants.enumerated().map { index, participant in
+            let identity = participant.userIdentity
+            let name = identity.nameComponents.map {
+                PersonNameComponentsFormatter.localizedString(from: $0, style: .default)
+            }.flatMap { $0.isEmpty ? nil : $0 }
+                ?? identity.lookupInfo?.emailAddress
+                ?? identity.lookupInfo?.phoneNumber
+                ?? String(localized: "未知成员", bundle: .appLanguage())
+            return AssetShareMember(
+                id: identity.userRecordID?.recordName ?? "\(index)",
+                name: name,
+                isOwner: participant.role == .owner,
+                isMe: participant == me,
+                accepted: participant.acceptanceStatus == .accepted)
+        }
     }
 
     private func assetZoneEntry() -> SharedZoneLedger? {
@@ -462,7 +522,6 @@ final class SharedTripSync {
             let engine = zone.role == .owner ? privateEngine : sharedEngine
             let zoneID = CKRecordZone.ID(zoneName: zone.zoneName, ownerName: zone.ownerName)
             if zone.kind == .assets {
-                autoJoinAssets(zone, context: context)
                 removeAssetDuplicates(zone.containerUUID, context: context)
                 let plan = SharedTripPlanner.pushPlan(
                     local: assetSnapshots(zone.containerUUID, context: context), ledger: zone.records)
@@ -490,22 +549,6 @@ final class SharedTripSync {
         }
         saveZones(zones)
         updatePendingCounts()
-    }
-
-    /// 还没挂到任何台账上的资产/收支,按 `SharedAssetPlanner.joins` 挂到这本上。
-    private func autoJoinAssets(_ zone: SharedZoneLedger, context: ModelContext) {
-        let unmarkedItems = ((try? context.fetch(FetchDescriptor<MemoryItem>(
-            predicate: #Predicate { $0.assetLedgerUUID == nil }))) ?? [])
-            .filter { $0.isAsset && SharedAssetPlanner.joins(createdAt: $0.createdAt, joinedAt: zone.joinedAt) }
-        let unmarkedEntries = ((try? context.fetch(FetchDescriptor<FinanceEntry>(
-            predicate: #Predicate { $0.ledgerUUID == nil }))) ?? [])
-            .filter { SharedAssetPlanner.joins(createdAt: $0.createdAt, joinedAt: zone.joinedAt) }
-        guard !(unmarkedItems.isEmpty && unmarkedEntries.isEmpty) else { return }
-        applying = true
-        defer { applying = false }
-        unmarkedItems.forEach { $0.assetLedgerUUID = zone.containerUUID }
-        unmarkedEntries.forEach { $0.ledgerUUID = zone.containerUUID }
-        try? context.save()
     }
 
     private func assetSnapshots(_ ledgerUUID: UUID, context: ModelContext) -> [SharedRecordSnapshot] {
@@ -712,15 +755,12 @@ final class SharedTripSync {
     // MARK: - 服务器 → 本地
 
     private func register(_ zoneID: CKRecordZone.ID, role: SharedTripRole) {
-        guard let kind = SharedZoneKind(zoneName: zoneID.zoneName),
-              let containerUUID = SharedZoneKind.containerUUID(fromZoneName: zoneID.zoneName) else { return }
+        guard let containerUUID = SharedZoneKind.containerUUID(fromZoneName: zoneID.zoneName) else { return }
         var zones = SharedTripLedger.zones
         let key = SharedZoneLedger.key(zoneName: zoneID.zoneName, ownerName: zoneID.ownerName)
         guard zones[key] == nil else { return }
-        // 资产台账的成员记下加入时间:之前自己记的那些不自动放进去。
         zones[key] = SharedZoneLedger(zoneName: zoneID.zoneName, ownerName: zoneID.ownerName,
-                                      role: role, tripUUID: containerUUID,
-                                      joinedAt: kind == .assets && role == .participant ? Date() : nil)
+                                      role: role, tripUUID: containerUUID)
         saveZones(zones)
     }
 
@@ -897,12 +937,24 @@ final class SharedTripSync {
                 if let item = fetchEntry(uuid, context: context) { MemoryPipeline.delete(item, context: context) }
             case .packing:
                 if let item = fetchPacking(uuid, context: context) { context.delete(item) }
+            // 资产:别人的条目被移出共享 → 删掉本地副本;自己的(在自己另一台设备上
+            // 移出了共享)→ 只摘标记。见 SharedAssetPlanner.onRemoteDeletion。
             case .asset:
-                if let item = fetchEntry(uuid, context: context) { MemoryPipeline.delete(item, context: context) }
+                if let item = fetchEntry(uuid, context: context), item.assetLedgerUUID == zone.containerUUID {
+                    switch SharedAssetPlanner.onRemoteDeletion(createdByMe: createdByMe(zone.records[uuid])) {
+                    case .deleteLocal: MemoryPipeline.delete(item, context: context)
+                    case .detachOnly: item.assetLedgerUUID = nil
+                    }
+                }
             case .finance:
-                if let entry = fetchFinance(uuid, context: context) {
-                    FinanceReminders.removeReminder(for: entry, context: context)
-                    context.delete(entry)
+                if let entry = fetchFinance(uuid, context: context), entry.ledgerUUID == zone.containerUUID {
+                    switch SharedAssetPlanner.onRemoteDeletion(createdByMe: createdByMe(zone.records[uuid])) {
+                    case .deleteLocal:
+                        FinanceReminders.removeReminder(for: entry, context: context)
+                        context.delete(entry)
+                    case .detachOnly:
+                        entry.ledgerUUID = nil
+                    }
                 }
             case .trip, nil:
                 break  // 旅行本身的删除走 zone 删除(zoneRemoved)
@@ -912,6 +964,13 @@ final class SharedTripSync {
         }
         saveZones(zones)
         try? context.save()
+    }
+
+    /// 账本里那条记录是不是自己建的(按存下的系统字段里的创建者);没有系统字段时为 nil。
+    private func createdByMe(_ record: SharedLedgerRecord?) -> Bool? {
+        guard let data = record?.systemFields, let ck = Self.decodeSystemFields(data),
+              let creator = ck.creatorUserRecordID?.recordName else { return nil }
+        return creator == CKCurrentUserDefaultName
     }
 
     /// 「由 X 添加」:记录的创建者不是自己时,按共享成员表查名字。

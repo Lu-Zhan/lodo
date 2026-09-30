@@ -266,6 +266,36 @@ enum NewsStore {
     /// 本次运行里抓过的正文(按文章 uuid)。**不落库**:正文量大、还要走 CloudKit,
     /// 文章只存标题/摘要/链接(见 `NewsArticle`),重开 app 再抓一次。
     private static var fullTextCache: [UUID: String] = [:]
+    /// 阅读模式的结构化正文(段落 + 图片),同样只在内存里。
+    private static var contentCache: [UUID: ArticleContent] = [:]
+
+    /// 详情页的阅读模式正文:同 `fullText` 的逐级退路,但保留段落结构和图片
+    /// (`ArticleExtractor.content`)。抓不到比摘要长得多的内容时返回 nil,
+    /// 页面照样显示 feed 摘要。抓到了顺手填进 `fullTextCache`,AI 总结不用再抓一遍。
+    static func content(_ article: NewsArticle) async -> ArticleContent? {
+        if let cached = contentCache[article.uuid] { return cached }
+        guard let url = URL(string: article.link), url.scheme?.hasPrefix("http") == true else { return nil }
+        let threshold = max(ArticleExtractor.minimumLength, article.summary.count + 80)
+        var result: ArticleContent?
+        if let html = await fetchHTML(url),
+           let extracted = ArticleExtractor.content(fromHTML: html, baseURL: url),
+           extracted.text.count >= threshold {
+            result = extracted
+        } else if let html = await RenderedPageLoader.html(for: url),
+                  let extracted = ArticleExtractor.content(fromHTML: html, baseURL: url),
+                  extracted.text.count >= threshold {
+            result = extracted
+        } else if let markdown = await fetchReaderMarkdown(url),
+                  let extracted = ArticleExtractor.content(fromReaderMarkdown: markdown, baseURL: url),
+                  extracted.text.count >= threshold {
+            result = extracted
+        }
+        if let result {
+            contentCache[article.uuid] = result
+            if fullTextCache[article.uuid] == nil { fullTextCache[article.uuid] = result.text }
+        }
+        return result
+    }
 
     /// 文章全文。很多 RSS 只给一两句摘要,这里去原网页抓,逐级退路:
     /// 1. 自己抓 HTML(带浏览器 UA,不少站对默认 UA 直接回 403/精简页),用
@@ -310,14 +340,19 @@ enum NewsStore {
     }
 
     nonisolated private static func fetchReader(_ url: URL) async -> String? {
+        guard let markdown = await fetchReaderMarkdown(url) else { return nil }
+        let text = ArticleExtractor.cleanReaderMarkdown(markdown)
+        return text.isEmpty ? nil : text
+    }
+
+    nonisolated private static func fetchReaderMarkdown(_ url: URL) async -> String? {
         guard let reader = URL(string: "https://r.jina.ai/" + url.absoluteString) else { return nil }
         var request = URLRequest(url: reader)
         request.timeoutInterval = 25
         request.setValue("text/plain", forHTTPHeaderField: "Accept")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        let text = ArticleExtractor.cleanReaderMarkdown(String(decoding: data, as: UTF8.self))
-        return text.isEmpty ? nil : text
+        return String(decoding: data, as: UTF8.self)
     }
 
     /// 给 AI 总结用的正文:能抓到全文用全文,否则退回 feed 摘要。
@@ -326,14 +361,21 @@ enum NewsStore {
         return article.summary.isEmpty ? article.title : article.summary
     }
 
-    static func summarize(_ article: NewsArticle, language: AppLanguage,
+    /// 总结用什么语言:阅读设置里的「总结语言」,默认跟随应用内语言。
+    static func summaryLanguageName(_ appLanguage: AppLanguage) -> String {
+        NewsSummaryLanguage.stored(UserDefaults.standard.string(forKey: AppSettings.newsSummaryLanguageKey))
+            .promptName(appLanguage: appLanguage)
+    }
+
+    /// `force`:已经总结过也重新总结一次(换了总结语言之后,文章页上的「重新总结」)。
+    static func summarize(_ article: NewsArticle, language: AppLanguage, force: Bool = false,
                           context: ModelContext) async throws -> NewsArticleSummary {
-        if let cached = article.aiSummary { return cached }
+        if !force, let cached = article.aiSummary { return cached }
         let text = await articleText(article)
         try Task.checkCancellation()
         let result = try await DeepSeekClient.summarizeArticle(
             title: article.title, source: article.feedTitle, text: text,
-            language: MenuStore.targetLanguageName(language))
+            language: summaryLanguageName(language))
         article.aiSummary = result
         try? context.save()
         return result
@@ -380,11 +422,22 @@ enum NewsStore {
         return (cache.digest, cache.generatedAt)
     }
 
+    /// 「今日」的素材文章(同 `digestContext` 的挑法,只是返回文章本身):清单按编号
+    /// 发给模型,模型回的编号靠这份换算成文章,每条下面才挂得出参考新闻链接。
+    static func digestCandidates(context: ModelContext) -> [NewsEntry] {
+        let enabled = Set(feeds(in: context).filter(\.enabled).map(\.uuid))
+        return NewsPlan.digestCandidates(
+            articles(in: context).filter { enabled.contains($0.feedUUID) }.map(\.entry))
+    }
+
     static func generateDigest(language: AppLanguage,
                                context: ModelContext) async throws -> NewsDigest? {
-        guard let headlines = digestContext(context: context) else { return nil }
+        let candidates = digestCandidates(context: context)
+        guard !candidates.isEmpty else { return nil }
+        let headlines = NewsPlan.promptLines(candidates, summaryLength: 80, numbered: true)
         let digest = try await DeepSeekClient.newsDigest(
-            headlines: headlines, language: MenuStore.targetLanguageName(language))
+            headlines: headlines, language: summaryLanguageName(language))
+            .resolvingReferences(candidates)
         let now = Date()
         let cache = DigestCache(day: Calendar.current.startOfDay(for: now), generatedAt: now, digest: digest)
         if let data = try? JSONEncoder().encode(cache) {

@@ -57,6 +57,18 @@ struct TravelDetailView: View {
     @State private var noticeOffersTripEdit = false
     /// 当前提示带关闭按钮(共享失败这类要留着看清楚、又不该一直挂着的)。
     @State private var noticeDismissible = false
+    /// 当前提示是"没找到这个地点"——带一颗「在地图上标注」,点了进放大头针模式。
+    @State private var noticePinEntry: UUID?
+    /// 正在给哪一条行程项手动放大头针。nil = 不在放针模式。放针模式里大头针钉在
+    /// 屏幕正中,用户拖动、缩放地图把目标对准针尖,点「确认」取地图中心的坐标。
+    @State private var pinningEntry: UUID?
+    /// 地图当前的中心(= 屏幕中央那枚针指着的位置)。
+    @State private var mapCenter: CLLocationCoordinate2D?
+    /// 底部面板在屏幕上的位置(面板里量出来的全局坐标)。放针模式的两颗按钮悬浮在
+    /// 它上方、和它左右对齐。
+    @State private var panelFrame: CGRect = .zero
+    /// 地图控件(指南针)固定摆在右上角,和地图本体靠同一个 scope 关联。
+    @Namespace private var mapScope
     /// 切换 mapDay 后要选中的点。行选中需要先把按天筛选退回「全部」,而 mapDay 的
     /// onChange 默认会清掉选中、框全部点——有这个就改成飞到这个点。
     @State private var pendingPin: String?
@@ -113,7 +125,12 @@ struct TravelDetailView: View {
             mapLayer
                 .ignoresSafeArea()
             mapOverlays
+            if pinningEntry != nil {
+                pinningLayer
+                    .ignoresSafeArea()
+            }
         }
+        .mapScope(mapScope)
         #if os(iOS)
         // 名字在面板顶上大字显示,导航栏不再重复一遍;导航栏浮在地图上。
         .navigationTitle("")
@@ -296,6 +313,15 @@ struct TravelDetailView: View {
             .frame(maxHeight: .infinity)
             .clipped()
         }
+        // 面板在屏幕上的位置(sheet 和地图页在同一个窗口里,全局坐标通用):放针模式的
+        // 「取消」「确认」悬浮在它上方、和它左右对齐。
+        .background {
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { panelFrame = geo.frame(in: .global) }
+                    .onChange(of: geo.frame(in: .global)) { _, frame in panelFrame = frame }
+            }
+        }
         // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
         // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
         .askBar(focus: .travel(trip: trip.title))
@@ -350,6 +376,14 @@ struct TravelDetailView: View {
         if args.contains("--demo-travel-files") { mode = .files }
         if args.contains("--demo-travel-cost") { mode = .cost }
         if args.contains("--demo-travel-packing") { mode = .packing }
+        if args.contains("--demo-travel-pin"),
+           let target = entries.first(where: { !$0.kind.isTransport }) {
+            // 截图用:对第一个非交通的行程项进放针模式。
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
+                beginPinning(target.id)
+            }
+        }
         if args.contains("--demo-travel-people") {
             mode = .people
             // 塞两位样板同行人:一位链接库里第一个人脉(有的话),一位单独新建的。
@@ -798,7 +832,7 @@ struct TravelDetailView: View {
     /// `MKDirections` 规划真实路线(`TravelRouteLoader`),规划不出来的那段退回虚线直线;
     /// 关掉就全部画直线。
     private var mapLayer: some View {
-        Map(position: $camera, selection: $selectedPin) {
+        Map(position: $camera, selection: $selectedPin, scope: mapScope) {
             // 以 renderKey(id + 坐标)做标识:刷新地点位置后同一个点换了坐标,
             // 按 id 不变的话不保证 MapKit 会把标记挪过去。选中仍按 tag(pin.id)。
             ForEach(mapPins(for: mapDay), id: \.renderKey) { pin in
@@ -813,9 +847,15 @@ struct TravelDetailView: View {
                         dash: leg.isStraightFallback ? [6, 6] : []))
             }
         }
+        // 指南针不放在这里:系统会按需要把它藏起来、位置也不固定。它固定摆在右上角
+        // (mapOverlays 里,和左侧按天胶囊顶部对齐)。
         .mapControls {
-            MapCompass()
             MapScaleView()
+        }
+        // 地图铺满整屏(忽略安全区),所以它的中心就是屏幕中央那枚针的针尖。
+        // 只在拖动/缩放停下时取(.onEnd):连续取会让整页每帧重算一遍,确认只要停下那一刻的值。
+        .onMapCameraChange(frequency: .onEnd) { context in
+            mapCenter = context.region.center
         }
         .onAppear { focusCamera(animated: false) }
         .onChange(of: mapDay) { _, _ in
@@ -834,6 +874,8 @@ struct TravelDetailView: View {
             focus(on: [pin], animated: true)
         }
         .onChange(of: panelDetent) { _, _ in
+            // 放针模式里镜头归用户(针尖对着哪儿就是哪儿),不自动取景。
+            guard pinningEntry == nil else { return }
             // 面板高度变了,露出来的那截地图也变了,重新取一次景。
             if let id = selectedPin, let pin = mapPins(for: nil).first(where: { $0.id == id }) {
                 focus(on: [pin], animated: true)
@@ -849,8 +891,13 @@ struct TravelDetailView: View {
             HStack(alignment: .top) {
                 if trip.days.count > 1 { dayFilterRail }
                 Spacer(minLength: 0)
+                // 固定在右上角、常驻显示(正北朝上时系统默认会藏起来),顶边和左侧按天胶囊对齐。
+                MapCompass(scope: mapScope)
+                    .mapControlVisibility(.visible)
             }
-            if let notice = mapNotice ?? emptyMapNotice {
+            if pinningEntry != nil {
+                pinningHint
+            } else if let notice = mapNotice ?? emptyMapNotice {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top, spacing: 8) {
                         if relocating || preparingShare { ProgressView().controlSize(.small) }
@@ -876,6 +923,12 @@ struct TravelDetailView: View {
                             .foregroundStyle(lodoAccent.accent)
                             .pressable()
                     }
+                    if let id = noticePinEntry, mapNotice != nil {
+                        Button("在地图上标注") { beginPinning(id) }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(lodoAccent.accent)
+                            .pressable()
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -894,6 +947,132 @@ struct TravelDetailView: View {
             ? fillLocationReminder
             : String(localized: "填了地点的行程项会自动找坐标画到地图上;可以在右上角「刷新地点位置」重查一遍。",
                      bundle: .appLanguage(language), locale: language.locale)
+    }
+
+    // MARK: - 手动放大头针
+
+    /// 实在查不到(或查错了)的地点,让用户自己在地图上标:大头针钉在屏幕正中,
+    /// 拖动、缩放地图把目标对准针尖,点「确认」。
+    private var pinningTitle: String {
+        entries.first { $0.id == pinningEntry }.map { $0.placeName ?? $0.title } ?? ""
+    }
+
+    /// 顶上一行小提示(占的是平时那条地图提示的位置)。
+    private var pinningHint: some View {
+        Label {
+            Text(String(localized: "移动、缩放地图,把针尖对准「\(pinningTitle)」",
+                        bundle: .appLanguage(language), locale: language.locale))
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "mappin.and.ellipse")
+                .foregroundStyle(lodoAccent.accent)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glassBackground(Capsule())
+        .frame(maxWidth: .infinity)
+        .transition(.opacity)
+    }
+
+    /// 屏幕正中的大头针 + 悬浮在面板上方的「取消」「确认」两颗玻璃药丸(和面板左右对齐)。
+    /// 整层铺满屏幕(忽略安全区),和地图同一个坐标系:地图中心 = 这一层的中心。
+    private var pinningLayer: some View {
+        GeometryReader { geo in
+            let origin = geo.frame(in: .global).origin
+            ZStack {
+                // 针尖对准中心:图标整体往上挪半个身高;底下一个小点标出针尖落在哪儿。
+                ZStack {
+                    Circle()
+                        .fill(.black.opacity(0.25))
+                        .frame(width: 8, height: 4)
+                    Image(systemName: "mappin")
+                        .font(.system(size: 44, weight: .semibold))
+                        .foregroundStyle(LodoColor.critical)
+                        .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+                        .offset(y: -22)
+                }
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+
+                pinningButtons
+                    .frame(width: panelFrame == .zero ? geo.size.width - 32 : panelFrame.width)
+                    .position(
+                        x: panelFrame == .zero ? geo.size.width / 2 : panelFrame.midX - origin.x,
+                        y: (panelFrame == .zero ? geo.size.height - 240 : panelFrame.minY - origin.y)
+                            - Self.pinButtonGap - Self.pinButtonHeight / 2)
+            }
+        }
+    }
+
+    private static let pinButtonHeight: CGFloat = 50
+    private static let pinButtonGap: CGFloat = 12
+
+    private var pinningButtons: some View {
+        HStack(spacing: 12) {
+            Button(action: cancelPinning) {
+                Text("取消")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: Self.pinButtonHeight)
+                    .contentShape(Capsule())
+                    .glassBackground(Capsule(), tint: nil)
+            }
+            .pressable()
+            Button(action: confirmPin) {
+                Text("确认")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(lodoAccent.onFill)
+                    .frame(maxWidth: .infinity, minHeight: Self.pinButtonHeight)
+                    .contentShape(Capsule())
+                    .glassBackground(Capsule(), tint: lodoAccent.fill)
+            }
+            .pressable()
+            .disabled(mapCenter == nil)
+        }
+        .glassGroup(spacing: 12)
+    }
+
+    private func beginPinning(_ id: UUID) {
+        showNotice(nil)
+        selectedPin = nil
+        pinningEntry = id
+        // 面板降到露头,把地图让出来。
+        panelDetent = Self.peekDetent
+        // 已经有位置(查错了、要改)的先把它摆到针尖底下,从那儿微调。
+        if let coordinate = entries.first(where: { $0.id == id })?.coordinate {
+            let center = CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            withAnimation(.lodoAware(.easeInOut(duration: 0.45))) {
+                camera = .region(MKCoordinateRegion(
+                    center: center, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)))
+            }
+            mapCenter = center
+        }
+    }
+
+    private func cancelPinning() {
+        pinningEntry = nil
+        panelDetent = .medium
+    }
+
+    private func confirmPin() {
+        guard let id = pinningEntry, let coordinate = mapCenter,
+              let entry = entries.first(where: { $0.id == id }), let item = item(for: entry) else { return }
+        TravelStore.setManualCoordinate(item, latitude: coordinate.latitude,
+                                        longitude: coordinate.longitude, context: context)
+        pinningEntry = nil
+        panelDetent = .medium
+        showNotice(String(localized: "已标注「\(entry.placeName ?? entry.title)」的位置。",
+                          bundle: .appLanguage(language), locale: language.locale))
+        if let pin = mapPins(for: nil).first(where: { $0.entryID == id }) {
+            if mapPins(for: mapDay).contains(where: { $0.id == pin.id }) {
+                selectedPin = pin.id
+            } else {
+                pendingPin = pin.id
+                mapDay = nil
+            }
+        }
     }
 
     // MARK: - 没填城市和国家的提醒
@@ -1079,16 +1258,34 @@ struct TravelDetailView: View {
         }
     }
 
-    private func locateAndFocus(_ entry: TravelEntry) {
+    /// `refreshing`:左滑「刷新位置」——不管原来有没有坐标都按地名重查;查不到时
+    /// 保留原来的位置(同「刷新地点位置」),提示里给「在地图上标注」。
+    private func locateAndFocus(_ entry: TravelEntry, refreshing: Bool = false) {
         guard locatingEntry == nil, let item = item(for: entry) else { return }
         locatingEntry = entry.id
-        showNotice(String(localized: "正在查找「\(entry.placeName ?? entry.title)」的位置…",
-                          bundle: .appLanguage(language), locale: language.locale), sticky: true)
+        let name = entry.placeName ?? entry.title
+        showNotice(refreshing
+                   ? String(localized: "正在刷新「\(name)」的位置…", bundle: .appLanguage(language), locale: language.locale)
+                   : String(localized: "正在查找「\(name)」的位置…", bundle: .appLanguage(language), locale: language.locale),
+                   sticky: true)
         Task {
+            // 手动点的刷新:上一轮记下的"查不到"不作数,重新查。
+            if refreshing { PlaceGeocoder.resetMisses() }
             let found = await TravelStore.locate(item, in: trip, context: context)
             locatingEntry = nil
+            if !found, refreshing, entry.coordinate != nil {
+                showNotice(String(localized: "没找到「\(name)」的新位置,保留原来的。不对的话可以在地图上手动标注。",
+                                  bundle: .appLanguage(language), locale: language.locale),
+                           sticky: true, dismissible: true, pinEntry: entry.id)
+                return
+            }
             if found, let pin = mapPins(for: nil).first(where: { $0.entryID == entry.id }) {
-                showNotice(nil)
+                if refreshing {
+                    showNotice(String(localized: "已刷新「\(name)」的位置。",
+                                      bundle: .appLanguage(language), locale: language.locale))
+                } else {
+                    showNotice(nil)
+                }
                 if panelDetent == .large { panelDetent = .medium }
                 if mapPins(for: mapDay).contains(where: { $0.id == pin.id }) {
                     selectedPin = pin.id
@@ -1100,19 +1297,21 @@ struct TravelDetailView: View {
             } else if tripLacksLocation {
                 showNotice(fillLocationReminder, sticky: true, offersTripEdit: true)
             } else {
-                showNotice(String(localized: "没找到「\(entry.placeName ?? entry.title)」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。",
-                                  bundle: .appLanguage(language), locale: language.locale))
+                showNotice(String(localized: "没找到「\(entry.placeName ?? entry.title)」的位置,可以在地图上手动标注。",
+                                  bundle: .appLanguage(language), locale: language.locale),
+                           sticky: true, dismissible: true, pinEntry: entry.id)
             }
         }
     }
 
     /// 地图顶上的提示。sticky 的一直挂着(进行中/需要用户处理),否则几秒后自己消失。
     private func showNotice(_ text: String?, sticky: Bool = false, offersTripEdit: Bool = false,
-                            dismissible: Bool = false) {
+                            dismissible: Bool = false, pinEntry: UUID? = nil) {
         noticeTask?.cancel()
         mapNotice = text
         noticeOffersTripEdit = text != nil && offersTripEdit
         noticeDismissible = text != nil && dismissible
+        noticePinEntry = text == nil ? nil : pinEntry
         guard text != nil, !sticky else { return }
         noticeTask = Task {
             try? await Task.sleep(for: .seconds(4))
@@ -1123,13 +1322,18 @@ struct TravelDetailView: View {
 
     private func relocate() {
         relocating = true
-        showNotice(DeepSeekClient.isConfigured
-                   ? String(localized: "正在按地名重新查找位置,AI 会从候选里挑最合理的…",
-                            bundle: .appLanguage(language), locale: language.locale)
-                   : String(localized: "正在按地名重新查找位置…", bundle: .appLanguage(language), locale: language.locale),
+        showNotice(String(localized: "刷新地点中…", bundle: .appLanguage(language), locale: language.locale),
                    sticky: true)
         Task {
-            let result = await TravelStore.relocateAll(for: trip, context: context)
+            // 逐条报进度:「刷新地点中:3/15」;候选都拿齐、等 AI 一次性挑的那一步另说一句。
+            let result = await TravelStore.relocateAll(for: trip, context: context) { progress in
+                let text = progress.calibrating
+                    ? String(localized: "刷新地点中:\(progress.done)/\(progress.total) · AI 正在从候选里挑选…",
+                             bundle: .appLanguage(language), locale: language.locale)
+                    : String(localized: "刷新地点中:\(progress.done)/\(progress.total)",
+                             bundle: .appLanguage(language), locale: language.locale)
+                showNotice(text, sticky: true)
+            }
             relocating = false
             if tripLacksLocation && (result.destinationUnknown || result.missed > 0) {
                 showNotice(fillLocationReminder, sticky: true, offersTripEdit: true)
@@ -1430,6 +1634,16 @@ struct TravelDetailView: View {
                         if let status = entry.flight?.status, showsStatus(entry) {
                             FlightStatusBadge(status: status)
                         }
+                        // 地点(非交通)还没坐标:不在地图上。左滑「标注位置」可以手动放针。
+                        if lacksLocation(entry) {
+                            Text("无地点")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(.fill.tertiary))
+                                .accessibilityLabel("没有地图位置")
+                        }
                     }
                     // 一行副标题就够:时间 · 地点 · 单号。备注、航班的航站楼登机口
                     // 那些都收进详情页——按天这一页要的是密度,一眼扫完一天有几件事。
@@ -1484,8 +1698,28 @@ struct TravelDetailView: View {
                     Label("移出行程", systemImage: "tray.and.arrow.up")
                 }
                 .tint(LodoColor.neutralAction)
+                // 查不到的地点手动标;查错了的也能在这里重新标。交通类的起降点来自订单,不给。
+                if !entry.kind.isTransport {
+                    Button {
+                        beginPinning(entry.id)
+                    } label: {
+                        Label("标注位置", systemImage: "mappin.and.ellipse")
+                    }
+                    .tint(lodoAccent.accent)
+                    // 单独按地名重查这一条(住宿先查酒店本身,同「刷新地点位置」)。
+                    Button {
+                        locateAndFocus(entry, refreshing: true)
+                    } label: {
+                        Label("刷新位置", systemImage: "arrow.clockwise")
+                    }
+                    .tint(.teal)
+                }
             }
         }
+    }
+
+    private func lacksLocation(_ entry: TravelEntry) -> Bool {
+        !entry.kind.isTransport && entry.coordinate == nil
     }
 
     private func isSelected(_ entry: TravelEntry) -> Bool {

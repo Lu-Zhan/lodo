@@ -46,6 +46,11 @@ public enum AppSettings {
     public static let calendarViewModeKey = "calendarViewMode"
     /// 总览页的 widget 布局(`OverviewLayout.encoded()` 的 JSON),纯展示偏好、只存本机。
     public static let overviewLayoutKey = "overviewLayout"
+    /// 新闻「阅读设置」(`NewsReadingSettings`):AI 总结用什么语言、正文字号、左右边距。
+    /// 纯展示/本机偏好,不进备份。
+    public static let newsSummaryLanguageKey = "newsSummaryLanguage"
+    public static let newsFontSizeKey = "newsFontSize"
+    public static let newsMarginKey = "newsMargin"
 
     /// 健康分析总开关。**默认关**:读健康数据要系统授权,而且开了之后汇总统计
     /// 会发给所选 AI 服务商——这种事不该替用户默认打开。关着时健康页只画本地

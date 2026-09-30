@@ -1035,14 +1035,16 @@ public enum DeepSeekClient {
     public static func newsDigest(headlines: String,
                                   language: String = "中文") async throws -> NewsDigest {
         let system = """
-        你是新闻编辑。下面是用户订阅的新闻和博客里最近的文章清单(来源、标题、时间、摘要)。\
-        只挑出今天**最重要**的几件事,写成一份简报。
+        你是新闻编辑。下面是用户订阅的新闻和博客里最近的文章清单(每行开头是编号,\
+        后面是来源、标题、时间、摘要)。只挑出今天**最重要**的几件事,写成一份简报。
 
         只返回 JSON:{"overview": "一句话概括今天最重要的事,不超过 40 字", \
         "items": [{"title": "这件事本身,一句话说清发生了什么", \
-        "detail": "关键事实和影响,不超过 60 字"}]},不要任何其他文字。
+        "detail": "关键事实和影响,不超过 60 字", "refs": [这条依据的文章编号]}]},\
+        不要任何其他文字。
 
         规则:
+        - refs 写这条依据的是清单里哪几篇(编号,1 到 3 个),只写真的讲了这件事的那几篇。
         - items 3 到 5 条,按重要程度排,最重要的放第一条;多个来源讲同一件事的合并成一条。
         - 只写事情本身,**不写来源、媒体名、作者**,也不写"某某报道""据某某"。
         - 重要程度看影响面和新鲜度:政策、市场、行业大事、重大发布优先;软文、清单、\
@@ -1059,10 +1061,20 @@ public enum DeepSeekClient {
         let items = (payload["items"] as? [[String: Any]] ?? []).compactMap { raw -> NewsDigest.Item? in
             guard let title = (raw["title"] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else { return nil }
+            // 编号可能是数字也可能是 "3"/"[3]" 这种字符串,都认。
+            let refs = (raw["refs"] as? [Any] ?? []).compactMap { value -> Int? in
+                if let number = value as? Int { return number }
+                if let number = value as? Double { return Int(number) }
+                if let text = value as? String {
+                    return Int(text.trimmingCharacters(in: CharacterSet(charactersIn: "[] ")))
+                }
+                return nil
+            }
             return NewsDigest.Item(
                 title: title,
                 detail: ((raw["detail"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
-                source: ((raw["source"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
+                source: ((raw["source"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                refs: refs.isEmpty ? nil : refs)
         }
         let overview = ((payload["overview"] as? String) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)

@@ -337,6 +337,22 @@
         }
       }
     },
+    "%@(我)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (Me)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@(我)"
+          }
+        }
+      }
+    },
     "%@/%lld 分钟" : {
       "localizations" : {
         "en" : {
@@ -674,6 +690,7 @@
       }
     },
     "%lld. %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -704,6 +721,9 @@
           }
         }
       }
+    },
+    "•" : {
+
     },
     "+%lld" : {
       "localizations" : {
@@ -768,6 +788,9 @@
           }
         }
       }
+    },
+    "A" : {
+
     },
     "agent.md 是总则,其余是可分别编辑、可停用的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。" : {
       "localizations" : {
@@ -1731,6 +1754,23 @@
         }
       }
     },
+    "与原文相同" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as Article"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与原文相同"
+          }
+        }
+      }
+    },
     "两个月内没有旅行或生日" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2375,6 +2415,22 @@
         }
       }
     },
+    "今日总结" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日总结"
+          }
+        }
+      }
+    },
     "今日日程" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2393,6 +2449,7 @@
       }
     },
     "今日简报" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2796,6 +2853,22 @@
         }
       }
     },
+    "作者" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Author"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "作者"
+          }
+        }
+      }
+    },
     "你在对话里说过的长期要求(如「以后开会都留一小时」)会被 AI 自动记在这里,之后每轮对话都会带上。" : {
       "localizations" : {
         "en" : {
@@ -3033,6 +3106,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "值机柜台"
+          }
+        }
+      }
+    },
+    "停止共享" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Sharing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止共享"
+          }
+        }
+      }
+    },
+    "停止共享资产台账?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Sharing Asset Ledger?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止共享资产台账?"
           }
         }
       }
@@ -3280,6 +3385,22 @@
         }
       }
     },
+    "全不选" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deselect All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全不选"
+          }
+        }
+      }
+    },
     "全天" : {
       "localizations" : {
         "en" : {
@@ -3373,6 +3494,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全年"
+          }
+        }
+      }
+    },
+    "全选" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全选"
           }
         }
       }
@@ -3489,6 +3626,22 @@
         }
       }
     },
+    "共享哪些条目" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items to Share"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享哪些条目"
+          }
+        }
+      }
+    },
     "共享失败:%@" : {
       "localizations" : {
         "en" : {
@@ -3601,6 +3754,22 @@
         }
       }
     },
+    "共享资产台账" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Asset Ledger"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享资产台账"
+          }
+        }
+      }
+    },
     "关" : {
       "localizations" : {
         "en" : {
@@ -3629,6 +3798,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。"
+          }
+        }
+      }
+    },
+    "关掉就是退出这本共享台账:别人加的条目会留一份在本机,不再同步。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turning this off leaves the shared ledger. Items others added stay on this device but stop syncing."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关掉就是退出这本共享台账:别人加的条目会留一份在本机,不再同步。"
           }
         }
       }
@@ -3725,6 +3910,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关闭提醒"
+          }
+        }
+      }
+    },
+    "其中 %lld 个由 AI 从候选里挑选。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI picked %lld of them from the candidates."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中 %lld 个由 AI 从候选里挑选。"
           }
         }
       }
@@ -4578,6 +4779,38 @@
         }
       }
     },
+    "别人加的,不能在这里移出" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added by someone else; can't be removed here"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "别人加的,不能在这里移出"
+          }
+        }
+      }
+    },
+    "别人加的条目会留一份在本机,之后不再同步。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Items others added stay on this device and stop syncing."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "别人加的条目会留一份在本机,之后不再同步。"
+          }
+        }
+      }
+    },
     "到 %@" : {
       "localizations" : {
         "en" : {
@@ -4706,6 +4939,70 @@
         }
       }
     },
+    "刷新位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新位置"
+          }
+        }
+      }
+    },
+    "刷新地点中:%lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing locations: %lld/%lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新地点中:%lld/%lld"
+          }
+        }
+      }
+    },
+    "刷新地点中:%lld/%lld · AI 正在从候选里挑选…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing locations: %lld/%lld · AI is picking from candidates…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新地点中:%lld/%lld · AI 正在从候选里挑选…"
+          }
+        }
+      }
+    },
+    "刷新地点中…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing locations…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新地点中…"
+          }
+        }
+      }
+    },
     "刷新地点位置" : {
       "localizations" : {
         "en" : {
@@ -4799,6 +5096,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加入的共享台账"
+          }
+        }
+      }
+    },
+    "加入的共享台账 · %lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joined shared ledger · %lld Items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入的共享台账 · %lld 项"
           }
         }
       }
@@ -4966,6 +5279,22 @@
         }
       }
     },
+    "参考:%@,%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source: %1$@, %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "参考:%@,%@"
+          }
+        }
+      }
+    },
     "反复提醒" : {
       "localizations" : {
         "en" : {
@@ -4982,6 +5311,22 @@
         }
       }
     },
+    "发布时间" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Published"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发布时间"
+          }
+        }
+      }
+    },
     "发放日" : {
       "localizations" : {
         "en" : {
@@ -4994,6 +5339,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "发放日"
+          }
+        }
+      }
+    },
+    "发起人" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owner"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发起人"
           }
         }
       }
@@ -5348,6 +5709,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "合计"
+          }
+        }
+      }
+    },
+    "同步" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步"
           }
         }
       }
@@ -5840,6 +6217,22 @@
         }
       }
     },
+    "图片" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图片"
+          }
+        }
+      }
+    },
     "在 OpenStreetMap 中搜索「%@」" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5901,6 +6294,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在吃什么呀？"
+          }
+        }
+      }
+    },
+    "在地图上标注" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place on Map"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在地图上标注"
           }
         }
       }
@@ -6061,6 +6470,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在设置里开启健康分析后显示"
+          }
+        }
+      }
+    },
+    "在设置里配置 AI 服务商后,这里会把最近 24 小时的文章整理成今日总结。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up an AI provider in Settings to turn the last 24 hours of articles into a daily summary here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在设置里配置 AI 服务商后,这里会把最近 24 小时的文章整理成今日总结。"
           }
         }
       }
@@ -6423,6 +6848,22 @@
         }
       }
     },
+    "字号" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text Size"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字号"
+          }
+        }
+      }
+    },
     "存款" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6661,6 +7102,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "客车信息"
+          }
+        }
+      }
+    },
+    "宽" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wide"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宽"
           }
         }
       }
@@ -6988,6 +7446,7 @@
       }
     },
     "展开全文" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7047,6 +7506,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "左滑可以把这道菜从清单里去掉。"
+          }
+        }
+      }
+    },
+    "左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The icon on the left appears before the trip name. Tap one below to change it, or type any emoji."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。"
           }
         }
       }
@@ -7164,6 +7639,22 @@
         }
       }
     },
+    "已共享 %lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing %lld Items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已共享 %lld 项"
+          }
+        }
+      }
+    },
     "已写入行程" : {
       "localizations" : {
         "en" : {
@@ -7213,6 +7704,38 @@
         }
       }
     },
+    "已刷新「%@」的位置。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location refreshed for “%@”."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已刷新「%@」的位置。"
+          }
+        }
+      }
+    },
+    "已加入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joined"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已加入"
+          }
+        }
+      }
+    },
     "已取消:%@,点两下重新新建" : {
       "localizations" : {
         "en" : {
@@ -7241,6 +7764,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已取消新建"
+          }
+        }
+      }
+    },
+    "已同步" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up to date"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已同步"
           }
         }
       }
@@ -7342,6 +7881,22 @@
         }
       }
     },
+    "已展开" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expanded"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已展开"
+          }
+        }
+      }
+    },
     "已开始 %lld 天" : {
       "localizations" : {
         "en" : {
@@ -7434,6 +7989,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已收藏"
+          }
+        }
+      }
+    },
+    "已收起" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapsed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收起"
           }
         }
       }
@@ -7532,6 +8103,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已有同名的外部 skill,导入会覆盖它的内容(启用状态不变)。"
+          }
+        }
+      }
+    },
+    "已标注「%@」的位置。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location set for “%@”."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已标注「%@」的位置。"
           }
         }
       }
@@ -7843,6 +8430,22 @@
         }
       }
     },
+    "已选 %lld 项。之后新记的条目默认不共享,回到这里勾上才会共享。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld selected. New items aren't shared by default; check them here to share."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选 %lld 项。之后新记的条目默认不共享,回到这里勾上才会共享。"
+          }
+        }
+      }
+    },
     "已选菜品" : {
       "localizations" : {
         "en" : {
@@ -7951,22 +8554,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "带 %@ 的会显示在锁屏「倒数日」小组件上。"
-          }
-        }
-      }
-    },
-    "带 %@ 的是共享台账里的;加入之前你自己记的只在这台设备上。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Items marked %@ are in the shared ledger; what you recorded before joining stays on this device only."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "带 %@ 的是共享台账里的;加入之前你自己记的只在这台设备上。"
           }
         }
       }
@@ -8469,6 +9056,22 @@
         }
       }
     },
+    "当前状态" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前状态"
+          }
+        }
+      }
+    },
     "当地时区" : {
       "localizations" : {
         "en" : {
@@ -8530,6 +9133,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "待安排"
+          }
+        }
+      }
+    },
+    "待接受" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invited"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待接受"
           }
         }
       }
@@ -8610,6 +9229,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」;新闻简报打开「带上订阅的新闻」。"
+          }
+        }
+      }
+    },
+    "总结语言" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary Language"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总结语言"
           }
         }
       }
@@ -8738,6 +9373,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "想起谁了？"
+          }
+        }
+      }
+    },
+    "成员(别人分享给我)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Member (shared with me)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成员(别人分享给我)"
+          }
+        }
+      }
+    },
+    "成员那边会留一份当前的副本,之后不再同步。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Members keep a copy of the current items, which stops syncing."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成员那边会留一份当前的副本,之后不再同步。"
           }
         }
       }
@@ -8981,6 +9648,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开 lodo 的全局 AI 助手。"
+          }
+        }
+      }
+    },
+    "打开参考新闻" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the referenced article"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开参考新闻"
           }
         }
       }
@@ -9726,6 +10410,7 @@
       }
     },
     "摘要" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10013,6 +10698,38 @@
         }
       }
     },
+    "文章的 AI 总结和「今日」总结都用这种语言写。已经总结过的文章不会自动重写,可以在文章里的 AI 总结下点「重新总结」。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used for article AI summaries and the Today summary. Articles already summarized aren't rewritten automatically — tap “Summarize Again” under an article's AI summary."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文章的 AI 总结和「今日」总结都用这种语言写。已经总结过的文章不会自动重写,可以在文章里的 AI 总结下点「重新总结」。"
+          }
+        }
+      }
+    },
+    "新 iPhone 与 Apple Watch 预计同场亮相,端侧 AI 是这次的重点。阅读页的正文会按这里的字号和边距排版。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New iPhone and Apple Watch models are expected, with on-device AI in focus. Articles use the text size and margins set here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新 iPhone 与 Apple Watch 预计同场亮相,端侧 AI 是这次的重点。阅读页的正文会按这里的字号和边距排版。"
+          }
+        }
+      }
+    },
     "新加坡元" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -10207,6 +10924,22 @@
         }
       }
     },
+    "旅行图标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trip Icon"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旅行图标"
+          }
+        }
+      }
+    },
     "旅行已更新:%@" : {
       "localizations" : {
         "en" : {
@@ -10219,6 +10952,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "旅行已更新:%@"
+          }
+        }
+      }
+    },
+    "无地点" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无地点"
           }
         }
       }
@@ -11220,6 +11969,22 @@
         }
       }
     },
+    "未知成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown member"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知成员"
+          }
+        }
+      }
+    },
     "未读" : {
       "localizations" : {
         "en" : {
@@ -11464,6 +12229,22 @@
         }
       }
     },
+    "来自%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自%@"
+          }
+        }
+      }
+    },
     "来自人脉" : {
       "localizations" : {
         "en" : {
@@ -11576,6 +12357,22 @@
         }
       }
     },
+    "查看成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Members"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看成员"
+          }
+        }
+      }
+    },
     "标为已读" : {
       "localizations" : {
         "en" : {
@@ -11604,6 +12401,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "标为未读"
+          }
+        }
+      }
+    },
+    "标准" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标准"
+          }
+        }
+      }
+    },
+    "标注位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place Pin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标注位置"
           }
         }
       }
@@ -11770,6 +12600,22 @@
         }
       }
     },
+    "正在刷新「%@」的位置…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing location for “%@”…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在刷新「%@」的位置…"
+          }
+        }
+      }
+    },
     "正在同步 %lld 项" : {
       "localizations" : {
         "en" : {
@@ -11782,6 +12628,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在同步 %lld 项"
+          }
+        }
+      }
+    },
+    "正在建立共享…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting up sharing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在建立共享…"
           }
         }
       }
@@ -11834,7 +12696,25 @@
         }
       }
     },
+    "正在按地名重新查找位置,AI 会从候选里挑最合理的…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking up places again. AI will pick the best match from the candidates…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在按地名重新查找位置,AI 会从候选里挑最合理的…"
+          }
+        }
+      }
+    },
     "正在按地名重新查找位置…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11930,7 +12810,24 @@
         }
       }
     },
+    "正在整理今日总结…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarizing today's news…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在整理今日总结…"
+          }
+        }
+      }
+    },
     "正在整理今日简报…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12071,6 +12968,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在读取健康数据…"
+          }
+        }
+      }
+    },
+    "正在读取共享成员…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading members…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取共享成员…"
           }
         }
       }
@@ -12382,7 +13295,24 @@
         }
       }
     },
+    "没找到「%@」的位置,可以在地图上手动标注。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't find “%@”. You can place it on the map yourself."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没找到「%@」的位置,可以在地图上手动标注。"
+          }
+        }
+      }
+    },
     "没找到「%@」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12394,6 +13324,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没找到「%@」的位置,可以点 ⓘ 进编辑,用「搜索」手动选点。"
+          }
+        }
+      }
+    },
+    "没找到「%@」的新位置,保留原来的。不对的话可以在地图上手动标注。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't find a new location for “%@”, so the old one is kept. You can place it on the map yourself."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没找到「%@」的新位置,保留原来的。不对的话可以在地图上手动标注。"
           }
         }
       }
@@ -12474,6 +13420,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有匹配的收藏"
+          }
+        }
+      }
+    },
+    "没有地图位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not on the map"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有地图位置"
           }
         }
       }
@@ -13237,6 +14199,23 @@
         }
       }
     },
+    "特大" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Largest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "特大"
+          }
+        }
+      }
+    },
     "独立于系统语言设置;AI 助手的对话内容不受影响,始终为中文。" : {
       "localizations" : {
         "en" : {
@@ -13350,7 +14329,24 @@
         }
       }
     },
+    "生成今日总结" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generate Today's Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成今日总结"
+          }
+        }
+      }
+    },
     "生成今日简报" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13704,6 +14700,9 @@
         }
       }
     },
+    "确认" : {
+
+    },
     "确认修改" : {
       "localizations" : {
         "en" : {
@@ -13768,6 +14767,38 @@
         }
       }
     },
+    "移出 %lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove %lld Items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移出 %lld 项"
+          }
+        }
+      }
+    },
+    "移出共享?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from Sharing?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移出共享?"
+          }
+        }
+      }
+    },
     "移出旅行" : {
       "localizations" : {
         "en" : {
@@ -13796,6 +14827,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移出行程"
+          }
+        }
+      }
+    },
+    "移动、缩放地图,把针尖对准「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pan and zoom the map to put the pin on “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移动、缩放地图,把针尖对准「%@」"
           }
         }
       }
@@ -13909,6 +14956,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "稍等间隔:%lld 分钟"
+          }
+        }
+      }
+    },
+    "窄" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Narrow"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "窄"
           }
         }
       }
@@ -14185,6 +15249,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "系统语音识别(iOS 自带)"
+          }
+        }
+      }
+    },
+    "经 iCloud 共享给你邀请的人,双方都能查看和修改勾选的条目。没勾的只在你自己的设备上。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared via iCloud with people you invite; everyone can view and edit the checked items. Unchecked items stay on your devices only."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经 iCloud 共享给你邀请的人,双方都能查看和修改勾选的条目。没勾的只在你自己的设备上。"
           }
         }
       }
@@ -14511,6 +15591,22 @@
         }
       }
     },
+    "网址" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Website"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网址"
+          }
+        }
+      }
+    },
     "网址,如 sspai.com/feed" : {
       "localizations" : {
         "en" : {
@@ -14815,6 +15911,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "苹果智能需要 iOS 26 及以上系统。"
+          }
+        }
+      }
+    },
+    "苹果秋季发布会定档" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple sets date for fall event"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "苹果秋季发布会定档"
           }
         }
       }
@@ -16059,6 +17171,23 @@
         }
       }
     },
+    "跟随应用语言" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as App"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随应用语言"
+          }
+        }
+      }
+    },
     "跟随手机" : {
       "localizations" : {
         "en" : {
@@ -16103,6 +17232,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "跳过提问"
+          }
+        }
+      }
+    },
+    "身份" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Role"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身份"
           }
         }
       }
@@ -16254,6 +17399,23 @@
         }
       }
     },
+    "较大" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Larger"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "较大"
+          }
+        }
+      }
+    },
     "输入名字添加一起去的人;人脉里记过的人也能直接链接过来。" : {
       "localizations" : {
         "en" : {
@@ -16282,6 +17444,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "输入文字"
+          }
+        }
+      }
+    },
+    "边距" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Margins"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "边距"
           }
         }
       }
@@ -16766,6 +17944,22 @@
         }
       }
     },
+    "还没有抓到文章,下拉可以手动刷新。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No articles yet. Pull down to refresh."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有抓到文章,下拉可以手动刷新。"
+          }
+        }
+      }
+    },
     "还没有收藏" : {
       "localizations" : {
         "en" : {
@@ -17067,6 +18261,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这些不在这次旅行的国家/地区,选了会画到别的地方去。"
+          }
+        }
+      }
+    },
+    "这些条目会从共享成员那边删掉,你这边保留。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These items will be removed for other members; you keep them."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些条目会从共享成员那边删掉,你这边保留。"
           }
         }
       }
@@ -17391,6 +18601,38 @@
         }
       }
     },
+    "退出" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出"
+          }
+        }
+      }
+    },
+    "退出共享台账?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave Shared Ledger?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出共享台账?"
+          }
+        }
+      }
+    },
     "退房" : {
       "localizations" : {
         "en" : {
@@ -17516,6 +18758,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知权限已关闭,提醒不会推送"
+          }
+        }
+      }
+    },
+    "邀请 / 管理成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite / Manage Members"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "邀请 / 管理成员"
           }
         }
       }
@@ -17724,6 +18982,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新写入"
+          }
+        }
+      }
+    },
+    "重新总结" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarize Again"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新总结"
           }
         }
       }
@@ -18080,6 +19354,22 @@
         }
       }
     },
+    "阅读设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读设置"
+          }
+        }
+      }
+    },
     "附件" : {
       "localizations" : {
         "en" : {
@@ -18189,6 +19479,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "项目(可选)"
+          }
+        }
+      }
+    },
+    "预览" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预览"
           }
         }
       }
@@ -18430,102 +19736,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认位置,仅本机"
-          }
-        }
-      }
-    },
-    "旅行图标" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trip Icon"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "旅行图标"
-          }
-        }
-      }
-    },
-    "左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The icon on the left appears before the trip name. Tap one below to change it, or type any emoji."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左边的图标会显示在旅行名前面,可以点下面的换,也可以切到 emoji 键盘输入。"
-          }
-        }
-      }
-    },
-    "正在按地名重新查找位置,AI 会从候选里挑最合理的…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Looking up places again. AI will pick the best match from the candidates…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在按地名重新查找位置,AI 会从候选里挑最合理的…"
-          }
-        }
-      }
-    },
-    "其中 %lld 个由 AI 从候选里挑选。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI picked %lld of them from the candidates."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "其中 %lld 个由 AI 从候选里挑选。"
-          }
-        }
-      }
-    },
-    "正在建立共享…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Setting up sharing…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在建立共享…"
-          }
-        }
-      }
-    },
-    "正在读取共享成员…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Loading members…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在读取共享成员…"
           }
         }
       }

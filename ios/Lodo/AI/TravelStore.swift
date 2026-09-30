@@ -476,7 +476,16 @@ enum TravelStore {
     /// 好好的点清掉。判据见 `geocodeContext`,上一轮记下的"查不到"和"已验证"一并清掉重来。
     /// 交通类不查:起降点、车站来自订单和表单,不拿地名搜索去猜。
     /// 选哪一个由 AI 从 OpenStreetMap 候选里校准(`calibratedLookUp`),没配 AI 时退回自动挑。
-    static func relocateAll(for trip: TravelTrip, context: ModelContext) async -> RelocateResult {
+    /// 「刷新地点位置」的进度:查到第几个 / 一共几个;`calibrating` = 候选都拿齐了、
+    /// 正在等 AI 一次性挑。
+    struct RelocateProgress: Equatable {
+        var done: Int
+        var total: Int
+        var calibrating = false
+    }
+
+    static func relocateAll(for trip: TravelTrip, context: ModelContext,
+                            progress: @escaping (RelocateProgress) -> Void = { _ in }) async -> RelocateResult {
         PlaceGeocoder.resetMisses()
         verifiedCoordinates.removeAll()
         var result = RelocateResult()
@@ -492,7 +501,11 @@ enum TravelStore {
         }
         let tripItems = items(for: trip.uuid, in: context)
         let batch = Array(targets.prefix(geocodeBudget))
-        let outcomes = await calibratedLookUp(batch, trip: trip, contexts: contexts, tripItems: tripItems)
+        progress(RelocateProgress(done: 0, total: batch.count))
+        let outcomes = await calibratedLookUp(
+            batch, trip: trip, contexts: contexts, tripItems: tripItems,
+            onItemDone: { done in progress(RelocateProgress(done: done, total: batch.count)) },
+            onCalibrating: { progress(RelocateProgress(done: batch.count, total: batch.count, calibrating: true)) })
         for item in batch {
             guard case .found(let coordinate, let byAI) = outcomes[item.uuid] else {
                 result.missed += 1
@@ -514,6 +527,17 @@ enum TravelStore {
         result.missed += max(0, targets.count - geocodeBudget)
         try? context.save()
         return result
+    }
+
+    /// 地图上手动放的大头针:查不到的地点让用户自己标。记进「已验证」,这一轮
+    /// 清错国家(`pruneMisplacedCoordinates`)不会把它当成搜岔了清掉。
+    static func setManualCoordinate(_ item: MemoryItem, latitude: Double, longitude: Double,
+                                    context: ModelContext) {
+        item.travelLatitude = latitude
+        item.travelLongitude = longitude
+        if (item.travelPlaceName ?? "").isEmpty { item.travelPlaceName = item.title }
+        verifiedCoordinates.insert(item.uuid)
+        try? context.save()
     }
 
     /// 查一条行程项的位置(按天列表里点了一个还没坐标的地点时用),查到就写进去。
@@ -736,10 +760,13 @@ enum TravelStore {
     /// 候选都不对 → 算没找到,**不退回自动挑**——那等于把 AI 否掉的那条又选回来。
     static func calibratedLookUp(_ targets: [MemoryItem], trip: TravelTrip,
                                  contexts: [GeocodeContext],
-                                 tripItems: [MemoryItem]) async -> [UUID: RelocateOutcome] {
+                                 tripItems: [MemoryItem],
+                                 onItemDone: (Int) -> Void = { _ in },
+                                 onCalibrating: () -> Void = {}) async -> [UUID: RelocateOutcome] {
         var outcomes: [UUID: RelocateOutcome] = [:]
         var pending: [(item: MemoryItem, places: [OSMGeocode.Place], context: Int)] = []
-        for item in targets {
+        for (index, item) in targets.enumerated() {
+            defer { onItemDone(index + 1) }
             let neighbors = neighborCoordinates(of: item, among: tripItems)
             if let (places, index) = await osmCandidates(item, in: contexts, near: neighbors) {
                 pending.append((item, places, index))
@@ -756,6 +783,7 @@ enum TravelStore {
         }
         var choices: [UUID: PlaceCalibration.Choice] = [:]
         if DeepSeekClient.isConfigured {
+            onCalibrating()
             do {
                 choices = try await DeepSeekClient.calibratePlaces(
                     trip: calibrationTripLine(trip), items: calibrationItems)

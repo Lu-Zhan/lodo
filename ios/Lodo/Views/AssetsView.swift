@@ -27,8 +27,7 @@ struct AssetsView: View {
     @State private var editingEntry: FinanceSheet?
     @State private var pendingDeleteAsset: MemoryItem?
     @State private var now = Date()
-    /// 正在建 zone / 取 share(第一次要等几秒),共享按钮先转圈。
-    @State private var preparingShare = false
+    @State private var showingShare = false
     @State private var shareError: String?
     @Environment(\.sectionIsActive) private var isActive
 
@@ -93,6 +92,13 @@ struct AssetsView: View {
                     Text("这项在共享台账里,删除后共享的成员那边也会一起删掉。")
                 }
             }
+            #if os(iOS)
+            .sheet(isPresented: $showingShare) {
+                AssetShareSheet(assets: assets, entries: entries)
+                    .tint(lodoAccent.accent)
+                    .environment(\.lodoAccent, lodoAccent)
+            }
+            #endif
             .alert("共享没有成功", isPresented: Binding(
                 get: { shareError != nil }, set: { if !$0 { shareError = nil } })) {
                 Button("好", role: .cancel) {}
@@ -125,60 +131,38 @@ struct AssetsView: View {
     }
 
     #if os(iOS)
-    /// 邀请/管理成员/停止共享/退出都在系统共享界面里(见 CloudSharingPresenter)。
+    /// 点开共享确认页(`AssetShareSheet`):开关、当前状态、逐条勾选,确认后才生效。
     private var shareButton: some View {
-        Button(action: share) {
-            if preparingShare {
-                ProgressView()
-            } else {
-                Label(assetShare == nil ? "共享资产" : "共享成员",
-                      systemImage: assetShare == nil ? "person.crop.circle.badge.plus" : "person.2.fill")
-            }
+        Button {
+            showingShare = true
+        } label: {
+            Label(assetShare == nil ? "共享资产" : "共享成员",
+                  systemImage: assetShare == nil ? "person.crop.circle.badge.plus" : "person.2.fill")
         }
-        .disabled(preparingShare || !sync.isAvailable)
-    }
-
-    private func share() {
-        preparingShare = true
-        Task {
-            defer { preparingShare = false }
-            do {
-                let share = try await sync.prepareAssetShare()
-                CloudSharingPresenter.presentAssets(share: share)
-            } catch {
-                sync.report(error.localizedDescription)
-                shareError = error.localizedDescription
-                sync.lastError = nil
-            }
-        }
+        .disabled(isEmpty && assetShare == nil)
     }
     #endif
 
-    /// 总览卡顶上那一行:共享状态。成员那边多说一句"加入前记的只在自己这儿"。
+    /// 总览卡顶上那一行:共享状态(共享了几项、是否在同步),点它也能打开确认页。
     @ViewBuilder
     private var shareStatus: some View {
         if let assetShare {
             let pending = sync.pendingCounts[assetShare.ledgerUUID] ?? 0
-            VStack(alignment: .leading, spacing: 2) {
-                Label {
-                    if pending > 0 {
-                        Text("正在同步 \(pending) 项")
-                    } else if assetShare.role == .owner {
-                        Text("已共享")
-                    } else {
-                        Text("加入的共享台账")
-                    }
-                } icon: {
-                    Image(systemName: "person.2.fill")
+            let count = assets.filter { $0.assetLedgerUUID == assetShare.ledgerUUID }.count
+                + entries.filter { $0.ledgerUUID == assetShare.ledgerUUID }.count
+            Label {
+                if pending > 0 {
+                    Text("正在同步 \(pending) 项")
+                } else if assetShare.role == .owner {
+                    Text("已共享 \(count) 项")
+                } else {
+                    Text("加入的共享台账 · \(count) 项")
                 }
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(lodoAccent.accent)
-                if assetShare.role == .participant {
-                    Text("带 \(Image(systemName: "person.2.fill")) 的是共享台账里的;加入之前你自己记的只在这台设备上。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            } icon: {
+                Image(systemName: "person.2.fill")
             }
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(lodoAccent.accent)
         }
     }
 
@@ -186,28 +170,57 @@ struct AssetsView: View {
 
     private var addMenu: some View {
         Menu {
-            Section("资产") {
-                ForEach(AssetCategory.presets, id: \.self) { category in
-                    Button {
-                        editingAsset = AssetSheet(item: nil, category: category)
-                    } label: {
-                        Label(LocalizedStringKey(category), systemImage: AssetCategory.symbol(for: category))
-                    }
-                }
-            }
-            Section {
-                Button {
-                    editingEntry = FinanceSheet(kind: .income, entry: nil)
-                } label: { Label("收入", systemImage: "arrow.down.circle") }
-                Button {
-                    editingEntry = FinanceSheet(kind: .expense, entry: nil)
-                } label: { Label("固定支出", systemImage: "arrow.up.circle") }
-                Button {
-                    editingEntry = FinanceSheet(kind: .creditCard, entry: nil)
-                } label: { Label("信用卡", systemImage: "creditcard") }
-            }
+            addMenuItems
         } label: {
             Label("添加", systemImage: "plus")
+        }
+    }
+
+    /// 空态中间那颗「添加」。**不能直接拿 `addMenu` 套 `.buttonStyle(.borderedProminent)`**:
+    /// Menu 套按钮样式时标签会被吃掉,只剩一块没字的强调色椭圆。这里自己画标签,
+    /// 填充上的文字用 `onFill`(暗色下是近黑,见 LodoPalette)。
+    private var emptyAddMenu: some View {
+        Menu {
+            addMenuItems
+        } label: {
+            // 不用 Label:ContentUnavailableView 的 actions 里 Menu 的标签按纯图标显示,
+            // 文字会被吞掉。
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                Text("添加")
+            }
+            .font(.body.weight(.semibold))
+            .foregroundStyle(lodoAccent.onFill)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(lodoAccent.fill))
+            .fixedSize()
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var addMenuItems: some View {
+        Section("资产") {
+            ForEach(AssetCategory.presets, id: \.self) { category in
+                Button {
+                    editingAsset = AssetSheet(item: nil, category: category)
+                } label: {
+                    Label(LocalizedStringKey(category), systemImage: AssetCategory.symbol(for: category))
+                }
+            }
+        }
+        Section {
+            Button {
+                editingEntry = FinanceSheet(kind: .income, entry: nil)
+            } label: { Label("收入", systemImage: "arrow.down.circle") }
+            Button {
+                editingEntry = FinanceSheet(kind: .expense, entry: nil)
+            } label: { Label("固定支出", systemImage: "arrow.up.circle") }
+            Button {
+                editingEntry = FinanceSheet(kind: .creditCard, entry: nil)
+            } label: { Label("信用卡", systemImage: "creditcard") }
         }
     }
 
@@ -218,8 +231,7 @@ struct AssetsView: View {
             } description: {
                 Text("记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。")
             } actions: {
-                addMenu
-                    .buttonStyle(.borderedProminent)
+                emptyAddMenu
             }
         }
         .listRowBackground(Color.clear)
@@ -356,10 +368,10 @@ struct AssetsView: View {
         }
     }
 
-    /// 行上挂不挂「共享」小图标:只在成员那边挂——owner 的整本台账都在共享里,
-    /// 每行都挂一枚等于没挂;成员那边共享的和自己私下记的混在一起,才需要分开。
+    /// 行上挂不挂「共享」小图标:条目是逐条勾选共享的,共享的和没共享的混在一起,
+    /// 两种身份都要分开。
     private func marksShared(_ ledgerUUID: UUID?) -> Bool {
-        assetShare?.role == .participant && isShared(ledgerUUID)
+        isShared(ledgerUUID)
     }
 
     private func assetDetail(_ item: MemoryItem) -> String {
@@ -512,6 +524,9 @@ struct AssetsView: View {
         }
         if args.contains("--demo-assets-card") {
             editingEntry = FinanceSheet(kind: .creditCard, entry: entries(.creditCard).first)
+        }
+        if args.contains("--demo-assets-share") {
+            showingShare = true
         }
         if args.contains("--demo-assets-new-asset") {
             editingAsset = AssetSheet(item: nil, category: "车辆")

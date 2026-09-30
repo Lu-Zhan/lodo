@@ -83,15 +83,18 @@ public enum NewsPlan {
 
     /// 喂给模型的文章清单:一行一篇,带来源、时间、摘要开头和链接。
     /// 摘要只取开头一段——模型要的是"有什么",细节它可以再 web_fetch 那条链接。
+    /// `numbered`:每行用「[编号]」开头(1 起),今日简报要模型按编号回引参考文章。
     public static func promptLines(_ entries: [NewsEntry], summaryLength: Int = 120,
+                                   numbered: Bool = false,
                                    calendar: Calendar = .current) -> String {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "MM-dd HH:mm"
-        return entries.map { entry in
-            var line = "- [\(entry.feedTitle)] \(entry.title)(\(formatter.string(from: entry.publishedAt)))"
+        return entries.enumerated().map { index, entry in
+            let bullet = numbered ? "[\(index + 1)]" : "-"
+            var line = "\(bullet) [\(entry.feedTitle)] \(entry.title)(\(formatter.string(from: entry.publishedAt)))"
             let summary = NewsText.excerpt(NewsText.collapse(entry.summary), limit: summaryLength)
             if !summary.isEmpty, summary != entry.title { line += ":\(summary)" }
             if !entry.link.isEmpty { line += "\n  链接:\(entry.link)" }
@@ -119,12 +122,38 @@ public struct NewsDigest: Codable, Equatable, Sendable {
         public var title: String
         public var detail: String
         public var source: String
+        /// 模型给的参考文章编号(清单里的 1、2、3…,见 `NewsPlan.promptLines(numbered:)`)。
+        /// 老缓存没有这个 key,所以是 Optional(合成的 Decodable 对 Optional 走 decodeIfPresent)。
+        public var refs: [Int]?
+        /// 编号换算成的文章 uuid(`NewsStore.generateDigest` 填):「今日」里每条下面
+        /// 挂的参考新闻链接,点了进那篇文章。
+        public var articleIDs: [UUID]?
 
-        public init(title: String, detail: String, source: String) {
+        public init(title: String, detail: String, source: String,
+                    refs: [Int]? = nil, articleIDs: [UUID]? = nil) {
             self.title = title
             self.detail = detail
             self.source = source
+            self.refs = refs
+            self.articleIDs = articleIDs
         }
+    }
+
+    /// 把每条的参考编号(1 起)换算成清单里对应文章的 uuid;越界的编号丢掉、
+    /// 重复的只留一次。
+    public func resolvingReferences(_ candidates: [NewsEntry]) -> NewsDigest {
+        var copy = self
+        copy.items = items.map { item in
+            var item = item
+            var seen = Set<UUID>()
+            item.articleIDs = (item.refs ?? []).compactMap { number in
+                guard number >= 1, number <= candidates.count else { return nil }
+                let id = candidates[number - 1].uuid
+                return seen.insert(id).inserted ? id : nil
+            }
+            return item
+        }
+        return copy
     }
 
     public var overview: String

@@ -17,11 +17,13 @@ enum NewsRoute: Hashable {
 /// - 定时推送不是另一套机制:就是一条带「带上订阅的新闻」的定时任务
 ///   (`AIRoutine.includeNews`),触发、通知、补跑都走 `RoutineRunner`。
 struct NewsListView: View {
+    /// 顶上的切换。「今日」不是文章筛选,是今日总结(AI 简报 + 每条的参考新闻链接)。
     enum ReadFilter: String, CaseIterable, Identifiable {
-        case all, unread, starred
+        case today, all, unread, starred
         var id: String { rawValue }
         var title: LocalizedStringKey {
             switch self {
+            case .today: return "今日"
             case .all: return "全部"
             case .unread: return "未读"
             case .starred: return "已收藏"
@@ -50,6 +52,10 @@ struct NewsListView: View {
     @State private var showAddFeed = false
     @State private var routineSheet: RoutineSheet?
 
+    @AppStorage(AppSettings.newsFontSizeKey) private var fontSizeRaw = NewsFontSize.standard.rawValue
+    @AppStorage(AppSettings.newsMarginKey) private var marginRaw = NewsMargin.standard.rawValue
+    @State private var showReadingSettings = false
+
     @State private var digest: NewsDigest?
     @State private var digestGeneratedAt: Date?
     @State private var digestTask: Task<Void, Never>?
@@ -70,7 +76,7 @@ struct NewsListView: View {
         let kinds = Dictionary(uniqueKeysWithValues: feeds.map { ($0.uuid, $0.kind) })
         return articles.filter { article in
             switch readFilter {
-            case .all: break
+            case .all, .today: break
             case .unread: if article.isRead { return false }
             case .starred: if !article.isStarred { return false }
             }
@@ -101,44 +107,15 @@ struct NewsListView: View {
                         .pickerStyle(.segmented)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                    }
-                    if activeSourceTitle != nil { sourceFilterBanner }
-                    if DeepSeekClient.isConfigured && !articles.isEmpty && readFilter == .all
-                        && activeSourceTitle == nil {
-                        digestSection
-                    }
-                    if filtered.isEmpty {
-                        Section {
-                            Text(emptyFilterText)
-                                .foregroundStyle(.secondary)
+                        .listRowSeparator(.hidden)
+                        // 「今日」的总结和切换条放在同一个 section 里:分成两个 section
+                        // 中间会隔着一大截分区间距(用户要求尽量贴近)。
+                        if readFilter == .today {
+                            todaySections
                         }
                     }
-                    ForEach(sections, id: \.day) { section in
-                        Section {
-                            ForEach(section.articles) { article in
-                                NavigationLink(value: NewsRoute.article(article)) {
-                                    NewsArticleRow(article: article)
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button {
-                                        NewsStore.setRead(article, !article.isRead, context: context)
-                                    } label: {
-                                        Label(LocalizedStringKey(article.isRead ? "标为未读" : "标为已读"),
-                                              systemImage: article.isRead ? "circle" : "checkmark.circle")
-                                    }
-                                    .tint(LodoColor.neutralAction)
-                                    Button {
-                                        NewsStore.toggleStar(article, context: context)
-                                    } label: {
-                                        Label(LocalizedStringKey(article.isStarred ? "取消收藏" : "收藏"),
-                                              systemImage: article.isStarred ? "star.slash" : "star")
-                                    }
-                                    .tint(.accentColor)
-                                }
-                            }
-                        } header: {
-                            Text(dayTitle(section.day))
-                        }
+                    if readFilter != .today {
+                        articleSections
                     }
                 }
             }
@@ -170,6 +147,11 @@ struct NewsListView: View {
                     .tint(accentPalette.accent)
                     .environment(\.lodoAccent, accentPalette)
             }
+            .sheet(isPresented: $showReadingSettings) {
+                NewsReadingSettingsView()
+                    .tint(accentPalette.accent)
+                    .environment(\.lodoAccent, accentPalette)
+            }
             .sheet(item: $routineSheet) { sheet in
                 RoutineEditView(routine: sheet.routine, isNew: sheet.isNew)
                     .tint(accentPalette.accent)
@@ -195,6 +177,46 @@ struct NewsListView: View {
         #endif
     }
 
+    // MARK: - 文章流
+
+    @ViewBuilder
+    private var articleSections: some View {
+        if activeSourceTitle != nil { sourceFilterBanner }
+        if filtered.isEmpty {
+            Section {
+                Text(emptyFilterText)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        ForEach(sections, id: \.day) { section in
+            Section {
+                ForEach(section.articles) { article in
+                    NavigationLink(value: NewsRoute.article(article)) {
+                        NewsArticleRow(article: article)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button {
+                            NewsStore.setRead(article, !article.isRead, context: context)
+                        } label: {
+                            Label(LocalizedStringKey(article.isRead ? "标为未读" : "标为已读"),
+                                  systemImage: article.isRead ? "circle" : "checkmark.circle")
+                        }
+                        .tint(LodoColor.neutralAction)
+                        Button {
+                            NewsStore.toggleStar(article, context: context)
+                        } label: {
+                            Label(LocalizedStringKey(article.isStarred ? "取消收藏" : "收藏"),
+                                  systemImage: article.isStarred ? "star.slash" : "star")
+                        }
+                        .tint(.accentColor)
+                    }
+                }
+            } header: {
+                Text(dayTitle(section.day))
+            }
+        }
+    }
+
     // MARK: - 空态与筛选
 
     private var emptyState: some View {
@@ -215,7 +237,7 @@ struct NewsListView: View {
         switch readFilter {
         case .unread: return "都读完了。"
         case .starred: return "还没有收藏的文章。左滑文章可以收藏。"
-        case .all: return articles.isEmpty ? "正在抓取订阅…下拉可以手动刷新。" : "这个来源下还没有文章。"
+        case .all, .today: return articles.isEmpty ? "正在抓取订阅…下拉可以手动刷新。" : "这个来源下还没有文章。"
         }
     }
 
@@ -237,63 +259,134 @@ struct NewsListView: View {
 
     // MARK: - 今日简报
 
-    private var digestSection: some View {
-        Section {
-            if let digest {
-                VStack(alignment: .leading, spacing: 10) {
+    /// 「今日」:今日总结(一句话概览 + 几条要闻),每条下面挂着它依据的那几篇
+    /// 文章(参考新闻链接,点了进文章详情)。点了才生成、按天缓存(同原来的简报)。
+    @ViewBuilder
+    private var todaySections: some View {
+        if !DeepSeekClient.isConfigured {
+            Text("在设置里配置 AI 服务商后,这里会把最近 24 小时的文章整理成今日总结。")
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        } else {
+            // 不分 section、不垫卡片底:整份总结就是一篇直接排在页面上的文字。
+            VStack(alignment: .leading, spacing: 18) {
+                todayHeader
+                if let digest {
                     if !digest.overview.isEmpty {
                         Text(digest.overview)
-                            .font(.body.weight(.medium))
+                            .font(.title3.weight(.semibold))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     ForEach(Array(digest.items.enumerated()), id: \.offset) { index, item in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(index + 1). \(item.title)").font(.body.weight(.medium))
-                            if !item.detail.isEmpty {
-                                Text(item.detail)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        todayParagraph(index: index, item: item)
                     }
-                }
-                .padding(.vertical, 4)
-            } else if digestTask == nil {
-                Button {
-                    generateDigest()
-                } label: {
-                    Label("生成今日简报", systemImage: "sparkles")
-                }
-            }
-            if digestTask != nil {
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("正在整理今日简报…").foregroundStyle(.secondary)
-                }
-            }
-            if let digestError {
-                Text(digestError)
-                    .font(.subheadline)
-                    .foregroundStyle(LodoColor.critical)
-            }
-        } header: {
-            HStack {
-                Text("今日简报")
-                Spacer()
-                if digest != nil && digestTask == nil {
+                } else if digestTask == nil {
                     Button {
                         generateDigest()
                     } label: {
-                        Label("重新生成", systemImage: "arrow.clockwise")
-                            .labelStyle(.iconOnly)
+                        Label("生成今日总结", systemImage: "sparkles")
+                            .font(.body.weight(.semibold))
                     }
                     .pressable()
+                    .disabled(articles.isEmpty)
+                }
+                if digestTask != nil {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("正在整理今日总结…").foregroundStyle(.secondary)
+                    }
+                }
+                if let digestError {
+                    Text(digestError)
+                        .font(.subheadline)
+                        .foregroundStyle(LodoColor.critical)
+                }
+                if digest == nil, articles.isEmpty {
+                    Text("还没有抓到文章,下拉可以手动刷新。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
-        } footer: {
-            if let digestGeneratedAt, digest != nil {
-                Text("\(digestGeneratedAt, format: .dateTime.hour().minute()) 根据最近 24 小时的文章整理")
+            .dynamicTypeSize(readingFontSize.dynamicTypeSize)
+            .padding(.horizontal, readingMargin.points - 20)
+            .padding(.bottom, 6)
+            // 顶部只留一点缝:紧贴在切换条下面。
+            .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+    }
+
+    /// 「今日总结 · 01:36 整理」+ 右边重新生成。
+    private var todayHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("今日总结")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                if let digestGeneratedAt, digest != nil {
+                    Text("\(digestGeneratedAt, format: .dateTime.hour().minute()) 根据最近 24 小时的文章整理")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer()
+            if digest != nil && digestTask == nil {
+                Button {
+                    generateDigest()
+                } label: {
+                    Label("重新生成", systemImage: "arrow.clockwise")
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(.tint)
+                }
+                .pressable()
             }
         }
+    }
+
+    /// 一段要闻:「1. 标题」加粗接说明,后面跟着「来自少数派 ›」这样的小按钮,
+    /// 每篇参考文章一颗,点了进那篇文章。
+    private func todayParagraph(index: Int, item: NewsDigest.Item) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(Text(verbatim: "\(index + 1). \(item.title)").fontWeight(.semibold)) \(item.detail)")
+                .font(.body)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+            let refs = referencedArticles(item)
+            if !refs.isEmpty {
+                WrappingHStack(spacing: 6) {
+                    ForEach(refs) { article in
+                        Button {
+                            path.append(.article(article))
+                        } label: {
+                            HStack(spacing: 2) {
+                                Text("来自\(article.feedTitle)")
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2.weight(.semibold))
+                            }
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.tint)
+                            .lineLimit(1)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+                        }
+                        .pressable()
+                        .accessibilityLabel(Text("参考:\(article.feedTitle),\(article.title)"))
+                    }
+                }
+            }
+        }
+    }
+
+    private var readingFontSize: NewsFontSize { NewsFontSize.stored(fontSizeRaw) }
+    private var readingMargin: NewsMargin { NewsMargin.stored(marginRaw) }
+
+    /// 一条要闻依据的文章(按模型给的顺序;文章已被清理掉的跳过)。
+    private func referencedArticles(_ item: NewsDigest.Item) -> [NewsArticle] {
+        (item.articleIDs ?? []).compactMap { id in articles.first { $0.uuid == id } }
     }
 
     private func generateDigest() {
@@ -323,6 +416,11 @@ struct NewsListView: View {
                 showAddFeed = true
             } label: {
                 Label("添加订阅", systemImage: "plus")
+            }
+            Button {
+                showReadingSettings = true
+            } label: {
+                Label("阅读设置", systemImage: "textformat.size")
             }
             Button {
                 path = [.feeds]
@@ -422,19 +520,29 @@ struct NewsListView: View {
         guard args.contains("--demo-news") else { return }
         if feeds.isEmpty { seedDemoNews() }
         if args.contains("--demo-news-digest"), digest == nil {
+            // 参考文章按标题关键词找样板文章。
+            let all = NewsStore.articles(in: context)
+            // 库里是真实文章(没有样板标题)时,依次拿最新的几篇凑参考。
+            var fallback = all.makeIterator()
+            func refs(_ keywords: String...) -> [UUID] {
+                keywords.compactMap { key in (all.first { $0.title.contains(key) } ?? fallback.next())?.uuid }
+            }
             digest = NewsDigest(overview: "科技圈在等苹果发布会,电动车价格战继续。", items: [
                 .init(title: "苹果秋季发布会定档", detail: "新 iPhone 与 Apple Watch 预计同场亮相,重点是端侧 AI。",
-                      source: "少数派"),
+                      source: "", articleIDs: refs("苹果秋季", "AI 手机")),
                 .init(title: "电动车降价潮蔓延到中型车", detail: "三家品牌一周内先后调价,供应链压力加大。",
-                      source: "36氪"),
-                .init(title: "科技爱好者周刊更新", detail: "本期聊到个人知识库的整理方法。", source: "阮一峰的网络日志"),
+                      source: "", articleIDs: refs("电动车")),
+                .init(title: "科技爱好者周刊更新", detail: "本期聊到个人知识库的整理方法。",
+                      source: "", articleIDs: refs("周刊")),
             ])
             digestGeneratedAt = Date()
+            readFilter = .today
         }
         if args.contains("--demo-news-article"), let first = articles.first ?? NewsStore.articles(in: context).first {
             path = [.article(first)]
         }
         if args.contains("--demo-news-feeds") { path = [.feeds] }
+        if args.contains("--demo-news-reading-settings") { showReadingSettings = true }
     }
 
     private func seedDemoNews() {
@@ -467,6 +575,55 @@ struct NewsListView: View {
         try? context.save()
     }
     #endif
+}
+
+/// 放不下就换行的一排(「今日」每段后面那几颗「来自xx ›」)。系统 `Layout` 协议,
+/// 只算位置、不画东西。
+struct WrappingHStack: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+        let width = rows.map(\.width).max() ?? 0
+        let height = rows.map(\.height).reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(width: bounds.width, subviews: subviews) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + spacing
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = [Row()]
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let needed = rows[rows.count - 1].indices.isEmpty ? size.width : rows[rows.count - 1].width + spacing + size.width
+            if needed > width, !rows[rows.count - 1].indices.isEmpty {
+                rows.append(Row())
+            }
+            var row = rows[rows.count - 1]
+            row.width = row.indices.isEmpty ? size.width : row.width + spacing + size.width
+            row.height = max(row.height, size.height)
+            row.indices.append(index)
+            rows[rows.count - 1] = row
+        }
+        return rows.filter { !$0.indices.isEmpty }
+    }
 }
 
 /// 文章流里的一行:来源 · 时间,标题(已读的变淡),两行摘要。

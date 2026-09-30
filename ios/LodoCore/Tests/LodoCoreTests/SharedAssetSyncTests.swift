@@ -54,19 +54,27 @@ final class SharedAssetSyncTests: XCTestCase {
         XCTAssertEqual(SharedAssetMapping.snapshot(of: copy).fields, fields)
     }
 
-    func testJoinRules() {
-        let joined = Date(timeIntervalSince1970: 1_000)
-        // owner:整本台账都放进去。
-        XCTAssertTrue(SharedAssetPlanner.joins(createdAt: .distantPast, joinedAt: nil))
-        // 成员:加入之前记的是私人的,之后新建的才进共享台账。
-        XCTAssertFalse(SharedAssetPlanner.joins(createdAt: joined.addingTimeInterval(-1), joinedAt: joined))
-        XCTAssertTrue(SharedAssetPlanner.joins(createdAt: joined.addingTimeInterval(1), joinedAt: joined))
+    func testSelectionChanges() {
+        let a = UUID(), b = UUID(), c = UUID(), other = UUID()
+        let changes = SharedAssetPlanner.selectionChanges(current: [a, b, other], selected: [b, c],
+                                                          locked: [other])
+        XCTAssertEqual(changes.add, [c])
+        // 别人加的(locked)即使没勾也不能移出共享。
+        XCTAssertEqual(changes.remove, [a])
+        let none = SharedAssetPlanner.selectionChanges(current: [a], selected: [a])
+        XCTAssertTrue(none.add.isEmpty && none.remove.isEmpty)
     }
 
-    func testLedgerDecodesOldFileWithoutJoinedAt() throws {
-        let old = #"{"zoneName":"trip-00000000-0000-0000-0000-00000000000A","ownerName":"me","role":"owner","tripUUID":"00000000-0000-0000-0000-00000000000A","records":[]}"#
+    func testRemoteDeletionOnlyDeletesOthersItems() {
+        XCTAssertEqual(SharedAssetPlanner.onRemoteDeletion(createdByMe: false), .deleteLocal)
+        XCTAssertEqual(SharedAssetPlanner.onRemoteDeletion(createdByMe: true), .detachOnly)
+        // 拿不准时按自己的算,宁可不删。
+        XCTAssertEqual(SharedAssetPlanner.onRemoteDeletion(createdByMe: nil), .detachOnly)
+    }
+
+    func testLedgerDecodesOldFileWithExtraKeys() throws {
+        let old = #"{"zoneName":"assets-00000000-0000-0000-0000-00000000000A","ownerName":"me","role":"owner","tripUUID":"00000000-0000-0000-0000-00000000000A","records":[],"joinedAt":0}"#
         let ledger = try JSONDecoder().decode(SharedZoneLedger.self, from: Data(old.utf8))
-        XCTAssertNil(ledger.joinedAt)
-        XCTAssertEqual(ledger.kind, .trip)
+        XCTAssertEqual(ledger.kind, .assets)
     }
 }
