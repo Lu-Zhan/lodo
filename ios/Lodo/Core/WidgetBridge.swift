@@ -186,7 +186,7 @@ enum WidgetBridge {
             allDay: String(localized: "全天", bundle: .appLanguage(), locale: locale),
             emptyToday: String(localized: "今天没有安排", bundle: .appLanguage(), locale: locale),
             emptyPinned: String(localized: "长按任务即可置顶", bundle: .appLanguage(), locale: locale),
-            emptyCountdown: String(localized: "在倒数日里选要显示的", bundle: .appLanguage(), locale: locale),
+            emptyCountdown: String(localized: "在「倒数」里选要显示的", bundle: .appLanguage(), locale: locale),
             agent: String(localized: "AI 助手", bundle: .appLanguage(), locale: locale))
         let snapshot = LockScreenSnapshot(today: Array(today), pinned: Array(pinned),
                                           countdown: countdown, labels: labels)

@@ -108,7 +108,7 @@ struct CountdownListView: View {
                     }
                 }
             }
-            .navigationTitle("倒数日")
+            .navigationTitle("倒数")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

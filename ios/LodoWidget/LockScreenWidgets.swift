@@ -42,7 +42,7 @@ struct LockScreenSnapshot: Codable {
         today: [], pinned: [], countdown: [],
         labels: Labels(today: "今日", pinned: "重要的事", countdown: "倒数日", allDay: "全天",
                        emptyToday: "今天没有安排", emptyPinned: "长按任务即可置顶",
-                       emptyCountdown: "在倒数日里选要显示的", agent: "AI 助手"))
+                       emptyCountdown: "在「倒数」里选要显示的", agent: "AI 助手"))
 
     static func load() -> LockScreenSnapshot {
         guard let url = FileManager.default
@@ -254,7 +254,7 @@ struct CountdownLockWidget: Widget {
             .containerBackground(.clear, for: .widget)
         }
         .configurationDisplayName("倒数日")
-        .description("在 lodo 倒数日里选中的最多 3 件事,离开始或结束还有几天。")
+        .description("在 lodo「倒数」里选中的最多 3 件事,离开始或结束还有几天。")
         .supportedFamilies([.accessoryRectangular])
     }
 }

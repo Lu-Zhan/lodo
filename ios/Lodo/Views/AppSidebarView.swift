@@ -29,7 +29,7 @@ struct AppSidebarView: View {
                 navRow(.overview, title: "总览", systemImage: "square.stack.3d.up")
                 navRow(.todo, title: "任务", systemImage: "checklist")
                 navRow(.calendar, title: "日历", systemImage: "calendar")
-                navRow(.countdown, title: "倒数日", systemImage: "hourglass")
+                navRow(.countdown, title: "倒数", systemImage: "hourglass")
                 navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
                 // 人脉/健康/旅行/菜单都是建在记忆库上的功能,紧跟在记忆行后面。
                 navRow(.contact, title: "人脉", systemImage: "person.crop.circle")

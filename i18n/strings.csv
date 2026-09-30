@@ -133,6 +133,7 @@ ios_view.affects_the_tone_of_follow_up_questions,"影响反问、汇总和洞察
 ios_view.higher_thinking_levels_are_usually_more,"思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置,不影响正常使用。",Higher thinking levels are usually more accurate but slower to respond. This only takes effect with providers/models that support reasoning; others ignore the setting without any impact.,ios_view,
 ios_view.for_summary_review_tasks_turn_on,总结/复盘类任务打开「带上今天的任务」;天气、行情这类要开「允许联网搜索」;新闻简报打开「带上订阅的新闻」。,"For summary/review tasks, turn on ""Include today's tasks""; for weather, market data, etc., turn on ""Allow web search""; for news briefings, turn on ""Include Subscribed News"".",ios_view,
 ios_view.overview,总览,Overview,ios_view,
+ios_view.countdown_page,倒数,Countdown,ios_view,侧栏/倒数页标题
 ios_view.this_tag_will_be_renamed_everywhere_it,所有条目里的这个标签会一起改名。,This tag will be renamed everywhere it's used.,ios_view,
 ios_view.phone,手机,Phone,ios_view,
 ios_view.phone_optional,手机(可选),Phone (optional),ios_view,
@@ -1437,7 +1438,7 @@ ios_view.lock_countdown_packing_23,加入清单,Add to List,ios_view,倒数日/�
 ios_view.lock_countdown_packing_24,取消置顶,Unpin,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
 ios_view.lock_countdown_packing_25,可以选多个。,You can choose more than one.,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
 ios_view.lock_countdown_packing_26,"名称,如 东京旅行、驾照考试","Name, e.g. Tokyo trip, driving test",ios_view,倒数日/锁屏小组件/旅行清单/交通信息
-ios_view.lock_countdown_packing_27,在倒数日里选要显示的,Choose which to show in Countdown,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
+ios_view.lock_countdown_packing_27,在「倒数」里选要显示的,Choose which to show in Countdown,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
 ios_view.lock_countdown_packing_28,客车信息,Coach Details,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
 ios_view.lock_countdown_packing_29,就是今天,Today,ios_view,倒数日/锁屏小组件/旅行清单/交通信息
 ios_view.lock_countdown_packing_30,就是现在,Now,ios_view,倒数日/锁屏小组件/旅行清单/交通信息

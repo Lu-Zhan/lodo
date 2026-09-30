@@ -20,7 +20,7 @@ enum AppSection: Hashable, CaseIterable {
         case .overview: return "总览"
         case .todo: return "任务"
         case .calendar: return "日历"
-        case .countdown: return "倒数日"
+        case .countdown: return "倒数"
         case .memory: return "记忆"
         case .contact: return "人脉"
         case .assets: return "资产"

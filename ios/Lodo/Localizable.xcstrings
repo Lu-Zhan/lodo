@@ -98,6 +98,7 @@
       }
     },
     "「%@」实际用了多久?" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -841,6 +842,7 @@
       }
     },
     "AI 会在事项完成后归纳\"类型 → 典型时长\",新建没说时长的事项时据此建议。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1129,6 +1131,7 @@
       }
     },
     "AI 记忆" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3042,6 +3045,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "修改这条消息?"
+          }
+        }
+      }
+    },
+    "倒数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Countdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倒数"
           }
         }
       }
@@ -6250,7 +6269,7 @@
         }
       }
     },
-    "在倒数日里选要显示的" : {
+    "在「倒数」里选要显示的" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6261,7 +6280,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在倒数日里选要显示的"
+            "value" : "在「倒数」里选要显示的"
           }
         }
       }
@@ -8881,6 +8900,7 @@
       }
     },
     "开始了" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11167,6 +11187,7 @@
       }
     },
     "时长为 AI 参考历史类似事项的建议" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11505,6 +11526,7 @@
       }
     },
     "暂无记忆;AI 会在事项完成后自动归纳,也可以直接在这里手写。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11762,6 +11784,7 @@
       }
     },
     "有时长的事项会在开始和结束各提醒一次" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14669,6 +14692,7 @@
       }
     },
     "确定清空 AI 记忆吗?" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -15560,6 +15584,7 @@
       }
     },
     "编辑记忆" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -19131,6 +19156,7 @@
       }
     },
     "重置记忆" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
