@@ -143,4 +143,113 @@ final class LodoSceneDelegate: NSObject, UIWindowSceneDelegate {
         Task { @MainActor in await SharedTripSync.shared.accept(metadata) }
     }
 }
+#elseif os(macOS)
+import SwiftUI
+import AppKit
+import CloudKit
+import LodoCore
+
+/// macOS 版的共享界面,分法同 iOS:
+/// - **还没邀请过人**(owner、share 上只有自己):系统分享选择器
+///   (`NSSharingServicePicker` + `NSItemProvider.registerCKShare`),信息/邮件/拷贝链接都在里面;
+/// - **已经有成员 / 我是成员**:系统的 CloudKit 共享管理界面(`NSSharingService(.cloudSharing)`),
+///   管理成员、停止共享、退出。
+/// 都是系统界面,不算自绘。锚点是当前主窗口右上角(工具栏菜单在那儿)。
+@MainActor
+enum CloudSharingPresenter {
+    /// 系统界面活着期间要留住 delegate(picker / service 只弱引用它)。
+    private static var delegate: Delegate?
+
+    static func present(share: CKShare, trip: TravelTrip) {
+        present(share: share, title: trip.title, isOwner: trip.shareRole == .owner) {
+            SharedTripSync.shared.didStopSharing(trip)
+        }
+    }
+
+    /// 资产台账共享(整本台账,见 `SharedTripSync.prepareAssetShare`)。
+    static func presentAssets(share: CKShare) {
+        present(share: share, title: String(localized: "资产", bundle: .appLanguage()),
+                isOwner: SharedTripSync.shared.assetShare?.role != .participant) {
+            SharedTripSync.shared.didStopSharingAssets()
+        }
+    }
+
+    private static func present(share: CKShare, title: String, isOwner: Bool,
+                                onStop: @escaping () -> Void) {
+        let container = CKContainer(identifier: SharedTripSync.containerID)
+        let invitedAnyone = share.participants.contains { $0.role != .owner }
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible),
+              let anchor = window.contentView else {
+            SharedTripSync.shared.report(String(localized: "没找到可以弹出共享界面的窗口", bundle: .appLanguage()))
+            return
+        }
+        let provider = NSItemProvider()
+        provider.registerCKShare(share, container: container, allowedSharingOptions:
+            CKAllowedSharingOptions(allowedParticipantPermissionOptions: .readWrite,
+                                    allowedParticipantAccessOptions: .specifiedRecipientsOnly))
+        let delegate = Delegate(title: title, onStop: onStop)
+        Self.delegate = delegate
+
+        if isOwner && !invitedAnyone {
+            let picker = NSSharingServicePicker(items: [provider])
+            picker.delegate = delegate
+            let top = anchor.isFlipped ? anchor.bounds.minY : anchor.bounds.maxY - 1
+            let rect = NSRect(x: anchor.bounds.maxX - 44, y: top, width: 1, height: 1)
+            picker.show(relativeTo: rect, of: anchor, preferredEdge: .minY)
+        } else {
+            guard let service = NSSharingService(named: .cloudSharing),
+                  service.canPerform(withItems: [provider]) else {
+                SharedTripSync.shared.report(String(localized: "没找到可以弹出共享界面的窗口", bundle: .appLanguage()))
+                return
+            }
+            service.delegate = delegate
+            service.perform(withItems: [provider])
+        }
+    }
+
+    private final class Delegate: NSObject, NSSharingServicePickerDelegate, NSCloudSharingServiceDelegate {
+        let title: String
+        let onStop: () -> Void
+
+        init(title: String, onStop: @escaping () -> Void) {
+            self.title = title
+            self.onStop = onStop
+        }
+
+        // 选择器里选中的那个服务(信息/邮件/协作…)的回调也交给自己,失败才报得出来。
+        func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker,
+                                  delegateFor sharingService: NSSharingService) -> NSSharingServiceDelegate? {
+            self
+        }
+
+        func sharingService(_ sharingService: NSSharingService,
+                            didFailToShareItems items: [Any], error: Error) {
+            // 用户自己点取消不算错误。
+            if (error as NSError).code == NSUserCancelledError { return }
+            SharedTripSync.shared.report(error.localizedDescription)
+        }
+
+        func options(for cloudKitSharingService: NSSharingService,
+                     share provider: NSItemProvider) -> NSSharingService.CloudKitOptions {
+            [.allowPrivate, .allowReadWrite]
+        }
+
+        func sharingService(_ sharingService: NSSharingService, didStopSharing share: CKShare) {
+            onStop()
+        }
+    }
+}
+
+/// 接受共享邀请 + 注册远程推送(CKSyncEngine 靠静默推送得知服务器有变化)。
+/// macOS 上没有 scene delegate,邀请直接回调到 application delegate,冷启动也走这一个。
+final class LodoAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApplication.shared.registerForRemoteNotifications()
+    }
+
+    func application(_ application: NSApplication,
+                     userDidAcceptCloudKitShareWith metadata: CKShare.Metadata) {
+        Task { @MainActor in await SharedTripSync.shared.accept(metadata) }
+    }
+}
 #endif

@@ -51,7 +51,7 @@ struct MemoryPickerView: View {
                 }
             }
             .searchable(text: $query, prompt: "搜索记忆")
-            .navigationTitle("选择记忆")
+            .pageTitle("选择记忆")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

@@ -11,7 +11,7 @@ struct AgentPreferencesEditView: View {
         TextEditor(text: $text)
             .font(.body.monospaced())
             .padding(.horizontal, 8)
-            .navigationTitle("AI 偏好")
+            .pageTitle("AI 偏好")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

@@ -48,7 +48,7 @@ struct TimeZonePickerView: View {
             }
         }
         .searchable(text: $query, prompt: Text("搜索城市或 GMT+9"))
-        .navigationTitle("时区")
+        .pageTitle("时区")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

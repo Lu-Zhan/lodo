@@ -122,7 +122,7 @@ struct NewsListView: View {
             // 筛选分段控件紧贴导航栏:List 默认给第一个 section 留的那截顶部空白
             // 让它看上去像飘在页面中间。
             .contentMargins(.top, 4, for: .scrollContent)
-            .navigationTitle("新闻")
+            .pageTitle("新闻")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

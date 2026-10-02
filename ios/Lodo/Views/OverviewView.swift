@@ -126,7 +126,7 @@ struct OverviewView: View {
             // 拖到卡片之间的缝里松手也要清掉"正在拖"。
             .onDrop(of: [.text], delegate: OverviewDragReset(dragging: $draggingWidget))
             .background(pageBackground.ignoresSafeArea())
-            .navigationTitle("总览")
+            .pageTitle("总览")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

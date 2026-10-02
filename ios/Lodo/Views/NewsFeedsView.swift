@@ -101,7 +101,7 @@ struct NewsFeedsView: View {
                 }
             }
         }
-        .navigationTitle("管理订阅")
+        .pageTitle("管理订阅")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -226,7 +226,7 @@ struct NewsFeedAddView: View {
                     }
                 }
             }
-            .navigationTitle("添加订阅")
+            .pageTitle("添加订阅")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -305,7 +305,7 @@ struct NewsFeedEditView: View {
                     }
                 }
             }
-            .navigationTitle("编辑订阅")
+            .pageTitle("编辑订阅")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

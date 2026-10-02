@@ -19,6 +19,16 @@ struct TravelItemDetailView: View {
 
     @State private var editing = false
 
+    /// 嵌在旅行详情宽屏布局的右栏(inspector)里时传入:「完成」换成关闭这一栏,
+    /// 而不是 dismiss(那会把整个旅行详情页退掉)。nil = 作为 sheet 弹出。
+    private let onClose: (() -> Void)?
+
+    init(item: MemoryItem, trip: TravelTrip, onClose: (() -> Void)? = nil) {
+        self.item = item
+        self.trip = trip
+        self.onClose = onClose
+    }
+
     private var kind: TravelItemKind { item.travelKind ?? .place }
     private var details: FlightDetails? {
         kind.isTransport ? FlightDetails.decode(item.travelFlightData) : nil
@@ -30,8 +40,24 @@ struct TravelItemDetailView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        // 嵌在右栏时不再自带 NavigationStack:旅行详情页本身就是外层 NavigationStack 的
+        // 目标页,里面再套一层会让 macOS 把外层的导航路径重置、直接退回旅行列表(实测)。
+        // 也不设 navigationTitle——那会顶掉窗口标题上的旅行名,标题改放在列表顶上。
+        if onClose != nil {
+            content
+        } else {
+            NavigationStack { content }
+        }
+    }
+
+    private var content: some View {
             List {
+                if onClose != nil {
+                    Section {
+                        Text(item.title)
+                            .font(.title3.weight(.semibold))
+                    }
+                }
                 if !item.summary.isEmpty {
                     Section("备注") {
                         Text(item.summary)
@@ -55,7 +81,8 @@ struct TravelItemDetailView: View {
                     }
                 }
                 ticketSection
-                if let coordinate {
+                // 右栏里不再放小地图:正中那一栏就是地图,已经选中并飞到这个点了。
+                if let coordinate, onClose == nil {
                     Section {
                         Map(initialPosition: .region(MKCoordinateRegion(
                             center: coordinate,
@@ -76,13 +103,19 @@ struct TravelItemDetailView: View {
                     }
                 }
             }
-            .navigationTitle(item.title)
+            .navigationTitleIfPresent(onClose == nil ? item.title : nil)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("完成") { dismiss() }
+                    if let onClose {
+                        Button(action: onClose) {
+                            Label("关闭", systemImage: "xmark")
+                        }
+                    } else {
+                        Button("完成") { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("编辑") { editing = true }
@@ -91,7 +124,6 @@ struct TravelItemDetailView: View {
             .sheet(isPresented: $editing) {
                 TravelItemEditView(tripUUID: trip.uuid, existing: item)
             }
-        }
     }
 
     @ViewBuilder

@@ -89,7 +89,7 @@ struct TravelImportView: View {
                     }
                 }
             }
-            .navigationTitle("从订单导入")
+            .pageTitle("从订单导入")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

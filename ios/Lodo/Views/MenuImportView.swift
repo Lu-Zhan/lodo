@@ -28,9 +28,7 @@ struct MenuImportView: View {
     private struct Photo: Identifiable {
         let id = UUID()
         let data: Data
-        #if os(iOS)
-        var thumbnail: UIImage? { UIImage(data: data) }
-        #endif
+        var thumbnail: Image? { platformImage(from: data) }
     }
 
     /// 同一张菜单最多几页。菜单再长也就正反面加酒水单;再多 OCR 出来的文字会被
@@ -83,7 +81,7 @@ struct MenuImportView: View {
                 }
             }
             .disabled(working)
-            .navigationTitle("新建菜单")
+            .pageTitle("新建菜单")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -136,15 +134,13 @@ struct MenuImportView: View {
 
             ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                 HStack(spacing: 12) {
-                    #if os(iOS)
                     if let image = photo.thumbnail {
-                        Image(uiImage: image)
+                        image
                             .resizable()
                             .scaledToFill()
                             .frame(width: 44, height: 44)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
-                    #endif
                     Text("第 \(index + 1) 页")
                 }
             }

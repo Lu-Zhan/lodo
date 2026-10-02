@@ -59,12 +59,10 @@ struct AssetsView: View {
                     financeSection(.creditCard)
                 }
             }
-            .navigationTitle("资产")
+            .pageTitle("资产")
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false) {
-                    #if os(iOS)
                     ToolbarItem(placement: .primaryAction) { shareButton }
-                    #endif
                     ToolbarItem(placement: .primaryAction) { addMenu }
                 }
             }
@@ -92,13 +90,11 @@ struct AssetsView: View {
                     Text("这项在共享台账里,删除后共享的成员那边也会一起删掉。")
                 }
             }
-            #if os(iOS)
             .sheet(isPresented: $showingShare) {
                 AssetShareSheet(assets: assets, entries: entries)
                     .tint(lodoAccent.accent)
                     .environment(\.lodoAccent, lodoAccent)
             }
-            #endif
             .alert("共享没有成功", isPresented: Binding(
                 get: { shareError != nil }, set: { if !$0 { shareError = nil } })) {
                 Button("好", role: .cancel) {}
@@ -130,7 +126,6 @@ struct AssetsView: View {
         return assetShare?.ledgerUUID == ledgerUUID
     }
 
-    #if os(iOS)
     /// 点开共享确认页(`AssetShareSheet`):开关、当前状态、逐条勾选,确认后才生效。
     private var shareButton: some View {
         Button {
@@ -141,7 +136,6 @@ struct AssetsView: View {
         }
         .disabled(isEmpty && assetShare == nil)
     }
-    #endif
 
     /// 总览卡顶上那一行:共享状态(共享了几项、是否在同步),点它也能打开确认页。
     @ViewBuilder

@@ -57,7 +57,7 @@ struct ProjectListView: View {
                     }
                 }
             }
-            .navigationTitle("按项目查看")
+            .pageTitle("按项目查看")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

@@ -1,4 +1,3 @@
-#if os(iOS)
 import SwiftUI
 import SwiftData
 import CloudKit
@@ -70,8 +69,10 @@ struct AssetShareSheet: View {
                     Section { Text(errorText).foregroundStyle(LodoColor.critical) }
                 }
             }
-            .navigationTitle("共享资产")
+            .pageTitle("共享资产")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
@@ -114,6 +115,9 @@ struct AssetShareSheet: View {
                 if isShared { members = await sync.assetShareMembers() }
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 440, minHeight: 520)
+        #endif
     }
 
     // MARK: - 当前状态
@@ -276,4 +280,3 @@ struct AssetShareSheet: View {
         }
     }
 }
-#endif

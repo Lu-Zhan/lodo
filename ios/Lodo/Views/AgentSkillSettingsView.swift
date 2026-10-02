@@ -278,7 +278,7 @@ struct AgentSkillImportSheet: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("导入 skill")
+            .pageTitle("导入 skill")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -433,7 +433,7 @@ struct AgentPromptPreviewView: View {
                     .textSelection(.enabled)
             }
         }
-        .navigationTitle("最终 Prompt")
+        .pageTitle("最终 Prompt")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

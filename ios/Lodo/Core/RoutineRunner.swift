@@ -4,6 +4,8 @@ import UserNotifications
 import LodoCore
 #if os(iOS)
 import BackgroundTasks
+#elseif os(macOS)
+import AppKit
 #endif
 
 /// 定时任务(`AIRoutine`)的执行层:到点跑 AI、把结果落库、推通知、排下一次。
@@ -14,6 +16,11 @@ import BackgroundTasks
 ///    用户不用打开 app 就能看到内容。什么时候真的给、给不给由系统决定。
 /// 2. **到点提醒通知**(预排的本地通知,兜底):后台刷新没被调度到时,
 ///    到点仍会响一条"打开看看",用户点开时前台补跑,内容在 app 里显示。
+///
+/// macOS 没有 `BGAppRefreshTask`,但 Mac 上关掉窗口 app 照样在跑,所以那边第 1 条腿
+/// 换成进程内计时器(`macTimer`):app 开着就准点跑,不在前台时把结果推成通知;
+/// app 退出了才靠第 2 条腿。为了不在 app 开着时"到点提醒"和结果通知一起响,macOS 上
+/// 到点提醒推迟 `macDueGrace` 再发——准点跑完时 `refreshSchedule` 已经把它撤掉了。
 ///
 /// 前台补跑**不推通知**——人已经在看 app 了,再弹横幅是噪音;后台跑完才推。
 /// 同一个时间槽只会跑一次(`AIRoutine.lastScheduledSlot`),错过超过 6 小时
@@ -36,6 +43,16 @@ enum RoutineRunner {
 
     /// 运行历史保留天数,超期的在每次排程时清掉。
     private static let historyRetentionDays = 30
+
+    #if os(macOS)
+    /// 进程内计时器:睡到下一次计划时间再跑。
+    private static var macTimer: Task<Void, Never>?
+    /// 计时器正在跑 AI 时为 true:这期间别处调 refreshSchedule 不能把它取消掉
+    /// (取消会让这次请求白跑、槽位还回去)。
+    private static var macTimerFiring = false
+    /// 到点提醒的推迟量,见类型注释。
+    private static let macDueGrace: TimeInterval = 120
+    #endif
 
     // MARK: - 查询
 
@@ -266,6 +283,11 @@ enum RoutineRunner {
         }
         let planned = Array(slots.sorted { $0.date < $1.date }.prefix(dueBudget))
 
+        #if os(macOS)
+        let dueGrace = macDueGrace
+        #else
+        let dueGrace: TimeInterval = 0
+        #endif
         let center = UNUserNotificationCenter.current()
         center.getPendingNotificationRequests { requests in
             let old = requests.map(\.identifier).filter { $0.hasPrefix(duePrefix) }
@@ -281,7 +303,8 @@ enum RoutineRunner {
                     identifier: "\(duePrefix)\(index)",
                     content: content,
                     trigger: UNTimeIntervalNotificationTrigger(
-                        timeInterval: max(1, slot.date.timeIntervalSinceNow), repeats: false)))
+                        timeInterval: max(1, slot.date.timeIntervalSinceNow + dueGrace),
+                        repeats: false)))
             }
         }
         scheduleBackgroundRefresh(context: context)
@@ -310,13 +333,32 @@ enum RoutineRunner {
         let request = BGAppRefreshTaskRequest(identifier: backgroundTaskID)
         request.earliestBeginDate = next
         try? BGTaskScheduler.shared.submit(request)
+        #elseif os(macOS)
+        let next = allRoutines(context).filter(\.enabled)
+            .compactMap { $0.nextRun() }.min()
+        if !macTimerFiring { macTimer?.cancel() }
+        guard let next else { return }
+        macTimer = Task { @MainActor in
+            // 分段睡(最多 10 分钟一段):改了系统时间、合盖睡眠醒来后都按墙钟重新算,
+            // 不会因为一次长睡过头或提前醒。
+            while true {
+                let remaining = next.timeIntervalSinceNow
+                guard remaining > 0 else { break }
+                try? await Task.sleep(for: .seconds(min(remaining, 600)))
+                if Task.isCancelled { return }
+            }
+            macTimerFiring = true
+            defer { macTimerFiring = false }
+            // app 在前台时同 iOS 的前台补跑:人正看着,不推通知。
+            await runDueRoutines(context: context,
+                                 notifyResults: !NSApplication.shared.isActive)
+        }
         #endif
     }
 
     /// 后台刷新被系统唤醒时的入口(LodoApp 的 .backgroundTask 调用)。
     static func handleBackgroundRefresh(container: ModelContainer) async {
         MemoryPipeline.consumeInbox(context: container.mainContext)
-        KeyboardBridge.refresh(context: container.mainContext)
         await runDueRoutines(context: container.mainContext, notifyResults: true)
     }
 }

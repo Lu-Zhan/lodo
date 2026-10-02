@@ -54,7 +54,7 @@ struct MenuOrderView: View {
                     }
                 }
             }
-            .navigationTitle("已选菜品")
+            .pageTitle("已选菜品")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

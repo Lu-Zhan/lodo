@@ -8,6 +8,9 @@ struct LodoApp: App {
     #if os(iOS)
     /// 只为挂 scene delegate 接共享邀请(见 `LodoSceneDelegate`)。
     @UIApplicationDelegateAdaptor(LodoAppDelegate.self) private var appDelegate
+    #elseif os(macOS)
+    /// 接共享邀请、注册远程推送(见 CloudSharingPresenter.swift 里 macOS 那份)。
+    @NSApplicationDelegateAdaptor(LodoAppDelegate.self) private var appDelegate
     #endif
 
     /// 应用内语言开关,不跟随系统语言;和 AppSettings.language 读同一个
@@ -38,16 +41,35 @@ struct LodoApp: App {
             ContentView()
                 .environment(\.locale, (AppLanguage(rawValue: languageRaw) ?? .zhHans).locale)
                 .softTopScrollEdgeTransition()
+                #if os(macOS)
+                // lodo:// 深链(通知、快捷指令、共享邀请)交给已经开着的窗口处理;不写的话
+                // macOS 每点一次链接都新开一个窗口。
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
+                #endif
         }
         .modelContainer(container)
         // 定时任务的后台刷新:系统在接近计划时间时给一小段执行时间,跑完直接把
         // 结果推成通知(见 RoutineRunner)。给不给、什么时候给由系统决定,
         // 所以另有到点提醒通知兜底。macOS 没有 .appRefresh 这个后台任务类型
-        // (API 本身不可用),那边只靠回前台时的补跑(见 ContentView 的 scenePhase)。
+        // (API 本身不可用),那边换成进程内计时器(见 RoutineRunner 的 macTimer)。
         #if os(iOS)
         .backgroundTask(.appRefresh(RoutineRunner.backgroundTaskID)) {
             await RoutineRunner.handleBackgroundRefresh(container: container)
         }
+        #elseif os(macOS)
+        // 侧栏 + 内容两栏,默认 900×584 的窗口放不下(内容列只剩一半宽)。
+        .defaultSize(width: 1180, height: 800)
+        .windowResizability(.contentMinSize)
+        .commands { LodoCommands() }
+        #endif
+
+        #if os(macOS)
+        // Mac 的设置是独立窗口(应用菜单「设置…」⌘,),不是 sheet。
+        Settings {
+            SettingsView(isSettingsWindow: true)
+                .environment(\.locale, (AppLanguage(rawValue: languageRaw) ?? .zhHans).locale)
+        }
+        .modelContainer(container)
         #endif
     }
 }

@@ -1,9 +1,7 @@
 import SwiftUI
 import SwiftData
 import LodoCore
-#if os(iOS)
 import EventKit
-#endif
 
 /// 「日历」页:只显示**系统日历**里的日程(lodo 自己那本镜像任务的日历不显示——
 /// 任务在任务页看;旅行行程也暂时不进来)。右上角切换 所有/当日/三日/本周/
@@ -31,9 +29,7 @@ struct CalendarView: View {
     @State private var events: [CalendarEvent] = []
     @State private var authorized = CalendarBridge.isAuthorized
     @State private var denied = CalendarBridge.isDenied
-    #if os(iOS)
     @State private var openedEvent: OpenedEvent?
-    #endif
     #if DEBUG
     /// --demo-calendar 塞了样板事件:之后的真实查询要让开(同 HealthView 的 demoOverride)。
     @State private var demoCalendar = false
@@ -70,7 +66,7 @@ struct CalendarView: View {
                     connectPrompt
                 }
             }
-            .navigationTitle("日历")
+            .pageTitle("日历")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -92,7 +88,6 @@ struct CalendarView: View {
                 refreshAuthorization()
                 reload()
             }
-            #if os(iOS)
             // 用户在系统日历 app 里改了、或者在我们弹出的编辑界面里保存了,都会发这条。
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
                 reload()
@@ -104,7 +99,6 @@ struct CalendarView: View {
                 }
                 .ignoresSafeArea()
             }
-            #endif
             .onAppear {
                 refreshAuthorization()
                 #if DEBUG
@@ -277,29 +271,27 @@ struct CalendarView: View {
         ContentUnavailableView {
             Label("连接系统日历", systemImage: "calendar")
         } description: {
-            #if os(iOS)
+            #if os(macOS)
+            if denied {
+                Text("日历访问权限已关闭。到「系统设置 → 隐私与安全性 → 日历」里允许 lodo 访问后,这里会显示你的日程。")
+            } else {
+                Text("授权后这里会显示你日历里的日程,点开一条可以查看详情、删除,或到「日历」app 里修改。lodo 不会替你改任何内容。")
+            }
+            #else
             if denied {
                 Text("日历访问权限已关闭。到系统「设置 → 隐私与安全性 → 日历」里允许 lodo 访问后,这里会显示你的日程。")
             } else {
                 Text("授权后这里会显示你日历里的日程,点开任意一条可以直接修改。lodo 不会替你改任何内容,改动都要你在编辑界面里确认。")
             }
-            #else
-            Text("macOS 版暂不支持连接系统日历。")
             #endif
         } actions: {
-            #if os(iOS)
             if denied {
-                Button("前往系统设置") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                }
-                .glassProminentButton()
+                Button("前往系统设置") { SystemSettings.open(.calendars) }
+                    .glassProminentButton()
             } else {
                 Button("连接日历") { connect() }
                     .glassProminentButton()
             }
-            #endif
         }
     }
 
@@ -329,7 +321,6 @@ struct CalendarView: View {
     }
 
     private func open(_ event: CalendarEvent) {
-        #if os(iOS)
         #if DEBUG
         if demoCalendar { return }
         #endif
@@ -339,7 +330,6 @@ struct CalendarView: View {
             return
         }
         openedEvent = OpenedEvent(event: ekEvent)
-        #endif
     }
 
     private func shift(by pages: Int) {
@@ -429,12 +419,10 @@ private struct ReloadKey: Equatable {
     let connected: Bool
 }
 
-#if os(iOS)
 private struct OpenedEvent: Identifiable {
     let id = UUID()
     let event: EKEvent
 }
-#endif
 
 extension CalendarViewMode {
     var systemImage: String {

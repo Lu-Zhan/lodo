@@ -78,7 +78,7 @@ struct TravelListView: View {
                     }
                 }
             }
-            .navigationTitle("旅行")
+            .pageTitle("旅行")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -93,6 +93,7 @@ struct TravelListView: View {
             // onChange。
             .onChange(of: openTripRequest) { _, _ in consumeOpenRequest() }
             .onAppear { consumeOpenRequest() }
+            .onChange(of: trips.count) { _, _ in consumeOpenRequest() }
             .alert("删除这次旅行?", isPresented: Binding(
                 get: { pendingDelete != nil },
                 set: { if !$0 { pendingDelete = nil } }
@@ -127,6 +128,9 @@ struct TravelListView: View {
     /// 什么都不做,只把请求清掉——push 一个不存在的 trip 会直接进到一张空详情页。
     private func consumeOpenRequest() {
         guard let uuid = openTripRequest else { return }
+        // 冷启动时 @Query 可能还没取到数据:请求先留着,等列表有了再试(trips.count 的 onChange)。
+        // 不留的话这一下被当成"旅行已删",请求直接丢了。
+        guard !trips.isEmpty else { return }
         openTripRequest = nil
         guard let trip = trips.first(where: { $0.uuid == uuid }) else { return }
         // 已经站在这次旅行的详情页上就什么都不用做;站在别的二级页上要换过去,

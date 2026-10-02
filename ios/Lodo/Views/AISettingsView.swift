@@ -187,7 +187,7 @@ struct AISettingsView: View {
             AgentSkillsSections()
         }
         .formStyle(.grouped)
-        .navigationTitle("AI 设置")
+        .pageTitle("AI 设置")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

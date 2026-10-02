@@ -45,7 +45,7 @@ struct MenuListView: View {
                     }
                 }
             }
-            .navigationTitle("菜单")
+            .pageTitle("菜单")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

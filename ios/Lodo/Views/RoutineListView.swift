@@ -58,7 +58,7 @@ struct RoutineListView: View {
                 }
             }
         }
-        .navigationTitle("定时任务")
+        .pageTitle("定时任务")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

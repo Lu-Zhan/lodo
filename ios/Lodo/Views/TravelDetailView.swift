@@ -82,8 +82,27 @@ struct TravelDetailView: View {
     @State private var locatingEntry: UUID?
     /// 正在建 zone / 取 share,共享菜单项先置灰。
     @State private var preparingShare = false
+    /// 宽屏右栏(inspector)显示哪一项的详情:点了 ⓘ 的那一项;没点过就跟着地图上选中的点走。
+    @State private var inspectorEntryID: UUID?
+    /// 宽屏右栏开着没有(工具栏右上角那颗可以收起,同系统 app 的检查器)。
+    @State private var showsInspector = true
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private static let peekDetent = PresentationDetent.height(200)
+    /// 宽屏左栏(行程面板)的宽度。
+    private static let wideListWidth: CGFloat = 372
+
+    /// 左中右三栏(Mac、iPad 常规宽度):左边行程面板常驻、中间地图、右边选中项的详情。
+    /// 窄屏(iPhone)仍是整屏地图 + 底部常驻面板。macOS 上 sheet 是模态窗口、
+    /// `presentationDetents` 不起作用,面板会变成一块压暗整个窗口、挡住地图的小弹窗(实测),
+    /// 所以宽屏一律不走 sheet。
+    private var isWide: Bool {
+        #if os(macOS)
+        return true
+        #else
+        return horizontalSizeClass == .regular
+        #endif
+    }
 
     enum Mode: String, CaseIterable, Identifiable {
         /// 「人员」排在「消费」左边(用户要求)。
@@ -121,14 +140,8 @@ struct TravelDetailView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            mapLayer
-                .ignoresSafeArea()
-            mapOverlays
-            if pinningEntry != nil {
-                pinningLayer
-                    .ignoresSafeArea()
-            }
+        Group {
+            if isWide { wideLayout } else { mapColumn }
         }
         .mapScope(mapScope)
         #if os(iOS)
@@ -152,6 +165,14 @@ struct TravelDetailView: View {
                 .disabled(leaving)
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                if isWide {
+                    Button {
+                        withAnimation(.lodoAware(.snappy)) { showsInspector.toggle() }
+                    } label: {
+                        Label(LocalizedStringKey(showsInspector ? "隐藏详情" : "显示详情"),
+                              systemImage: "sidebar.trailing")
+                    }
+                }
                 Button {
                     withAnimation(.lodoAware(.snappy)) { showsRoutes.toggle() }
                 } label: {
@@ -166,8 +187,15 @@ struct TravelDetailView: View {
         .sheet(isPresented: $showsPanel, onDismiss: {
             if leaving { dismiss() }
         }) { panel }
-        .onAppear { if !leaving { showsPanel = true } }
+        .onAppear { if !leaving && !isWide { showsPanel = true } }
         .onDisappear { showsPanel = false }
+        // iPad 转屏/分屏改了宽度:宽屏收掉底部面板(左栏常驻),窄屏再弹回来。
+        .onChange(of: isWide) { _, wide in
+            guard !leaving else { return }
+            showsPanel = !wide
+        }
+        // 地图上选了别的点:右栏改跟它走(之前点 ⓘ 钉住的那一项让出来)。
+        .onChange(of: selectedPin) { _, _ in inspectorEntryID = nil }
         // 手打的地名、AI 规划出来的安排都没有坐标,打开这一页时补一遍,地图上才
         // 有点可画(查不到的照旧留空,见 TravelStore.fillMissingCoordinates);
         // 同一轮里先把存错国家的坐标清掉(见 TravelStore.pruneMisplacedCoordinates)。
@@ -214,7 +242,6 @@ struct TravelDetailView: View {
         }
     }
 
-    #if os(iOS)
     /// 建 zone + CKShare(已共享时取回现有的),再弹系统共享界面。已有的行程、文件、
     /// 清单随后在后台全量上传,面板头部报进度。
     private func share() {
@@ -237,7 +264,6 @@ struct TravelDetailView: View {
             }
         }
     }
-    #endif
 
     private var actionMenu: some View {
         Menu {
@@ -264,7 +290,6 @@ struct TravelDetailView: View {
             } label: {
                 Label("编辑旅行", systemImage: "pencil")
             }
-            #if os(iOS)
             // 邀请/管理成员/停止共享都在系统的共享界面里(见 CloudSharingPresenter)。
             Button {
                 share()
@@ -276,7 +301,6 @@ struct TravelDetailView: View {
                 }
             }
             .disabled(preparingShare)
-            #endif
         } label: {
             Label("行程操作", systemImage: "ellipsis.circle")
         }
@@ -287,7 +311,86 @@ struct TravelDetailView: View {
     /// 常驻的行程面板。三档:露个头(只看旅行名和日期,地图几乎整屏)、半高(默认)、
     /// 全屏。半高及以下地图照常可以操作。面板是独立的呈现宿主,所以强调色、
     /// 「问问 AI」和面板里要弹的那几张表单都挂在它里面。
+    /// 地图这一栏:窄屏铺满整页,宽屏夹在左右两栏中间。
+    private var mapColumn: some View {
+        ZStack(alignment: .topLeading) {
+            mapLayer
+                .ignoresSafeArea()
+            mapOverlays
+            if pinningEntry != nil {
+                pinningLayer
+                    .ignoresSafeArea()
+            }
+        }
+    }
+
+    private var wideLayout: some View {
+        HStack(spacing: 0) {
+            panelSheets(panelBody)
+                .frame(width: Self.wideListWidth)
+                .background(TravelPanelBackground.panelColor)
+            Divider()
+            mapColumn
+        }
+        .inspector(isPresented: $showsInspector) {
+            inspectorContent
+                .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
+        }
+    }
+
+    /// 右栏:选中项(点了 ⓘ 的,或者地图上选中的点)的详情,航班进航班详情。
+    @ViewBuilder
+    private var inspectorContent: some View {
+        let entryID = inspectorEntryID
+            ?? selectedPin.flatMap { id in mapPins(for: nil).first { $0.id == id }?.entryID }
+        if let entryID, let entry = entries.first(where: { $0.id == entryID }),
+           let item = item(for: entry) {
+            Group {
+                if entry.kind == .flight {
+                    FlightStatusView(item: item, trip: trip, onClose: closeInspectorItem)
+                } else {
+                    TravelItemDetailView(item: item, trip: trip, onClose: closeInspectorItem)
+                }
+            }
+            .id(entryID)
+        } else {
+            ContentUnavailableView {
+                Label("没有选中行程", systemImage: "mappin.and.ellipse")
+            } description: {
+                Text("在左边的列表或地图上点一项,详情会显示在这里。")
+            }
+        }
+    }
+
+    private func closeInspectorItem() {
+        inspectorEntryID = nil
+        selectedPin = nil
+    }
+
+    /// 窄屏:行程面板是常驻的底部 sheet。
     private var panel: some View {
+        panelSheets(panelBody)
+        .presentationDetents([Self.peekDetent, .medium, .large], selection: $panelDetent)
+        // 三档都允许和背后的地图交互:只放到半高的话,拉满时系统会把背后压暗,
+        // 玻璃采样到的颜色跟着变,面板一拉一放就跳色。
+        .presentationBackgroundInteraction(.enabled)
+        .presentationDragIndicator(.visible)
+        // 半高时在列表上滑动 = 滚列表,不把面板拉满;改高度只能拖顶上那根小条(用户要求)。
+        // 系统默认是先改 detent、拉到最高档才轮到列表滚。
+        .presentationContentInteraction(.scrolls)
+        // 面板底色透明,上拉时地图会透到旅行标题与切换条周围;列表卡片仍用固定行底色。
+        .presentationBackground { TravelPanelBackground() }
+        // Sheet 是独立呈现宿主,页面根上的滚动边缘效果不会传进来。
+        // 这里让行程列表滚到顶部时在切换条下方柔和淡出。
+        .softTopScrollEdgeTransition()
+        .interactiveDismissDisabled()
+        // sheet 是独立呈现宿主,不继承根上的 tint(同 SettingsView)。
+        .tint(lodoAccent.accent)
+        .environment(\.lodoAccent, lodoAccent)
+    }
+
+    /// 行程面板本体(旅行信息 + 切换条 + 列表 + 问问 AI):窄屏装进底部 sheet,宽屏是左栏。
+    private var panelBody: some View {
         // 经 PanelModeContent 读 mode(见它的注释),不在这里直接 switch。
         // 旅行信息 + 切换条固定在上面,列表只在切换条**下面**那一截里滚,裁掉超出的部分
         // (用户要求)。原来是钉成 topScrollEdgeBar、行从它们底下滚过去:切换条是半透明
@@ -325,23 +428,12 @@ struct TravelDetailView: View {
         // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
         // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
         .askBar(focus: .travel(trip: trip.title))
-        .presentationDetents([Self.peekDetent, .medium, .large], selection: $panelDetent)
-        // 三档都允许和背后的地图交互:只放到半高的话,拉满时系统会把背后压暗,
-        // 玻璃采样到的颜色跟着变,面板一拉一放就跳色。
-        .presentationBackgroundInteraction(.enabled)
-        .presentationDragIndicator(.visible)
-        // 半高时在列表上滑动 = 滚列表,不把面板拉满;改高度只能拖顶上那根小条(用户要求)。
-        // 系统默认是先改 detent、拉到最高档才轮到列表滚。
-        .presentationContentInteraction(.scrolls)
-        // 面板底色透明,上拉时地图会透到旅行标题与切换条周围;列表卡片仍用固定行底色。
-        .presentationBackground { TravelPanelBackground() }
-        // Sheet 是独立呈现宿主,页面根上的滚动边缘效果不会传进来。
-        // 这里让行程列表滚到顶部时在切换条下方柔和淡出。
-        .softTopScrollEdgeTransition()
-        .interactiveDismissDisabled()
-        // sheet 是独立呈现宿主,不继承根上的 tint(同 SettingsView)。
-        .tint(lodoAccent.accent)
-        .environment(\.lodoAccent, lodoAccent)
+    }
+
+    /// 面板里各个入口弹出的表单。挂在面板上(窄屏时面板本身就是 sheet,同一个视图
+    /// 不能同时弹两张 sheet)。
+    private func panelSheets(_ content: some View) -> some View {
+        content
         .sheet(isPresented: $addingItem) {
             TravelItemEditView(tripUUID: trip.uuid, defaultDate: addingDate)
         }
@@ -789,9 +881,8 @@ struct TravelDetailView: View {
     static var panelRowBackground: Color {
         // 固定色值,不用 secondarySystemGroupedBackground:实测面板在半高时系统会把那个
         // 语义色解析成更深的一档,和全屏时的白卡片对不上。
-        Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark ? UIColor(white: 0.17, alpha: 1) : .white
-        })
+        // 深色 white 0.17 ≈ 0x2B2B2B;走 lodoDynamic 才能在 macOS 上编译(那边没有 UIColor)。
+        .lodoDynamic(light: 0xFFFFFF, dark: 0x2B2B2B)
     }
 
     // MARK: - 拖动改天
@@ -996,12 +1087,20 @@ struct TravelDetailView: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
-                pinningButtons
-                    .frame(width: panelFrame == .zero ? geo.size.width - 32 : panelFrame.width)
-                    .position(
-                        x: panelFrame == .zero ? geo.size.width / 2 : panelFrame.midX - origin.x,
-                        y: (panelFrame == .zero ? geo.size.height - 240 : panelFrame.minY - origin.y)
-                            - Self.pinButtonGap - Self.pinButtonHeight / 2)
+                if isWide {
+                    // 宽屏:地图这一栏底部居中(面板在左栏,没有可以对齐的上沿)。
+                    pinningButtons
+                        .frame(width: min(360, geo.size.width - 32))
+                        .position(x: geo.size.width / 2,
+                                  y: geo.size.height - 24 - Self.pinButtonHeight / 2)
+                } else {
+                    pinningButtons
+                        .frame(width: panelFrame == .zero ? geo.size.width - 32 : panelFrame.width)
+                        .position(
+                            x: panelFrame == .zero ? geo.size.width / 2 : panelFrame.midX - origin.x,
+                            y: (panelFrame == .zero ? geo.size.height - 240 : panelFrame.minY - origin.y)
+                                - Self.pinButtonGap - Self.pinButtonHeight / 2)
+                }
             }
         }
     }
@@ -1176,6 +1275,8 @@ struct TravelDetailView: View {
 
     /// 地图底部被面板盖住的比例:取景只往露出来的那截里放。
     private var coveredFraction: Double {
+        // 宽屏面板在左栏,不盖地图。
+        if isWide { return 0 }
         switch panelDetent {
         case Self.peekDetent: return 0.25
         default: return 0.55
@@ -1732,6 +1833,12 @@ struct TravelDetailView: View {
     /// 行本身只剩标题 + 一行摘要,展开的信息都在这一层。
     private func open(_ entry: TravelEntry) {
         guard let item = item(for: entry) else { return }
+        if isWide {
+            // 宽屏的详情在右栏,不弹 sheet。
+            inspectorEntryID = entry.id
+            withAnimation(.lodoAware(.snappy)) { showsInspector = true }
+            return
+        }
         if entry.kind == .flight {
             viewingFlight = item
         } else {
@@ -1820,11 +1927,7 @@ private struct TravelPanelBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// 固定色值(同 panelRowBackground 的理由):浅色 242/242/247,深色纯黑一档。
-    static let panelColor = Color(uiColor: UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(white: 0.06, alpha: 1)
-            : UIColor(red: 242 / 255, green: 242 / 255, blue: 247 / 255, alpha: 1)
-    })
+    static let panelColor = Color.lodoDynamic(light: 0xF2F2F7, dark: 0x0F0F0F)
 
     var body: some View {
         DesignMetrics.reducesTransparency(reduceTransparency) ? Self.panelColor : .clear

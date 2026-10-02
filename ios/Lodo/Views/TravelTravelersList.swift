@@ -249,7 +249,7 @@ private struct TravelerContactPicker: View {
                 .disabled(already)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
             }
-            .navigationTitle("从人脉添加")
+            .pageTitle("从人脉添加")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -287,7 +287,7 @@ private struct TravelerEditSheet: View {
                 TextField("备注", text: $note, axis: .vertical)
                     .lineLimit(1...4)
             }
-            .navigationTitle("同行人")
+            .pageTitle("同行人")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

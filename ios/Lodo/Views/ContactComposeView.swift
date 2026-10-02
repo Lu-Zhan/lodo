@@ -94,7 +94,7 @@ struct ContactComposeView: View {
                     Text("会自动打上「人脉」标签,记忆列表默认不显示,筛选里选中「人脉」才会看到。")
                 }
             }
-            .navigationTitle("记一位人脉")
+            .pageTitle("记一位人脉")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

@@ -17,10 +17,30 @@ struct FlightStatusView: View {
     @State private var editing = false
     @State private var importing = false
 
+    /// 嵌在旅行详情宽屏布局的右栏(inspector)里时传入:「完成」换成关闭这一栏,
+    /// 而不是 dismiss(那会把整个旅行详情页退掉)。nil = 作为 sheet 弹出。
+    private let onClose: (() -> Void)?
+
+    init(item: MemoryItem, trip: TravelTrip, onClose: (() -> Void)? = nil) {
+        self.item = item
+        self.trip = trip
+        self.onClose = onClose
+    }
+
     private var flight: FlightDetails? { FlightDetails.decode(item.travelFlightData) }
 
     var body: some View {
-        NavigationStack {
+        // 嵌在右栏时不再自带 NavigationStack:旅行详情页本身就是外层 NavigationStack 的
+        // 目标页,里面再套一层会让 macOS 把外层的导航路径重置、直接退回旅行列表(实测)。
+        // 也不设 navigationTitle——那会顶掉窗口标题上的旅行名,标题改放在列表顶上。
+        if onClose != nil {
+            content
+        } else {
+            NavigationStack { content }
+        }
+    }
+
+    private var content: some View {
             List {
                 Section {
                     header
@@ -48,13 +68,19 @@ struct FlightStatusView: View {
                     }
                 }
             }
-            .navigationTitle(item.travelCode ?? item.title)
+            .navigationTitleIfPresent(onClose == nil ? (item.travelCode ?? item.title) : nil)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("完成") { dismiss() }
+                    if let onClose {
+                        Button(action: onClose) {
+                            Label("关闭", systemImage: "xmark")
+                        }
+                    } else {
+                        Button("完成") { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("编辑") { editing = true }
@@ -66,7 +92,6 @@ struct FlightStatusView: View {
             .sheet(isPresented: $importing) {
                 TravelImportView(trip: trip, updatingFlightCode: item.travelCode)
             }
-        }
     }
 
     // MARK: - 头部

@@ -3,9 +3,7 @@ import SwiftData
 import QuickLook
 import PhotosUI
 import LodoCore
-#if os(iOS)
 import Contacts
-#endif
 
 /// 人脉详情:比通用的 MemoryDetailView 多出一整套结构化字段(头像/昵称/
 /// 联系方式/生日/喜好/多附件/关系),塞进通用详情页会把它搞乱,所以单独一个
@@ -34,12 +32,11 @@ struct ContactDetailView: View {
     /// 每次增删关系后手动 +1,借 SwiftUI 对任意 @State 变化都会整体重算
     /// body 的机制,顺带让下面的 relationships 计算属性拿到最新结果。
     @State private var relationshipsTick = 0
-    #if os(iOS)
+    /// iOS:弹系统"新建联系人"页;macOS:没有可编辑的那一页,改成先确认再直接写入。
     @State private var showExportSheet = false
     @State private var exportMutableContact: CNMutableContact?
     @State private var exportPermissionDenied = false
     @State private var exportResultMessage: String?
-    #endif
 
     init(item: MemoryItem) {
         self.item = item
@@ -164,7 +161,6 @@ struct ContactDetailView: View {
                 Text("关系")
             }
 
-            #if os(iOS)
             Section {
                 Button {
                     Task { await beginExport() }
@@ -172,7 +168,6 @@ struct ContactDetailView: View {
                     Label("导出到通讯录", systemImage: "square.and.arrow.up")
                 }
             }
-            #endif
 
             Section {
                 Button("删除人脉", role: .destructive) {
@@ -220,6 +215,16 @@ struct ContactDetailView: View {
                 }
             }
         }
+        #else
+        // macOS 的 CNContactViewController 只能展示、不能新建,先确认一次再直接写入
+        // (同批量导出,按手机号/邮箱去重)。
+        .confirmationDialog("导出到通讯录", isPresented: $showExportSheet, titleVisibility: .visible) {
+            Button("导出") { exportDirectly() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("会在通讯录里新建这位联系人;手机号或邮箱已经在通讯录里的不会重复导出。")
+        }
+        #endif
         .alert("无法访问通讯录", isPresented: $exportPermissionDenied) {
             Button("好", role: .cancel) {}
         } message: {
@@ -233,7 +238,6 @@ struct ContactDetailView: View {
         } message: {
             Text(exportResultMessage ?? "")
         }
-        #endif
         .confirmationDialog(
             "删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。",
             isPresented: $confirmDelete, titleVisibility: .visible
@@ -302,7 +306,6 @@ struct ContactDetailView: View {
         try? context.save()
     }
 
-    #if os(iOS)
     private func beginExport() async {
         guard await ContactsBridge.requestAccess() == .granted else {
             exportPermissionDenied = true
@@ -310,6 +313,20 @@ struct ContactDetailView: View {
         }
         exportMutableContact = ContactsBridge.makeMutableContact(from: item)
         showExportSheet = true
+    }
+
+    #if os(macOS)
+    private func exportDirectly() {
+        let result = ContactsBridge.exportContacts([item])
+        let locale = AppSettings.language.locale
+        if result.exported > 0 {
+            exportResultMessage = String(localized: "已导出到通讯录。", bundle: .appLanguage(), locale: locale)
+        } else if result.skipped > 0 {
+            exportResultMessage = String(localized: "通讯录里已经有这位联系人(手机号或邮箱相同),没有重复导出。",
+                                         bundle: .appLanguage(), locale: locale)
+        } else {
+            exportResultMessage = String(localized: "导出失败,请稍后再试。", bundle: .appLanguage(), locale: locale)
+        }
     }
     #endif
 
@@ -372,7 +389,7 @@ private struct AddContactRelationshipSheet: View {
                     TextField("如 同事、大学同学", text: $label)
                 }
             }
-            .navigationTitle("添加关系")
+            .pageTitle("添加关系")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

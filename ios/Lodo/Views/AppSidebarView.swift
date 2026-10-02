@@ -214,6 +214,8 @@ struct SystemSidebarList: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("Lodo")
+        #if !os(macOS)
+        // macOS 的设置在应用菜单「设置…」(⌘,),是独立窗口,侧栏不再放齿轮。
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: onOpenSettings) {
@@ -222,5 +224,6 @@ struct SystemSidebarList: View {
                 .accessibilityLabel("设置")
             }
         }
+        #endif
     }
 }

@@ -17,6 +17,28 @@ struct SlidingSwitch<Option: Hashable>: View {
     @Namespace private var thumb
 
     var body: some View {
+        #if os(macOS)
+        if #available(macOS 27.0, *) {
+            // macOS 27 起系统有了标签式选择器(`TabsPickerStyle`),Mac 上直接用它:
+            // 自绘的强调色滑块在桌面窗口里是一大条胶囊,和系统控件格格不入。
+            Picker(selection: $selection) {
+                ForEach(options, id: \.self) { option in
+                    title(option).tag(option)
+                }
+            } label: {
+                EmptyView()
+            }
+            .labelsHidden()
+            .pickerStyle(.tabs)
+        } else {
+            slider
+        }
+        #else
+        slider
+        #endif
+    }
+
+    private var slider: some View {
         HStack(spacing: 0) {
             ForEach(options, id: \.self) { option in
                 let selected = selection == option

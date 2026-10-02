@@ -164,6 +164,13 @@ struct AgentView: View {
             // 过去,底部那截不是死区)。
             // 标题是品牌名(用户要求,2026-09),中英文界面一样,不进字符串目录。
             .navigationTitle(Text(verbatim: Self.pageTitle))
+            #if os(macOS)
+            // Mac 的窗口标题栏本身就是"标题 + 副标题"两行(同邮件/备忘录),不再在工具栏
+            // 正中另摆一份:那样标题出现两遍,正中那颗玻璃胶囊还会把副标题截断。
+            .background {
+                AgentWindowSubtitle(mode: aiModeSummary, capability: aiCapabilitySummary)
+            }
+            #endif
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -180,10 +187,12 @@ struct AgentView: View {
                 // 系统画的 Liquid Glass 底,见 sidebarToolbarButton 的注释)。
                 // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
                 // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
+                #if !os(macOS)
                 ToolbarItem(placement: .principal) {
                     AgentTitleView(title: Self.pageTitle, mode: aiModeSummary,
                                    capability: aiCapabilitySummary)
                 }
+                #endif
                 if showsCloseButton {
                     ToolbarItem(placement: .primaryAction) {
                         Button { dismiss() } label: {
@@ -652,6 +661,14 @@ struct AgentView: View {
                 .glassBackground(Circle())
                 .hitTarget(visualSize: Self.composerControlSize)
         }
+        #if os(macOS)
+        // macOS 的 Menu 默认是带灰底和 ⌄ 箭头的下拉按钮,和旁边的输入胶囊对不上;
+        // 只留标签本身(玻璃圆 + 号),点开照样是系统菜单。
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        #endif
         .disabled(busy)
         .accessibilityLabel("添加附件")
     }
@@ -1772,6 +1789,24 @@ private struct AgentTitleView: View {
         .accessibilityHidden(hides)
     }
 }
+
+#if os(macOS)
+/// macOS 窗口副标题:「服务商 · token 用量/速度」。和 iOS 的 `AgentTitleView` 同一个口径,
+/// 同样单独成一个子视图去读 monitor——每 0.25s 跳一次数字,只重建这个零尺寸的视图。
+private struct AgentWindowSubtitle: View {
+    let mode: String
+    let capability: String?
+    private let usage = AIUsageMonitor.shared
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .navigationSubtitle([mode, usage.turn?.badge ?? capability]
+                .compactMap { $0 }
+                .joined(separator: " · "))
+    }
+}
+#endif
 
 private struct AgentImageViewer: View {
     let images: [PendingAttachment]

@@ -74,7 +74,7 @@ struct DoneListView: View {
                     }
                 }
             }
-            .navigationTitle("已完成")
+            .pageTitle("已完成")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

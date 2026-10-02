@@ -1,4 +1,3 @@
-#if os(iOS)
 import AppIntents
 import Foundation
 import SwiftData
@@ -199,4 +198,3 @@ struct LodoShortcuts: AppShortcutsProvider {
                     systemImageName: "sparkles")
     }
 }
-#endif

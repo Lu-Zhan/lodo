@@ -1676,3 +1676,19 @@ ios_view.news_preview_body,"新 iPhone 与 Apple Watch 预计同场亮相,端侧
 ios_view.news_resummarize,重新总结,Summarize Again,ios_view,新闻阅读
 ios_view.news_from_source,来自%@,From %@,ios_view,新闻今日
 ios_view.news_reference_ax,"参考:%@,%@","Source: %1$@, %2$@",ios_view,新闻今日
+calendar.mac_denied,"日历访问权限已关闭。到「系统设置 → 隐私与安全性 → 日历」里允许 lodo 访问后,这里会显示你的日程。",Calendar access is off. Allow lodo in System Settings → Privacy & Security → Calendars to see your events here.,ios_view,日历页(macOS)
+calendar.mac_connect_hint,"授权后这里会显示你日历里的日程,点开一条可以查看详情、删除,或到「日历」app 里修改。lodo 不会替你改任何内容。","Once allowed, your calendar events appear here. Open one to view details, delete it, or edit it in the Calendar app. lodo never changes anything on its own.",ios_view,日历页(macOS)
+calendar.event_delete,删除日程,Delete Event,ios_view,日历事件详情(macOS)
+calendar.event_delete_failed,"删除失败,请到「日历」app 里删除。",Couldn't delete this event. Delete it in the Calendar app instead.,ios_view,日历事件详情(macOS)
+calendar.event_open_in_app,在「日历」中打开,Open in Calendar,ios_view,日历事件详情(macOS)
+calendar.event_delete_this,仅删除这一次,Delete This Event Only,ios_view,日历事件详情(macOS)
+calendar.event_delete_future,删除这一次及以后,Delete All Future Events,ios_view,日历事件详情(macOS)
+settings.calendar_footer_mac,"开启后「日历」页会显示你日历里的日程,点开一条可以查看详情、删除,修改请到「日历」app 里进行。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页右键或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到「系统设置 → 隐私与安全性 → 日历」。","When enabled, the Calendar page shows your calendar events. Open an event to view details or delete it; edit it in the Calendar app. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync **both ways**: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Right-click or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in System Settings → Privacy & Security → Calendars.",ios_view,设置(macOS)
+settings.health_unavailable,"这台设备没有健康数据,步数、睡眠、心率的趋势和 AI 分析请在 iPhone 上查看。","This device has no health data. View step, sleep and heart rate trends and AI analysis on your iPhone.",ios_view,设置(Mac 等无健康库的设备)
+health.unavailable_title,这台设备没有健康数据,No Health Data on This Device,ios_view,健康页(Mac 等无健康库的设备)
+health.unavailable_body,"步数、睡眠、心率等数据只在 iPhone 和 Apple Watch 上有,请在 iPhone 上的 lodo 里查看趋势和 AI 分析。体检报告、病历这类健康资料仍然可以在这里记录,也能问 AI。","Steps, sleep, heart rate and other data are only on iPhone and Apple Watch — open lodo on your iPhone for trends and AI analysis. You can still record health documents like checkup reports and medical records here and ask the AI about them.",ios_view,健康页(Mac 等无健康库的设备)
+contact.export_confirm_action,导出,Export,ios_view,人脉详情导出确认(macOS)
+contact.export_confirm_message,会在通讯录里新建这位联系人;手机号或邮箱已经在通讯录里的不会重复导出。,"This creates the contact in Contacts. If the phone number or email is already there, it won't be exported again.",ios_view,人脉详情导出确认(macOS)
+contact.export_duplicate,"通讯录里已经有这位联系人(手机号或邮箱相同),没有重复导出。","This contact is already in Contacts (same phone number or email), so it wasn't exported again.",ios_view,人脉详情导出结果(macOS)
+contact.export_failed,"导出失败,请稍后再试。",Export failed. Try again later.,ios_view,人脉详情导出结果(macOS)
+menu.go,前往,Go,ios_view,macOS 菜单栏「前往」菜单(同访达)

@@ -46,6 +46,13 @@ struct SettingsView: View {
 
     enum SettingsRoute: Hashable { case reminder, syncStatus }
 
+    /// macOS 上设置是独立的「设置」窗口(⌘,),窗口自己有关闭按钮,不再挂「完成」。
+    private let isSettingsWindow: Bool
+
+    init(isSettingsWindow: Bool = false) {
+        self.isSettingsWindow = isSettingsWindow
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             Form {
@@ -69,11 +76,6 @@ struct SettingsView: View {
                 } footer: {
                     Text("对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。")
                 }
-                Section {
-                    Label("lodo 键盘", systemImage: "keyboard")
-                } footer: {
-                    Text("在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。")
-                }
                 #endif
 
                 // ---- 提醒与自动化:稍等间隔/全天提醒/每日汇总 + 用户自定义的 AI 例行任务 ----
@@ -94,8 +96,7 @@ struct SettingsView: View {
                     Text("稍等间隔、全天事项提醒时间、每日任务汇总都在这里。")
                 }
 
-                // ---- 系统日历(仅 iOS:macOS 那边 EventKit 要另配沙盒 entitlement)----
-                #if os(iOS)
+                // ---- 系统日历(iOS / macOS 同一份 EventKit 实现)----
                 Section {
                     Toggle("连接系统日历", isOn: $calendarEnabled)
                         .onChange(of: calendarEnabled) { _, enabled in
@@ -131,12 +132,22 @@ struct SettingsView: View {
                 } header: {
                     Text("系统日历")
                 } footer: {
+                    #if os(macOS)
+                    Text("开启后「日历」页会显示你日历里的日程,点开一条可以查看详情、删除,修改请到「日历」app 里进行。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页右键或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到「系统设置 → 隐私与安全性 → 日历」。")
+                    #else
                     Text("开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。")
+                    #endif
                 }
-                #endif
 
-                // ---- 健康分析(仅 iOS:macOS 没有 HealthKit)----
-                #if os(iOS)
+                // ---- 健康分析(Mac 上没有健康数据:只说明,不给开关)----
+                if !HealthKitBridge.isAvailable {
+                    Section {
+                        Text("这台设备没有健康数据,步数、睡眠、心率的趋势和 AI 分析请在 iPhone 上查看。")
+                            .foregroundStyle(.secondary)
+                    } header: {
+                        Text("健康分析")
+                    }
+                } else {
                 Section {
                     Toggle("健康分析", isOn: $healthEnabled)
                         .onChange(of: healthEnabled) { _, enabled in
@@ -160,18 +171,18 @@ struct SettingsView: View {
                 } footer: {
                     Text("开启后「健康」页会读取步数、睡眠、心率等数据,在本机汇总成趋势。只有汇总统计(日均、最近一天、环比变化)会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备;关闭后这一页不发任何请求。撤销授权请到系统「设置 → 隐私与安全性 → 健康」。")
                 }
-                #endif
+                }
 
                 // ---- 通用 ----
-                #if os(iOS)
                 Section {
+                    #if os(iOS)
                     Toggle("振动反馈", isOn: $hapticsEnabled)
+                    #endif
                     // 决定冷启动落在 AI 页还是总览页(见 AppShellView.shouldOpenAgentOnLaunch)。
                     Toggle("打开 App 后默认进入 AI 助手", isOn: $openAgentOnLaunch)
                 } header: {
                     Text("通用")
                 }
-                #endif
 
                 // ---- 强调色 ----
                 Section {
@@ -325,13 +336,15 @@ struct SettingsView: View {
                 }
             }
             #endif
-            .navigationTitle("设置")
+            .pageTitle("设置")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
+                if !isSettingsWindow {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完成") { dismiss() }
+                    }
                 }
             }
             .backupRestoreHandlers(

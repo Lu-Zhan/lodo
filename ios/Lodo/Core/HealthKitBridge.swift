@@ -1,8 +1,6 @@
 import Foundation
 import LodoCore
-#if os(iOS)
 import HealthKit
-#endif
 
 /// 读系统健康库,汇总成 `HealthReport`(纯逻辑在 LodoCore/HealthReport.swift)。
 ///
@@ -13,12 +11,13 @@ import HealthKit
 ///    所以"拒绝"和"确实没数据"在我们这儿是同一种结果,UI 也按同一种空态处理;
 /// 3. **只出汇总**——对外只给日级聚合值,逐条原始样本不出这个文件,更不进 prompt。
 ///
-/// macOS 上 HealthKit 根本不存在,整份实现用 `#if os(iOS)` 门控,另一侧留同名空实现,
-/// 调用方不写平台判断。
+/// iOS 与 macOS 同一份实现。macOS 有 HealthKit 框架,但 Mac 上没有健康数据
+/// (`isHealthDataAvailable()` 恒为 false),所以那边一路走 `isAvailable` 的空报告,
+/// 不会弹授权、也不需要 healthkit entitlement;UI 按 `isAvailable` 显示"这台设备没有
+/// 健康数据"。哪天 Mac 上有了健康库,这里不用改。
 @MainActor
 enum HealthKitBridge {
 
-#if os(iOS)
     private static let store = HKHealthStore()
 
     static var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
@@ -152,16 +151,4 @@ enum HealthKitBridge {
         }
         return hoursByDay.map { HealthDailyPoint(date: $0.key, value: $0.value) }
     }
-
-#else
-
-    /// macOS 没有 HealthKit。留同名空实现,调用方不用写 #if。
-    static var isAvailable: Bool { false }
-
-    @discardableResult
-    static func requestAuthorization() async -> Bool { false }
-
-    static func report(days: Int) async -> HealthReport { .empty }
-
-#endif
 }

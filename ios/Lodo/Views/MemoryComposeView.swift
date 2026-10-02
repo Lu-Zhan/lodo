@@ -16,7 +16,7 @@ struct MemoryComposeView: View {
         NavigationStack {
             TextEditor(text: $text)
                 .padding(.horizontal, 8)
-                .navigationTitle("输入文字")
+                .pageTitle("输入文字")
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
                 #endif

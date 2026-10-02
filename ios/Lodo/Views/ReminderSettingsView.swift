@@ -82,7 +82,7 @@ struct ReminderSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("提醒")
+        .pageTitle("提醒")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

@@ -207,7 +207,7 @@ struct OverviewWidgetGallery: View {
                     .disabled(layout == .default)
                 }
             }
-            .navigationTitle("添加小组件")
+            .pageTitle("添加小组件")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

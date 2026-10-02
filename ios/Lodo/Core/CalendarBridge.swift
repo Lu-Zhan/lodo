@@ -1,9 +1,7 @@
 import Foundation
 import SwiftData
 import LodoCore
-#if os(iOS)
 import EventKit
-#endif
 
 /// 系统日历的读写桥接。纯逻辑(周计算、事件归日、任务→事件的取值规则)在
 /// `LodoCore/CalendarPlan.swift`,这里只负责和 EventKit 打交道。
@@ -22,12 +20,11 @@ import EventKit
 ///    删掉(用户确认过的语义)。谁改了、冲突算谁的、什么时候算"被删",全部由
 ///    `CalendarSyncPlanner` 这个纯函数判断,这里只负责执行它算出来的 plan。
 ///
-/// macOS 上不做(EventKit 在 macOS 要另配沙盒 entitlement,而 macOS 端本来就是
-/// 捎带支持),整份实现 `#if os(iOS)` 门控、另一侧留同名空实现,调用方不写平台判断。
+/// iOS 与 macOS 同一份实现(EventKit 两边 API 一致)。macOS 主 app 没开沙盒,不需要
+/// 日历的沙盒 entitlement;以后开沙盒时要补 `com.apple.security.personal-information.calendars`。
 @MainActor
 enum CalendarBridge {
 
-#if os(iOS)
     private static let store = EKEventStore()
     /// lodo 自己那本日历的名字。用户在系统日历 app 里能看到它、能单独隐藏。
     static let ownCalendarTitle = "lodo"
@@ -213,22 +210,6 @@ enum CalendarBridge {
         AppSettings.setCalendarIdentifier(calendar.calendarIdentifier)
         return calendar
     }
-#else
-    // macOS:EventKit 这条路不做,留同名空实现,调用方不写平台判断。
-    static let ownCalendarTitle = "lodo"
-    static var isAuthorized: Bool { false }
-    static var isDenied: Bool { false }
-    @discardableResult
-    static func requestAccess() async -> Bool { false }
-    static func events(from start: Date, to end: Date) -> [CalendarEvent] { [] }
-    static func syncWindow(now: Date = Date()) -> ClosedRange<Date> { now...now }
-    static func ownEvents(in window: ClosedRange<Date>)
-        -> (events: [CalendarEvent], claimed: [String: UUID]) { ([], [:]) }
-    static func events(withIDs ids: [String]) -> [CalendarEvent] { [] }
-    @discardableResult
-    static func apply(_ plan: CalendarSyncPlan) -> [UUID: String] { [:] }
-    static func removeAllMirroredEvents() {}
-#endif
 }
 
 /// 双向对账的执行者:把 `CalendarSyncPlanner` 算出来的 plan 落到两边。

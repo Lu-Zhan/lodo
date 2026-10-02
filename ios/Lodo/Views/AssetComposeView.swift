@@ -118,7 +118,7 @@ struct AssetComposeView: View {
                         .frame(minHeight: 100)
                 }
             }
-            .navigationTitle("记一笔资产")
+            .pageTitle("记一笔资产")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

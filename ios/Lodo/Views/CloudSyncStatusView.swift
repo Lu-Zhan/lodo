@@ -60,7 +60,7 @@ struct CloudSyncStatusView: View {
                 Text("只记录这次打开 App 之后的事件。setup 是建立同步,import 是从 iCloud 拉取,export 是上传本机改动。")
             }
         }
-        .navigationTitle("同步状态")
+        .pageTitle("同步状态")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

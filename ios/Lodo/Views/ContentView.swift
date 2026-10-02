@@ -37,7 +37,7 @@ struct ContentView: View {
     var body: some View {
         AppShellView()
             .onAppear {
-                KeyboardBridge.refresh(context: modelContext)
+                AppGroup.consumeKeyboardLeftovers(context: modelContext)
                 if !hasSeenOnboarding {
                     showOnboarding = true
                 }
@@ -108,7 +108,6 @@ struct ContentView: View {
                     }
                     // Share Extension 落在收件箱的分享内容,回前台时入库整理
                     MemoryPipeline.consumeInbox(context: modelContext)
-                    KeyboardBridge.refresh(context: modelContext)
                     // 系统日历的兜底对账:改动时各处都会调 CalendarSync.sync,
                     // 但通知按钮、Siri、小组件那几条路径可能在 app 没运行时发生,
                     // 用户也可能在日历 app 里改过东西,回前台一次性对平。
@@ -123,7 +122,6 @@ struct ContentView: View {
                     WidgetBridge.sync(context: modelContext)
                 } else if phase == .background {
                     MemoryPipeline.consumeInbox(context: modelContext)
-                    KeyboardBridge.refresh(context: modelContext)
                 }
             }
     }

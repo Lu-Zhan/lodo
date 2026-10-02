@@ -69,7 +69,7 @@ struct ContactGraphView: View {
                 }
             }
         }
-        .navigationTitle("关系图谱")
+        .pageTitle("关系图谱")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

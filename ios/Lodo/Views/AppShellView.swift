@@ -176,6 +176,9 @@ struct AppShellView: View {
     /// ——总览页一挂载就会发起 AI 请求,不能因为它排在第一个就在启动时先跑一遍。
     @State private var visited: Set<AppSection>
     @State private var showSettings = false
+    #if os(macOS)
+    @Environment(\.openSettings) private var openSettings
+    #endif
 
     /// 非 nil 时切到 AI 页并把文本预填进输入框(深链/Siri 交接/小组件"+")。
     @State private var agentRequest: String?
@@ -302,7 +305,19 @@ struct AppShellView: View {
                                    hidesChrome: hidesToolbarChrome,
                                    showsMenuButton: !usesRegularLayout))
         .environment(\.itemNavigator, ItemNavigator(open: open))
+        #if os(macOS)
+        // Mac 上设置是独立窗口:所有"打开设置"的入口(截图参数等)改成打开那个窗口。
+        .onChange(of: showSettings) { _, show in
+            guard show else { return }
+            showSettings = false
+            openSettings()
+        }
+        #else
         .sheet(isPresented: $showSettings) { SettingsView() }
+        #endif
+        .focusedSceneValue(\.shellCommands,
+                           ShellCommandActions(go: { routeFromOutside($0) },
+                                               askAI: { openAgent(prefill: "") }))
         .onChange(of: section) { _, new in visited.insert(new) }
         .onAppear {
             #if DEBUG
@@ -317,9 +332,7 @@ struct AppShellView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                #if os(iOS)
                 consumeAgentHandoff()
-                #endif
                 consumeRescheduleHandoff()
             }
         }
@@ -336,14 +349,12 @@ struct AppShellView: View {
             showSidebar = false
             open(.trip(uuid))
         }
-        #if os(iOS)
         // Siri Intent 交接的快路径(app 已在运行时即时弹出)
         .onReceive(NotificationCenter.default.publisher(
             for: LodoIntentSupport.agentHandoff)) { note in
             UserDefaults.standard.removeObject(forKey: LodoIntentSupport.pendingAgentTextKey)
             openAgent(prefill: note.userInfo?["text"] as? String ?? "")
         }
-        #endif
         // 通知"改期"按钮交接的快路径(app 已在前台时即时响应)
         .onReceive(NotificationCenter.default.publisher(
             for: NotificationManager.rescheduleHandoff)) { note in
@@ -735,7 +746,6 @@ struct AppShellView: View {
         convertToTodoRequest = ConvertToTodoRequest(title: title, attachment: attachment)
     }
 
-    #if os(iOS)
     /// Siri Intent 留下的交接文本(app 冷启动/回前台时消费)。
     private func consumeAgentHandoff() {
         guard let pending = UserDefaults.standard.string(
@@ -743,7 +753,6 @@ struct AppShellView: View {
         UserDefaults.standard.removeObject(forKey: LodoIntentSupport.pendingAgentTextKey)
         openAgent(prefill: pending)
     }
-    #endif
 
     /// 通知"改期"按钮留下的交接 uuid(app 冷启动/回前台时消费)。
     private func consumeRescheduleHandoff() {
@@ -793,6 +802,13 @@ struct AppShellView: View {
             showSettings = true
         }
         // 抽屉本身:simctl 既点不了 ☰ 也滑不了手势,直接摆成展开。
+        // 只读:打开库里已有的第一趟旅行(不塞样板数据),在真实数据上核对旅行详情页。
+        if args.contains("--demo-open-first-trip") {
+            let descriptor = FetchDescriptor<TravelTrip>(sortBy: [SortDescriptor(\.startDate)])
+            if let first = try? AppDatabase.container.mainContext.fetch(descriptor).first {
+                open(.trip(first.uuid))
+            }
+        }
         if args.contains("--demo-sidebar") || args.contains("--demo-agent-sidebar") {
             showSidebar = true
         }

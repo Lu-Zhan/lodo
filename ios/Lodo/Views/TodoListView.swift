@@ -322,7 +322,7 @@ struct TodoListView: View {
                 dueUUIDs: due.map(\.uuid), filter: filter))
             // 顶部筛选贴近导航栏:分组列表默认在第一个分区上面留一大截空白。
             .contentMargins(.top, 4, for: .scrollContent)
-            .navigationTitle("任务")
+            .pageTitle("任务")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -383,10 +383,8 @@ struct TodoListView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label("通知权限已关闭,提醒不会推送", systemImage: "bell.slash.fill")
                     .foregroundStyle(LodoColor.critical)
-                #if os(iOS)
-                Button("前往系统设置开启") { openNotificationSettings() }
+                Button("前往系统设置开启") { SystemSettings.open(.notifications) }
                     .buttonStyle(.bordered)
-                #endif
             }
             .padding(.vertical, 2)
         }
@@ -410,14 +408,6 @@ struct TodoListView: View {
             }
         }
     }
-
-    #if os(iOS)
-    private func openNotificationSettings() {
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-        }
-    }
-    #endif
 
     // MARK: - 筛选胶囊
 

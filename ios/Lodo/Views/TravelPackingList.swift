@@ -252,7 +252,7 @@ private struct PackingSuggestionSheet: View {
                     }
                 }
             }
-            .navigationTitle("AI 建议")
+            .pageTitle("AI 建议")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

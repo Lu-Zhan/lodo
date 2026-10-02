@@ -86,7 +86,7 @@ struct PlaceSearchView: View {
             .onSubmit(of: .search) {
                 if inRegion.isEmpty || regions.isEmpty && results.isEmpty { searchOSM() }
             }
-            .navigationTitle("选择地点")
+            .pageTitle("选择地点")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

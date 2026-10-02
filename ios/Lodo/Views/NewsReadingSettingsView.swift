@@ -76,7 +76,7 @@ struct NewsReadingSettingsView: View {
                     .animation(.lodoAware(.snappy), value: marginRaw)
                 }
             }
-            .navigationTitle("阅读设置")
+            .pageTitle("阅读设置")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

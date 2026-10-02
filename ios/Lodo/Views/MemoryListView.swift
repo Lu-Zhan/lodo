@@ -164,7 +164,7 @@ struct MemoryListView: View {
                     }
                 }
             }
-            .navigationTitle("记忆")
+            .pageTitle("记忆")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

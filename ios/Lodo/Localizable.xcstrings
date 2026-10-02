@@ -1309,6 +1309,7 @@
       }
     },
     "lodo 键盘" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1325,6 +1326,7 @@
       }
     },
     "macOS 版暂不支持连接系统日历。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2012,6 +2014,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "什么时候跑"
+          }
+        }
+      }
+    },
+    "仅删除这一次" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This Event Only"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅删除这一次"
           }
         }
       }
@@ -2756,6 +2774,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "会先抓取原文网页,抓不到时只根据摘要总结。"
+          }
+        }
+      }
+    },
+    "会在通讯录里新建这位联系人;手机号或邮箱已经在通讯录里的不会重复导出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This creates the contact in Contacts. If the phone number or email is already there, it won't be exported again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会在通讯录里新建这位联系人;手机号或邮箱已经在通讯录里的不会重复导出。"
           }
         }
       }
@@ -4526,6 +4560,22 @@
         }
       }
     },
+    "删除失败,请到「日历」app 里删除。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't delete this event. Delete it in the Calendar app instead."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除失败,请到「日历」app 里删除。"
+          }
+        }
+      }
+    },
     "删除收藏" : {
       "localizations" : {
         "en" : {
@@ -4538,6 +4588,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除收藏"
+          }
+        }
+      }
+    },
+    "删除日程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Event"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除日程"
+          }
+        }
+      }
+    },
+    "删除这一次及以后" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete All Future Events"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这一次及以后"
           }
         }
       }
@@ -5034,6 +5116,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刷新地点位置"
+          }
+        }
+      }
+    },
+    "前往" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前往"
           }
         }
       }
@@ -6285,6 +6383,22 @@
         }
       }
     },
+    "在「日历」中打开" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Calendar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在「日历」中打开"
+          }
+        }
+      }
+    },
     "在共享台账里" : {
       "localizations" : {
         "en" : {
@@ -6430,6 +6544,7 @@
       }
     },
     "在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7303,6 +7418,22 @@
         }
       }
     },
+    "导出" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出"
+          }
+        }
+      }
+    },
     "导出(%lld)" : {
       "localizations" : {
         "en" : {
@@ -7379,6 +7510,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "导出失败"
+          }
+        }
+      }
+    },
+    "导出失败,请稍后再试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export failed. Try again later."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出失败,请稍后再试。"
           }
         }
       }
@@ -8851,6 +8998,22 @@
         }
       }
     },
+    "开启后「日历」页会显示你日历里的日程,点开一条可以查看详情、删除,修改请到「日历」app 里进行。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页右键或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到「系统设置 → 隐私与安全性 → 日历」。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When enabled, the Calendar page shows your calendar events. Open an event to view details or delete it; edit it in the Calendar app. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync **both ways**: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Right-click or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in System Settings → Privacy & Security → Calendars."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启后「日历」页会显示你日历里的日程,点开一条可以查看详情、删除,修改请到「日历」app 里进行。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页右键或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到「系统设置 → 隐私与安全性 → 日历」。"
+          }
+        }
+      }
+    },
     "开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。" : {
       "localizations" : {
         "en" : {
@@ -10044,6 +10207,22 @@
         }
       }
     },
+    "授权后这里会显示你日历里的日程,点开一条可以查看详情、删除,或到「日历」app 里修改。lodo 不会替你改任何内容。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once allowed, your calendar events appear here. Open one to view details, delete it, or edit it in the Calendar app. lodo never changes anything on its own."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授权后这里会显示你日历里的日程,点开一条可以查看详情、删除,或到「日历」app 里修改。lodo 不会替你改任何内容。"
+          }
+        }
+      }
+    },
     "授权后这里会显示你日历里的日程,点开任意一条可以直接修改。lodo 不会替你改任何内容,改动都要你在编辑界面里确认。" : {
       "localizations" : {
         "en" : {
@@ -11069,6 +11248,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日历"
+          }
+        }
+      }
+    },
+    "日历访问权限已关闭。到「系统设置 → 隐私与安全性 → 日历」里允许 lodo 访问后,这里会显示你的日程。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar access is off. Allow lodo in System Settings → Privacy & Security → Calendars to see your events here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日历访问权限已关闭。到「系统设置 → 隐私与安全性 → 日历」里允许 lodo 访问后,这里会显示你的日程。"
           }
         }
       }
@@ -13072,6 +13267,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "步数"
+          }
+        }
+      }
+    },
+    "步数、睡眠、心率等数据只在 iPhone 和 Apple Watch 上有,请在 iPhone 上的 lodo 里查看趋势和 AI 分析。体检报告、病历这类健康资料仍然可以在这里记录,也能问 AI。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steps, sleep, heart rate and other data are only on iPhone and Apple Watch — open lodo on your iPhone for trends and AI analysis. You can still record health documents like checkup reports and medical records here and ask the AI about them."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "步数、睡眠、心率等数据只在 iPhone 和 Apple Watch 上有,请在 iPhone 上的 lodo 里查看趋势和 AI 分析。体检报告、病历这类健康资料仍然可以在这里记录,也能问 AI。"
           }
         }
       }
@@ -18338,6 +18549,38 @@
         }
       }
     },
+    "这台设备没有健康数据" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Health Data on This Device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台设备没有健康数据"
+          }
+        }
+      }
+    },
+    "这台设备没有健康数据,步数、睡眠、心率的趋势和 AI 分析请在 iPhone 上查看。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device has no health data. View step, sleep and heart rate trends and AI analysis on your iPhone."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台设备没有健康数据,步数、睡眠、心率的趋势和 AI 分析请在 iPhone 上查看。"
+          }
+        }
+      }
+    },
     "这台设备的人脉里没有这个人" : {
       "localizations" : {
         "en" : {
@@ -18783,6 +19026,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知权限已关闭,提醒不会推送"
+          }
+        }
+      }
+    },
+    "通讯录里已经有这位联系人(手机号或邮箱相同),没有重复导出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This contact is already in Contacts (same phone number or email), so it wasn't exported again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通讯录里已经有这位联系人(手机号或邮箱相同),没有重复导出。"
           }
         }
       }

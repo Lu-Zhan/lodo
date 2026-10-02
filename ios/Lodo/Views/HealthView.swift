@@ -63,7 +63,9 @@ struct HealthView: View {
     var body: some View {
         NavigationStack {
             List {
-                if !showsData {
+                if !HealthKitBridge.isAvailable {
+                    unavailableSection
+                } else if !showsData {
                     disabledSection
                 } else if loadingReport && report.isEmpty {
                     Section {
@@ -84,7 +86,7 @@ struct HealthView: View {
                 }
                 memoriesSection
             }
-            .navigationTitle("健康")
+            .pageTitle("健康")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -104,6 +106,18 @@ struct HealthView: View {
     }
 
     // MARK: - 空态
+
+    /// 这台设备上没有健康库(Mac 一律如此)。读数这一半用不了,但下面「健康资料」
+    /// 那一组(体检报告、病历等记忆条目)照常可以记、可以问 AI。
+    private var unavailableSection: some View {
+        Section {
+            ContentUnavailableView {
+                Label("这台设备没有健康数据", systemImage: "heart.text.square")
+            } description: {
+                Text("步数、睡眠、心率等数据只在 iPhone 和 Apple Watch 上有,请在 iPhone 上的 lodo 里查看趋势和 AI 分析。体检报告、病历这类健康资料仍然可以在这里记录,也能问 AI。")
+            }
+        }
+    }
 
     private var disabledSection: some View {
         Section {

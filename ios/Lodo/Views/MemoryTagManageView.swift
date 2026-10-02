@@ -67,7 +67,7 @@ struct MemoryTagManageView: View {
                     }
                 }
             }
-            .navigationTitle("标签")
+            .pageTitle("标签")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

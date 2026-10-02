@@ -17,10 +17,8 @@ struct ContactListView: View {
     @State private var path: [MemoryItem] = []
     @State private var showGraph = false
     @State private var pendingDelete: MemoryItem?
-    #if os(iOS)
     @State private var showExportPicker = false
     @State private var permissionDenied = false
-    #endif
 
     private var contacts: [MemoryItem] { allItems.filter(\.isContact) }
 
@@ -52,7 +50,7 @@ struct ContactListView: View {
                     }
                 }
             }
-            .navigationTitle("人脉")
+            .pageTitle("人脉")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -69,7 +67,6 @@ struct ContactListView: View {
                             Label("关系图谱", systemImage: "point.3.connected.trianglepath.dotted")
                         }
                     }
-                    #if os(iOS)
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             Task { await beginExport() }
@@ -77,7 +74,6 @@ struct ContactListView: View {
                             Label("批量导出到通讯录", systemImage: "square.and.arrow.up")
                         }
                     }
-                    #endif
                 }
             }
             .sidebarToolbarButton()
@@ -92,7 +88,6 @@ struct ContactListView: View {
                         }
                 }
             }
-            #if os(iOS)
             .sheet(isPresented: $showExportPicker) {
                 ContactExportPickerView()
             }
@@ -101,7 +96,6 @@ struct ContactListView: View {
             } message: {
                 Text("请在系统设置 → 隐私与安全性 → 通讯录 里允许 lodo 访问。")
             }
-            #endif
             .confirmationDialog(
                 "删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。",
                 isPresented: Binding(
@@ -181,7 +175,6 @@ struct ContactListView: View {
         return parts.joined(separator: " · ")
     }
 
-    #if os(iOS)
     // MARK: - 批量导出到通讯录(权限门控)
     //
     // 「从通讯录导入」的两条入口随右下角那颗「+」一起去掉了(新建一律走 AI),
@@ -195,7 +188,6 @@ struct ContactListView: View {
         }
         showExportPicker = true
     }
-    #endif
 
     #if DEBUG
     /// 截图验证用:simctl 点不了 List 行,启动参数直接把各个态摆出来。

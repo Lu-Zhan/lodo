@@ -23,6 +23,34 @@ enum AppGroup {
     /// 人脉头像与附件目录,与 Memory/ 同级独立存放。
     static var contactsDirURL: URL? { directory("Contacts") }
 
+    /// lodo 键盘扩展(2026-09 已删)留在 App Group 里的东西:给键盘看的待办/记忆
+    /// 快照(含记忆摘录),和它还没来得及交给主 app 的待办收件箱——收件箱里的
+    /// 先照常建成任务再删,别让升级前在键盘里记的事凭空消失。都不存在时是 no-op。
+    /// 键盘写进 Memory/Inbox 的收藏和分享扩展共用那个收件箱,照常由
+    /// `MemoryPipeline.consumeInbox` 入库。
+    @MainActor
+    static func consumeKeyboardLeftovers(context: ModelContext) {
+        guard let root = containerURL else { return }
+        let inbox = root.appending(path: "Keyboard/Tasks")
+        if let urls = try? FileManager.default.contentsOfDirectory(
+            at: inbox, includingPropertiesForKeys: nil) {
+            var created = false
+            for url in urls where url.pathExtension == "json" {
+                guard let data = try? Data(contentsOf: url),
+                      let task = try? JSONDecoder().decode(ParsedTask.self, from: data) else { continue }
+                TaskActions.create(task, context: context)
+                created = true
+            }
+            if created {
+                WidgetBridge.sync(context: context)
+                CalendarSync.sync(context: context)
+            }
+        }
+        for path in ["keyboard-snapshot.json", "Keyboard"] {
+            try? FileManager.default.removeItem(at: root.appending(path: path))
+        }
+    }
+
     private static func directory(_ path: String) -> URL? {
         guard let url = containerURL?.appending(path: path) else { return nil }
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
