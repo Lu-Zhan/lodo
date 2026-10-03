@@ -68,3 +68,57 @@ private struct EmptyStateFill: ViewModifier {
         #endif
     }
 }
+
+#if os(macOS)
+import AppKit
+
+/// macOS 两栏、中间分隔线可拖(新闻「文章列表 | 文章详情」、旅行详情「行程面板 | 地图」)。
+///
+/// 不用系统 `HSplitView`:它按两栏的"理想尺寸"把窗口往外撑,打开这两页窗口就从 1180
+/// 被推到 1741 / 满屏宽,还被窗口状态恢复记住、以后每次都从屏幕外打开(实测)。这里左栏宽度
+/// 由调用方的 `@AppStorage` 管着,窗口最窄 = 左栏宽 + 右栏最小宽,不会被撑大。
+/// 分隔线就是系统 `Divider`,外面套一条 8pt 的透明热区接拖动、悬停换左右调整光标。
+struct ResizableSplit<Leading: View, Trailing: View>: View {
+    @Binding var leadingWidth: Double
+    let range: ClosedRange<Double>
+    var trailingMinWidth: CGFloat = 240
+    @ViewBuilder let leading: Leading
+    @ViewBuilder let trailing: Trailing
+
+    @State private var dragStartWidth: Double?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // 平时就是拖出来的宽度;窗口缩窄、右栏也到了最小宽时,左栏可以一路让到下限,
+            // 不把窗口顶住(固定宽度的话窗口最窄 = 左栏宽 + 右栏最小宽,实测缩不动)。
+            leading
+                .frame(minWidth: range.lowerBound, maxWidth: clamped(leadingWidth))
+                .layoutPriority(1)
+            Divider()
+                .overlay {
+                    Color.clear
+                        .frame(width: 8)
+                        .contentShape(Rectangle())
+                        .onHover { inside in
+                            (inside ? NSCursor.resizeLeftRight : NSCursor.arrow).set()
+                        }
+                        .gesture(
+                            DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                                .onChanged { value in
+                                    let start = dragStartWidth ?? leadingWidth
+                                    dragStartWidth = start
+                                    leadingWidth = clamped(start + value.translation.width)
+                                }
+                                .onEnded { _ in dragStartWidth = nil }
+                        )
+                }
+            trailing
+                .frame(minWidth: trailingMinWidth, maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func clamped(_ width: Double) -> Double {
+        min(max(width, range.lowerBound), range.upperBound)
+    }
+}
+#endif

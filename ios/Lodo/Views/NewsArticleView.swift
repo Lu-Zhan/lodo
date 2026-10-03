@@ -90,6 +90,9 @@ struct NewsArticleView: View {
                 .environment(\.lodoAccent, palette)
         }
         .toolbar {
+            #if os(macOS)
+            if embedded { trailingSpacer }
+            #endif
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showReadingSettings = true
@@ -117,6 +120,17 @@ struct NewsArticleView: View {
         .task { await loadOnOpen() }
         .onDisappear { summarizeTask?.cancel() }
     }
+
+    #if os(macOS)
+    /// macOS 新闻三栏里,右栏没有自己的 NavigationStack,工具栏按钮会从这一栏的左边排起、
+    /// 紧挨着文章列表(实测);前面垫一个可伸缩的空白把它们推到窗口右边。
+    @ToolbarContentBuilder
+    private var trailingSpacer: some ToolbarContent {
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.flexible, placement: .primaryAction)
+        }
+    }
+    #endif
 
     // MARK: - 标题 + 时间
 

@@ -46,6 +46,8 @@ struct NewsListView: View {
     @State private var path: [NewsRoute] = []
     /// macOS 三栏右边正在看的那篇。
     @State private var selectedArticle: NewsArticle?
+    /// macOS 三栏里文章列表那一栏的宽度(拖分隔线改,记在本机)。
+    @AppStorage("newsListWidth") private var listWidth = 400.0
     @State private var readFilter: ReadFilter = .all
     /// 来源筛选:nil = 全部;否则是某个类别或某个订阅源。
     @State private var kindFilter: NewsFeedKind?
@@ -98,12 +100,11 @@ struct NewsListView: View {
 
     var body: some View {
         #if os(macOS)
-        // macOS 三栏:系统侧栏 | 文章列表 | 文章详情,中间那条分隔线可以拖(系统 HSplitView)。
-        HSplitView {
+        // macOS 三栏:系统侧栏 | 文章列表 | 文章详情,中间那条分隔线可以拖(见 ResizableSplit)。
+        ResizableSplit(leadingWidth: $listWidth, range: 320...560, trailingMinWidth: 360) {
             listStack
-                .frame(minWidth: 320, idealWidth: 400, maxWidth: 560)
+        } trailing: {
             articleDetail
-                .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
         }
 
         #else

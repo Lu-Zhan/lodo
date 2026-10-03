@@ -253,6 +253,18 @@ final class LodoAppDelegate: NSObject, NSApplicationDelegate {
         } else if args.contains("--demo-light") {
             NSApplication.shared.appearance = NSAppearance(named: .aqua)
         }
+        // 排查窗口最小尺寸:几秒后把主窗口的 min size 写到临时文件。
+        if let index = args.firstIndex(of: "--demo-log-window-min"), index + 1 < args.count {
+            let path = args[index + 1]
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                let lines = NSApplication.shared.windows.filter(\.isVisible).map { window in
+                    "\(window.title) frame=\(window.frame.size) minSize=\(window.minSize) "
+                        + "contentMinSize=\(window.contentMinSize) "
+                        + "toolbarItems=\(window.toolbar?.items.count ?? -1)"
+                }
+                try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
+            }
+        }
         #endif
     }
 

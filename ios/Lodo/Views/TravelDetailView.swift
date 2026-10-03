@@ -86,6 +86,8 @@ struct TravelDetailView: View {
     @State private var inspectorEntryID: UUID?
     /// 宽屏右栏开着没有(工具栏右上角那颗可以收起,同系统 app 的检查器)。
     @State private var showsInspector = true
+    /// macOS 宽屏左栏(行程面板)的宽度,拖分隔线改,记在本机。
+    @AppStorage("travelPanelWidth") private var panelWidth = 372.0
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private static let peekDetent = PresentationDetent.height(200)
@@ -315,6 +317,9 @@ struct TravelDetailView: View {
     private var mapColumn: some View {
         ZStack(alignment: .topLeading) {
             mapLayer
+                // MapKit 的地图在 macOS 上自带一个不小的最小宽度,会把整个窗口的最小宽度
+                // 撑到 1300 多(实测);地图本来就能裁,让它多窄都行,下限交给外层那一栏。
+                .frame(minWidth: 1, minHeight: 1)
                 .ignoresSafeArea()
             mapOverlays
             if pinningEntry != nil {
@@ -327,13 +332,13 @@ struct TravelDetailView: View {
     private var wideLayout: some View {
         Group {
             #if os(macOS)
-            // macOS 上左栏和地图之间的分隔线可以拖(系统 HSplitView);右栏 inspector 本来就能拖。
-            HSplitView {
+            // macOS 上左栏和地图之间的分隔线可以拖(见 ResizableSplit);右栏 inspector 本来就能拖。
+            // 各栏最小宽度加起来就是窗口能缩到的最窄,地图给 240、右栏 220,窗口能缩得动。
+            ResizableSplit(leadingWidth: $panelWidth, range: 300...560, trailingMinWidth: 240) {
                 panelSheets(panelBody)
-                    .frame(minWidth: Self.wideListWidth, idealWidth: Self.wideListWidth, maxWidth: 560)
                     .background(TravelPanelBackground.panelColor)
+            } trailing: {
                 mapColumn
-                    .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
             }
             #else
             HStack(spacing: 0) {
@@ -347,7 +352,7 @@ struct TravelDetailView: View {
         }
         .inspector(isPresented: $showsInspector) {
             inspectorContent
-                .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
+                .inspectorColumnWidth(min: 220, ideal: 300, max: 420)
         }
     }
 
@@ -470,6 +475,11 @@ struct TravelDetailView: View {
     /// 「总览 / 日程 / 消费 / 文件」切换,样式见 `SlidingSwitch`。
     private var modePicker: some View {
         SlidingSwitch(options: Mode.allCases, selection: $mode) { Text($0.title) }
+            #if os(macOS)
+            // 整窗是 large 控件;六档标签用 large 要 340pt 左右,左栏拖窄时会被截。
+            // 这一处收回 regular,左栏最窄 300 也放得下。
+            .controlSize(.regular)
+            #endif
     }
 
     #if DEBUG
