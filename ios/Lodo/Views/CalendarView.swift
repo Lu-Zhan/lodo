@@ -66,6 +66,9 @@ struct CalendarView: View {
                     connectPrompt
                 }
             }
+            // 撑满整页:不然 macOS 上这一页只有引导那么高,底下的「问问 AI」会跟在引导
+            // 下面停在页面中间(实测),而不是贴着窗口底边。
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .pageTitle("日历")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

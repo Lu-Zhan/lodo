@@ -30,6 +30,7 @@ struct MenuListView: View {
                         } description: {
                             Text("拍一张菜单或导入截图,AI 会整理出每道菜、翻译外文并补上简介,选好了直接给服务员看。")
                         }
+                        .emptyStateFill()
                     }
                 }
                 ForEach(menus) { menu in

@@ -443,9 +443,9 @@ struct TodoListView: View {
     /// "月日 周X" 格式,跨过去/今天/未来都覆盖到。
     private func dayLabel(_ date: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return LocalizedStrings.translate("今天", language: AppSettings.language) }
-        if calendar.isDateInTomorrow(date) { return LocalizedStrings.translate("明天", language: AppSettings.language) }
-        if calendar.isDateInYesterday(date) { return LocalizedStrings.translate("昨天", language: AppSettings.language) }
+        if calendar.isDateInToday(date) { return String(localized: "今天", bundle: .appLanguage(AppSettings.language), locale: AppSettings.language.locale) }
+        if calendar.isDateInTomorrow(date) { return String(localized: "明天", bundle: .appLanguage(AppSettings.language), locale: AppSettings.language.locale) }
+        if calendar.isDateInYesterday(date) { return String(localized: "昨天", bundle: .appLanguage(AppSettings.language), locale: AppSettings.language.locale) }
         return date.formatted(.dateTime.month().day().weekday().locale(AppSettings.language.locale))
     }
 
@@ -464,6 +464,7 @@ struct TodoListView: View {
                     Button("开始添加") { sidebarChrome?.go(.agent) }
                         .glassProminentButton()
                 }
+                .emptyStateFill()
             } else if todayRows.isEmpty {
                 Text("今天暂无任务").foregroundStyle(.secondary)
             }
@@ -538,6 +539,7 @@ struct TodoListView: View {
         if doneTasks.isEmpty {
             Section {
                 ContentUnavailableView("还没有完成的事项", systemImage: "tray")
+                .emptyStateFill()
             } header: {
                 Text("已完成")
             }

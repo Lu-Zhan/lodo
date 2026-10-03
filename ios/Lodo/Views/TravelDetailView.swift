@@ -325,12 +325,25 @@ struct TravelDetailView: View {
     }
 
     private var wideLayout: some View {
-        HStack(spacing: 0) {
-            panelSheets(panelBody)
-                .frame(width: Self.wideListWidth)
-                .background(TravelPanelBackground.panelColor)
-            Divider()
-            mapColumn
+        Group {
+            #if os(macOS)
+            // macOS 上左栏和地图之间的分隔线可以拖(系统 HSplitView);右栏 inspector 本来就能拖。
+            HSplitView {
+                panelSheets(panelBody)
+                    .frame(minWidth: Self.wideListWidth, idealWidth: Self.wideListWidth, maxWidth: 560)
+                    .background(TravelPanelBackground.panelColor)
+                mapColumn
+                    .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
+            }
+            #else
+            HStack(spacing: 0) {
+                panelSheets(panelBody)
+                    .frame(width: Self.wideListWidth)
+                    .background(TravelPanelBackground.panelColor)
+                Divider()
+                mapColumn
+            }
+            #endif
         }
         .inspector(isPresented: $showsInspector) {
             inspectorContent
@@ -1674,6 +1687,7 @@ struct TravelDetailView: View {
                     } description: {
                         Text("给行程项填上金额,这里就会按币种和类型汇总。")
                     }
+                    .emptyStateFill()
                     .travelPanelRow(group: "cost-empty")
                 }
             }

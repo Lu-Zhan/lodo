@@ -50,6 +50,7 @@ struct TravelListView: View {
                         } description: {
                             Text("在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。")
                         }
+                        .emptyStateFill()
                     }
                 }
                 if let featured {

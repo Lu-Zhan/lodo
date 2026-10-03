@@ -338,7 +338,7 @@ public enum DeepSeekClient {
                 && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return .actions([.answer(text: message)])
         }
-        return try parseCommand(
+        let result = try parseCommand(
             raw,
             validUUIDs: tasks.map(\.uuid),
             memoryEnabled: memoryEnabled,
@@ -352,6 +352,51 @@ public enum DeepSeekClient {
             assetsEnabled: assetsEnabled, validAssetIDs: assets.map(\.id.uuidString),
             feedsEnabled: feedsEnabled, validFeedIDs: feeds.map(\.id.uuidString),
             loadSkillEnabled: hasCatalog)
+        return guardMisdirectedUpdates(result, tasks: tasks, userText: text)
+    }
+
+    /// 防"张冠李戴":用户说的那件事不在待办列表里(已完成、超出带进 prompt 的 50 条、
+    /// 刚在别的设备上删了……)时,模型会拿列表里最近的一件顶上——实测"改成4点吧"
+    /// 把「买牛奶」整个改成了「给妈妈打电话」,而单条修改是直接落库的。prompt 里写了
+    /// 不许这样也挡不住(3/3 复现),所以客户端再兜一层:
+    /// 一条 update 把标题换成了**毫不相干**的另一件事(新旧标题没有一处相邻两字相同),
+    /// 用户这句话里又**根本没提到原来那件事**,就当作没对上——改成新建,原事项不动。
+    /// 用户点名改名("把买牛奶改成给妈妈打电话")会提到原标题,不受影响。
+    static func guardMisdirectedUpdates(
+        _ result: AICommandResult, tasks: [(uuid: String, task: ParsedTask)], userText: String
+    ) -> AICommandResult {
+        guard case .actions(let actions) = result else { return result }
+        let userGrams = bigrams(userText)
+        let guarded = actions.map { action -> AIAction in
+            guard case .update(let uuid, let task) = action,
+                  let original = tasks.first(where: { $0.uuid == uuid })?.task,
+                  original.title != task.title else { return action }
+            let oldGrams = bigrams(original.title)
+            guard !oldGrams.isEmpty,
+                  oldGrams.isDisjoint(with: bigrams(task.title)),
+                  oldGrams.isDisjoint(with: userGrams) else { return action }
+            return .create(task)
+        }
+        return .actions(guarded)
+    }
+
+    /// 把模型抄回来的 id 对回列表里那一个原样的字符串:忽略大小写、首尾空白、花括号和
+    /// `[id:…]` 外壳。实测偶发"找不到要操作的事项"——id 本身是对的,只是格式被模型改了一点;
+    /// 列表里没有的(编造的)照样返回 nil。
+    static func canonicalID(_ given: String, in valid: [String]) -> String? {
+        var key = given.trimmingCharacters(in: .whitespacesAndNewlines)
+        if key.hasPrefix("[id:"), key.hasSuffix("]") { key = String(key.dropFirst(4).dropLast()) }
+        key = key.trimmingCharacters(in: CharacterSet(charactersIn: "{}").union(.whitespaces))
+        if valid.contains(key) { return key }
+        let lowered = key.lowercased()
+        return valid.first { $0.lowercased() == lowered }
+    }
+
+    /// 相邻两字的集合(只看字母数字,忽略大小写、标点和空白);只有一个字时就是那个字。
+    static func bigrams(_ text: String) -> Set<String> {
+        let chars = text.lowercased().filter { $0.isLetter || $0.isNumber }.map(String.init)
+        guard chars.count > 1 else { return Set(chars) }
+        return Set((0..<(chars.count - 1)).map { chars[$0] + chars[$0 + 1] })
     }
 
     /// 调用方声明的能力(app 层按数据/权限/配置决定)。真正生效还要再与设置里各 skill 的
@@ -460,7 +505,9 @@ public enum DeepSeekClient {
         countdownEnabled: Bool = false, validCountdownIDs: [String] = [],
         assetsEnabled: Bool = false, validAssetIDs: [String] = [],
         feedsEnabled: Bool = false, validFeedIDs: [String] = [],
-        loadSkillEnabled: Bool = false
+        loadSkillEnabled: Bool = false,
+        /// 行程规划的年份校正要拿"今天"比;单测传固定日期,别让结果随真实日期变。
+        now: Date = Date()
     ) throws -> AICommandResult {
         if let rawAsk = payload["ask"] as? [[String: Any]], !rawAsk.isEmpty {
             return .ask(try parseAsk(rawAsk))
@@ -515,9 +562,9 @@ public enum DeepSeekClient {
         var actions: [AIAction] = []
         for raw in rawActions {
             func validUUID() throws -> String {
-                guard let uuid = raw["uuid"] as? String,
-                      validUUIDs.contains(uuid) else {
-                    throw DeepSeekError.parse("找不到要操作的事项")
+                guard let given = raw["uuid"] as? String,
+                      let uuid = canonicalID(given, in: validUUIDs) else {
+                    throw DeepSeekError.parse("找不到要操作的事项(\(raw["uuid"] ?? "nil"))")
                 }
                 return uuid
             }
@@ -578,7 +625,7 @@ public enum DeepSeekClient {
                 }
                 actions.append(.answer(text: text))
             case "plan_trip" where tripPlanEnabled:
-                actions.append(.planTrip(try parseTripPlan(raw)))
+                actions.append(.planTrip(try parseTripPlan(raw, now: now)))
             case "edit_trip" where travelEnabled:
                 actions.append(.editTrip(try parseTripEdit(raw)))
             case let name? where countdownEnabled
@@ -695,7 +742,8 @@ public enum DeepSeekClient {
     /// 单条安排解析不出来(缺标题、类型不认识、给了航班)就跳过那条,不让整份规划
     /// 白费;但**一条可用安排都没有**、或者**连日期都推不出来**就报错——那样的卡片
     /// 写不进任何一天。
-    static func parseTripPlan(_ raw: [String: Any]) throws -> TripPlanProposal {
+    static func parseTripPlan(_ raw: [String: Any], now: Date = Date(),
+                              calendar: Calendar = .current) throws -> TripPlanProposal {
         func text(_ key: String) -> String? {
             guard let value = (raw[key] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
@@ -714,12 +762,38 @@ public enum DeepSeekClient {
             throw DeepSeekError.parse("返回格式异常:行程规划缺少日期")
         }
         if endDate < startDate { swap(&startDate, &endDate) }
+        let recorded = (raw["record"] as? Bool) == true
+        var plannedItems = items
+        // 规划的出行一定在今天之后;模型偶尔把年份算错("下个月 10 号"给成去年,实测),
+        // 整份往后挪整年直到落在今天及以后。记录(record)的行程可能本来就是过去的,不动。
+        if !recorded {
+            let today = calendar.startOfDay(for: now)
+            var years = 0
+            while years < 3,
+                  let shifted = calendar.date(byAdding: .year, value: years, to: endDate),
+                  shifted < today {
+                years += 1
+            }
+            if years > 0 {
+                func shift(_ date: Date) -> Date {
+                    calendar.date(byAdding: .year, value: years, to: date) ?? date
+                }
+                startDate = shift(startDate)
+                endDate = shift(endDate)
+                plannedItems = items.map { item in
+                    var item = item
+                    item.start = item.start.map(shift)
+                    item.end = item.end.map(shift)
+                    return item
+                }
+            }
+        }
         return TripPlanProposal(
             tripTitle: text("trip") ?? "旅行规划",
             startDate: startDate, endDate: endDate,
-            summary: text("summary") ?? "", items: items,
+            summary: text("summary") ?? "", items: plannedItems,
             city: text("city"), country: text("country"),
-            recorded: (raw["record"] as? Bool) == true ? true : nil)
+            recorded: recorded ? true : nil)
     }
 
     /// 规划/调整里的一条安排。五种类型都认(交通类是用户明确说了车次/航班和时刻时

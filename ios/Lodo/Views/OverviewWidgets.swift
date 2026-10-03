@@ -61,7 +61,9 @@ struct OverviewWidgetCard<Content: View>: View {
         #if os(iOS)
         Color(uiColor: .secondarySystemGroupedBackground)
         #elseif os(macOS)
-        Color(nsColor: .controlBackgroundColor)
+        // macOS 26 起窗口底色和 controlBackgroundColor 都近乎纯白,卡片会和页面融成一片、
+        // 看不出边界(实测);按 iOS 分组列表那一对取值:白卡片 / 深色下高一档的灰。
+        Color.lodoDynamic(light: 0xFFFFFF, dark: 0x2C2C2E)
         #else
         Color.secondary.opacity(0.1)
         #endif

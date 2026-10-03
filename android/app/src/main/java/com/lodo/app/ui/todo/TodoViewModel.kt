@@ -20,6 +20,7 @@ import com.lodo.app.core.Strings
 import com.lodo.app.core.TaskPhase
 import com.lodo.app.core.TaskStatus
 import com.lodo.app.data.TaskEntity
+import com.lodo.app.ui.localizedParsedTaskCaption
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow

@@ -17,6 +17,10 @@ enum DesignMetrics {
     static let bubbleRadius: CGFloat = 18
     /// 各展示页底部「问问 AI」与 AI 页面真实输入栏共用的单行高度。
     static let aiInputHeight: CGFloat = 48
+    /// AI 对话一栏的最大宽度。Mac/iPad 宽窗口里消息和输入栏铺满整个内容区时一行字太长、
+    /// 用户和 AI 两侧的气泡隔得老远;收成居中的一栏(同桌面端聊天 app 的阅读宽度)。
+    /// iPhone 屏幕本来就比它窄,不受影响。
+    static let readableChatWidth: CGFloat = 760
     /// 侧栏导航行的圆角半径,取 48pt 行高的一半,和底部「设置」圆形按钮的半径一致。
     static let sidebarRowRadius: CGFloat = aiInputHeight / 2
     /// AI 助手输入栏那块玻璃的圆角。取输入栏高度的一半:

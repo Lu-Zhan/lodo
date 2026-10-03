@@ -731,10 +731,18 @@ struct AppShellView: View {
             SystemSidebarList(
                 selection: Binding(get: { section }, set: { if let target = $0 { go(target) } }),
                 onOpenSettings: { showSettings = true })
+            #if os(macOS)
+            // 系统默认的侧栏偏窄(放大一档控件后「AI 助手」这几行挤在一起,用户要求加宽)。
+            .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 320)
+            #endif
         } detail: {
-            content(for: section)
-                .environment(\.sectionIsActive, true)
-                .id(section)
+            GeometryReader { geo in
+                content(for: section)
+                    .environment(\.sectionIsActive, true)
+                    // 整页空态按页面高度居中(见 emptyStateFill)。
+                    .environment(\.pageContentHeight, geo.size.height)
+                    .id(section)
+            }
         }
     }
 
@@ -803,6 +811,11 @@ struct AppShellView: View {
         }
         // 抽屉本身:simctl 既点不了 ☰ 也滑不了手势,直接摆成展开。
         // 只读:打开库里已有的第一趟旅行(不塞样板数据),在真实数据上核对旅行详情页。
+        // 只读:只切到某一页(--demo-page todo),不塞任何样板数据,在真实数据上截图核对 UI。
+        if let index = args.firstIndex(of: "--demo-page"), index + 1 < args.count,
+           let page = AppSection.allCases.first(where: { "\($0)" == args[index + 1] }) {
+            go(page)
+        }
         if args.contains("--demo-open-first-trip") {
             let descriptor = FetchDescriptor<TravelTrip>(sortBy: [SortDescriptor(\.startDate)])
             if let first = try? AppDatabase.container.mainContext.fetch(descriptor).first {

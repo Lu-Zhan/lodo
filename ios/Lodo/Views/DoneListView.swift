@@ -43,7 +43,7 @@ struct DoneListView: View {
 
     private func dayGroupTitle(_ date: Date) -> String {
         Calendar.current.isDateInYesterday(date)
-            ? LocalizedStrings.translate("昨天", language: AppSettings.language)
+            ? String(localized: "昨天", bundle: .appLanguage(AppSettings.language), locale: AppSettings.language.locale)
             : date.formatted(.dateTime.month().day().locale(AppSettings.language.locale))
     }
 
@@ -58,6 +58,7 @@ struct DoneListView: View {
                 }
                 if allTasks.isEmpty {
                     ContentUnavailableView("还没有完成的事项", systemImage: "tray")
+                    .emptyStateFill()
                 }
                 if !todayDone.isEmpty {
                     Section("今天") {

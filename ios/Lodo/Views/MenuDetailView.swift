@@ -38,6 +38,7 @@ struct MenuDetailView: View {
         List {
             if dishes.isEmpty {
                 ContentUnavailableView("这张菜单没有菜品", systemImage: "menucard")
+                .emptyStateFill()
             }
             ForEach(courses) { course in
                 Section {

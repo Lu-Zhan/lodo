@@ -55,7 +55,7 @@ enum LocalizedContent {
                                 language: AppLanguage = AppSettings.language) -> String {
         let caption = routineCaption(routine, language: language)
         guard routine.enabled else {
-            return "\(caption) · \(LocalizedStrings.translate("已停用", language: language))"
+            return "\(caption) · \(String(localized: "已停用", bundle: .appLanguage(language), locale: language.locale))"
         }
         guard let nextRun else { return caption }
         let next = LocalizedStrings.text(.ios_core_next_occurrence, language: language)
@@ -212,7 +212,7 @@ enum LocalizedContent {
                           remainingMinutes)
         }
         if days == 1 {
-            return LocalizedStrings.translate("明天", language: language)
+            return String(localized: "明天", bundle: .appLanguage(language), locale: language.locale)
         }
         return String(format: LocalizedStrings.text(.ios_core_relative_days,
                                                     language: language), days)
@@ -238,10 +238,10 @@ enum LocalizedContent {
         let calendar = localizedCalendar(language)
         let timeText = time(date, language: language)
         if calendar.isDateInToday(date) {
-            return "\(LocalizedStrings.translate("今天", language: language)) \(timeText)"
+            return "\(String(localized: "今天", bundle: .appLanguage(language), locale: language.locale)) \(timeText)"
         }
         if calendar.isDateInTomorrow(date) {
-            return "\(LocalizedStrings.translate("明天", language: language)) \(timeText)"
+            return "\(String(localized: "明天", bundle: .appLanguage(language), locale: language.locale)) \(timeText)"
         }
         return dateTime(date, language: language)
     }

@@ -216,7 +216,7 @@ struct NewsFeedAddView: View {
                             Text(LocalizedStringKey(kind.title)).tag(kind)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .segmentedPickerStyle()
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("可以直接填 RSS/Atom 订阅地址;订阅博客时填博客首页也行,会自动找到它的订阅地址。")
@@ -291,7 +291,7 @@ struct NewsFeedEditView: View {
                             Text(LocalizedStringKey(kind.title)).tag(kind)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .segmentedPickerStyle()
                 }
                 Section("订阅地址") {
                     Text(feed.url)

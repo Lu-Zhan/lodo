@@ -40,6 +40,7 @@ struct MemoryTagManageView: View {
                 if entries.isEmpty {
                     ContentUnavailableView("还没有标签", systemImage: "tag",
                                            description: Text("AI 整理收藏时会自动打标签,也可以在上面手动创建。"))
+                    .emptyStateFill()
                 } else {
                     Section("全部标签") {
                         ForEach(entries, id: \.name) { entry in

@@ -127,6 +127,7 @@ struct MemoryListView: View {
                         } description: {
                             Text("在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。")
                         }
+                        .emptyStateFill()
                     } else if filtered.isEmpty {
                         ContentUnavailableView(
                             LocalizedStringKey(showAssets ? "还没有资产记录" : "这个筛选下还没有收藏"),
@@ -134,6 +135,7 @@ struct MemoryListView: View {
                             description: Text(LocalizedStringKey(showAssets
                                 ? "在底下那条「问问 AI」里说一句要记的资产。"
                                 : "取消上面选中的筛选就能看到全部。")))
+                        .emptyStateFill()
                     } else {
                         ForEach(filtered) { item in
                             // 目的地统一挂在下面的 navigationDestination 上:

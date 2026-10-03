@@ -52,7 +52,7 @@ struct ReminderSettingsView: View {
                         Text("每天").tag("daily")
                         Text("每周").tag("weekly")
                     }
-                    .pickerStyle(.segmented)
+                    .segmentedPickerStyle()
                     if digestRepeatType == "weekly" {
                         HStack {
                             ForEach(0..<7, id: \.self) { i in

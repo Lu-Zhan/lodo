@@ -57,6 +57,7 @@ struct CountdownListView: View {
                             Button("添加倒数日") { creating = true }
                                 .buttonStyle(.borderedProminent)
                         }
+                        .emptyStateFill()
                     }
                 } else {
                     if let insight {

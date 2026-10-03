@@ -52,7 +52,7 @@ struct NewsReadingSettingsView: View {
                             Text(LocalizedStringKey(option.displayName)).tag(option.rawValue)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .segmentedPickerStyle()
                     .labelsHidden()
                     // 只要分段控件本身,不要它背后那块分组行底色。
                     .listRowBackground(Color.clear)

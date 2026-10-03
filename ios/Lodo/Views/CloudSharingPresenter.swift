@@ -245,6 +245,15 @@ enum CloudSharingPresenter {
 final class LodoAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.registerForRemoteNotifications()
+        #if DEBUG
+        // 截图验证用:只让这个进程走深色/浅色外观,不动系统设置。
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--demo-dark") {
+            NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
+        } else if args.contains("--demo-light") {
+            NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        }
+        #endif
     }
 
     func application(_ application: NSApplication,

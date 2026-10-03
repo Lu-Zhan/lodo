@@ -463,6 +463,8 @@ struct AgentView: View {
                         inputBar
                     }
                 }
+                .frame(maxWidth: DesignMetrics.readableChatWidth)
+                .frame(maxWidth: .infinity)
                 .animation(.lodoAware(.snappy(duration: 0.2)), value: hasPendingAsk)
             }
     }
@@ -2026,6 +2028,9 @@ private struct AgentMessageListView: View {
                     }
                 }
                 .padding()
+                // 宽窗口里收成居中的一栏(见 readableChatWidth)。
+                .frame(maxWidth: DesignMetrics.readableChatWidth)
+                .frame(maxWidth: .infinity)
                 // 对话里挨着的玻璃不止一处:结果卡片自己是玻璃底,卡片下面那排
                 // 「确认/写入」又是高亮玻璃,连着两条带卡片的消息更是上下贴着。
                 // 整列合进一个容器共享采样,既让这些玻璃看起来是同一层材质,也

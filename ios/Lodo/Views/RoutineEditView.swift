@@ -121,7 +121,7 @@ struct RoutineEditView: View {
                 Text("每天").tag(RepeatType.daily)
                 Text("每周").tag(RepeatType.weekly)
             }
-            .pickerStyle(.segmented)
+            .segmentedPickerStyle()
             if repeatType == .weekly {
                 HStack {
                     ForEach(0..<7, id: \.self) { i in

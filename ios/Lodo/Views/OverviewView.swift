@@ -233,7 +233,8 @@ struct OverviewView: View {
         #if os(iOS)
         Color(uiColor: .systemGroupedBackground)
         #elseif os(macOS)
-        Color(nsColor: .windowBackgroundColor)
+        // 同 iOS systemGroupedBackground:浅灰页面上放白卡片。
+        Color.lodoDynamic(light: 0xF2F2F7, dark: 0x1C1C1E)
         #else
         Color.clear
         #endif

@@ -3,6 +3,13 @@ import XCTest
 
 /// 「规划行程」(plan_trip)的解析与快照单测,不发请求。
 final class TripPlanTests: XCTestCase {
+    /// 样例里的行程都在 2026 年 7 月;规划解析会把落在"今天"之前的行程挪到以后,
+    /// 所以"今天"固定在那之前,结果不随真实日期变。
+    private let planNow = ISO8601DateFormatter().date(from: "2026-06-01T00:00:00Z")!
+    private func parseTripPlanAt2026(_ raw: [String: Any]) throws -> TripPlanProposal {
+        try DeepSeekClient.parseTripPlan(raw, now: planNow)
+    }
+
     let calendar = Calendar.current
 
     private func date(day: Int, hour: Int = 0, minute: Int = 0) -> Date {
@@ -37,7 +44,7 @@ final class TripPlanTests: XCTestCase {
     func testParsePlanTripAction() throws {
         let result = try DeepSeekClient.parseCommand(
             ["actions": [samplePlan]], validUUIDs: [], memoryEnabled: false,
-            tripPlanEnabled: true)
+            tripPlanEnabled: true, now: planNow)
         guard case .actions(let actions) = result, actions.count == 1,
               case .planTrip(let plan) = actions[0] else {
             return XCTFail("expected a single planTrip action")
@@ -73,7 +80,7 @@ final class TripPlanTests: XCTestCase {
                                      "remind_at": "2026-07-08 20:00"]
         let result = try DeepSeekClient.parseCommand(
             ["actions": [samplePlan, create]], validUUIDs: [], memoryEnabled: false,
-            tripPlanEnabled: true)
+            tripPlanEnabled: true, now: planNow)
         guard case .actions(let actions) = result else { return XCTFail() }
         XCTAssertEqual(actions.count, 1)
         guard case .create = actions[0] else { return XCTFail("expected create") }
@@ -84,7 +91,7 @@ final class TripPlanTests: XCTestCase {
         var payload = samplePlan
         payload["city"] = "京都"
         payload["country"] = " 日本 "
-        let plan = try DeepSeekClient.parseTripPlan(payload)
+        let plan = try parseTripPlanAt2026(payload)
         XCTAssertEqual(plan.city, "京都")
         XCTAssertEqual(plan.country, "日本")
         XCTAssertEqual(PlaceRegion.isoCode(in: [plan.country]), "JP")
@@ -93,14 +100,14 @@ final class TripPlanTests: XCTestCase {
     /// 模型没给这两个键(老消息、旧模型)时是 nil,不是空串——调用方据此判断
     /// "有没有这个信息"。
     func testCityAndCountryOptional() throws {
-        let plan = try DeepSeekClient.parseTripPlan(samplePlan)
+        let plan = try parseTripPlanAt2026(samplePlan)
         XCTAssertNil(plan.city)
         XCTAssertNil(plan.country)
     }
 
     /// 没给起止日时从安排的时间里推。
     func testDatesInferredFromItems() throws {
-        let plan = try DeepSeekClient.parseTripPlan([
+        let plan = try parseTripPlanAt2026([
             "trip": "大阪",
             "items": [
                 ["kind": "place", "title": "大阪城", "start": "2026-07-09 10:00"],
@@ -114,7 +121,7 @@ final class TripPlanTests: XCTestCase {
     }
 
     func testMissingTitleFallsBackAndReversedDatesSwap() throws {
-        let plan = try DeepSeekClient.parseTripPlan([
+        let plan = try parseTripPlanAt2026([
             "start_date": "2026-07-10", "end_date": "2026-07-08",
             "items": [["kind": "place", "title": "清水寺", "start": "2026-07-08 16:00"]],
         ])
@@ -125,20 +132,20 @@ final class TripPlanTests: XCTestCase {
 
     func testRejectsPlanWithoutUsableItemsOrDates() {
         // 一条都解析不出来(缺标题、类型不认识):没有能写的安排。
-        XCTAssertThrowsError(try DeepSeekClient.parseTripPlan([
+        XCTAssertThrowsError(try parseTripPlanAt2026([
             "trip": "东京", "start_date": "2026-07-08",
             "items": [["kind": "flight", "start": "2026-07-08 09:00"],
                       ["kind": "restaurant", "title": "锦市场"]],
         ]))
         // 安排都没时间、也没给起止日:推不出是哪几天。
-        XCTAssertThrowsError(try DeepSeekClient.parseTripPlan([
+        XCTAssertThrowsError(try parseTripPlanAt2026([
             "trip": "东京", "items": [["kind": "place", "title": "浅草寺"]],
         ]))
     }
 
     /// 快照能按天分组复用 TravelPlan,且序列化往返不丢写入状态;老消息缺写入字段也能解。
     func testSnapshotGroupingAndCodable() throws {
-        var plan = try DeepSeekClient.parseTripPlan(samplePlan)
+        var plan = try parseTripPlanAt2026(samplePlan)
         let grouped = TravelPlan.group(plan.entries, into: plan.days())
         XCTAssertEqual(grouped.count, 3)
         // 住宿按住的每一晚铺开:8、9 号两晚。
@@ -247,7 +254,7 @@ final class TripPlanTests: XCTestCase {
     func testEditTripIgnoredWhenTravelDisabled() {
         XCTAssertThrowsError(try DeepSeekClient.parseCommand(
             ["actions": [["action": "edit_trip", "remove": [UUID().uuidString]]]],
-            validUUIDs: [], memoryEnabled: false, tripPlanEnabled: true))
+            validUUIDs: [], memoryEnabled: false, tripPlanEnabled: true, now: planNow))
     }
 
     func testEditTripWithoutChangesThrows() {
@@ -303,5 +310,31 @@ final class TripPlanTests: XCTestCase {
     func testTripPlannerSkillIsRegistered() {
         XCTAssertTrue(AgentSkillID.allCases.contains(.tripPlanner))
         XCTAssertTrue(AgentSkillStore.defaultContent(for: .tripPlanner).contains("plan_trip"))
+    }
+
+    /// 模型把"下个月 10 号"算成了去年(实测):规划的行程整份挪到今天以后,安排跟着挪。
+    func testPastPlanShiftedForwardByYears() throws {
+        let now = ISO8601DateFormatter().date(from: "2026-10-03T00:00:00Z")!
+        let plan = try DeepSeekClient.parseTripPlan([
+            "trip": "京都三日", "start_date": "2025-11-10", "end_date": "2025-11-12",
+            "items": [["kind": "place", "title": "清水寺", "start": "2025-11-10 09:00"]],
+        ], now: now)
+        let calendar = Calendar.current
+        XCTAssertEqual(calendar.component(.year, from: plan.startDate), 2026)
+        XCTAssertEqual(calendar.component(.year, from: plan.endDate), 2026)
+        XCTAssertEqual(calendar.component(.day, from: plan.startDate), 10)
+        XCTAssertEqual(plan.items.first?.start.map { calendar.component(.year, from: $0) }, 2026)
+        XCTAssertEqual(plan.items.first?.start.map { calendar.component(.hour, from: $0) }, 9)
+    }
+
+    /// 记录(record)的可能就是过去的旅行,日期原样保留。
+    func testRecordedPastTripKeepsDates() throws {
+        let now = ISO8601DateFormatter().date(from: "2026-10-03T00:00:00Z")!
+        let plan = try DeepSeekClient.parseTripPlan([
+            "trip": "去年东京", "start_date": "2025-04-01", "end_date": "2025-04-03", "record": true,
+            "items": [["kind": "place", "title": "浅草寺", "start": "2025-04-02 09:00"]],
+        ], now: now)
+        XCTAssertEqual(Calendar.current.component(.year, from: plan.startDate), 2025)
+        XCTAssertEqual(plan.recorded, true)
     }
 }

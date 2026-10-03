@@ -788,3 +788,75 @@ final class CommandParseTests: XCTestCase {
             payload, validUUIDs: [], memoryEnabled: true, loadSkillEnabled: true))
     }
 }
+
+/// `guardMisdirectedUpdates`:不相干的事项被模型拿来顶替时改成新建。
+final class MisdirectedUpdateGuardTests: XCTestCase {
+    private let milk = (uuid: "milk", task: ParsedTask(
+        title: "买牛奶", remindAt: Date(), allDay: false,
+        repeatType: .none, repeatDays: [], repeatTimes: []))
+
+    private func update(_ title: String) -> AICommandResult {
+        .actions([.update(uuid: "milk", task: ParsedTask(
+            title: title, remindAt: Date(), allDay: false,
+            repeatType: .none, repeatDays: [], repeatTimes: []))])
+    }
+
+    private func isCreate(_ result: AICommandResult) -> Bool {
+        if case .actions(let list) = result, case .create? = list.first { return true }
+        return false
+    }
+
+    func testUnrelatedTitleWithoutMentionBecomesCreate() {
+        let result = DeepSeekClient.guardMisdirectedUpdates(
+            update("给妈妈打电话"), tasks: [milk], userText: "改成4点吧")
+        XCTAssertTrue(isCreate(result))
+    }
+
+    func testExplicitRenameKeepsUpdate() {
+        let result = DeepSeekClient.guardMisdirectedUpdates(
+            update("给妈妈打电话"), tasks: [milk], userText: "把买牛奶改成给妈妈打电话")
+        XCTAssertFalse(isCreate(result))
+    }
+
+    func testSimilarTitleKeepsUpdate() {
+        let result = DeepSeekClient.guardMisdirectedUpdates(
+            update("买牛奶和面包"), tasks: [milk], userText: "再加个面包")
+        XCTAssertFalse(isCreate(result))
+    }
+
+    func testSameTitleTimeChangeKeepsUpdate() {
+        let result = DeepSeekClient.guardMisdirectedUpdates(
+            update("买牛奶"), tasks: [milk], userText: "改到明天")
+        XCTAssertFalse(isCreate(result))
+    }
+}
+
+/// `canonicalID`:模型把 id 的格式抄歪了一点也认得出来,编造的照样不认。
+final class CanonicalIDTests: XCTestCase {
+    private let valid = ["BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB", "11111111-1111-1111-1111-111111111111"]
+
+    func testExactMatch() {
+        XCTAssertEqual(DeepSeekClient.canonicalID(valid[1], in: valid), valid[1])
+    }
+
+    func testCaseAndWrapperInsensitive() {
+        XCTAssertEqual(DeepSeekClient.canonicalID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", in: valid), valid[0])
+        XCTAssertEqual(DeepSeekClient.canonicalID(" {BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB} ", in: valid), valid[0])
+        XCTAssertEqual(DeepSeekClient.canonicalID("[id:BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB]", in: valid), valid[0])
+    }
+
+    func testUnknownRejected() {
+        XCTAssertNil(DeepSeekClient.canonicalID("22222222-2222-2222-2222-222222222222", in: valid))
+        XCTAssertNil(DeepSeekClient.canonicalID("", in: valid))
+    }
+
+    func testUpdateWithLowercasedUUIDParses() throws {
+        let result = try DeepSeekClient.parseCommand(
+            ["actions": [["action": "complete", "uuid": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]]],
+            validUUIDs: valid, memoryEnabled: false)
+        guard case .actions(let list) = result, case .complete(let uuid)? = list.first else {
+            return XCTFail("\(result)")
+        }
+        XCTAssertEqual(uuid, valid[0], "要换回列表里原样的字符串,app 拿它查 TaskItem")
+    }
+}

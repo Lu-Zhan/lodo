@@ -44,6 +44,8 @@ struct NewsListView: View {
     @Query(sort: [SortDescriptor(\AIRoutine.createdAt)]) private var routines: [AIRoutine]
 
     @State private var path: [NewsRoute] = []
+    /// macOS 三栏右边正在看的那篇。
+    @State private var selectedArticle: NewsArticle?
     @State private var readFilter: ReadFilter = .all
     /// 来源筛选:nil = 全部;否则是某个类别或某个订阅源。
     @State private var kindFilter: NewsFeedKind?
@@ -95,6 +97,47 @@ struct NewsListView: View {
     private var newsRoutine: AIRoutine? { routines.first(where: \.includeNews) }
 
     var body: some View {
+        #if os(macOS)
+        // macOS 三栏:系统侧栏 | 文章列表 | 文章详情,中间那条分隔线可以拖(系统 HSplitView)。
+        HSplitView {
+            listStack
+                .frame(minWidth: 320, idealWidth: 400, maxWidth: 560)
+            articleDetail
+                .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+        }
+
+        #else
+        listStack
+        #endif
+    }
+
+    /// 打开一篇文章:macOS 三栏里放进右栏,iOS 推进导航栈。**macOS 上不能往 path 里推**——
+    /// 系统侧栏详情列里的 NavigationStack 推出去的页面会接管整个详情列,三栏直接没了(实测)。
+    private func open(_ article: NewsArticle) {
+        #if os(macOS)
+        selectedArticle = article
+        #else
+        path.append(.article(article))
+        #endif
+    }
+
+    #if os(macOS)
+    @ViewBuilder
+    private var articleDetail: some View {
+        if let selectedArticle {
+            NewsArticleView(article: selectedArticle, embedded: true)
+                .id(selectedArticle.uuid)
+        } else {
+            ContentUnavailableView {
+                Label("没有选中文章", systemImage: "newspaper")
+            } description: {
+                Text("在左边的列表里点一篇,正文会显示在这里。")
+            }
+        }
+    }
+    #endif
+
+    private var listStack: some View {
         NavigationStack(path: $path) {
             List {
                 if feeds.isEmpty {
@@ -104,7 +147,8 @@ struct NewsListView: View {
                         Picker("筛选", selection: $readFilter) {
                             ForEach(ReadFilter.allCases) { Text($0.title).tag($0) }
                         }
-                        .pickerStyle(.segmented)
+                        .segmentedPickerStyle()
+                        .standaloneSwitchLayout()
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                         .listRowSeparator(.hidden)
@@ -173,7 +217,7 @@ struct NewsListView: View {
             }
         }
         #if os(macOS)
-        .frame(minWidth: 440, minHeight: 480)
+        .frame(minHeight: 480)
         #endif
     }
 
@@ -191,8 +235,22 @@ struct NewsListView: View {
         ForEach(sections, id: \.day) { section in
             Section {
                 ForEach(section.articles) { article in
-                    NavigationLink(value: NewsRoute.article(article)) {
-                        NewsArticleRow(article: article)
+                    Group {
+                        #if os(macOS)
+                        Button { open(article) } label: {
+                            NewsArticleRow(article: article)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .pressableCard()
+                        // 三栏里标出右边正在看的那篇。
+                        .listRowBackground(selectedArticle?.uuid == article.uuid
+                                           ? accentPalette.accent.opacity(0.14) : nil)
+                        #else
+                        NavigationLink(value: NewsRoute.article(article)) {
+                            NewsArticleRow(article: article)
+                        }
+                        #endif
                     }
                     .swipeActions(edge: .trailing) {
                         Button {
@@ -230,6 +288,7 @@ struct NewsListView: View {
                     .buttonStyle(.borderedProminent)
                 Button("看看推荐订阅") { path = [.feeds] }
             }
+            .emptyStateFill()
         }
     }
 
@@ -359,7 +418,7 @@ struct NewsListView: View {
                 WrappingHStack(spacing: 6) {
                     ForEach(refs) { article in
                         Button {
-                            path.append(.article(article))
+                            open(article)
                         } label: {
                             HStack(spacing: 2) {
                                 Text("来自\(article.feedTitle)")
@@ -539,7 +598,7 @@ struct NewsListView: View {
             readFilter = .today
         }
         if args.contains("--demo-news-article"), let first = articles.first ?? NewsStore.articles(in: context).first {
-            path = [.article(first)]
+            open(first)
         }
         if args.contains("--demo-news-feeds") { path = [.feeds] }
         if args.contains("--demo-news-reading-settings") { showReadingSettings = true }

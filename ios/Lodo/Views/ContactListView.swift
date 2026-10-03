@@ -32,6 +32,7 @@ struct ContactListView: View {
                         } description: {
                             Text("在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。")
                         }
+                        .emptyStateFill()
                     }
                 } else {
                     ForEach(contacts) { contact in

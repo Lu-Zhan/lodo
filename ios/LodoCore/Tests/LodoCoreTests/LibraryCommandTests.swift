@@ -2,6 +2,13 @@ import XCTest
 @testable import LodoCore
 
 final class LibraryCommandTests: XCTestCase {
+    /// 样例里的行程都在 2026 年 7 月;规划解析会把落在"今天"之前的行程挪到以后,
+    /// 所以"今天"固定在那之前,结果不随真实日期变。
+    private let planNow = ISO8601DateFormatter().date(from: "2026-06-01T00:00:00Z")!
+    private func parseTripPlanAt2026(_ raw: [String: Any]) throws -> TripPlanProposal {
+        try DeepSeekClient.parseTripPlan(raw, now: planNow)
+    }
+
     private let assetID = UUID()
     private let feedID = UUID()
 
@@ -84,7 +91,7 @@ final class LibraryCommandTests: XCTestCase {
     }
 
     func testTripPlanRecordFlag() throws {
-        let plan = try DeepSeekClient.parseTripPlan([
+        let plan = try parseTripPlanAt2026([
             "trip": "东京四日", "record": true, "start_date": "2026-10-01", "end_date": "2026-10-04",
             "items": [["kind": "place", "title": "浅草寺", "start": "2026-10-01 10:00"]],
         ])

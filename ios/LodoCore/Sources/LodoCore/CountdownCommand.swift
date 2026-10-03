@@ -160,9 +160,8 @@ extension DeepSeekClient {
             return Array(Array(Set(minutes)).sorted().prefix(6))
         }
         func id() throws -> UUID {
-            var string = text("id") ?? ""
-            if string.hasPrefix("[id:") { string = String(string.dropFirst(4).dropLast()) }
-            guard validIDs.contains(string), let uuid = UUID(uuidString: string) else {
+            guard let string = DeepSeekClient.canonicalID(text("id") ?? "", in: validIDs),
+                  let uuid = UUID(uuidString: string) else {
                 throw DeepSeekError.parse("找不到要操作的倒数日")
             }
             return uuid

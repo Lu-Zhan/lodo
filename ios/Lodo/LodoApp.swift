@@ -45,6 +45,9 @@ struct LodoApp: App {
                 // lodo:// 深链(通知、快捷指令、共享邀请)交给已经开着的窗口处理;不写的话
                 // macOS 每点一次链接都新开一个窗口。
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
+                // Mac 上默认的 regular 控件偏小(「连接日历」「+ 添加」这类主按钮只有一指宽,
+                // 用户反馈过);整窗统一放大一档,按钮、选择器、输入框一起变,不逐个调。
+                .controlSize(.large)
                 #endif
         }
         .modelContainer(container)
@@ -68,6 +71,7 @@ struct LodoApp: App {
         Settings {
             SettingsView(isSettingsWindow: true)
                 .environment(\.locale, (AppLanguage(rawValue: languageRaw) ?? .zhHans).locale)
+                .controlSize(.large)
         }
         .modelContainer(container)
         #endif

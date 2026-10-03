@@ -43,6 +43,7 @@ struct ProjectListView: View {
             Group {
                 if pending.isEmpty {
                     ContentUnavailableView("暂无任务", systemImage: "folder")
+                    .emptyStateFill()
                 } else {
                     List {
                         ForEach(groups, id: \.project) { group in

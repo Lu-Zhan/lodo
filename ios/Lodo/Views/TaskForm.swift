@@ -97,7 +97,7 @@ struct TaskFormSections: View {
                 Text("每天").tag(RepeatType.daily)
                 Text("每周").tag(RepeatType.weekly)
             }
-            .pickerStyle(.segmented)
+            .segmentedPickerStyle()
         } header: {
             HStack {
                 if let header { Text(header) }

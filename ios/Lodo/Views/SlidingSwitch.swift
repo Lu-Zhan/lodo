@@ -30,6 +30,9 @@ struct SlidingSwitch<Option: Hashable>: View {
             }
             .labelsHidden()
             .pickerStyle(.tabs)
+            .fixedSize()
+            // 标签式选择器只有内容那么宽,贴在左边像没排好;居中摆在那一行里。
+            .frame(maxWidth: .infinity, alignment: .center)
         } else {
             slider
         }

@@ -277,9 +277,8 @@ extension DeepSeekClient {
     }
 
     private static func libraryID(_ raw: [String: Any], validIDs: [String], what: String) throws -> UUID {
-        var string = libraryText(raw, "id") ?? ""
-        if string.hasPrefix("[id:") { string = String(string.dropFirst(4).dropLast()) }
-        guard validIDs.contains(string), let uuid = UUID(uuidString: string) else {
+        guard let string = DeepSeekClient.canonicalID(libraryText(raw, "id") ?? "", in: validIDs),
+              let uuid = UUID(uuidString: string) else {
             throw DeepSeekError.parse("找不到要修改的\(what)")
         }
         return uuid

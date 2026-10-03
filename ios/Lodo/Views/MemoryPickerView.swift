@@ -46,8 +46,10 @@ struct MemoryPickerView: View {
                     ContentUnavailableView(
                         "还没有收藏", systemImage: "sparkles.rectangle.stack",
                         description: Text("先去「记忆」tab 收藏一些内容。"))
+                    .emptyStateFill()
                 } else if filtered.isEmpty {
                     ContentUnavailableView("没有匹配的收藏", systemImage: "magnifyingglass")
+                    .emptyStateFill()
                 }
             }
             .searchable(text: $query, prompt: "搜索记忆")

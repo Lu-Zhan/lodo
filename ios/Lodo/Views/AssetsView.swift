@@ -227,6 +227,7 @@ struct AssetsView: View {
             } actions: {
                 emptyAddMenu
             }
+            .emptyStateFill()
         }
         .listRowBackground(Color.clear)
     }

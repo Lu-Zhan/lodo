@@ -27,6 +27,7 @@ struct MenuOrderView: View {
                 if dishes.isEmpty {
                     ContentUnavailableView("还没有选菜", systemImage: "fork.knife",
                                            description: Text("在菜单里点一下菜品就能选上。"))
+                    .emptyStateFill()
                         .listRowBackground(Color.clear)
                 }
                 Section {

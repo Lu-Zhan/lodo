@@ -11,6 +11,13 @@ import LodoCore
 /// 文章上(`NewsArticle.aiSummary`),再打开不再花一次请求;正文只在内存里缓存。
 struct NewsArticleView: View {
     let article: NewsArticle
+    /// macOS 新闻三栏里嵌在右栏:不设 navigationTitle(空串也会把窗口标题上的「新闻」清掉)。
+    private let embedded: Bool
+
+    init(article: NewsArticle, embedded: Bool = false) {
+        self.article = article
+        self.embedded = embedded
+    }
 
     @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
@@ -72,7 +79,7 @@ struct NewsArticleView: View {
         #endif
         }
         // 顶部只显示标题(在正文里),导航栏不再重复一遍来源名。
-        .navigationTitle("")
+        .navigationTitleIfPresent(embedded ? nil : "")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
