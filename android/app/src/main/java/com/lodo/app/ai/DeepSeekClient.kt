@@ -5,6 +5,7 @@ import com.lodo.app.core.RepeatType
 import com.lodo.app.core.Strings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -94,6 +95,8 @@ sealed interface AITool {
     data class ReadHealth(val days: Int) : AITool
     data class ReadTrip(val name: String) : AITool
     data class SearchNews(val query: String) : AITool
+    /** 取一条已启用外部 skill 的正文(只读,计入 3 轮上限);定时任务那条路径不给。 */
+    data class LoadSkill(val name: String) : AITool
 }
 
 /** AI 总入口的返回:操作列表、关键信息缺失时的提问卡,或 ReAct 循环里的中间步骤。
@@ -263,6 +266,7 @@ object DeepSeekClient {
             block(caps.health, AgentSkillId.HEALTH) + block(caps.travel, AgentSkillId.TRAVEL) +
             block(caps.tripPlan, AgentSkillId.TRIP_PLANNER) + block(caps.news, AgentSkillId.NEWS) +
             countdownBlock + assetBlock + feedBlock +
+            (AgentSkillStore.catalogBlock()?.let { "\n\n" + it } ?: "") +
             "\n\n" + timeContext() + preferences + focus +
             "\n\n当前待办列表:\n" + list + personaBlock(config) + summary + history
     }
@@ -273,11 +277,18 @@ object DeepSeekClient {
      * 页面焦点 + 待办列表 + 个性 + 摘要 + 历史)。这是"AI 助手"对话入口,按设置里的思考
      * 强度传 reasoning_effort。模型用 {"error": "原因"} 表示没有能执行的操作时,当成回话。
      */
-    suspend fun command(config: AIConfig, text: String, ctx: CommandContext): AICommandResult {
+    suspend fun command(
+        config: AIConfig, text: String, ctx: CommandContext,
+        /** 非 null 时走 SSE 流式,把 answer 正文边收边吐(全文,不是增量);同 iOS onStream。 */
+        onStream: ((String) -> Unit)? = null,
+        /** 推理模型先吐的思考过程,喂给「思考中…」那条提示。 */
+        onReasoning: ((String) -> Unit)? = null,
+    ): AICommandResult {
         val system = commandSystemPrompt(config, ctx)
         val caps = effectiveCaps(ctx.caps)
         val payload = try {
-            complete(config, system, text, timeoutSeconds = 90, thinking = true)
+            if (onStream != null) completeStreaming(config, system, text, 90, thinking = true, onStream, onReasoning ?: {})
+            else complete(config, system, text, timeoutSeconds = 90, thinking = true)
         } catch (e: ModelErrorException) {
             val message = e.message.orEmpty().removePrefix(Strings.translate("无法解析:", CurrentLang.value)).trim()
             if (message.isNotEmpty()) return AICommandResult.Actions(listOf(AIAction.Answer(message)))
@@ -289,6 +300,7 @@ object DeepSeekClient {
             countdown = caps.countdown, validCountdownIds = ctx.countdowns.map { it.id },
             assets = caps.assets, validAssetIds = ctx.assets.map { it.id },
             feeds = caps.feeds, validFeedIds = ctx.feeds.map { it.id },
+            loadSkill = AgentSkillStore.catalogBlock() != null,
         )
         return guardMisdirectedUpdates(result, ctx.tasks, text)
     }
@@ -318,7 +330,7 @@ object DeepSeekClient {
 
     private fun parseToolCall(
         raw: JSONObject, name: String, webSearchEnabled: Boolean, memoryEnabled: Boolean,
-        health: Boolean, travel: Boolean, news: Boolean,
+        health: Boolean, travel: Boolean, news: Boolean, loadSkill: Boolean = false,
     ): AICommandResult.ToolCall? {
         val thought = raw.optString("thought")
         fun err(detail: String): Nothing =
@@ -345,6 +357,11 @@ object DeepSeekClient {
             }
             name == "read_trip" && travel -> AICommandResult.ToolCall(thought, AITool.ReadTrip(raw.optString("name").trim()))
             name == "search_news" && news -> AICommandResult.ToolCall(thought, AITool.SearchNews(raw.optString("query").trim()))
+            name == "load_skill" && loadSkill -> {
+                val skill = raw.optString("name").trim()
+                if (skill.isBlank()) err("load_skill 缺少 name")
+                AICommandResult.ToolCall(thought, AITool.LoadSkill(skill))
+            }
             else -> null
         }
     }
@@ -359,6 +376,8 @@ object DeepSeekClient {
         assets: Boolean = false, validAssetIds: List<String> = emptyList(),
         feeds: Boolean = false, validFeedIds: List<String> = emptyList(),
         now: LocalDateTime = LocalDateTime.now(),
+        /** 有已启用的外部 skill 时才认 load_skill(同 iOS loadSkillEnabled)。 */
+        loadSkill: Boolean = false,
     ): AICommandResult {
         payload.optJSONArray("ask")?.takeIf { it.length() > 0 }?.let { return AICommandResult.Ask(parseAsk(it)) }
         // 老格式单问题反问:折算成一道题。
@@ -368,10 +387,10 @@ object DeepSeekClient {
             } ?: emptyList()
             return AICommandResult.Ask(listOf(AskQuestion("", question, false, options.map { AskOption(it) })))
         }
-        val anyTool = webSearchEnabled || memoryEnabled || health || travel || news
+        val anyTool = webSearchEnabled || memoryEnabled || health || travel || news || loadSkill
         if (anyTool) {
             payload.optString("tool").takeIf { it.isNotEmpty() }?.let { name ->
-                return parseToolCall(payload, name, webSearchEnabled, memoryEnabled, health, travel, news)
+                return parseToolCall(payload, name, webSearchEnabled, memoryEnabled, health, travel, news, loadSkill)
                     ?: throw DeepSeekException(
                         Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value) + " $name")
             }
@@ -392,7 +411,7 @@ object DeepSeekClient {
         if (rawActions.length() == 1 && anyTool) {
             val only = rawActions.optJSONObject(0)
             val name = only?.optString("tool")?.takeIf { it.isNotEmpty() } ?: only?.optString("action").orEmpty()
-            if (only != null) parseToolCall(only, name, webSearchEnabled, memoryEnabled, health, travel, news)?.let { return it }
+            if (only != null) parseToolCall(only, name, webSearchEnabled, memoryEnabled, health, travel, news, loadSkill)?.let { return it }
         }
         val actions = mutableListOf<AIAction>()
         for (i in 0 until rawActions.length()) {
@@ -909,7 +928,58 @@ object DeepSeekClient {
     }
 
     /** 定时任务带订阅新闻的版本(Android 仍是单轮直接作答,不带 ReAct)。 */
-    suspend fun runRoutine(config: AIConfig, prompt: String, newsContext: String?, taskContext: String?): String {
+    /** 定时任务这一轮的结果:最终文字,或要先用一次联网工具(同 iOS AIRoutineOutcome)。 */
+    sealed interface RoutineOutcome {
+        data class Text(val text: String) : RoutineOutcome
+        data class Tool(val thought: String, val search: String?, val fetch: String?) : RoutineOutcome
+    }
+
+    /** 可离线单测的纯解析(同 iOS parseRoutine):联网没开时工具调用一律不认。 */
+    fun parseRoutine(payload: JSONObject, webSearchEnabled: Boolean): RoutineOutcome {
+        val tool = payload.optString("tool").trim()
+        if (webSearchEnabled && tool.isNotEmpty()) {
+            val thought = payload.optString("thought")
+            return when (tool) {
+                "web_search" -> RoutineOutcome.Tool(thought, payload.optString("query").trim().ifEmpty {
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:web_search 缺少 query", CurrentLang.value)) }, null)
+                "web_fetch" -> RoutineOutcome.Tool(thought, null, payload.optString("url").trim().ifEmpty {
+                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:web_fetch 缺少 url", CurrentLang.value)) })
+                else -> throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知工具 ", CurrentLang.value) + tool)
+            }
+        }
+        return RoutineOutcome.Text(requireText(payload, "text"))
+    }
+
+    /**
+     * 定时任务,带 ReAct 联网(同 iOS runRoutine + RoutineRunner):配了 Tavily key 才给工具,
+     * 合计最多两次,工具结果拼进下一轮用户消息(Android ReAct 的一贯写法,语义同 iOS 的 history 条目)。
+     */
+    suspend fun runRoutineWithTools(
+        config: AIConfig, prompt: String, newsContext: String?, taskContext: String?, tavilyKey: String?,
+    ): String {
+        val web = !tavilyKey.isNullOrBlank()
+        var user = prompt
+        repeat(3) { round ->
+            val payload = runRoutinePayload(config, user, newsContext, taskContext, web && round < 2)
+            when (val out = parseRoutine(payload, web && round < 2)) {
+                is RoutineOutcome.Text -> return out.text
+                is RoutineOutcome.Tool -> {
+                    val observation = runCatching {
+                        if (out.search != null) WebSearchClient.search(tavilyKey!!, out.search)
+                            .joinToString("\n") { "- ${it.title}:${it.snippet.take(300)}(${it.url})" }.ifBlank { "(没有搜到结果)" }
+                        else WebSearchClient.fetchUrl(out.fetch!!)
+                    }.getOrElse { "(工具调用失败:${it.message})" }
+                    user += "\n\n[" + (if (out.search != null) "搜索「${out.search}」的结果" else "链接 ${out.fetch} 的内容") + "]\n" + observation
+                }
+            }
+        }
+        throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 text", CurrentLang.value))
+    }
+
+    suspend fun runRoutine(config: AIConfig, prompt: String, newsContext: String?, taskContext: String?): String =
+        requireText(runRoutinePayload(config, prompt, newsContext, taskContext, false), "text")
+
+    private suspend fun runRoutinePayload(config: AIConfig, prompt: String, newsContext: String?, taskContext: String?, tools: Boolean): JSONObject {
         val tasks = taskContext?.let { "\n\n今天的待办:\n$it" } ?: ""
         val news = newsContext?.let { "\n\n用户订阅的新闻与博客(最近的文章):\n$it" } ?: ""
         val system = "你是提醒事项应用 lodo 的定时任务助手。用户预先设定了一条会自动执行的例行任务," +
@@ -918,9 +988,10 @@ object DeepSeekClient {
             "- 具体、可执行,不说\"合理安排时间\"\"注意身体\"这类空话。\n" +
             "- 不超过 120 个字,一段纯文本,不要 markdown 标题或列表符号。\n" +
             "- 信息不足时按常理给出最有用的内容,不要反问用户——定时任务没有人能回答你。\n\n" +
-            "只返回 JSON:{\"text\": \"这次要展示给用户的内容\"},不要任何其他文字。\n\n" +
+            "只返回 JSON:{\"text\": \"这次要展示给用户的内容\"},不要任何其他文字。" +
+            (if (tools) AgentSkillStore.routineWebTools() else "") + "\n\n" +
             timeContext() + tasks + news + personaBlock(config)
-        return requireText(complete(config, system, prompt, timeoutSeconds = 60), "text")
+        return complete(config, system, prompt, timeoutSeconds = 60)
     }
 
     private fun taskJson(task: ParsedTask): JSONObject = JSONObject()
@@ -968,6 +1039,115 @@ object DeepSeekClient {
         }
     }
 
+    /** 不支持流式的服务地址(非 200 / 一个字没收到),这次进程里不再试;不落盘,重开 app 会再试。 */
+    private val unsupportedStreamEndpoints = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    /** 不认 stream_options 的网关:去掉它再试一次流式,不为了 token 数把能用的流式整条拉黑。 */
+    private val usageUnsupportedStreamEndpoints = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * 流式请求(同 iOS cloudStream):累加 SSE 的 content 增量,`AnswerStreamScanner` 只把确认是
+     * answer 的正文吐给 onStream,收完后交给同一个 decodePayload。回退矩阵:网关不支持 / 非 200 /
+     * 一个字没收到 / 攒出来的串解析不了,一律退回一次性请求,**退之前先 onStream("") 清掉已经
+     * 显示的半句**。中途断流且已经吐过字时**不重试**(会出现两遍文本),直接报错。
+     */
+    private suspend fun completeStreaming(
+        config: AIConfig, system: String, user: String, timeoutSeconds: Long, thinking: Boolean,
+        onStream: (String) -> Unit, onReasoning: (String) -> Unit,
+    ): JSONObject = withContext(Dispatchers.IO) {
+        suspend fun fallback(): JSONObject {
+            onStream("")
+            AIUsageMonitor.discardRequest()
+            return complete(config, system, user, timeoutSeconds = timeoutSeconds, thinking = thinking)
+        }
+        if (config.apiKey.isNullOrBlank() || config.endpoint.isBlank() || config.endpoint in unsupportedStreamEndpoints) {
+            return@withContext fallback()
+        }
+        val includeUsage = config.endpoint !in usageUnsupportedStreamEndpoints
+        val body = JSONObject()
+            .put("model", config.model)
+            .put("messages", JSONArray()
+                .put(JSONObject().put("role", "system").put("content", system))
+                .put(JSONObject().put("role", "user").put("content", user)))
+            .put("response_format", JSONObject().put("type", "json_object"))
+            .put("temperature", 0)
+            .put("stream", true)
+        if (thinking && !config.reasoningEffort.isNullOrBlank() && config.reasoningEffort != "off") {
+            body.put("reasoning_effort", config.reasoningEffort)
+        }
+        if (includeUsage) body.put("stream_options", JSONObject().put("include_usage", true))
+        val request = Request.Builder().url(config.endpoint)
+            .header("Authorization", "Bearer ${config.apiKey}")
+            .header("Accept", "text/event-stream")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        val call = client.newBuilder().readTimeout(timeoutSeconds, TimeUnit.SECONDS).build().newCall(request)
+        // 协程取消时掐断这条连接,阻塞着的读会立刻抛出来。
+        val cancelHandle = coroutineContext[kotlinx.coroutines.Job]?.invokeOnCompletion { if (it != null) call.cancel() }
+        val scanner = com.lodo.app.core.AnswerStreamScanner()
+        val throttle = com.lodo.app.core.StreamThrottle()
+        val raw = StringBuilder()
+        AIUsageMonitor.beginRequest()
+        try {
+            val response = try { call.execute() } catch (e: IOException) {
+                ensureActive()
+                return@withContext fallback()
+            }
+            response.use { resp ->
+                if (resp.code != 200) {
+                    if (includeUsage) {
+                        usageUnsupportedStreamEndpoints += config.endpoint
+                        return@withContext completeStreaming(config, system, user, timeoutSeconds, thinking, onStream, onReasoning)
+                    }
+                    unsupportedStreamEndpoints += config.endpoint
+                    return@withContext fallback()
+                }
+                val source = resp.body?.source() ?: return@withContext fallback()
+                try {
+                    while (true) {
+                        val line = source.readUtf8Line() ?: break
+                        when (val event = com.lodo.app.core.AgentStream.parseLine(line)) {
+                            com.lodo.app.core.AgentStream.Event.Done -> break
+                            is com.lodo.app.core.AgentStream.Event.Usage -> AIUsageMonitor.report(event.input, event.output)
+                            is com.lodo.app.core.AgentStream.Event.Delta -> {
+                                AIUsageMonitor.noteDelta()
+                                event.reasoning?.takeIf { it.isNotEmpty() }?.let(onReasoning)
+                                val content = event.content?.takeIf { it.isNotEmpty() } ?: continue
+                                raw.append(content)
+                                val text = scanner.consume(content)
+                                if (text != null && throttle.shouldFlush(content)) onStream(text)
+                            }
+                            else -> {}
+                        }
+                    }
+                } catch (e: IOException) {
+                    ensureActive()
+                    if (raw.isNotEmpty()) throw DeepSeekException(
+                        Strings.translate("调用 DeepSeek 失败:", CurrentLang.value) + e.message)
+                    return@withContext fallback()
+                }
+            }
+        } finally {
+            cancelHandle?.dispose()
+        }
+        // 节流可能压住了最后几片,收完补一次。
+        if (scanner.currentText.isNotEmpty()) onStream(scanner.currentText)
+        if (raw.isNotEmpty()) AIUsageMonitor.endRequest()
+        if (raw.isEmpty()) {
+            unsupportedStreamEndpoints += config.endpoint
+            return@withContext fallback()
+        }
+        val payload = try {
+            decodePayload(raw.toString())
+        } catch (e: DeepSeekException) {
+            // 有花括号但给坏了(多半是截断):退回一次性请求重来一遍。
+            return@withContext fallback()
+        }
+        payload.optString("error").takeIf { it.isNotEmpty() }?.let {
+            throw ModelErrorException(Strings.translate("无法解析:", CurrentLang.value) + it)
+        }
+        payload
+    }
+
     /** 发起请求并取回模型返回的 JSON payload(含 error 检查)。
      * timeoutSeconds:交互型请求默认 20 秒;汇总/记忆等后台请求传 60 秒。
      * thinking:true 时按设置里的思考强度带上 reasoning_effort(仅 command() 传
@@ -1008,10 +1188,21 @@ object DeepSeekClient {
                 .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .callTimeout(timeoutSeconds + 5, TimeUnit.SECONDS)
                 .build()
-            val response = executeWithRetry(call, request)
+            // 用量只统计 command(thinking = true 的唯一入口);量不到首片时间,只能按整次请求耗时(偏慢)。
+            if (thinking) AIUsageMonitor.beginRequest()
+            val response = try { executeWithRetry(call, request) } catch (e: Exception) {
+                if (thinking) AIUsageMonitor.discardRequest()
+                throw e
+            }
 
             response.use { resp ->
                 val text = resp.body?.string().orEmpty()
+                if (thinking && resp.code == 200) {
+                    runCatching { JSONObject(text).optJSONObject("usage") }.getOrNull()?.let { u ->
+                        AIUsageMonitor.report(u.optInt("prompt_tokens").takeIf { u.has("prompt_tokens") }, u.optInt("completion_tokens").takeIf { u.has("completion_tokens") })
+                    }
+                    AIUsageMonitor.endRequest()
+                }
                 if (resp.code != 200) {
                     throw DeepSeekException(
                         Strings.translate("调用 DeepSeek 失败:", CurrentLang.value) +

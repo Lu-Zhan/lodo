@@ -174,7 +174,7 @@ fun TravelScreen(vm: TravelViewModel = viewModel()) {
                             Text(t.displayEmoji, fontSize = 36.sp)
                             Text(t.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text(tripDates(t) + listOf(t.city, t.country).filter { it.isNotBlank() }.joinToString(" · ").let { if (it.isEmpty()) "" else " · $it" },
+                            Text(tripDates(t) + t.destinationLabel.let { if (it.isEmpty()) "" else " · $it" },
                                 color = MaterialTheme.colorScheme.onPrimaryContainer)
                             Text(tripStatus(t), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             if (t.notes.isNotBlank()) Text(t.notes, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)

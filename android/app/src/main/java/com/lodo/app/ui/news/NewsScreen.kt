@@ -102,6 +102,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -150,6 +151,27 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun summarize(a: NewsArticleEntity, force: Boolean) = app.news.summarize(app.settings.aiConfig(), a, force)
     fun setFont(v: Int) = viewModelScope.launch { app.settings.setNewsFontSize(v) }
     fun setMargin(v: Int) = viewModelScope.launch { app.settings.setNewsMargin(v) }
+    /**
+     * 「定时推送」(同 iOS 新闻页菜单):定时推送不是另一套机制,就是一条提到新闻的定时任务——
+     * 跑之前会刷订阅、带上最近 24 小时的文章。已有就如实说,没有就按预设每天 08:00 建一条。
+     */
+    fun ensureDigestRoutine(onResult: (String) -> Unit) = viewModelScope.launch {
+        val existing = app.database.routineDao().observeAll().first().firstOrNull { NEWS_ROUTINE.containsMatchIn(it.prompt) }
+        if (existing != null) {
+            onResult(L("已经有定时推送:「${existing.prompt.take(20)}」,在设置 → 定时任务里可以改", "You already have a news routine; edit it in Settings → Routines"))
+            return@launch
+        }
+        val now = java.time.LocalDateTime.now()
+        val at = now.toLocalDate().atTime(8, 0).let { if (it.isAfter(now)) it else it.plusDays(1) }
+        app.routineRepository.save(
+            L("今日新闻简报:从最近 24 小时的订阅里挑最重要的几件事,每件一两句,写成一份简报。",
+                "Daily news brief: pick the most important stories from the last 24 hours of my feeds, one or two sentences each."),
+            at, com.lodo.app.core.RepeatType.DAILY, emptyList(), listOf("08:00"),
+        )
+        onResult(L("已建好「今日新闻简报」,每天 08:00 推送;在设置 → 定时任务里可以改", "Created a daily 08:00 news brief; edit it in Settings → Routines"))
+    }
+
+    fun setSummaryLanguage(v: String) = viewModelScope.launch { app.settings.setNewsSummaryLanguage(v) }
 }
 
 /**
@@ -176,6 +198,7 @@ fun NewsScreen(vm: NewsViewModel = viewModel()) {
             return
         }
     }
+    val toastContext = androidx.compose.ui.platform.LocalContext.current
     LodoPage(
         title = L("新闻", "News"),
         focus = AgentFocus(AgentPageFocus.NEWS),
@@ -187,6 +210,10 @@ fun NewsScreen(vm: NewsViewModel = viewModel()) {
                     DropdownMenuItem(text = { Text(L("添加订阅", "Add feed")) }, onClick = { menu = false; adding = true })
                     DropdownMenuItem(text = { Text(L("管理订阅", "Manage feeds")) }, onClick = { menu = false; manage = true })
                     DropdownMenuItem(text = { Text(L("阅读设置", "Reading settings")) }, onClick = { menu = false; reading = true })
+                    DropdownMenuItem(text = { Text(L("定时推送", "Scheduled brief")) }, onClick = {
+                        menu = false
+                        vm.ensureDigestRoutine { msg -> android.widget.Toast.makeText(toastContext, msg, android.widget.Toast.LENGTH_LONG).show() }
+                    })
                 }
             }
         },
@@ -465,6 +492,14 @@ private fun ReadingSettings(vm: NewsViewModel, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(L("阅读设置", "Reading settings"), style = MaterialTheme.typography.titleMedium)
+            // 总结语言:已总结过的文章不自动重写,展开的 AI 总结下有「重新总结」(同 iOS)。
+            Text(L("总结语言", "Summary language"), style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                com.lodo.app.core.NewsSummaryLanguage.entries.forEach { lang ->
+                    FilterChip(s.newsSummaryLanguage == lang.raw, { vm.setSummaryLanguage(lang.raw) },
+                        label = { Text(lang.displayName(com.lodo.app.ui.UiLang.current == com.lodo.app.core.Lang.EN)) })
+                }
+            }
             Text(L("字号", "Text size"), style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(L("很小", "XS"), L("小", "S"), L("标准", "M"), L("大", "L"), L("很大", "XL")).forEachIndexed { i, label ->
@@ -481,3 +516,6 @@ private fun ReadingSettings(vm: NewsViewModel, onDismiss: () -> Unit) {
         }
     }
 }
+
+/** 认得出是新闻类定时任务的指令(和 RoutineRepository 带新闻上下文的判据同一个)。 */
+private val NEWS_ROUTINE = Regex("新闻|订阅|简报|博客|news|feed", RegexOption.IGNORE_CASE)

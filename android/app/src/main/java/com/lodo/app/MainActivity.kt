@@ -14,6 +14,7 @@ import com.lodo.app.notify.NotificationPermission
 import com.lodo.app.ui.AppShell
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.lodo.app.ui.theme.LodoTheme
 import kotlinx.coroutines.launch
 
@@ -38,7 +39,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (Build.VERSION.SDK_INT >= 33) {
+        // 已经授权时不再弹:每次启动都 launch 会拉起系统那个透明的授权 activity,
+        // 抢走窗口焦点,导致启动后第一次点开的弹窗(导航栏、菜单)直接没反应(实测)。
+        if (Build.VERSION.SDK_INT >= 33 && !NotificationPermission.isGranted(this)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         consumeRouteIntent(intent)
@@ -46,12 +49,27 @@ class MainActivity : ComponentActivity() {
         val initial = kotlinx.coroutines.runBlocking { app.settings.snapshot() }
         setContent {
             val settings by app.settings.settings.collectAsState(initial = initial)
+            // Android 12 及以下没有按应用设置语言,语言靠 attachBaseContext 覆盖,只能重建一次。
+            var shownLanguage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(initial.language) }
+            androidx.compose.runtime.LaunchedEffect(settings.language) {
+                if (settings.language != shownLanguage) {
+                    shownLanguage = settings.language
+                    if (Build.VERSION.SDK_INT < 33) recreate()
+                }
+            }
             LodoTheme(accent = settings.accentPalette) {
                 androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.surface) {
                     AppShell(settings)
                 }
             }
         }
+    }
+
+    /** 语言切换不重建 Activity(清单里声明了 configChanges),系统配置到位的这一刻再切界面上的
+     * `L()` 文案——和 `stringResource` 同一帧换,不会先闪一帧中英混排。 */
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        com.lodo.app.ui.UiLang.current = com.lodo.app.core.CurrentLang.value
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -104,6 +122,7 @@ class MainActivity : ComponentActivity() {
             app.repository.syncAlarms()
             runCatching { app.countdowns.reschedule() }
             runCatching { app.finance.syncReminders(app.repository, app.settings.snapshot().allDayTime) }
+            runCatching { app.calendarSync.reconcile() }
         }
     }
 }

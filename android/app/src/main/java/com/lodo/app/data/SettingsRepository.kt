@@ -115,6 +115,8 @@ data class Settings(
     val healthEnabled: Boolean = false,
     /** 读系统日历,默认关(同 iOS calendarEnabled)。 */
     val calendarEnabled: Boolean = false,
+    /** 任务写进日历并双向同步(读的下级),默认关(同 iOS calendarWriteEnabled)。 */
+    val calendarWriteEnabled: Boolean = false,
     /** 冷启动直接落在 AI 助手页,默认开(同 iOS openAgentOnLaunch)。 */
     val openAgentOnLaunch: Boolean = true,
     /** 总览模块布局:逗号分隔的 "kind:size",空 = 默认布局。 */
@@ -122,7 +124,7 @@ data class Settings(
     /** 日历页上次用的视图:agenda/day/week/month。 */
     val calendarViewMode: String = "agenda",
     /** 新闻阅读:总结语言(app/zh/en/ja/ko/source)、字号档(0..4)、边距档(0..2)。 */
-    val newsSummaryLanguage: String = "app",
+    val newsSummaryLanguage: String = "",
     val newsFontSize: Int = 2,
     val newsMargin: Int = 1,
     /** 当前服务商有内置 key 时直接用它,默认开(同 iOS useBuiltInKey)。 */
@@ -159,12 +161,13 @@ class SettingsRepository(private val context: Context) {
         val ACCENT_PALETTE = stringPreferencesKey("accentPalette")
         val HEALTH_ENABLED = booleanPreferencesKey("healthEnabled")
         val CALENDAR_ENABLED = booleanPreferencesKey("calendarEnabled")
+        val CALENDAR_WRITE_ENABLED = booleanPreferencesKey("calendarWriteEnabled")
         val OPEN_AGENT_ON_LAUNCH = booleanPreferencesKey("openAgentOnLaunch")
         val OVERVIEW_LAYOUT = stringPreferencesKey("overviewLayout")
         val CALENDAR_VIEW_MODE = stringPreferencesKey("calendarViewMode")
-        val NEWS_SUMMARY_LANGUAGE = stringPreferencesKey("newsSummaryLanguage")
         val NEWS_FONT_SIZE = intPreferencesKey("newsFontSize")
         val NEWS_MARGIN = intPreferencesKey("newsMargin")
+        val NEWS_SUMMARY_LANGUAGE = stringPreferencesKey("newsSummaryLanguage")
         val USE_BUILT_IN_KEY = booleanPreferencesKey("useBuiltInKey")
         /** 旧版单一 DeepSeek key,读取时兼容。 */
         val API_KEY_ENCRYPTED = stringPreferencesKey("apiKeyEncrypted")
@@ -207,10 +210,11 @@ class SettingsRepository(private val context: Context) {
             accentPalette = p[Keys.ACCENT_PALETTE] ?: "dynamic",
             healthEnabled = p[Keys.HEALTH_ENABLED] ?: false,
             calendarEnabled = p[Keys.CALENDAR_ENABLED] ?: false,
+            calendarWriteEnabled = p[Keys.CALENDAR_WRITE_ENABLED] ?: false,
             openAgentOnLaunch = p[Keys.OPEN_AGENT_ON_LAUNCH] ?: true,
             overviewLayout = p[Keys.OVERVIEW_LAYOUT] ?: "",
             calendarViewMode = p[Keys.CALENDAR_VIEW_MODE] ?: "agenda",
-            newsSummaryLanguage = p[Keys.NEWS_SUMMARY_LANGUAGE] ?: "app",
+            newsSummaryLanguage = (p[Keys.NEWS_SUMMARY_LANGUAGE] ?: "").let { if (it == "app") "" else it },
             newsFontSize = p[Keys.NEWS_FONT_SIZE] ?: 2,
             newsMargin = p[Keys.NEWS_MARGIN] ?: 1,
             useBuiltInKey = p[Keys.USE_BUILT_IN_KEY] ?: true,
@@ -318,11 +322,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAccentPalette(v: String) { context.dataStore.edit { it[Keys.ACCENT_PALETTE] = v } }
     suspend fun setHealthEnabled(v: Boolean) { context.dataStore.edit { it[Keys.HEALTH_ENABLED] = v } }
     suspend fun setCalendarEnabled(v: Boolean) { context.dataStore.edit { it[Keys.CALENDAR_ENABLED] = v } }
+    suspend fun setCalendarWriteEnabled(v: Boolean) { context.dataStore.edit { it[Keys.CALENDAR_WRITE_ENABLED] = v } }
     suspend fun setOpenAgentOnLaunch(v: Boolean) { context.dataStore.edit { it[Keys.OPEN_AGENT_ON_LAUNCH] = v } }
     suspend fun setOverviewLayout(v: String) { context.dataStore.edit { it[Keys.OVERVIEW_LAYOUT] = v } }
     suspend fun setCalendarViewMode(v: String) { context.dataStore.edit { it[Keys.CALENDAR_VIEW_MODE] = v } }
-    suspend fun setNewsSummaryLanguage(v: String) { context.dataStore.edit { it[Keys.NEWS_SUMMARY_LANGUAGE] = v } }
     suspend fun setNewsFontSize(v: Int) { context.dataStore.edit { it[Keys.NEWS_FONT_SIZE] = v.coerceIn(0, 4) } }
+    suspend fun setNewsSummaryLanguage(v: String) { context.dataStore.edit { it[Keys.NEWS_SUMMARY_LANGUAGE] = v } }
     suspend fun setNewsMargin(v: Int) { context.dataStore.edit { it[Keys.NEWS_MARGIN] = v.coerceIn(0, 2) } }
 
     suspend fun setNotificationPermissionDenied(denied: Boolean) {

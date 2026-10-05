@@ -96,12 +96,14 @@ fun TripEntity.toJson(): JSONObject = JSONObject()
     .put("uuid", uuid).put("title", title).put("emoji", emoji).put("startMillis", startMillis)
     .put("endMillis", endMillis).put("city", city).put("country", country).put("notes", notes)
     .put("travelersJson", travelersJson).put("createdAtMillis", createdAtMillis)
+    .put("extraDestinations", extraDestinations)
 
 fun tripFromJson(o: JSONObject) = TripEntity(
     uuid = o.getString("uuid"), title = o.optString("title"), emoji = o.optString("emoji"),
     startMillis = o.getLong("startMillis"), endMillis = o.optLong("endMillis", o.getLong("startMillis")),
     city = o.optString("city"), country = o.optString("country"), notes = o.optString("notes"),
     travelersJson = o.optString("travelersJson"), createdAtMillis = o.optLong("createdAtMillis", System.currentTimeMillis()),
+    extraDestinations = o.optString("extraDestinations"),
 )
 
 fun PackingEntity.toJson(): JSONObject = JSONObject()

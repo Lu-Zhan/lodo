@@ -81,8 +81,9 @@ class RoutineRepository(
                     app.news.digestCandidates(30).takeIf { it.isNotEmpty() }?.let { com.lodo.app.core.NewsPlan.promptLines(it) }
                         ?: "(最近 24 小时订阅里没有新文章)"
                 } else null
-                if (newsContext != null) DeepSeekClient.runRoutine(settings.aiConfig(), routine.prompt, newsContext, null)
-                else DeepSeekClient.runRoutine(settings.aiConfig(), routine.prompt)
+                // 配了 Tavily key 就允许先联网再回答(同 iOS RoutineRunner 的 ReAct,合计最多两次)。
+                DeepSeekClient.runRoutineWithTools(settings.aiConfig(), routine.prompt, newsContext, null,
+                    settings.apiKey(com.lodo.app.ai.WebSearchClient.PROVIDER_NAME))
             } catch (e: Exception) {
                 "执行失败:${e.message}"
             }

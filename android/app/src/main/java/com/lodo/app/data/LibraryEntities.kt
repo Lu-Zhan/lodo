@@ -75,8 +75,15 @@ data class TripEntity(
     /** 同行人 JSON 数组:[{"id","name","note","contactUuid"}]。 */
     val travelersJson: String = "",
     val createdAtMillis: Long = System.currentTimeMillis(),
+    /** 第二个起的目的地(JSON),第一个仍是 city/country 两列(同 iOS extraDestinations)。 */
+    val extraDestinations: String = "",
 ) {
     val displayEmoji: String get() = emoji.ifBlank { "✈️" }
+    /** 全部目的地,读一律走这里(第一个 = city/country)。 */
+    val destinations: List<com.lodo.app.core.TripDestination>
+        get() = com.lodo.app.core.TripDestination.all(city, country, extraDestinations)
+    /** 列表/卡片上那段目的地文字。 */
+    val destinationLabel: String get() = com.lodo.app.core.TripDestination.summary(destinations)
 }
 
 /** 旅行用品清单的一件,对应 iOS PackingItem。 */

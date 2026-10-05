@@ -71,6 +71,11 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     /** 进行中的提示(思考中/联网搜索中…)。 */
     var status by mutableStateOf<String?>(null)
         private set
+    /** 流式输出中的 answer 正文(全文);null = 没有在流的回答(同 iOS 的流式预览)。 */
+    var streamText by mutableStateOf<String?>(null)
+        private set
+    /** 推理模型先吐的思考过程的尾巴,接在「思考中…」后面。 */
+    private val reasoning = StringBuilder()
     var draft by mutableStateOf("")
     /** 页面焦点:从哪一页的「问问 AI」拉起,AI 页本身为 null。 */
     var focus by mutableStateOf<AgentFocus?>(null)
@@ -93,13 +98,61 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         data class Memorized(val uuid: String) : UndoOp
     }
 
+    /** 待发送的附件(同 iOS PendingAttachment):照片/文件已经在端上转成文字,记忆库条目取它的内容。 */
+    data class PendingAttachment(
+        val id: String = java.util.UUID.randomUUID().toString(),
+        val name: String,
+        val text: String = "",
+        val extracting: Boolean = false,
+        val isImage: Boolean = false,
+    )
+    val attachments = androidx.compose.runtime.mutableStateListOf<PendingAttachment>()
+
+    private fun addExtracting(name: String, isImage: Boolean, extract: suspend () -> String) {
+        val pending = PendingAttachment(name = name, extracting = true, isImage = isImage)
+        attachments += pending
+        viewModelScope.launch {
+            val text = runCatching { extract() }.getOrDefault("")
+            val i = attachments.indexOfFirst { it.id == pending.id }
+            if (i >= 0) attachments[i] = pending.copy(text = text, extracting = false)
+        }
+    }
+
+    fun addImage(uri: android.net.Uri) = addExtracting(
+        com.lodo.app.data.AttachmentExtractor.displayName(app, uri), true) { com.lodo.app.data.AttachmentExtractor.image(app, uri) }
+
+    fun addFile(uri: android.net.Uri) = addExtracting(
+        com.lodo.app.data.AttachmentExtractor.displayName(app, uri), false) { com.lodo.app.data.AttachmentExtractor.file(app, uri) }
+
+    fun addMemories(items: List<com.lodo.app.data.MemoryEntity>) {
+        items.filter { m -> attachments.none { it.id == m.uuid } }.forEach { m ->
+            attachments += PendingAttachment(
+                id = m.uuid, name = m.title,
+                text = listOf(m.summary, m.sourceText).filter { it.isNotBlank() }.joinToString("\n").take(com.lodo.app.data.AttachmentExtractor.MAX_CHARS),
+            )
+        }
+    }
+
+    fun removeAttachment(id: String) { attachments.removeAll { it.id == id } }
+
+    val canSend: Boolean get() = !busy && (draft.isNotBlank() || attachments.isNotEmpty()) && attachments.none { it.extracting }
+
     fun send(text: String = draft) {
         val trimmed = text.trim()
-        if (trimmed.isEmpty() || busy) return
+        if (busy || (trimmed.isEmpty() && attachments.isEmpty()) || attachments.any { it.extracting }) return
+        val sending = attachments.toList()
+        attachments.clear()
         draft = ""
+        // 附件文字拼在这句话后面发出去(同 iOS):一个字都没认出来时说明白,模型才不会以为自己看得见图。
+        var outgoing = trimmed
+        for (a in sending) {
+            val body = a.text.trim()
+            outgoing += if (body.isEmpty()) "\n\n[附件:${a.name},没有识别出文字]" else "\n\n[附件:${a.name}]\n$body"
+        }
         job = viewModelScope.launch {
-            val userMsg = app.agent.insert("user", AgentKind.USER, trimmed)
-            run(trimmed, userMsg.uuid)
+            val payload = if (sending.isEmpty()) null else org.json.JSONObject().put("attachments", org.json.JSONArray(sending.map { it.name }))
+            val userMsg = app.agent.insert("user", AgentKind.USER, trimmed, payload)
+            run(outgoing, userMsg.uuid)
         }
     }
 
@@ -122,6 +175,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         } finally {
             busy = false
             status = null
+            streamText = null
+            reasoning.setLength(0)
         }
         runCatching { app.agent.compactIfNeeded(app.settings.aiConfig()) }
     }
@@ -157,7 +212,13 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    /** 一轮的边界(同 iOS route 里的 beginTurn + defer endTurn):ReAct 最多 3 次请求的用量累计到一起。 */
     private suspend fun route(text: String, excludeUuid: String?) {
+        com.lodo.app.ai.AIUsageMonitor.beginTurn()
+        try { routeTurn(text, excludeUuid) } finally { com.lodo.app.ai.AIUsageMonitor.endTurn() }
+    }
+
+    private suspend fun routeTurn(text: String, excludeUuid: String?) {
         if (isUndoCommand(text)) {
             app.agent.insert("assistant", AgentKind.TEXT, undoLatest())
             return
@@ -165,7 +226,19 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         val config = app.settings.aiConfig()
         var ctx = context(excludeUuid)
         repeat(3) {
-            when (val result = DeepSeekClient.command(config, text, ctx)) {
+            reasoning.setLength(0)
+            val result = DeepSeekClient.command(
+                config, text, ctx,
+                onStream = { streamText = it.ifEmpty { null } },
+                onReasoning = { delta ->
+                    synchronized(reasoning) {
+                        reasoning.append(delta)
+                        val tail = reasoning.toString().replace(Regex("\\s+"), " ").takeLast(40)
+                        status = L("思考中…", "Thinking…") + " " + tail
+                    }
+                },
+            )
+            when (result) {
                 is AICommandResult.Ask -> {
                     insertAsk(text, result.questions)
                     return
@@ -192,6 +265,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         is AITool.ReadHealth -> L("读取健康数据…", "Reading health data…")
         is AITool.ReadTrip -> L("读取行程…", "Reading trip…")
         is AITool.SearchNews -> L("查找订阅文章…", "Searching your feeds…")
+        is AITool.LoadSkill -> L("加载 skill:${tool.name}…", "Loading skill ${tool.name}…")
     }
 
     /** 执行只读工具,结果作为一条历史喂回模型(同 iOS 的 ReAct 历史写法)。 */
@@ -220,6 +294,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             "[最近 ${tool.days} 天的健康数据]\n" + report.promptSummary().ifEmpty { "没有可用的健康数据(未授权或没有记录)。" }
         }
         is AITool.ReadTrip -> "[读取行程]\n" + app.travel.readTrip(tool.name, includeIds = true)
+        // 只有已启用的外部 skill 取得到;取不到如实告诉模型,别让它凭空编内容(同 iOS)。
+        is AITool.LoadSkill -> "[skill「${tool.name}」的内容]\n" + (com.lodo.app.ai.AgentSkillStore.loadCustomBody(tool.name) ?: "没有这个 skill")
         is AITool.SearchNews -> {
             val hits = NewsPlan.search(tool.query, app.news.lines(enabledOnly = false))
             "[订阅文章检索“${tool.query}”的结果]\n" + if (hits.isEmpty()) "订阅里没有相关文章" else NewsPlan.promptLines(hits, includeLink = true)
@@ -277,7 +353,11 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     lastUndo = msg.uuid to listOf(UndoOp.Updated(before))
                     return
                 }
-                is AIAction.Answer -> { app.agent.insert("assistant", AgentKind.ANSWER, a.text); return }
+                is AIAction.Answer -> {
+                    app.agent.insert("assistant", AgentKind.ANSWER, a.text)
+                    streamText = null
+                    return
+                }
                 is AIAction.Memorize -> {
                     status = L("整理收藏…", "Organizing…")
                     val item = app.memoryRepository.saveText(config, a.text)

@@ -53,7 +53,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import kotlin.math.abs
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -217,7 +223,10 @@ fun AppShell(settings: Settings) {
                     Column(Modifier.verticalScroll(rememberScrollState())) { railContent() }
                 }
             }
-            Box(Modifier.weight(1f).fillMaxSize()) {
+            Box(
+                Modifier.weight(1f).fillMaxSize()
+                    .navSwipe(enabled = !wide) { scope.launch { railState.expand() } },
+            ) {
                 // 切回来时筛选/滚动位置还在(SaveableStateHolder 按页面保留),没打开过的不构建(同 iOS)。
                 AnimatedContent(
                     targetState = section,
@@ -234,7 +243,10 @@ fun AppShell(settings: Settings) {
                 hideOnCollapse = true,
                 header = { railHeader() },
             ) {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState())
+                        .navSwipe(enabled = true, toLeft = true) { scope.launch { railState.collapse() } },
+                ) {
                     railContent()
                     Spacer(Modifier.height(16.dp))
                 }
@@ -273,3 +285,52 @@ private fun PageFor(section: AppSection, agentVm: AgentViewModel) {
         }
     }
 }
+
+/** 记下落在「不唤出导航栏」区域(地图这类自己吃横向拖动的原生 View)里的那根手指。 */
+private object NavSwipe {
+    @Volatile var blocked: androidx.compose.ui.input.pointer.PointerId? = null
+}
+
+/**
+ * 挂在自己处理横向拖动、但不经 Compose 消费事件的区域上(osmdroid 地图是 AndroidView,
+ * 拖地图时 Compose 这边看不到"已消费"),在这里按下的手指不触发右划唤出导航栏。
+ * 走 Initial 阶段,比外壳的 Main 阶段先到;只做记录,不消费,地图照常收到事件。
+ */
+fun Modifier.noNavSwipe(): Modifier = pointerInput(Unit) {
+    awaitEachGesture {
+        NavSwipe.blocked = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial).id
+    }
+}
+
+/**
+ * 窄屏:在页面上往右划(手指向右)唤出导航栏;`toLeft = true` 时反过来,挂在导航栏上往左划收起。
+ * 走 Main 阶段,子控件先拿事件——横向滚动的东西(横排胶囊、左滑删除的行)一旦消费了这次拖动,
+ * 这里就放手;竖向列表只消费竖向拖动,不受影响。屏幕边缘那一条是系统返回手势,系统先拿走,
+ * 这里收不到,也不去抢。
+ */
+private fun Modifier.navSwipe(enabled: Boolean, toLeft: Boolean = false, onSwipe: () -> Unit): Modifier =
+    if (!enabled) this else pointerInput(toLeft) {
+        val threshold = 56.dp.toPx()
+        val slop = viewConfiguration.touchSlop
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            if (!toLeft && NavSwipe.blocked == down.id) return@awaitEachGesture
+            var dx = 0f
+            var dy = 0f
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed || change.isConsumed) break
+                val delta = change.positionChange()
+                dx += if (toLeft) -delta.x else delta.x
+                dy += delta.y
+                if (abs(dy) > slop && abs(dy) > abs(dx)) break   // 竖着划,是在滚动
+                if (dx < -slop) break                             // 方向反了
+                if (dx > threshold && dx > abs(dy) * 2) {
+                    change.consume()
+                    onSwipe()
+                    break
+                }
+            }
+        }
+    }

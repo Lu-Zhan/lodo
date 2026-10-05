@@ -22,6 +22,7 @@ enum class AgentSkillId(val raw: String, val title: String, val subtitle: String
     COUNTDOWN("countdown", "倒数日", "新建、修改、删除倒数日与它们的提醒", "系统"),
     ASSET_LEDGER("assetLedger", "资产台账", "在「资产」页新增、更新资产与负债", "记忆"),
     FEEDS("feeds", "订阅管理", "订阅新闻与博客(贴链接、一次多个、只说名字也行),改名、停用", "新闻"),
+    ROUTINE_WEB("routineWeb", "定时任务联网", "定时任务需要最新信息时的联网工具说明(仅配置 Tavily key 后生效)", "定时任务"),
     ;
 
     /** 总则和待办格式是骨架,关掉整条对话就没法工作,不给开关。 */
@@ -60,6 +61,78 @@ object AgentSkillStore {
     fun isEnabled(id: AgentSkillId): Boolean = !id.isTogglable || enabledLookup(id.raw)
     fun setEnabled(id: AgentSkillId, enabled: Boolean) { if (id.isTogglable) enabledWriter(id.raw, enabled) }
 
+    // ---------------- 用户 skill(导入/分享,同 iOS AgentSkillStore 的 custom 部分) ----------------
+    // 外部 skill 是不受信文本:导入前先展示完整正文,确认后才落 skills/custom/<slug>.md,**默认停用**;
+    // prompt 里只常驻已启用的「名字:描述」目录,正文靠 load_skill 按需取。
+
+    data class CustomSkill(val slug: String, val file: com.lodo.app.core.AgentSkillFile)
+
+    private val customDir get() = dir?.let { File(it, "custom") }
+    private val enabledFile get() = customDir?.let { File(it, "enabled.txt") }
+
+    private fun enabledSlugs(): Set<String> =
+        enabledFile?.takeIf { it.exists() }?.readLines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet().orEmpty()
+
+    fun isCustomEnabled(slug: String) = slug in enabledSlugs()
+
+    fun setCustomEnabled(slug: String, enabled: Boolean) {
+        val set = enabledSlugs().toMutableSet().apply { if (enabled) add(slug) else remove(slug) }
+        enabledFile?.apply { parentFile?.mkdirs(); writeText(set.joinToString("\n")) }
+    }
+
+    fun customSkills(): List<CustomSkill> = customDir?.listFiles { f -> f.extension == "md" }.orEmpty()
+        .mapNotNull { f -> com.lodo.app.core.AgentSkillFile.parse(f.readText()).first?.let { CustomSkill(f.nameWithoutExtension, it) } }
+        .sortedBy { it.file.name }
+
+    fun saveCustom(file: com.lodo.app.core.AgentSkillFile, slug: String = com.lodo.app.core.AgentSkillFile.slug(file.name)): String {
+        customDir?.let { File(it, "$slug.md") }?.apply { parentFile?.mkdirs(); writeText(file.render()) }
+        return slug
+    }
+
+    fun deleteCustom(slug: String) {
+        customDir?.let { File(it, "$slug.md") }?.delete()
+        setCustomEnabled(slug, false)
+    }
+
+    /** 导入前的预演:名字等于某个内置 skill 的标题/存储名 = 覆盖它的文本;否则是新的外部 skill。 */
+    sealed interface ImportPlan {
+        val file: com.lodo.app.core.AgentSkillFile
+        data class OverrideBuiltin(val id: AgentSkillId, override val file: com.lodo.app.core.AgentSkillFile) : ImportPlan
+        data class NewCustom(override val file: com.lodo.app.core.AgentSkillFile, val slug: String, val replacing: Boolean) : ImportPlan
+    }
+
+    fun planImport(text: String): Pair<ImportPlan?, com.lodo.app.core.AgentSkillFile.ParseError?> {
+        val (file, error) = com.lodo.app.core.AgentSkillFile.parse(text)
+        if (file == null) return null to error
+        AgentSkillId.entries.firstOrNull { it.title == file.name || it.raw == file.name }?.let { return ImportPlan.OverrideBuiltin(it, file) to null }
+        val slug = com.lodo.app.core.AgentSkillFile.slug(file.name)
+        return ImportPlan.NewCustom(file, slug, customSkills().any { it.slug == slug }) to null
+    }
+
+    /** 执行导入。新导入的外部 skill 默认停用(覆盖已有的保持它原来的开关)。 */
+    fun applyImport(plan: ImportPlan) {
+        when (plan) {
+            is ImportPlan.OverrideBuiltin -> save(plan.id, plan.file.body)
+            is ImportPlan.NewCustom -> {
+                saveCustom(plan.file, plan.slug)
+                if (!plan.replacing) setCustomEnabled(plan.slug, false)
+            }
+        }
+    }
+
+    /** 内置 skill 按分享格式导出(改过的版本也能发给别人)。 */
+    fun exportFile(id: AgentSkillId): String =
+        com.lodo.app.core.AgentSkillFile(id.title, id.subtitle, id.group, 1, content(id)).render()
+
+    fun catalogBlock(): String? =
+        com.lodo.app.core.AgentSkillFile.catalogBlock(customSkills().filter { isCustomEnabled(it.slug) }.map { it.file })
+
+    /** 按名字取已启用外部 skill 的正文(忽略大小写与首尾空白);没有/未启用返回 null。 */
+    fun loadCustomBody(name: String): String? {
+        val wanted = name.trim().lowercase().takeIf { it.isNotEmpty() } ?: return null
+        return customSkills().firstOrNull { it.file.name.lowercase() == wanted && isCustomEnabled(it.slug) }?.file?.body
+    }
+
     fun defaultContent(id: AgentSkillId): String = when (id) {
         AgentSkillId.AGENT -> AGENT
         AgentSkillId.TODO -> TODO
@@ -72,7 +145,11 @@ object AgentSkillStore {
         AgentSkillId.COUNTDOWN -> COUNTDOWN
         AgentSkillId.ASSET_LEDGER -> ASSET_LEDGER
         AgentSkillId.FEEDS -> FEEDS
+        AgentSkillId.ROUTINE_WEB -> ROUTINE_WEB
     }
+
+    /** 定时任务的联网工具说明(同 iOS routineWebTools);skill 停用时不给。 */
+    fun routineWebTools(): String = if (isEnabled(AgentSkillId.ROUTINE_WEB)) "\n\n" + content(AgentSkillId.ROUTINE_WEB) else ""
 
     /** todo skill + 已有项目复用规则(同 iOS todoContent:有 {{projects}} 占位就替换,没有就追加)。 */
     fun todoContent(existingProjects: List<String>): String {
@@ -154,6 +231,15 @@ object AgentSkillStore {
 - 对话中夹杂提到一件以后可能有用的具体事实/事件,但不是当次消息唯一的意图(还带着别的待办/提问等操作)→ auto_memorize,可与其他操作同时出现;只记信息本身客观有价值、以后可能用得上的内容(如"班主任喜欢收到贺卡""孩子对花生过敏"),不要把待办标题、寒暄闲聊也当事实记下来,大多数对话不需要触发;待办本身的内容不算"重点事实"。
 - 用户在询问以前收藏/记过的内容(如"我之前存的 wifi 密码是多少""收藏里有没有关于爬山的")→ ask_memory,此时整个 actions 只放这一条,不与其他操作混用;询问待办安排(如"我明天有什么事")不算查记忆。
 - 用户要新建/修改的事项,内容细节依赖以前存的记忆(如"参考我存的装备清单新建一个待办")且你还没看到那段记忆具体写了什么 → 先用 search_memory 查,不要凭空编内容;已经在对话历史里看到查询结果的,直接用结果里的内容给最终答案,不要重复查。
+""".trim()
+
+    // 和 webSearch 文字不同(限两次、必须给最终 {"text"}),别按"重复"合并;与 iOS 逐字一致。
+    private val ROUTINE_WEB = """
+如果需要最新/实时信息(天气、行情、新闻等)才能完成任务,先返回:
+{"thought": "为什么需要查", "tool": "web_search", "query": "要搜索的关键词"}
+指令里给了具体链接、需要看链接内容本身时,改为返回:
+{"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "链接原样"}
+两者合计最多用两次,拿到结果后必须在下一轮给出最终的 {"text": ...},不能一直用工具占位不给结果。
 """.trim()
 
     private val WEB_SEARCH = """

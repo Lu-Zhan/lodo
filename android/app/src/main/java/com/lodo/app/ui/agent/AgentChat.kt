@@ -11,6 +11,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.StopCircle
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -126,8 +134,9 @@ fun AgentChat(vm: AgentViewModel, inSheet: Boolean, onClose: (() -> Unit)?) {
     var confirmClear by remember { mutableStateOf(false) }
     val latest = messages.lastOrNull()
 
-    LaunchedEffect(messages.size, vm.busy) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size + 1)
+    // 最后一条卡片原地变了(规划卡「写入行程」后下面多出跳转小条)也要滚到底,不只看条数。
+    LaunchedEffect(messages.size, vm.busy, vm.streamText?.length?.div(40), messages.lastOrNull()?.payloadJson?.hashCode()) {
+        if (messages.isNotEmpty() || vm.streamText != null) listState.animateScrollToItem(listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
     }
 
     Column(Modifier.fillMaxSize().let { if (!inSheet) it else it }) {
@@ -135,10 +144,7 @@ fun AgentChat(vm: AgentViewModel, inSheet: Boolean, onClose: (() -> Unit)?) {
             title = {
                 Column {
                     Text("Lodo☀️～", fontWeight = FontWeight.SemiBold)
-                    Text(
-                        settings.aiProvider + (vm.focus?.let { " · " + L("在「${it.page.pageName}」页", "from ${it.page.name.lowercase()}") } ?: ""),
-                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    AgentSubtitle(settings.aiProvider, vm.focus?.let { L("在「${it.page.pageName}」页", "from ${it.page.name.lowercase()}") })
                 }
             },
             navigationIcon = {
@@ -170,13 +176,18 @@ fun AgentChat(vm: AgentViewModel, inSheet: Boolean, onClose: (() -> Unit)?) {
                     MessageView(msg, vm, isLatest = msg.uuid == latest?.uuid)
                 }
             }
+            // 流式预览:复用回答卡片的外观,不叠打字机(流式本身就是逐字揭示,同 iOS)。
+            vm.streamText?.let { text ->
+                item("stream") { AiCard(header = text, selectable = false) }
+            }
             item("status") {
-                AnimatedVisibility(vm.busy) {
+                AnimatedVisibility(vm.busy && vm.streamText == null) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.size(10.dp))
                         Text(vm.status ?: L("思考中…", "Thinking…"), style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -216,46 +227,196 @@ private fun InputBar(vm: AgentViewModel) {
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(vm.focusRequest) { if (vm.focusRequest > 0) runCatching { focusRequester.requestFocus() } }
-    val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.takeIf { it.isNotBlank() }?.let {
-            vm.draft = vm.draft + it
-            vm.send()
+    var plusMenu by remember { mutableStateOf(false) }
+    var pickingMemory by remember { mutableStateOf(false) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(5)) { uris -> uris.forEach(vm::addImage) }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> uris.forEach(vm::addFile) }
+    val dictation = rememberDictation { vm.draft = it }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) dictation.start(vm.draft) }
+
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding()) {
+        if (vm.attachments.isNotEmpty()) {
+            androidx.compose.foundation.lazy.LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 6.dp),
+            ) {
+                items(vm.attachments.toList(), key = { it.id }) { a ->
+                    androidx.compose.material3.InputChip(
+                        selected = false, onClick = {},
+                        label = { Text(if (a.extracting) L("识别中… ", "Reading… ") + a.name else a.name, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) },
+                        leadingIcon = {
+                            if (a.extracting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            else Icon(if (a.isImage) Icons.Filled.Image else Icons.Filled.AttachFile, null, Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { vm.removeAttachment(a.id) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Filled.Close, L("移除", "Remove"), Modifier.size(16.dp))
+                            }
+                        },
+                    )
+                }
+            }
         }
-    }
-    Row(
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        TextField(
-            value = vm.draft,
-            onValueChange = { vm.draft = it },
-            placeholder = { Text(L("说点什么…", "Say something…")) },
-            shape = RoundedCornerShape(28.dp),
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-            maxLines = 6,
-            modifier = Modifier.weight(1f).focusRequester(focusRequester),
-            trailingIcon = {
-                if (vm.draft.isBlank() && !vm.busy) IconButton(onClick = {
-                    runCatching {
-                        speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(com.lodo.app.ui.ComposerMetrics.outerPadding),
+        ) {
+            // 「+」附件(同 iOS):照片 / 文件 / 从记忆库选择。照片和 PDF 在端上 OCR,只把文字发出去。
+            Box {
+                androidx.compose.material3.FilledTonalIconButton(onClick = { plusMenu = true }, modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height)) {
+                    Icon(Icons.Filled.Add, L("添加附件", "Attach"))
+                }
+                DropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
+                    DropdownMenuItem(text = { Text(L("照片", "Photos")) }, leadingIcon = { Icon(Icons.Filled.Image, null) }, onClick = {
+                        plusMenu = false
+                        photoPicker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    })
+                    DropdownMenuItem(text = { Text(L("文件", "Files")) }, leadingIcon = { Icon(Icons.Filled.AttachFile, null) }, onClick = {
+                        plusMenu = false
+                        filePicker.launch(arrayOf("text/*", "application/pdf", "application/json", "image/*"))
+                    })
+                    DropdownMenuItem(text = { Text(L("从记忆库选择", "From memories")) }, leadingIcon = { Icon(Icons.Filled.Bookmark, null) }, onClick = {
+                        plusMenu = false; pickingMemory = true
+                    })
+                }
+            }
+            com.lodo.app.ui.ComposerField(
+                value = vm.draft,
+                onValueChange = { vm.draft = it },
+                placeholder = if (dictation.listening) L("正在听…", "Listening…") else L("说点什么…", "Say something…"),
+                modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                trailing = if ((vm.draft.isBlank() || dictation.listening) && !vm.busy) {
+                    {
+                        // 应用内实时听写(同 iOS):边说边把字写进输入框,说完自己点发送;再点一下停止。
+                        IconButton(onClick = {
+                            when {
+                                dictation.listening -> dictation.stop()
+                                androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
+                                    android.content.pm.PackageManager.PERMISSION_GRANTED -> dictation.start(vm.draft)
+                                else -> micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                            }
+                        }) {
+                            if (dictation.listening) Icon(Icons.Filled.StopCircle, L("停止听写", "Stop dictation"), tint = com.lodo.app.ui.theme.LodoColor.critical)
+                            else Icon(Icons.Filled.Mic, L("语音输入", "Voice input"))
+                        }
                     }
-                }) { Icon(Icons.Filled.Mic, L("语音输入", "Voice input")) }
-            },
-        )
-        if (vm.busy) {
-            FilledIconButton(onClick = vm::cancel, modifier = Modifier.size(52.dp)) { Icon(Icons.Filled.Stop, L("取消", "Cancel")) }
-        } else {
-            FilledIconButton(onClick = { vm.send() }, enabled = vm.draft.isNotBlank(), modifier = Modifier.size(52.dp)) {
-                Icon(Icons.AutoMirrored.Filled.Send, L("发送", "Send"))
+                } else null,
+            )
+            if (vm.busy) {
+                FilledIconButton(onClick = vm::cancel, modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height)) { Icon(Icons.Filled.Stop, L("取消", "Cancel")) }
+            } else {
+                FilledIconButton(onClick = { dictation.stop(); vm.send() }, enabled = vm.canSend, modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height)) {
+                    Icon(Icons.AutoMirrored.Filled.Send, L("发送", "Send"))
+                }
             }
         }
     }
+    if (pickingMemory) MemoryPicker(onPick = { vm.addMemories(it); pickingMemory = false }, onDismiss = { pickingMemory = false })
+}
+
+/** 应用内实时听写的状态(SpeechRecognizer,带中间结果);不再弹系统的听写对话框。 */
+private class Dictation(private val context: Context, private val onText: (String) -> Unit) {
+    var listening by mutableStateOf(false)
+        private set
+    private var recognizer: android.speech.SpeechRecognizer? = null
+    private var base = ""
+
+    fun start(current: String) {
+        if (!android.speech.SpeechRecognizer.isRecognitionAvailable(context)) {
+            android.widget.Toast.makeText(context, L("这台设备没有语音识别服务", "Speech recognition isn't available"), android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        stop()
+        base = current.trimEnd()
+        val r = android.speech.SpeechRecognizer.createSpeechRecognizer(context)
+        r.setRecognitionListener(object : android.speech.RecognitionListener {
+            override fun onPartialResults(b: android.os.Bundle) { emit(b) }
+            override fun onResults(b: android.os.Bundle) { emit(b); finish() }
+            override fun onError(error: Int) { finish() }
+            override fun onReadyForSpeech(p: android.os.Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(v: Float) {}
+            override fun onBufferReceived(b: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onEvent(t: Int, p: android.os.Bundle?) {}
+        })
+        r.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (com.lodo.app.ui.UiLang.current == com.lodo.app.core.Lang.EN) "en-US" else "zh-CN"))
+        recognizer = r
+        listening = true
+    }
+
+    private fun emit(b: android.os.Bundle) {
+        val text = b.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+        if (text.isNotBlank()) onText(if (base.isEmpty()) text else "$base $text")
+    }
+
+    private fun finish() {
+        recognizer?.destroy(); recognizer = null; listening = false
+    }
+
+    fun stop() {
+        recognizer?.stopListening()
+        finish()
+    }
+}
+
+@Composable
+private fun rememberDictation(onText: (String) -> Unit): Dictation {
+    val context = LocalContext.current
+    val d = remember { Dictation(context, onText) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { d.stop() } }
+    return d
+}
+
+/** 从记忆库选几条当附件(同 iOS MemoryPickerView):默认不显示人脉,可以搜标题和摘要。 */
+@Composable
+private fun MemoryPicker(onPick: (List<com.lodo.app.data.MemoryEntity>) -> Unit, onDismiss: () -> Unit) {
+    val app = LocalContext.current.applicationContext as com.lodo.app.LodoApp
+    var all by remember { mutableStateOf<List<com.lodo.app.data.MemoryEntity>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        all = app.memoryRepository.all()
+    }
+    var query by remember { mutableStateOf("") }
+    var showContacts by remember { mutableStateOf(false) }
+    val chosen = remember { androidx.compose.runtime.mutableStateListOf<String>() }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(L("从记忆库选择", "Pick from memories")) },
+        text = {
+            // 状态在弹窗内容里读:弹窗是另一个窗口的组合,只在这里读才会跟着刷新。
+            val shown = all.filter { (showContacts || !it.isContact) && (query.isBlank() || it.title.contains(query, true) || it.summary.contains(query, true)) }
+            Column {
+                androidx.compose.material3.OutlinedTextField(query, { query = it }, placeholder = { Text(L("搜索", "Search")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.Checkbox(showContacts, { showContacts = it })
+                    Text(L("显示人脉", "Show contacts"), style = MaterialTheme.typography.bodyMedium)
+                }
+                // AlertDialog 会量内容的固有高度,LazyColumn 量不出来(整个列表空白,实测),用普通可滚动列。
+                Column(Modifier.heightIn(max = 340.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                    if (shown.isEmpty()) Text(L("没有可选的记忆", "No memories"), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp))
+                    shown.forEach { m ->
+                        Row(Modifier.fillMaxWidth().clickable { if (m.uuid in chosen) chosen.remove(m.uuid) else chosen.add(m.uuid) }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(m.uuid in chosen, null)
+                            Column(Modifier.weight(1f)) {
+                                Text(m.title, maxLines = 1, fontWeight = FontWeight.Medium)
+                                if (m.summary.isNotBlank()) Text(m.summary, maxLines = 1, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onPick(all.filter { it.uuid in chosen }) }, enabled = chosen.isNotEmpty()) { Text(L("添加", "Add")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(L("取消", "Cancel")) } },
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +480,19 @@ private fun UserBubble(msg: AgentMessageEntity, vm: AgentViewModel) {
             shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = 22.dp, bottomEnd = 6.dp),
             modifier = Modifier.widthIn(max = 320.dp).combinedClickable(onClick = {}, onLongClick = { menu = true }),
         ) {
-            Text(msg.content, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val names = remember(msg.payloadJson) {
+                    msg.payloadJson?.let { runCatching { JSONObject(it).optJSONArray("attachments") }.getOrNull() }
+                        ?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty()
+                }
+                names.forEach { n ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.AttachFile, null, Modifier.size(16.dp))
+                        Text(n, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    }
+                }
+                if (msg.content.isNotBlank()) Text(msg.content, style = MaterialTheme.typography.bodyLarge)
+            }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text(L("修改", "Edit")) }, onClick = { menu = false; vm.editFrom(msg) })
@@ -611,10 +784,9 @@ private fun AskCard(msg: AgentMessageEntity, payload: JSONObject, vm: AgentViewM
                 }
             }
         }
-        OutlinedTextField(
+        com.lodo.app.ui.ComposerField(
             value = others[page] ?: "", onValueChange = { others[page] = it; if (it.isNotBlank() && !q.multiSelect) selections.remove(page) },
-            placeholder = { Text(L("其他…", "Other…")) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            placeholder = L("其他…", "Other…"), singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
         val answered = selections[page].orEmpty().isNotEmpty() || !others[page].isNullOrBlank()
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -634,4 +806,18 @@ private fun AskCard(msg: AgentMessageEntity, payload: JSONObject, vm: AgentViewM
             }
         }
     }
+}
+
+/**
+ * 标题第二行:「服务商 · ↑输入 ↓输出 · NN tok/s」(同 iOS AgentTitleView)。单独一个子组件去读
+ * AIUsageMonitor——数字每 0.25 秒跳一次,放在 AgentChat 里读会把整条对话跟着重组。
+ * 还没发过请求时后半截写页面焦点。
+ */
+@Composable
+private fun AgentSubtitle(provider: String, focus: String?) {
+    val badge = com.lodo.app.ai.AIUsageMonitor.turn?.badge
+    Text(
+        listOfNotNull(provider, badge ?: focus).joinToString(" · "),
+        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+    )
 }

@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.lodo.app.ui.noNavSwipe
 import com.lodo.app.core.GeoPoint
 import com.lodo.app.core.TravelEntry
 import com.lodo.app.core.TravelGeo
@@ -199,7 +200,7 @@ fun TripMap(
 
     // osmdroid 的 MapView 不裁剪自己的绘制,瓦片会画到地图框外面(实测盖住了下面的标题和切换条)。
     Box(modifier.clipToBounds()) {
-        AndroidView(factory = { map }, modifier = Modifier.fillMaxSize().clipToBounds(), update = { mv ->
+        AndroidView(factory = { map }, modifier = Modifier.fillMaxSize().clipToBounds().noNavSwipe(), update = { mv ->
             mv.overlays.clear()
             val color = selectedDay?.let { dayColors[it % dayColors.size].toArgb() }
             route.zipWithNext().forEach { (a, b) ->

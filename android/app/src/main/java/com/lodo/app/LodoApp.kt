@@ -62,6 +62,9 @@ class LodoApp : Application() {
     val menus by lazy { com.lodo.app.data.MenuRepository(database) }
     val health by lazy { com.lodo.app.data.HealthRepository(this) }
     val calendar by lazy { com.lodo.app.data.CalendarRepository(this) }
+    val calendarSync by lazy { com.lodo.app.data.CalendarSync(this, this) }
+    /** 进程级协程作用域(双向同步这类跟着进程走的监听)。 */
+    val appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
     val geocoder by lazy { com.lodo.app.data.TravelGeocoder(this, database) }
     val agent by lazy { com.lodo.app.data.AgentStore(this, database) }
 
@@ -88,6 +91,7 @@ class LodoApp : Application() {
             setEnabled = { id, on -> skillPrefs.edit().putBoolean(id, on).apply() },
         )
         com.lodo.app.data.ExchangeRates.load(this)
+        calendarSync.start(appScope)
         runCatching {
             val hantHans = android.icu.text.Transliterator.getInstance("Hant-Hans")
             com.lodo.app.core.OSMGeocode.toSimplified = { text -> synchronized(hantHans) { hantHans.transliterate(text) } }

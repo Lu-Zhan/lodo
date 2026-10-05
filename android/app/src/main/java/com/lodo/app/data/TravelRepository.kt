@@ -19,12 +19,18 @@ import kotlin.math.abs
 fun MemoryEntity.travelEntry(): TravelEntry? {
     if (!isTravelItem) return null
     val kind = TravelItemKind.from(travelKind) ?: return null
+    val transport = if (kind.isTransport) TransportDetails.decode(travelFlightData) else null
+    // 交通的时刻和归日按出发地/到达地的当地时间(同 iOS TravelPlan.localDay);没填时区按手机时区。
+    fun local(ms: Long?, tz: String?) = ms?.let {
+        val zone = tz?.let { id -> runCatching { java.time.ZoneId.of(id) }.getOrNull() } ?: java.time.ZoneId.systemDefault()
+        java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime()
+    }
     return TravelEntry(
         id = uuid, kind = kind, title = title, note = travelNote ?: summary,
-        start = travelStartMillis?.toLocalDateTime(), end = travelEndMillis?.toLocalDateTime(),
+        start = local(travelStartMillis, transport?.departureTimeZone), end = local(travelEndMillis, transport?.arrivalTimeZone),
         price = travelPrice, currency = travelCurrency ?: "CNY", placeName = travelPlaceName,
         originName = travelOriginName, code = travelCode, latitude = travelLatitude, longitude = travelLongitude,
-        transport = if (kind.isTransport) TransportDetails.decode(travelFlightData) else null,
+        transport = transport,
         hasAttachment = kindEnum == MemoryKind.LINK,
     )
 }
@@ -160,7 +166,7 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
         var text = TravelPlan.promptSummary(trip.title, days(trip), entries, includeIds)
         val f = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
         text = "旅行「${trip.title}」${trip.startMillis.toLocalDateTime().format(f)} 至 ${trip.endMillis.toLocalDateTime().format(f)}" +
-            (if (trip.city.isNotBlank() || trip.country.isNotBlank()) ",目的地 ${listOf(trip.city, trip.country).filter { it.isNotBlank() }.joinToString(" · ")}" else "") +
+            (if (trip.destinations.isNotEmpty()) ",目的地 ${trip.destinationLabel}" else "") +
             "\n" + text
         val travelers = com.lodo.app.core.TripTraveler.decode(trip.travelersJson)
         if (travelers.isNotEmpty()) text += "\n同行人:" + travelers.joinToString("、") { it.name }
@@ -317,7 +323,7 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
     suspend fun aiSummary(trip: TripEntity): String {
         val f = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
         return "旅行:${trip.title}\n日期:${trip.startMillis.toLocalDateTime().format(f)} 至 ${trip.endMillis.toLocalDateTime().format(f)}\n" +
-            "目的地:${listOf(trip.city, trip.country).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { "未填" }}\n" +
+            "目的地:${trip.destinationLabel.ifEmpty { "未填" }}\n" +
             TravelPlan.promptSummary(trip.title, days(trip), entries(trip.uuid))
     }
 }

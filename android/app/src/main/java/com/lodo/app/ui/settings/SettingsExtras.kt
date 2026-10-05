@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -70,6 +71,13 @@ fun ExtraSettingsSection(onOpenSkills: () -> Unit, onOpenPreferences: () -> Unit
     val calendarPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) scope.launch { app.settings.setCalendarEnabled(true) }
     }
+    val calendarWritePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        if (r.values.all { it }) scope.launch {
+            app.settings.setCalendarEnabled(true)
+            app.settings.setCalendarWriteEnabled(true)
+            app.calendarSync.reconcile()
+        }
+    }
 
     SectionHeader(L("外观", "Appearance"))
     Text(L("强调色", "Accent color"), style = MaterialTheme.typography.bodyLarge)
@@ -97,9 +105,28 @@ fun ExtraSettingsSection(onOpenSkills: () -> Unit, onOpenPreferences: () -> Unit
         scope.launch { app.settings.setHealthEnabled(it) }
     }
     SwitchLine(L("读取系统日历", "Read system calendar"), settings.calendarEnabled,
-        L("在「日历」页和总览里显示系统日历的日程,只读不写。", "Shows your calendar events on Calendar and Overview. Read-only.")) { on ->
+        L("在「日历」页和总览里显示系统日历的日程。", "Shows your calendar events on Calendar and Overview.")) { on ->
         if (on && !app.calendar.hasPermission()) calendarPermission.launch(Manifest.permission.READ_CALENDAR)
-        else scope.launch { app.settings.setCalendarEnabled(on) }
+        else scope.launch {
+            app.settings.setCalendarEnabled(on)
+            if (!on && settings.calendarWriteEnabled) { app.settings.setCalendarWriteEnabled(false); app.calendarSync.disable() }
+        }
+    }
+    // 写开关是读的下级;关掉时把 lodo 那本日历和账本一起清掉(留一堆孤儿事件比不同步更糟,同 iOS)。
+    SwitchLine(L("任务写入日历(双向同步)", "Sync tasks to calendar"), settings.calendarWriteEnabled,
+        L("未完成的任务写进一本叫 lodo 的日历;在日历里改时间会改回任务,删掉事件会删掉任务。", "Pending tasks go into a calendar named lodo. Moving an event updates the task; deleting it deletes the task.")) { on ->
+        if (on && !(app.calendar.hasPermission() && app.calendar.hasWritePermission())) {
+            calendarWritePermission.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
+        } else scope.launch {
+            if (on) {
+                app.settings.setCalendarEnabled(true)
+                app.settings.setCalendarWriteEnabled(true)
+                app.calendarSync.reconcile()
+            } else {
+                app.settings.setCalendarWriteEnabled(false)
+                app.calendarSync.disable()
+            }
+        }
     }
 }
 
@@ -130,9 +157,41 @@ fun SkillsScreen(onBack: () -> Unit) {
     var version by remember { mutableIntStateOf(0) }
     editing?.let { id -> SkillEditor(id, onBack = { editing = null; version++ }); return }
     if (showPrompt) { FinalPromptScreen { showPrompt = false }; return }
-    LodoSubPage(L("Skills", "Skills"), onBack = onBack) { padding ->
+    val context = LocalContext.current
+    var importPlan by remember { mutableStateOf<AgentSkillStore.ImportPlan?>(null) }
+    var importError by remember { mutableStateOf<String?>(null) }
+    var viewingCustom by remember { mutableStateOf<AgentSkillStore.CustomSkill?>(null) }
+    val importer = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val text = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull().orEmpty()
+            val (plan, err) = AgentSkillStore.planImport(text)
+            importPlan = plan
+            importError = err?.message(com.lodo.app.ui.UiLang.current == com.lodo.app.core.Lang.EN)
+        }
+    }
+    LodoSubPage(L("Skills", "Skills"), onBack = onBack, actions = {
+        TextButton(onClick = { importer.launch(arrayOf("text/markdown", "text/plain", "application/octet-stream")) }) { Text(L("导入", "Import")) }
+    }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             NavLine(L("查看最终 Prompt", "View final prompt")) { showPrompt = true }
+            importError?.let { Text(L("导入失败:", "Import failed: ") + it, color = com.lodo.app.ui.theme.LodoColor.critical, style = MaterialTheme.typography.bodySmall) }
+            // 我的 skills:导入的外部 skill。默认停用,看过正文再手动开;prompt 里只放「名字:描述」,正文由 AI 按需加载。
+            val customs = remember(version) { AgentSkillStore.customSkills() }
+            if (customs.isNotEmpty()) {
+                SectionHeader(L("我的 skills", "My skills"))
+                customs.forEach { c ->
+                    var on by remember(c.slug, version) { mutableStateOf(AgentSkillStore.isCustomEnabled(c.slug)) }
+                    Row(Modifier.fillMaxWidth().clickable { viewingCustom = c }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(c.file.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(c.file.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(on, { on = it; AgentSkillStore.setCustomEnabled(c.slug, it) })
+                    }
+                    HorizontalDivider()
+                }
+                FooterText(L("外部 skill 只补充做事方式,不能新增操作;和内置规则冲突时以内置为准。", "External skills only add guidance; built-in rules win on conflict."))
+            }
             FooterText(L("停用某个 skill 后,对应的 prompt 和操作都不生效(模型幻觉出来也不认)。", "Disabled skills are removed from the prompt and their actions are rejected."))
             @Suppress("UNUSED_VARIABLE") val v = version
             AgentSkillId.entries.groupBy { it.group }.forEach { (group, ids) ->
@@ -152,12 +211,71 @@ fun SkillsScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(32.dp))
         }
     }
+    // 导入前先展示完整正文,确认后才落盘(外部 skill 是不受信文本,同 iOS)。
+    importPlan?.let { plan ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { importPlan = null },
+            title = { Text(when (plan) {
+                is AgentSkillStore.ImportPlan.OverrideBuiltin -> L("覆盖内置 skill「${plan.id.title}」?", "Replace built-in \"${plan.id.title}\"?")
+                is AgentSkillStore.ImportPlan.NewCustom -> if (plan.replacing) L("更新「${plan.file.name}」?", "Update \"${plan.file.name}\"?") else L("导入「${plan.file.name}」?", "Import \"${plan.file.name}\"?")
+            }) },
+            text = {
+                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                    Text(plan.file.description, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(plan.file.body, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                    if (plan is AgentSkillStore.ImportPlan.NewCustom && !plan.replacing) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(L("导入后默认停用,看过再在列表里打开。", "It starts disabled; turn it on in the list when you're ready."),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { AgentSkillStore.applyImport(plan); importPlan = null; version++ }) { Text(L("导入", "Import")) } },
+            dismissButton = { TextButton(onClick = { importPlan = null }) { Text(L("取消", "Cancel")) } },
+        )
+    }
+    viewingCustom?.let { c ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { viewingCustom = null },
+            title = { Text(c.file.name) },
+            text = { Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) { Text(c.file.body, fontFamily = FontFamily.Monospace, fontSize = 12.sp) } },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = { shareSkill(context, c.file.name, c.file.render()) }) { Text(L("分享", "Share")) }
+                    TextButton(onClick = { AgentSkillStore.deleteCustom(c.slug); viewingCustom = null; version++ }) {
+                        Text(L("删除", "Delete"), color = com.lodo.app.ui.theme.LodoColor.critical)
+                    }
+                }
+            },
+            dismissButton = { TextButton(onClick = { viewingCustom = null }) { Text(L("关闭", "Close")) } },
+        )
+    }
+}
+
+/** 按分享格式(单个 .md)发出去:写进缓存目录,经 FileProvider 交给系统分享面板。 */
+private fun shareSkill(context: android.content.Context, name: String, text: String) {
+    runCatching {
+        val dir = java.io.File(context.cacheDir, "skills").apply { mkdirs() }
+        val file = java.io.File(dir, com.lodo.app.core.AgentSkillFile.slug(name) + ".md").apply { writeText(text) }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)
+        context.startActivity(android.content.Intent.createChooser(
+            android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/markdown")
+                .putExtra(android.content.Intent.EXTRA_STREAM, uri).addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
+            name))
+    }.onFailure {
+        // 没有 FileProvider 时退回纯文字分享。
+        context.startActivity(android.content.Intent.createChooser(
+            android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text), name))
+    }
 }
 
 @Composable
 private fun SkillEditor(id: AgentSkillId, onBack: () -> Unit) {
     var text by remember { mutableStateOf(AgentSkillStore.content(id)) }
+    val context = LocalContext.current
     LodoSubPage(id.title, onBack = onBack, actions = {
+        TextButton(onClick = { shareSkill(context, id.title, AgentSkillStore.exportFile(id)) }) { Text(L("分享", "Share")) }
         TextButton(onClick = { AgentSkillStore.reset(id); text = AgentSkillStore.content(id) }) { Text(L("重置", "Reset")) }
         TextButton(onClick = { AgentSkillStore.save(id, text); onBack() }) { Text(L("保存", "Save")) }
     }) { padding ->

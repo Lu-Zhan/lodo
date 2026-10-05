@@ -20,6 +20,10 @@ interface RoutineDao {
     @Upsert
     suspend fun upsert(routine: RoutineEntity)
 
+    /** 某个时间之后跑出来的结果(总览「今日例行」用)。 */
+    @Query("SELECT * FROM routine_runs WHERE ranAtMillis >= :sinceMillis ORDER BY ranAtMillis DESC")
+    suspend fun runsSince(sinceMillis: Long): List<RoutineRunEntity>
+
     @Query("DELETE FROM routines WHERE uuid = :uuid")
     suspend fun delete(uuid: String)
 

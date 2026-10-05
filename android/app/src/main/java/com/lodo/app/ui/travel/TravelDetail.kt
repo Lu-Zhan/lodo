@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Bed
 import androidx.compose.material.icons.outlined.CheckBox
@@ -183,7 +185,7 @@ fun TravelDetail(trip: TripEntity, vm: TravelViewModel, onBack: () -> Unit) {
     val fillAction = L("去填写", "Fill in") to { editingTrip = true }
 
     // 打开详情时把没坐标的地点补一遍(城市/国家改了也再补一遍,同 iOS onChange(tripLocationKey))。
-    LaunchedEffect(trip.uuid, trip.city, trip.country) {
+    LaunchedEffect(trip.uuid, trip.city, trip.country, trip.extraDestinations) {
         if (items.isEmpty()) kotlinx.coroutines.delay(300)
         val missing = vm.app.travel.entries(trip.uuid).count { !it.kind.isTransport && !it.hasCoordinate }
         if (missing == 0) return@LaunchedEffect
@@ -262,7 +264,7 @@ fun TravelDetail(trip: TripEntity, vm: TravelViewModel, onBack: () -> Unit) {
         val panel: @Composable (Modifier) -> Unit = { mod ->
             Column(mod) {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-                    Text(tripDates(trip) + listOf(trip.city, trip.country).filter { it.isNotBlank() }.joinToString(" · ").let { if (it.isEmpty()) "" else " · $it" },
+                    Text(tripDates(trip) + trip.destinationLabel.let { if (it.isEmpty()) "" else " · $it" },
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(tripStatus(trip), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 }
@@ -605,17 +607,25 @@ private fun ItemEditSheet(
     val tripStart = trip.startMillis.toLocalDateTime().toLocalDate().atTime(LocalTime.of(10, 0))
     var kind by remember { mutableStateOf(TravelItemKind.from(existing?.travelKind) ?: TravelItemKind.PLACE) }
     var title by remember { mutableStateOf(existing?.title ?: "") }
+    val details = remember { TransportDetails.decode(existing?.travelFlightData) ?: TransportDetails() }
+    // 交通两端的时区(同 iOS,用户手填 IANA 标识,不联网查):时刻按各自时区的钟面时间编辑,
+    // 换时区保留钟面时间(状态存的就是 LocalDateTime,保存时才按时区换成绝对时间)。
+    var depTz by remember { mutableStateOf(details.departureTimeZone) }
+    var arrTz by remember { mutableStateOf(details.arrivalTimeZone) }
+    fun zoneOf(id: String?) = id?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() } ?: java.time.ZoneId.systemDefault()
+    fun wall(ms: Long, tz: String?) = java.time.Instant.ofEpochMilli(ms).atZone(zoneOf(tz)).toLocalDateTime()
+    val isTransportItem = TravelItemKind.from(existing?.travelKind)?.isTransport == true
     var hasStart by remember { mutableStateOf(existing == null || existing.travelStartMillis != null) }
-    var start by remember { mutableStateOf(existing?.travelStartMillis?.toLocalDateTime() ?: tripStart) }
+    var start by remember { mutableStateOf(existing?.travelStartMillis?.let { wall(it, if (isTransportItem) depTz else null) } ?: tripStart) }
     var hasEnd by remember { mutableStateOf(existing?.travelEndMillis != null) }
-    var end by remember { mutableStateOf(existing?.travelEndMillis?.toLocalDateTime() ?: tripStart.plusHours(2)) }
+    var end by remember { mutableStateOf(existing?.travelEndMillis?.let { wall(it, if (isTransportItem) arrTz else null) } ?: tripStart.plusHours(2)) }
+    var pickingTz by remember { mutableStateOf<String?>(null) }
     var place by remember { mutableStateOf(existing?.travelPlaceName ?: "") }
     var origin by remember { mutableStateOf(existing?.travelOriginName ?: "") }
     var code by remember { mutableStateOf(existing?.travelCode ?: "") }
     var price by remember { mutableStateOf(existing?.travelPrice?.toString() ?: "") }
     var currency by remember { mutableStateOf(existing?.travelCurrency ?: "CNY") }
     var note by remember { mutableStateOf(existing?.travelNote ?: existing?.summary ?: "") }
-    val details = remember { TransportDetails.decode(existing?.travelFlightData) ?: TransportDetails() }
     var terminal by remember { mutableStateOf(details.departureTerminal ?: "") }
     var gate by remember { mutableStateOf(details.gate ?: "") }
     var seat by remember { mutableStateOf(details.seat ?: "") }
@@ -628,10 +638,15 @@ private fun ItemEditSheet(
                 val newDetails = if (kind.isTransport) details.copy(
                     departureTerminal = terminal.ifBlank { null }, gate = gate.ifBlank { null }, seat = seat.ifBlank { null },
                     platform = platform.ifBlank { null }, carriage = carriage.ifBlank { null },
+                    departureTimeZone = depTz, arrivalTimeZone = arrTz,
                 ) else null
+                val startZone = zoneOf(if (kind.isTransport) depTz else null)
+                val endZone = zoneOf(if (kind.isTransport) arrTz else null)
+                val startMs = start.atZone(startZone).toInstant().toEpochMilli()
+                val endMs = end.atZone(endZone).toInstant().toEpochMilli()
                 vm.saveItem(base.copy(
-                    title = title.trim(), travelKind = kind.raw, travelStartMillis = if (hasStart) start.toEpochMillis() else null,
-                    travelEndMillis = if (hasEnd) end.takeIf { !hasStart || !it.isBefore(start) }?.toEpochMillis() else null,
+                    title = title.trim(), travelKind = kind.raw, travelStartMillis = if (hasStart) startMs else null,
+                    travelEndMillis = if (hasEnd) endMs.takeIf { !hasStart || it >= startMs } else null,
                     travelPlaceName = place.ifBlank { null }, travelOriginName = if (kind.isTransport) origin.ifBlank { null } else null,
                     travelCode = code.ifBlank { null }, travelPrice = price.replace(",", "").toDoubleOrNull(), travelCurrency = currency,
                     travelNote = note, summary = note, travelFlightData = newDetails?.takeIf { !it.isEmpty() }?.toJson(),
@@ -639,6 +654,12 @@ private fun ItemEditSheet(
                     travelLongitude = if (place != existing?.travelPlaceName) null else existing?.travelLongitude,
                 ))
                 onDismiss()
+            }
+            pickingTz?.let { which ->
+                TimeZonePicker(if (which == "dep") depTz else arrTz, onPick = { id ->
+                    if (which == "dep") depTz = id else arrTz = id
+                    pickingTz = null
+                }, onDismiss = { pickingTz = null })
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 TravelItemKind.entries.forEach { k -> FilterChip(kind == k, { kind = k }, label = { Text(kindName(k)) }, leadingIcon = { Icon(kindIcon(k), null, Modifier.size(18.dp)) }) }
@@ -653,8 +674,15 @@ private fun ItemEditSheet(
                 })
             SwitchRow(if (kind == TravelItemKind.LODGING) L("入住时间", "Check-in") else L("开始时间", "Start"), hasStart) { hasStart = it }
             if (hasStart) DateTimeField("", start, true, { start = it })
+            if (hasStart && kind.isTransport) TimeZoneLine(L("出发地时区", "Departure time zone"), depTz) { pickingTz = "dep" }
             SwitchRow(if (kind == TravelItemKind.LODGING) L("退房时间", "Check-out") else L("结束时间", "End"), hasEnd) { hasEnd = it }
             if (hasEnd) DateTimeField("", end, true, { end = it })
+            if (hasEnd && kind.isTransport) TimeZoneLine(L("到达地时区", "Arrival time zone"), arrTz) { pickingTz = "arr" }
+            if (hasStart && hasEnd && kind.isTransport) {
+                val minutes = java.time.Duration.between(start.atZone(zoneOf(depTz)), end.atZone(zoneOf(arrTz))).toMinutes()
+                if (minutes > 0) Text(L("全程 ${minutes / 60} 小时 ${minutes % 60} 分", "Duration ${minutes / 60}h ${minutes % 60}m"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if (kind.isTransport) {
                 OutlinedTextField(code, { code = it }, label = { Text(L("航班号/车次", "Flight/train no.")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -748,6 +776,47 @@ private fun ImportSheet(trip: TripEntity, vm: TravelViewModel, onDismiss: () -> 
 }
 
 /** 新建/编辑旅行:标题前的 emoji、日期、目的地、备注(备注那栏有「重新生成」)。 */
+
+/** 时区一行:写着当前选的时区(没选 = 跟随手机),点开选。 */
+@Composable
+private fun TimeZoneLine(label: String, tz: String?, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text(tz ?: L("跟随手机", "Device"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** 时区选择(同 iOS TimeZonePickerView):可搜,首项「跟随手机」。 */
+@Composable
+private fun TimeZonePicker(current: String?, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val all = remember { java.time.ZoneId.getAvailableZoneIds().filter { it.contains('/') && !it.startsWith("Etc") && !it.startsWith("SystemV") }.sorted() }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(L("时区", "Time zone")) },
+        text = {
+            // 状态在弹窗内容里读(弹窗是另一个窗口的组合,只在这里读才会跟着刷新)。
+            val shown = all.filter { query.isBlank() || it.contains(query.trim().replace(' ', '_'), ignoreCase = true) }
+            Column {
+                OutlinedTextField(query, { query = it }, placeholder = { Text(L("搜索,如 Tokyo", "Search, e.g. Tokyo")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                // AlertDialog 里不能放 LazyColumn(量不出固有高度),用普通可滚动列。
+                Column(Modifier.height(320.dp).verticalScroll(rememberScrollState())) {
+                    Text(L("跟随手机", "Device time zone"), fontWeight = if (current == null) FontWeight.Bold else null,
+                        modifier = Modifier.fillMaxWidth().clickable { onPick(null) }.padding(vertical = 10.dp))
+                    shown.forEach { id ->
+                        val offset = java.time.ZonedDateTime.now(java.time.ZoneId.of(id)).offset.id.replace("Z", "+00:00")
+                        Row(Modifier.fillMaxWidth().clickable { onPick(id) }.padding(vertical = 10.dp)) {
+                            Text(id, modifier = Modifier.weight(1f), fontWeight = if (id == current) FontWeight.Bold else null)
+                            Text("UTC$offset", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(L("取消", "Cancel")) } },
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripEditSheet(existing: TripEntity?, vm: TravelViewModel, onSaved: (String) -> Unit, onDismiss: () -> Unit) {
@@ -755,8 +824,10 @@ fun TripEditSheet(existing: TripEntity?, vm: TravelViewModel, onSaved: (String) 
     var emoji by remember { mutableStateOf(existing?.emoji ?: "") }
     var start by remember { mutableStateOf(existing?.startMillis?.toLocalDateTime() ?: LocalDateTime.now().plusDays(14).withHour(0).withMinute(0)) }
     var end by remember { mutableStateOf(existing?.endMillis?.toLocalDateTime() ?: start.plusDays(3)) }
-    var city by remember { mutableStateOf(existing?.city ?: "") }
-    var country by remember { mutableStateOf(existing?.country ?: "") }
+    // 多个目的地(同 iOS):第一个落 city/country 两列,第二个起落 extraDestinations。
+    var dests by remember {
+        mutableStateOf(existing?.destinations?.ifEmpty { null } ?: listOf(com.lodo.app.core.TripDestination("", "")))
+    }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
     var generating by remember { mutableStateOf(false) }
     var noteError by remember { mutableStateOf<String?>(null) }
@@ -766,9 +837,11 @@ fun TripEditSheet(existing: TripEntity?, vm: TravelViewModel, onSaved: (String) 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SheetHeader(if (existing == null) L("新建旅行", "New trip") else L("编辑旅行", "Edit trip"), title.isNotBlank(), onDismiss) {
+                val (city, country, extras) = com.lodo.app.core.TripDestination.split(dests)
                 val trip = (existing ?: TripEntity(title = "", startMillis = 0, endMillis = 0)).copy(
                     title = title.trim(), emoji = emoji.trim(), startMillis = start.toLocalDate().atStartOfDay().toEpochMillis(),
-                    endMillis = maxOf(end, start).toLocalDate().atStartOfDay().toEpochMillis(), city = city.trim(), country = country.trim(), notes = notes.trim(),
+                    endMillis = maxOf(end, start).toLocalDate().atStartOfDay().toEpochMillis(), city = city, country = country,
+                    extraDestinations = extras, notes = notes.trim(),
                 )
                 vm.saveTrip(trip)
                 onSaved(trip.uuid)
@@ -782,9 +855,19 @@ fun TripEditSheet(existing: TripEntity?, vm: TravelViewModel, onSaved: (String) 
             }
             DateTimeField(L("出发", "From"), start, false, { start = it })
             DateTimeField(L("返回", "To"), end, false, { end = it })
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(city, { city = it }, label = { Text(L("城市", "City")) }, singleLine = true, modifier = Modifier.weight(1f))
-                OutlinedTextField(country, { country = it }, label = { Text(L("国家/地区", "Country")) }, singleLine = true, modifier = Modifier.weight(1f))
+            dests.forEachIndexed { i, d ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(d.city, { v -> dests = dests.toMutableList().also { it[i] = d.copy(city = v) } },
+                        label = { Text(if (dests.size > 1) L("城市 ${i + 1}", "City ${i + 1}") else L("城市", "City")) }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(d.country, { v -> dests = dests.toMutableList().also { it[i] = d.copy(country = v) } },
+                        label = { Text(L("国家/地区", "Country")) }, singleLine = true, modifier = Modifier.weight(1f))
+                    if (dests.size > 1) IconButton(onClick = { dests = dests.toMutableList().also { it.removeAt(i) } }) {
+                        Icon(Icons.Filled.Close, L("移除这个目的地", "Remove destination"))
+                    }
+                }
+            }
+            TextButton(onClick = { dests = dests + com.lodo.app.core.TripDestination("", "") }) {
+                Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(L("添加目的地", "Add destination"))
             }
             OutlinedTextField(notes, { notes = it }, label = { Text(L("备注", "Note")) }, modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {

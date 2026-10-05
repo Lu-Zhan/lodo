@@ -172,9 +172,11 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
     /** 打开文章:抓全文并按块抽正文;抽不出来退回 feed 摘要(如实说明由调用方负责)。 */
     suspend fun content(article: NewsArticleEntity): List<ArticleBlock> = withContext(Dispatchers.IO) {
         contentCache[article.uuid]?.let { return@withContext it }
-        val blocks = article.link.takeIf { it.startsWith("http") }?.let { link ->
-            get(link)?.let { (final, html) -> ArticleContent.extract(html, final, article.title) }
-        }?.takeIf { blocks -> ArticleContent.plainText(blocks).length > 200 }
+        fun good(b: List<ArticleBlock>?) = b?.takeIf { ArticleContent.plainText(it).length > 200 }
+        val link = article.link.takeIf { it.startsWith("http") }
+        // 逐级退路(同 iOS NewsStore.fullText):直接抓 → 本机渲染一遍再抽 → r.jina.ai → feed 摘要。
+        val blocks = good(link?.let { l -> get(l)?.let { (final, html) -> ArticleContent.extract(html, final, article.title) } })
+            ?: good(link?.let { l -> RenderedPageLoader.html(context, l)?.let { ArticleContent.extract(it, l, article.title) } })
             ?: readerFallback(article.link)
             ?: ArticleContent.fromPlainText(article.summary)
         contentCache[article.uuid] = blocks
@@ -199,12 +201,18 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
         return blocks.takeIf { ArticleContent.plainText(it).length > 200 }
     }
 
+    /** 阅读设置里选的总结语言,单篇总结和「今日」共用(同 iOS NewsStore.summaryLanguageName)。 */
+    private suspend fun summaryLanguage(): String =
+        com.lodo.app.core.NewsSummaryLanguage.from(app().settings.snapshot().newsSummaryLanguage).promptName(DeepSeekClient.languageName())
+
+    private fun app() = context.applicationContext as com.lodo.app.LodoApp
+
     /** 没总结过时 AI 总结并存进 aiSummaryJson;force 重新总结。 */
     suspend fun summarize(config: AIConfig, article: NewsArticleEntity, force: Boolean = false): DeepSeekClient.ArticleSummary {
         if (!force) DeepSeekClient.ArticleSummary.decode(article.aiSummaryJson)?.let { return it }
         val feed = dao.feed(article.feedUuid)
         val text = ArticleContent.plainText(content(article)).ifBlank { article.summary }
-        val summary = DeepSeekClient.summarizeArticle(config, article.title, feed?.title ?: "", text)
+        val summary = DeepSeekClient.summarizeArticle(config, article.title, feed?.title ?: "", text, summaryLanguage())
         dao.article(article.uuid)?.let { dao.upsertArticle(it.copy(aiSummaryJson = summary.toJson())) }
         return summary
     }
@@ -247,7 +255,7 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
         refresh()
         val candidates = digestCandidates()
         if (candidates.isEmpty()) throw IllegalStateException(com.lodo.app.ui.L("最近 24 小时订阅里没有新文章", "No new articles in the last 24 hours"))
-        val digest = DeepSeekClient.newsDigest(config, NewsPlan.promptLines(candidates, numbered = true))
+        val digest = DeepSeekClient.newsDigest(config, NewsPlan.promptLines(candidates, numbered = true), summaryLanguage())
         val refs = digest.items.map { item -> item.refs.mapNotNull { candidates.getOrNull(it - 1)?.id }.distinct() }
         val cache = DigestCache(LocalDate.now().toString(), System.currentTimeMillis(), digest, refs)
         val items = JSONArray()

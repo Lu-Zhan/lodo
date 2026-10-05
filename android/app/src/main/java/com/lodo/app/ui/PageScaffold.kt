@@ -127,19 +127,18 @@ fun LodoSubPage(
 @Composable
 fun AskBar(prompt: String, onClick: () -> Unit) {
     Box(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().navigationBarsPadding().padding(ComposerMetrics.outerPadding),
     ) {
+        // 和 AI 页真正的输入框同一套高度/圆角/底色/字号(ComposerMetrics),拉起弹层时位置不跳。
         Surface(
             onClick = onClick,
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 2.dp,
-            shadowElevation = 3.dp,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = ComposerMetrics.shape,
+            color = composerContainerColor(),
+            modifier = Modifier.fillMaxWidth().height(ComposerMetrics.height),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 18.dp),
+                modifier = Modifier.padding(horizontal = 20.dp),
             ) {
                 Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp))
