@@ -192,7 +192,7 @@ fun OverviewScreen(vm: OverviewViewModel = viewModel()) {
     val due = pending.filter { it.toData().isDue(now) }
     val todayTasks = pending.filter { !it.nextRemindAt.toLocalDate().isAfter(today) }
     val todayMemories = memories.filter { it.createdAt.toLocalDate() == today && !it.isContact }
-    val fmt = DateTimeFormatter.ofPattern("HH:mm")
+    val fmt = com.lodo.app.ui.appFormatter("HH:mm")
     LaunchedEffect(Unit) { vm.loadEvents() }
     LaunchedEffect(todayTasks.size, todayMemories.size) {
         vm.loadAi(
@@ -230,7 +230,7 @@ fun OverviewScreen(vm: OverviewViewModel = viewModel()) {
                 when (kind) {
                     OverviewKind.NOW -> Widget(kind, small = true) {
                         Text(now.format(fmt), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Text(today.format(DateTimeFormatter.ofPattern(L("M月d日 EEEE", "EEE, MMM d"))), style = MaterialTheme.typography.bodyMedium)
+                        Text(today.format(com.lodo.app.ui.appFormatter(L("M月d日 EEEE", "EEE, MMM d"))), style = MaterialTheme.typography.bodyMedium)
                         Text(L("还有 ${todayTasks.size} 件任务", "${todayTasks.size} tasks left"), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

@@ -37,6 +37,10 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DirectionsBus
 import androidx.compose.material.icons.outlined.Flight
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Train
@@ -131,7 +135,7 @@ fun kindName(kind: TravelItemKind) = when (kind) {
     TravelItemKind.PLACE -> L("地点", "Place")
 }
 
-private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
+private val timeFmt = com.lodo.app.ui.appFormatter("HH:mm")
 
 /** 行上的一行摘要:时间 · 地点 · 单号(备注、航站楼这些收进详情,同 iOS)。 */
 fun entrySummary(e: TravelEntry): String = listOfNotNull(
@@ -162,10 +166,80 @@ fun TravelDetail(trip: TripEntity, vm: TravelViewModel, onBack: () -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
     val byId = items.associateBy { it.uuid }
     val days = vm.app.travel.days(trip)
+    val scope = rememberCoroutineScope()
+    val wide = LocalConfiguration.current.screenWidthDp >= 840
+    // 地图状态:按天筛选、选中项、地图顶上的提示条、放针模式。
+    var mapDay by rememberSaveable { mutableStateOf<Int?>(null) }
+    var selectedId by remember { mutableStateOf<String?>(null) }
+    var status by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var statusAction by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    var pinTarget by remember { mutableStateOf<String?>(null) }
+    var mapExpanded by rememberSaveable { mutableStateOf(false) }
+
+    fun say(text: String?, working: Boolean = false, action: Pair<String, () -> Unit>? = null) {
+        status = text; busy = working; statusAction = action
+    }
+    val fillAction = L("去填写", "Fill in") to { editingTrip = true }
+
+    // 打开详情时把没坐标的地点补一遍(城市/国家改了也再补一遍,同 iOS onChange(tripLocationKey))。
+    LaunchedEffect(trip.uuid, trip.city, trip.country) {
+        if (items.isEmpty()) kotlinx.coroutines.delay(300)
+        val missing = vm.app.travel.entries(trip.uuid).count { !it.kind.isTransport && !it.hasCoordinate }
+        if (missing == 0) return@LaunchedEffect
+        val found = vm.fillMissing(trip) { i, n -> say(L("正在查找地点位置:$i/$n", "Locating places: $i/$n"), true) }
+        when {
+            found == null -> say(L("认不出这趟旅行在哪,填上城市和国家才能在地图上找到地点", "Add a city and country so places can be found on the map"), action = fillAction)
+            vm.app.travel.entries(trip.uuid).any { !it.kind.isTransport && !it.hasCoordinate } ->
+                say(L("有些地点没找到位置,可以在行程项里「在地图上标注」", "Some places weren't found — you can pin them manually"))
+            else -> say(null)
+        }
+    }
+
+    // 点一行 = 地图飞到那个点并选中;还没坐标时当场按地名查一次,查不到给「在地图上标注」(同 iOS)。
+    val focus: (TravelEntry) -> Unit = { e ->
+        when {
+            e.hasCoordinate -> {
+                selectedId = e.id
+                days.indexOfFirst { com.lodo.app.core.TravelPlan.covers(e, it) }.takeIf { it >= 0 && mapDay != null && mapDay != it }?.let { mapDay = it }
+            }
+            e.kind.isTransport -> editingItem = byId[e.id]
+            else -> scope.launch {
+                say(L("正在查找「${e.title}」的位置…", "Locating \"${e.title}\"…"), true)
+                if (vm.locate(trip, e.id)) { say(null); selectedId = e.id }
+                else say(L("没找到「${e.title}」的位置", "Couldn't locate \"${e.title}\""), action = L("在地图上标注", "Pin on map") to { pinTarget = e.id; say(null) })
+            }
+        }
+    }
+    val info: (TravelEntry) -> Unit = { e -> editingItem = byId[e.id] }
+    val relocate: () -> Unit = {
+        scope.launch {
+            val r = vm.relocateAll(trip) { i, n -> say(L("刷新地点中:$i/$n", "Refreshing places: $i/$n"), true) }
+            if (r.noDestination) say(L("认不出这趟旅行在哪,先填城市和国家", "Add a city and country first"), action = fillAction)
+            else say(L("位置有更新 ${r.updated} 个 · 没变 ${r.unchanged} 个 · 没搜到 ${r.notFound} 个",
+                "Updated ${r.updated} · unchanged ${r.unchanged} · not found ${r.notFound}"))
+        }
+    }
+
+    val mapView: @Composable (Modifier) -> Unit = { mod ->
+        TripMap(
+            entries = entries, days = days, selectedDay = mapDay, onSelectDay = { mapDay = it; selectedId = null },
+            selectedId = selectedId, onSelectEntry = { selectedId = it },
+            status = status, busy = busy, onDismissStatus = { say(null) }, statusAction = statusAction,
+            pinMode = pinTarget != null,
+            pinStart = pinTarget?.let { id -> entries.firstOrNull { it.id == id && it.hasCoordinate }?.let { com.lodo.app.core.GeoPoint(it.latitude!!, it.longitude!!) } },
+            onPinConfirm = { p -> val id = pinTarget; pinTarget = null; if (id != null) scope.launch { vm.setManual(id, p); selectedId = id } },
+            onPinCancel = { pinTarget = null },
+            expanded = mapExpanded || pinTarget != null,
+            onToggleExpanded = if (wide) null else ({ mapExpanded = !mapExpanded }),
+            loadLeg = vm::leg, cachedLeg = vm::cachedLeg,
+            modifier = mod,
+        )
+    }
 
     LodoSubPage(
         title = trip.displayEmoji + " " + trip.title,
-        onBack = onBack,
+        onBack = { if (pinTarget != null) pinTarget = null else if (mapExpanded) mapExpanded = false else onBack() },
         focus = AgentFocus(AgentPageFocus.TRAVEL, trip.title),
         askPrompt = L("这趟还想去哪?", "Anything to change on this trip?"),
         actions = {
@@ -174,36 +248,61 @@ fun TravelDetail(trip: TripEntity, vm: TravelViewModel, onBack: () -> Unit) {
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(L("手动添加", "Add item")) }, onClick = { menu = false; addingItem = true })
                     DropdownMenuItem(text = { Text(L("从订单导入", "Import from booking")) }, onClick = { menu = false; importing = true })
+                    DropdownMenuItem(text = { Text(L("刷新地点位置", "Refresh place locations")) }, onClick = { menu = false; relocate() })
                     DropdownMenuItem(text = { Text(L("编辑旅行", "Edit trip")) }, onClick = { menu = false; editingTrip = true })
                     DropdownMenuItem(text = { Text(L("删除旅行", "Delete trip"), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; confirmDelete = true })
                 }
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
-                Text(tripDates(trip) + listOf(trip.city, trip.country).filter { it.isNotBlank() }.joinToString(" · ").let { if (it.isEmpty()) "" else " · $it" },
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(tripStatus(trip), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            }
-            val tabs = listOf(L("总览", "Overview"), L("日程", "Itinerary"), L("清单", "Packing"), L("人员", "People"), L("消费", "Costs"), L("文件", "Files"))
-            PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 12.dp) {
-                tabs.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
-            }
-            val open: (TravelEntry) -> Unit = { e -> editingItem = byId[e.id] }
-            Box(Modifier.weight(1f)) {
-                when (tab) {
-                    0 -> OverviewTab(entries, open)
-                    1 -> ItineraryTab(days, entries, open)
-                    2 -> PackingTab(trip, packing, vm)
-                    3 -> PeopleTab(trip, vm)
-                    4 -> CostsTab(entries, open)
-                    else -> FilesTab(trip, files, vm)
+        val panel: @Composable (Modifier) -> Unit = { mod ->
+            Column(mod) {
+                Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                    Text(tripDates(trip) + listOf(trip.city, trip.country).filter { it.isNotBlank() }.joinToString(" · ").let { if (it.isEmpty()) "" else " · $it" },
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tripStatus(trip), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+                val tabs = listOf(L("总览", "Overview"), L("日程", "Itinerary"), L("清单", "Packing"), L("人员", "People"), L("消费", "Costs"), L("文件", "Files"))
+                PrimaryScrollableTabRow(selectedTabIndex = tab, edgePadding = 12.dp) {
+                    tabs.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
+                }
+                Box(Modifier.weight(1f)) {
+                    when (tab) {
+                        0 -> OverviewTab(entries, focus, info)
+                        1 -> ItineraryTab(days, entries, focus, info, selectedId) { pinTarget = it }
+                        2 -> PackingTab(trip, packing, vm)
+                        3 -> PeopleTab(trip, vm)
+                        4 -> CostsTab(entries, info)
+                        else -> FilesTab(trip, files, vm)
+                    }
                 }
             }
         }
+        val pinning = pinTarget != null
+        if (wide) {
+            // 宽屏:左边行程面板、右边地图(同 iOS 宽屏的左中两栏)。
+            Row(Modifier.fillMaxSize().padding(padding)) {
+                if (!pinning) panel(Modifier.width(440.dp).fillMaxHeight())
+                mapView(Modifier.weight(1f).fillMaxHeight())
+            }
+        } else {
+            Column(Modifier.fillMaxSize().padding(padding)) {
+                mapView(if (mapExpanded || pinning) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth().height(300.dp))
+                if (!mapExpanded && !pinning) panel(Modifier.weight(1f))
+            }
+        }
     }
-    if (addingItem || editingItem != null) ItemEditSheet(trip, editingItem, vm, onDismiss = { addingItem = false; editingItem = null })
+    if (addingItem || editingItem != null) ItemEditSheet(trip, editingItem, vm, onDismiss = { addingItem = false; editingItem = null },
+        onRelocate = { uuid ->
+            scope.launch {
+                val title = byId[uuid]?.title ?: ""
+                say(L("正在查找「$title」的位置…", "Locating \"$title\"…"), true)
+                if (vm.locate(trip, uuid)) { say(L("「$title」的位置已更新", "\"$title\" updated")); selectedId = uuid }
+                else say(L("没找到「$title」,位置保持不变", "Couldn't locate \"$title\"; kept as is"),
+                    action = L("在地图上标注", "Pin on map") to { pinTarget = uuid; say(null) })
+            }
+        },
+        onPin = { uuid -> pinTarget = uuid })
     if (importing) ImportSheet(trip, vm, onDismiss = { importing = false })
     if (editingTrip) TripEditSheet(trip, vm, onSaved = { editingTrip = false }, onDismiss = { editingTrip = false })
     if (confirmDelete) AlertDialog(
@@ -216,8 +315,17 @@ fun TravelDetail(trip: TripEntity, vm: TravelViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun EntryRow(e: TravelEntry, onClick: () -> Unit, tint: androidx.compose.ui.graphics.Color? = null) {
-    LodoRow(e.title, subtitle = entrySummary(e).ifBlank { kindName(e.kind) }, icon = kindIcon(e.kind), iconTint = tint, onClick = onClick)
+private fun EntryRow(
+    e: TravelEntry, onClick: () -> Unit, tint: androidx.compose.ui.graphics.Color? = null,
+    onInfo: (() -> Unit)? = null, selected: Boolean = false,
+) {
+    val noPlace = !e.kind.isTransport && !e.hasCoordinate
+    LodoRow(
+        e.title, subtitle = entrySummary(e).ifBlank { kindName(e.kind) } + if (noPlace) L(" · 无地点", " · not on map") else "",
+        icon = kindIcon(e.kind), iconTint = tint, onClick = onClick,
+        modifier = if (selected) Modifier.background(MaterialTheme.colorScheme.secondaryContainer) else Modifier,
+        trailing = onInfo?.let { { IconButton(onClick = it) { Icon(Icons.Outlined.Info, L("详情", "Details")) } } },
+    )
 }
 
 @Composable
@@ -226,11 +334,11 @@ private fun TabList(content: androidx.compose.foundation.lazy.LazyListScope.() -
 }
 
 @Composable
-private fun OverviewTab(entries: List<TravelEntry>, open: (TravelEntry) -> Unit) {
+private fun OverviewTab(entries: List<TravelEntry>, open: (TravelEntry) -> Unit, info: (TravelEntry) -> Unit) {
     val transports = TravelPlan.transports(entries)
     val lodgings = TravelPlan.sorted(entries.filter { it.kind == TravelItemKind.LODGING })
     val pending = TravelPlan.unscheduled(entries).filter { !it.kind.isTransport }
-    val dayFmt = DateTimeFormatter.ofPattern(L("M月d日 HH:mm", "MMM d HH:mm"))
+    val dayFmt = com.lodo.app.ui.appFormatter(L("M月d日 HH:mm", "MMM d HH:mm"))
     TabList {
         if (entries.isEmpty()) item { Text(L("还没有行程。说一句「第一天去浅草寺」或从右上角导入订单。", "No items yet. Ask AI or import a booking."), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (transports.isNotEmpty()) item {
@@ -256,18 +364,21 @@ private fun OverviewTab(entries: List<TravelEntry>, open: (TravelEntry) -> Unit)
         }
         if (pending.isNotEmpty()) item {
             GroupCard(title = L("待安排", "Unscheduled")) {
-                pending.forEachIndexed { i, e -> if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp)); EntryRow(e, { open(e) }) }
+                pending.forEachIndexed { i, e -> if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp)); EntryRow(e, { open(e) }, onInfo = { info(e) }) }
             }
         }
     }
 }
 
 @Composable
-private fun ItineraryTab(days: List<java.time.LocalDate>, entries: List<TravelEntry>, open: (TravelEntry) -> Unit) {
+private fun ItineraryTab(
+    days: List<java.time.LocalDate>, entries: List<TravelEntry>, open: (TravelEntry) -> Unit, info: (TravelEntry) -> Unit,
+    selectedId: String?, @Suppress("UNUSED_PARAMETER") onPin: (String) -> Unit,
+) {
     val groups = TravelPlan.group(entries, days)
     val outside = TravelPlan.outOfRange(entries, days)
     val unscheduled = TravelPlan.unscheduled(entries)
-    val dayFmt = DateTimeFormatter.ofPattern(L("M月d日 EEEE", "EEE, MMM d"))
+    val dayFmt = com.lodo.app.ui.appFormatter(L("M月d日 EEEE", "EEE, MMM d"))
     TabList {
         groups.forEachIndexed { i, day ->
             // 当晚住的酒店排在每天的最后一行(同 iOS)。
@@ -277,16 +388,16 @@ private fun ItineraryTab(days: List<java.time.LocalDate>, entries: List<TravelEn
                     if (rows.isEmpty()) Text(L("这天还没安排", "Nothing planned"), color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(16.dp))
                     rows.forEachIndexed { j, e ->
                         if (j > 0) HorizontalDivider(Modifier.padding(start = 52.dp))
-                        EntryRow(e, { open(e) }, tint = dayColors[i % dayColors.size])
+                        EntryRow(e, { open(e) }, tint = dayColors[i % dayColors.size], onInfo = { info(e) }, selected = e.id == selectedId)
                     }
                 }
             }
         }
         if (outside.isNotEmpty()) item("out") {
-            GroupCard(title = L("行程日期之外", "Outside trip dates")) { outside.forEach { EntryRow(it, { open(it) }) } }
+            GroupCard(title = L("行程日期之外", "Outside trip dates")) { outside.forEach { EntryRow(it, { open(it) }, onInfo = { info(it) }) } }
         }
         if (unscheduled.isNotEmpty()) item("un") {
-            GroupCard(title = L("未排期", "Unscheduled")) { unscheduled.forEach { EntryRow(it, { open(it) }) } }
+            GroupCard(title = L("未排期", "Unscheduled")) { unscheduled.forEach { EntryRow(it, { open(it) }, onInfo = { info(it) }) } }
         }
     }
 }
@@ -482,7 +593,10 @@ private fun FilesTab(trip: TripEntity, files: List<MemoryEntity>, vm: TravelView
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun ItemEditSheet(trip: TripEntity, existing: MemoryEntity?, vm: TravelViewModel, onDismiss: () -> Unit) {
+private fun ItemEditSheet(
+    trip: TripEntity, existing: MemoryEntity?, vm: TravelViewModel, onDismiss: () -> Unit,
+    onRelocate: (String) -> Unit = {}, onPin: (String) -> Unit = {},
+) {
     val context = LocalContext.current
     val tripStart = trip.startMillis.toLocalDateTime().toLocalDate().atTime(LocalTime.of(10, 0))
     var kind by remember { mutableStateOf(TravelItemKind.from(existing?.travelKind) ?: TravelItemKind.PLACE) }
@@ -556,6 +670,10 @@ private fun ItemEditSheet(trip: TripEntity, existing: MemoryEntity?, vm: TravelV
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
             CurrencyChips(currency) { currency = it }
             OutlinedTextField(note, { note = it }, label = { Text(L("备注", "Notes")) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            if (existing != null && !kind.isTransport) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onDismiss(); onRelocate(existing.uuid) }) { Text(L("刷新位置", "Refresh location")) }
+                OutlinedButton(onClick = { onDismiss(); onPin(existing.uuid) }) { Text(L("在地图上标注", "Pin on map")) }
+            }
             if (existing != null) TextButton(onClick = { vm.deleteItem(existing.uuid); onDismiss() }) { Text(L("删除这一项", "Delete item"), color = MaterialTheme.colorScheme.error) }
             Spacer(Modifier.height(24.dp))
         }
@@ -581,7 +699,7 @@ private fun ImportSheet(trip: TripEntity, vm: TravelViewModel, onDismiss: () -> 
             busy = false
         }
     }
-    val fmt = DateTimeFormatter.ofPattern(L("M月d日 HH:mm", "MMM d HH:mm"))
+    val fmt = com.lodo.app.ui.appFormatter(L("M月d日 HH:mm", "MMM d HH:mm"))
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val list = parsed

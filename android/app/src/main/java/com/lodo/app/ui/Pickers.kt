@@ -30,8 +30,8 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-private val dateFmt get() = DateTimeFormatter.ofPattern(L("yyyy年M月d日 E", "EEE, MMM d, yyyy"))
-private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
+private val dateFmt get() = com.lodo.app.ui.appFormatter(L("yyyy年M月d日 E", "EEE, MMM d, yyyy"))
+private val timeFmt = com.lodo.app.ui.appFormatter("HH:mm")
 
 /** M3 日期选择对话框(DatePicker 以 UTC 毫秒为准,这里换算成 LocalDate)。 */
 @OptIn(ExperimentalMaterial3Api::class)

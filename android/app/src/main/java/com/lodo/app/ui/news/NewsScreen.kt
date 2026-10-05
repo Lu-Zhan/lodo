@@ -226,7 +226,7 @@ private fun dayLabel(day: LocalDate): String {
     return when (day) {
         today -> L("今天", "Today")
         today.minusDays(1) -> L("昨天", "Yesterday")
-        else -> day.format(DateTimeFormatter.ofPattern(L("M月d日 EEEE", "EEE, MMM d")))
+        else -> day.format(com.lodo.app.ui.appFormatter(L("M月d日 EEEE", "EEE, MMM d")))
     }
 }
 
@@ -237,7 +237,7 @@ private fun ArticleRow(a: NewsArticleEntity, source: String, vm: NewsViewModel, 
             Column(Modifier.weight(1f)) {
                 Text(a.title, style = MaterialTheme.typography.bodyLarge, fontWeight = if (a.read) FontWeight.Normal else FontWeight.SemiBold,
                     color = if (a.read) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface, maxLines = 3)
-                Text(source + " · " + a.publishedMillis.toLocalDateTime().format(DateTimeFormatter.ofPattern("HH:mm")),
+                Text(source + " · " + a.publishedMillis.toLocalDateTime().format(com.lodo.app.ui.appFormatter("HH:mm")),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (a.summary.isNotBlank()) Text(a.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
             }
@@ -260,7 +260,7 @@ private fun DigestView(vm: NewsViewModel, articles: List<NewsArticleEntity>, fee
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(L("今日总结", "Today's brief") + (d?.let { " · " + java.time.Instant.ofEpochMilli(it.generatedAt).atZone(java.time.ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")) + L(" 整理", "") } ?: ""),
+                Text(L("今日总结", "Today's brief") + (d?.let { " · " + java.time.Instant.ofEpochMilli(it.generatedAt).atZone(java.time.ZoneId.systemDefault()).format(com.lodo.app.ui.appFormatter("HH:mm")) + L(" 整理", "") } ?: ""),
                     style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                 if (vm.digesting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else TextButton(onClick = vm::generateDigest) { Text(if (d == null) L("生成", "Generate") else L("重新生成", "Regenerate")) }
@@ -353,7 +353,7 @@ private fun ArticleView(a: NewsArticleEntity, source: String, vm: NewsViewModel,
             Column(Modifier.widthIn(max = 680.dp).verticalScroll(rememberScrollState()).padding(horizontal = marginFor(settings.newsMargin), vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(a.title, fontSize = (26 * scale).sp, lineHeight = (34 * scale).sp, fontWeight = FontWeight.Bold)
-                Text(source + " · " + a.publishedMillis.toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+                Text(source + " · " + a.publishedMillis.toLocalDateTime().format(com.lodo.app.ui.appFormatter("yyyy-MM-dd HH:mm")),
                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Card(onClick = { summaryOpen = !summaryOpen }, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -62,6 +62,7 @@ class LodoApp : Application() {
     val menus by lazy { com.lodo.app.data.MenuRepository(database) }
     val health by lazy { com.lodo.app.data.HealthRepository(this) }
     val calendar by lazy { com.lodo.app.data.CalendarRepository(this) }
+    val geocoder by lazy { com.lodo.app.data.TravelGeocoder(this, database) }
     val agent by lazy { com.lodo.app.data.AgentStore(this, database) }
 
     val pendingRoute = MutableStateFlow<PendingRoute?>(null)
@@ -87,6 +88,10 @@ class LodoApp : Application() {
             setEnabled = { id, on -> skillPrefs.edit().putBoolean(id, on).apply() },
         )
         com.lodo.app.data.ExchangeRates.load(this)
+        runCatching {
+            val hantHans = android.icu.text.Transliterator.getInstance("Hant-Hans")
+            com.lodo.app.core.OSMGeocode.toSimplified = { text -> synchronized(hantHans) { hantHans.transliterate(text) } }
+        }
         scheduleRoutineCheck()
     }
 

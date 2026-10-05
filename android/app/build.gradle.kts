@@ -82,6 +82,9 @@ dependencies {
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
     // 健康分析:Health Connect(对应 iOS HealthKit),只读、默认关。
     implementation("androidx.health.connect:connect-client:1.1.0")
+    // 旅行地图:osmdroid(OpenStreetMap 栅格瓦片,不要 key;安卓上没有苹果 MapKit 那样的系统地图控件,
+    // Google Maps SDK 又要 API key),对应 iOS 旅行详情的 Map。
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     testImplementation(libs.junit)
     // 纯 JVM 单测(不经 Robolectric/仪器化)链接的是 android.jar 里 org.json 的桩实现
     // (所有方法 throw "Stub!"),DeepSeekClient 的 JSON 解析逻辑要测就得在测试

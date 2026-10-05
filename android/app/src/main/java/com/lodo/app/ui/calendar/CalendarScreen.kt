@@ -162,8 +162,8 @@ fun CalendarScreen(vm: CalendarViewModel = viewModel()) {
                     DayList(anchor, vm.events, { context.startActivity(vm.openIntent(it)) }, { toTaskEvent = it })
                 }
                 "week" -> {
-                    Pager(anchor.with(DayOfWeek.MONDAY).format(DateTimeFormatter.ofPattern(L("M月d日", "MMM d"))) + " – " +
-                        anchor.with(DayOfWeek.SUNDAY).format(DateTimeFormatter.ofPattern(L("M月d日", "MMM d"))),
+                    Pager(anchor.with(DayOfWeek.MONDAY).format(com.lodo.app.ui.appFormatter(L("M月d日", "MMM d"))) + " – " +
+                        anchor.with(DayOfWeek.SUNDAY).format(com.lodo.app.ui.appFormatter(L("M月d日", "MMM d"))),
                         { anchor = anchor.minusWeeks(1) }, { anchor = anchor.plusWeeks(1) })
                     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         (0..6).map { anchor.with(DayOfWeek.MONDAY).plusDays(it.toLong()) }.forEach { day ->
@@ -175,7 +175,7 @@ fun CalendarScreen(vm: CalendarViewModel = viewModel()) {
                     }
                 }
                 else -> {
-                    Pager(YearMonth.from(anchor).format(DateTimeFormatter.ofPattern(L("yyyy年M月", "MMMM yyyy"))),
+                    Pager(YearMonth.from(anchor).format(com.lodo.app.ui.appFormatter(L("yyyy年M月", "MMMM yyyy"))),
                         { anchor = anchor.minusMonths(1) }, { anchor = anchor.plusMonths(1) })
                     MonthGrid(anchor, vm.events) { anchor = it }
                     DayList(anchor, vm.events, { context.startActivity(vm.openIntent(it)) }, { toTaskEvent = it })
@@ -206,7 +206,7 @@ private fun Pager(title: String, onPrev: () -> Unit, onNext: () -> Unit) {
 @Composable
 private fun DayHeader(day: LocalDate) {
     val today = LocalDate.now()
-    val fmt = DateTimeFormatter.ofPattern(L("M月d日 EEEE", "EEEE, MMM d"))
+    val fmt = com.lodo.app.ui.appFormatter(L("M月d日 EEEE", "EEEE, MMM d"))
     Text((if (day == today) L("今天 · ", "Today · ") else "") + day.format(fmt), style = MaterialTheme.typography.titleSmall,
         color = if (day == today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 10.dp, bottom = 2.dp, start = 4.dp))
@@ -258,7 +258,7 @@ private fun DayList(day: LocalDate, events: List<CalendarEvent>, onOpen: (Calend
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EventRow(e: CalendarEvent, onOpen: () -> Unit, onLong: () -> Unit) {
-    val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
+    val timeFmt = com.lodo.app.ui.appFormatter("HH:mm")
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onOpen, onLongClick = onLong)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -285,7 +285,7 @@ private fun WeekStrip(selected: LocalDate, onSelect: (LocalDate) -> Unit) {
             val d = monday.plusDays(i.toLong())
             val sel = d == selected
             Column(Modifier.weight(1f).clickable { onSelect(d) }.padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(d.format(DateTimeFormatter.ofPattern("E")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(d.format(com.lodo.app.ui.appFormatter("E")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(Modifier.size(34.dp).background(if (sel) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
                     Text("${d.dayOfMonth}", color = if (sel) MaterialTheme.colorScheme.onPrimary else if (d == LocalDate.now()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                 }
@@ -303,7 +303,7 @@ private fun MonthGrid(anchor: LocalDate, events: List<CalendarEvent>, onSelect: 
     val weeks = ((month.atEndOfMonth().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)).toEpochDay() - first.toEpochDay() + 1) / 7).toInt()
     Column(Modifier.padding(horizontal = 12.dp)) {
         Row { (0..6).forEach { i ->
-            Text(first.plusDays(i.toLong()).format(DateTimeFormatter.ofPattern("E")), style = MaterialTheme.typography.labelSmall,
+            Text(first.plusDays(i.toLong()).format(com.lodo.app.ui.appFormatter("E")), style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         } }
         repeat(weeks) { w ->

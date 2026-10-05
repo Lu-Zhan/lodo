@@ -232,7 +232,7 @@ private fun CountdownCard(
     var menu by remember { mutableStateOf(false) }
     val span = CountdownPlan.primary(e, now)
     val (number, label) = countdownSpanText(span)
-    val fmt = DateTimeFormatter.ofPattern(if (e.allDay) L("yyyy年M月d日 E", "EEE, MMM d, yyyy") else L("yyyy年M月d日 E HH:mm", "EEE, MMM d, yyyy HH:mm"))
+    val fmt = com.lodo.app.ui.appFormatter(if (e.allDay) L("yyyy年M月d日 E", "EEE, MMM d, yyyy") else L("yyyy年M月d日 E HH:mm", "EEE, MMM d, yyyy HH:mm"))
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),

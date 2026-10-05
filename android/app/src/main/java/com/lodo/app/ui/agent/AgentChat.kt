@@ -445,7 +445,7 @@ private fun TaskResultCard(msg: AgentMessageEntity, payload: JSONObject, vm: Age
 private fun CountdownCard(msg: AgentMessageEntity, vm: AgentViewModel) {
     val r = remember(msg.payloadJson) { CountdownEditRecord.decode(msg.payloadJson) } ?: return
     val shell = LocalShell.current
-    val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    val fmt = com.lodo.app.ui.appFormatter("yyyy-MM-dd")
     Column {
         AiCard(icon = Icons.Outlined.HourglassTop, header = if (r.reverted) L("已撤销倒数日的改动", "Countdown changes undone") else L("倒数日已更新", "Countdowns updated")) {
             r.created.forEach { ItemLine(L("新建 · ", "New · ") + it.title, it.startMillis.toLocalDateTime().format(fmt)) }
@@ -513,8 +513,8 @@ private fun TripPlanCard(msg: AgentMessageEntity, payload: JSONObject, vm: Agent
         }
     }
     var expanded by remember { mutableStateOf(setOf(0)) }
-    val dayFmt = DateTimeFormatter.ofPattern(L("M月d日 E", "MMM d, E"))
-    val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
+    val dayFmt = com.lodo.app.ui.appFormatter(L("M月d日 E", "MMM d, E"))
+    val timeFmt = com.lodo.app.ui.appFormatter("HH:mm")
     Column {
         AiCard(icon = Icons.Outlined.Flight, header = (if (plan.recorded) L("已记下「${plan.tripTitle}」", "Recorded \"${plan.tripTitle}\"") else L("规划了「${plan.tripTitle}」", "Planned \"${plan.tripTitle}\"")) +
             (if (plan.summary.isNotBlank()) "\n" + plan.summary else "")) {

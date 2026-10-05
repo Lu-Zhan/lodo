@@ -225,7 +225,7 @@ fun TodoListScreen(
 @Composable
 private fun dayHeader(date: LocalDate, today: LocalDate): String {
     val locale = LocalConfiguration.current.locales[0]
-    val text = date.format(DateTimeFormatter.ofPattern(com.lodo.app.ui.L("M月d日 EEEE", "EEE, MMM d"), locale))
+    val text = date.format(com.lodo.app.ui.appFormatter(com.lodo.app.ui.L("M月d日 EEEE", "EEE, MMM d")))
     return when (date) {
         today -> com.lodo.app.ui.L("今天 · ", "Today · ") + text
         today.plusDays(1) -> com.lodo.app.ui.L("明天 · ", "Tomorrow · ") + text

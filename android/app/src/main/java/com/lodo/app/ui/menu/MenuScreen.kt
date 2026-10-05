@@ -152,7 +152,7 @@ fun MenuScreen(vm: MenuViewModel = viewModel()) {
                 Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                     LodoRow(m.title, icon = Icons.AutoMirrored.Outlined.MenuBook, onClick = { openUuid = m.uuid },
                         subtitle = listOfNotNull(L("$count 道菜", "$count dishes"), m.menuSourceLanguage?.takeIf { it.isNotBlank() },
-                            m.createdAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))).joinToString(" · "))
+                            m.createdAt.format(com.lodo.app.ui.appFormatter("yyyy-MM-dd"))).joinToString(" · "))
                 }
             }
         }
