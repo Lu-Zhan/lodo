@@ -192,6 +192,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setLanguage(language: String) = viewModelScope.launch {
         app.settings.setLanguage(language)
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(language))
+        com.lodo.app.applyAppLocale(getApplication(), language)
     }
 
     fun setInsightEnabled(enabled: Boolean) = viewModelScope.launch {
@@ -218,6 +219,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun reloadMemory() {
         memoryText = DurationMemory.content(app) ?: ""
     }
+
+    fun setUseBuiltInKey(v: Boolean) = viewModelScope.launch { app.settings.setUseBuiltInKey(v) }
 
     fun onApiKeyChange(value: String) {
         apiKey = value

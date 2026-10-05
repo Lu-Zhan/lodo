@@ -75,6 +75,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.lodo.app.LodoApp
 import com.lodo.app.PendingRoute
 import com.lodo.app.core.TaskPhase
@@ -89,182 +95,110 @@ import com.lodo.app.ui.SectionHeader
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+/** 任务页的四档筛选(同 iOS 任务页顶部「今天/未来/全部/已完成」)。 */
+enum class TaskFilter { TODAY, FUTURE, ALL, DONE }
+
 /**
- * 待办标签页,对应 iOS TodoListView:日期横滑条(默认今天)、到期提醒卡
- * (完成/稍等 + 右上角改期)、今天/未来待办分组、实际耗时轻量条。
+ * 「任务」页,对应 iOS TodoListView:顶部四档筛选、置顶的「重要的事」、到期提醒卡
+ * (完成/稍等/忽略 + 改期)、按日期分组的任务;新建一律走底部「问问 AI」(页面上没有「+」)。
+ * 行:右滑完成、左滑删除,长按置顶/编辑。
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun TodoListScreen(
     modifier: Modifier = Modifier,
-    onOpenSettings: () -> Unit = {},
     vm: TodoViewModel = viewModel(),
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
-
-    // 批量 agent 操作执行完弹一条带"撤销"按钮的 Snackbar——Android 没有 iOS 那种
-    // 持久聊天气泡,撤销入口走系统 Snackbar 更符合平台习惯(Gmail 归档同款交互)。
-    val snackbarHostState = remember { SnackbarHostState() }
-    // stringResource() 是 @Composable,不能在下面 LaunchedEffect 的协程体里调用,
-    // 要先在可组合上下文里取出来。
-    val undoDoneMessage = stringResource(R.string.android_ui_done)
-    val undoActionLabel = stringResource(R.string.shared_undo)
-    LaunchedEffect(Unit) {
-        // token:这条 Snackbar 对应哪一批操作;如果它还没消失、新的一批又执行完
-        // 覆盖了 lastUndo,点这条陈旧 Snackbar 的撤销不能误撤销新的那批
-        // (vm.performUndo 会核对 token,对不上就拒绝)。
-        vm.undoAvailableEvents.collect { token ->
-            val result = snackbarHostState.showSnackbar(
-                message = undoDoneMessage,
-                actionLabel = undoActionLabel,
-                duration = SnackbarDuration.Long,
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                vm.performUndo(token)
-            }
-        }
-    }
-
-    // App Shortcuts / 通知"改期"按钮打开 App 后要消费的路由(对应 iOS 的
-    // agentRequest 深链/Siri handoff 消费模式),消费一次即清空。
     val app = LocalContext.current.applicationContext as LodoApp
+    var filter by rememberSaveable { mutableStateOf(TaskFilter.TODAY) }
+
     val pendingRoute by app.pendingRoute.collectAsStateWithLifecycle()
     LaunchedEffect(pendingRoute) {
-        when (val route = pendingRoute) {
-            is PendingRoute.Agent -> vm.sheet = SheetMode.Agent(autoStart = route.autoStart)
-            is PendingRoute.Reschedule -> vm.handleReschedule(route.uuid)
-            // Assistant 说出的标题直接送进 agent 输入框走一遍正常解析流程,不
-            // 跳过用户确认直接落库——和"add" App Shortcut 同一个安全边界。
-            is PendingRoute.CreateTask -> vm.sheet = SheetMode.Agent(prefill = route.title)
-            null -> return@LaunchedEffect
+        (pendingRoute as? PendingRoute.Reschedule)?.let {
+            vm.handleReschedule(it.uuid)
+            app.pendingRoute.value = null
         }
-        app.pendingRoute.value = null
     }
 
+    val today = LocalDate.now()
     val dueUuids = state.due.map { it.uuid }.toSet()
-    val upcoming = state.pending.filter { it.uuid !in dueUuids }
-    val dayTasks = upcoming.filter { it.nextRemindAt.toLocalDate() == vm.selectedDate }
-    val futureTasks = upcoming.filter { it.nextRemindAt.toLocalDate() > vm.selectedDate }
-    val locale = LocalConfiguration.current.locales[0]
-    val selectedDateText = remember(vm.selectedDate, locale) {
-        vm.selectedDate.format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale))
+    val pinned = state.pending.filter { it.pinned }.sortedByDescending { it.pinnedAtMillis ?: 0 }
+    val upcoming = state.pending.filter { it.uuid !in dueUuids && !it.pinned }
+    val listed = when (filter) {
+        TaskFilter.TODAY -> upcoming.filter { !it.nextRemindAt.toLocalDate().isAfter(today) }
+        TaskFilter.FUTURE -> upcoming.filter { it.nextRemindAt.toLocalDate().isAfter(today) }
+        TaskFilter.ALL -> upcoming
+        TaskFilter.DONE -> emptyList()
     }
+    val groups = listed.groupBy { it.nextRemindAt.toLocalDate() }.toSortedMap().toList()
 
-    Scaffold(
+    com.lodo.app.ui.LodoPage(
+        title = com.lodo.app.ui.L("任务", "Tasks"),
+        focus = com.lodo.app.ai.AgentFocus(com.lodo.app.ai.AgentPageFocus.TODO),
+        askPrompt = com.lodo.app.ui.L("要做点什么?", "What needs doing?"),
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                actions = {
-                    IconButton(onClick = { vm.sheet = SheetMode.Agent() }) {
-                        Icon(Icons.Filled.AutoAwesome, contentDescription = stringResource(R.string.shared_ai_assistant))
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.shared_settings))
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { vm.sheet = SheetMode.Agent(autoStart = true) }) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.shared_add))
-            }
-        },
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            item(key = "date-strip") { DateStrip(vm.selectedDate) { vm.selectedDate = it } }
-
-            if (state.notificationPermissionDenied) {
-                item(key = "notify-banner") {
-                    NotificationDeniedBanner(
-                        modifier = Modifier.animateItem(),
-                        onOpenSettings = { NotificationPermission.openAppSettings(app) },
-                    )
-                }
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            com.lodo.app.ui.SegmentedTabs(
+                labels = listOf(
+                    com.lodo.app.ui.L("今天", "Today"), com.lodo.app.ui.L("未来", "Upcoming"),
+                    com.lodo.app.ui.L("全部", "All"), com.lodo.app.ui.L("已完成", "Done"),
+                ),
+                selected = filter.ordinal,
+                onSelect = { filter = TaskFilter.entries[it] },
+            )
+            if (filter == TaskFilter.DONE) {
+                DoneListScreen(vm = vm)
+                return@Column
             }
-
-            vm.askDurationQueue.firstOrNull()?.let { (title, planned) ->
-                item(key = "ask-duration") {
-                    AskDurationCard(
-                        modifier = Modifier.animateItem(),
-                        title = title,
-                        planned = planned,
-                        onAnswer = vm::answerActualDuration,
-                        onSkip = vm::skipActualDuration,
-                    )
-                }
-            }
-
-            if (state.due.isNotEmpty()) {
-                item(key = "due-header") { SectionHeader(stringResource(R.string.android_ui_due_now)) }
-                items(state.due, key = { "due-${it.uuid}" }) { task ->
-                    Box(Modifier.animateItem()) {
-                        DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes)
-                    }
-                }
-                vm.rescheduleError?.let { error ->
-                    item(key = "reschedule-error") {
-                        Text(
-                            error,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                if (state.notificationPermissionDenied) {
+                    item(key = "notify-banner") {
+                        NotificationDeniedBanner(
+                            modifier = Modifier.animateItem(),
+                            onOpenSettings = { NotificationPermission.openAppSettings(app) },
                         )
                     }
                 }
-            }
-
-            item(key = "day-header") {
-                SectionHeader(
-                    if (vm.selectedDate == LocalDate.now()) stringResource(R.string.android_ui_today_tasks)
-                    else stringResource(R.string.android_ui_tasks_for_date_0, selectedDateText)
-                )
-            }
-            if (upcoming.isEmpty() && state.due.isEmpty()) {
-                item(key = "empty-pending") {
-                    EmptyState(Icons.Outlined.CheckCircle, stringResource(R.string.shared_no_tasks_yet))
+                vm.askDurationQueue.firstOrNull()?.let { (title, planned) ->
+                    item(key = "ask-duration") {
+                        AskDurationCard(title = title, planned = planned, onAnswer = vm::answerActualDuration, onSkip = vm::skipActualDuration, modifier = Modifier.animateItem())
+                    }
                 }
-            } else if (dayTasks.isEmpty()) {
-                item(key = "empty-day") {
-                    Text(
-                        stringResource(R.string.android_ui_no_tasks_on_selected_day),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp),
-                    )
+                if (pinned.isNotEmpty()) {
+                    item(key = "pinned-header") { SectionHeader(com.lodo.app.ui.L("重要的事", "Pinned")) }
+                    items(pinned, key = { "pin-" + it.uuid }) { task -> TaskRowFor(task, state, vm, Modifier.animateItem()) }
                 }
-            }
-            items(dayTasks, key = { it.uuid }) { task ->
-                PendingRow(
-                    modifier = Modifier.animateItem(),
-                    task = task,
-                    hapticsEnabled = state.hapticsEnabled,
-                    onComplete = { vm.completeWithSampling(task) },
-                    onDelete = { vm.delete(task.uuid) },
-                    onClick = { vm.sheet = SheetMode.Edit(task) },
-                )
-            }
-
-            if (futureTasks.isNotEmpty()) {
-                item(key = "future-header") { SectionHeader(stringResource(R.string.shared_upcoming)) }
-                items(futureTasks, key = { "future-${it.uuid}" }) { task ->
-                    PendingRow(
-                        modifier = Modifier.animateItem(),
-                        task = task,
-                        hapticsEnabled = state.hapticsEnabled,
-                        onComplete = { vm.completeWithSampling(task) },
-                        onDelete = { vm.delete(task.uuid) },
-                        onClick = { vm.sheet = SheetMode.Edit(task) },
-                    )
+                if (state.due.isNotEmpty() && filter != TaskFilter.FUTURE) {
+                    item(key = "due-header") { SectionHeader(stringResource(R.string.android_ui_due_now)) }
+                    items(state.due.filter { !it.pinned }, key = { "due-${it.uuid}" }) { task ->
+                        Box(Modifier.animateItem()) { DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes) }
+                    }
+                    vm.rescheduleError?.let { error ->
+                        item(key = "reschedule-error") {
+                            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
+                groups.forEach { (date, tasks) ->
+                    item(key = "h-$date") { SectionHeader(dayHeader(date, today)) }
+                    items(tasks, key = { it.uuid }) { task -> TaskRowFor(task, state, vm, Modifier.animateItem()) }
+                }
+                if (groups.isEmpty() && state.due.isEmpty() && pinned.isEmpty()) {
+                    item(key = "empty") {
+                        EmptyState(Icons.Outlined.CheckCircle, when (filter) {
+                            TaskFilter.TODAY -> com.lodo.app.ui.L("今天没有要做的事了", "Nothing left for today")
+                            TaskFilter.FUTURE -> com.lodo.app.ui.L("接下来没有安排", "Nothing upcoming")
+                            else -> stringResource(R.string.shared_no_tasks_yet)
+                        })
+                    }
+                }
+                item(key = "bottom-spacer") { Spacer(Modifier.height(24.dp)) }
             }
-
-            item(key = "fab-spacer") { Spacer(Modifier.height(80.dp)) }
         }
     }
 
@@ -273,59 +207,60 @@ fun TodoListScreen(
             allDayTime = state.allDayTime,
             agentSilenceTimeoutSeconds = state.agentSilenceTimeoutSeconds,
             onAiParse = vm::addParse,
-            onSave = {
-                vm.saveNew(it)
-                vm.sheet = null
-            },
+            onSave = { vm.saveNew(it); vm.sheet = null },
             onDismiss = { vm.sheet = null },
-        )
-        is SheetMode.Agent -> AgentSheet(
-            prefill = sheet.prefill,
-            autoStart = sheet.autoStart && state.agentAutoRecordOnOpen,
-            agentSilenceTimeoutSeconds = state.agentSilenceTimeoutSeconds,
-            onSubmit = vm::agentRoute,
-            onConfirm = { vm.performPendingActions() },
-            onMemorizeSuggestion = { vm.memorizeSuggestion(it) },
-            onDismiss = {
-                // 清掉未确认的批量操作,避免残留
-                vm.clearPendingActions()
-                vm.sheet = null
-            },
         )
         is SheetMode.Create -> TaskEditSheet(
-            existing = null,
-            parsed = sheet.parsed,
-            allDayTime = state.allDayTime,
-            onAiEdit = vm::aiEdit,
-            onSave = {
-                vm.saveNew(it)
-                vm.sheet = null
-            },
-            onDismiss = { vm.sheet = null },
+            existing = null, parsed = sheet.parsed, allDayTime = state.allDayTime, onAiEdit = vm::aiEdit,
+            onSave = { vm.saveNew(it); vm.sheet = null }, onDismiss = { vm.sheet = null },
         )
         is SheetMode.Edit -> TaskEditSheet(
-            existing = sheet.task,
-            parsed = sheet.parsed,
-            allDayTime = state.allDayTime,
-            onAiEdit = vm::aiEdit,
-            onSave = {
-                vm.applyEdit(sheet.task.uuid, it)
-                vm.sheet = null
-            },
-            onDismiss = { vm.sheet = null },
+            existing = sheet.task, parsed = sheet.parsed, allDayTime = state.allDayTime, onAiEdit = vm::aiEdit,
+            onSave = { vm.applyEdit(sheet.task.uuid, it); vm.sheet = null }, onDismiss = { vm.sheet = null },
         )
         null -> {}
     }
+}
 
-    vm.actionsWarning?.let { warning ->
-        AlertDialog(
-            onDismissRequest = { vm.dismissActionsWarning() },
-            title = { Text(stringResource(R.string.android_ui_notice)) },
-            text = { Text(warning) },
-            confirmButton = {
-                TextButton(onClick = { vm.dismissActionsWarning() }) { Text(stringResource(R.string.shared_ok)) }
-            },
+@Composable
+private fun dayHeader(date: LocalDate, today: LocalDate): String {
+    val locale = LocalConfiguration.current.locales[0]
+    val text = date.format(DateTimeFormatter.ofPattern(com.lodo.app.ui.L("M月d日 EEEE", "EEE, MMM d"), locale))
+    return when (date) {
+        today -> com.lodo.app.ui.L("今天 · ", "Today · ") + text
+        today.plusDays(1) -> com.lodo.app.ui.L("明天 · ", "Tomorrow · ") + text
+        else -> if (date.isBefore(today)) com.lodo.app.ui.L("已逾期 · ", "Overdue · ") + text else text
+    }
+}
+
+@Composable
+private fun TaskRowFor(task: TaskEntity, state: TodoUiState, vm: TodoViewModel, modifier: Modifier) {
+    var menu by remember { mutableStateOf(false) }
+    Box(modifier) {
+        PendingRow(
+            task = task,
+            hapticsEnabled = state.hapticsEnabled,
+            onComplete = { vm.completeWithSampling(task) },
+            onDelete = { vm.delete(task.uuid) },
+            onClick = { vm.sheet = SheetMode.Edit(task) },
+            onLongClick = { menu = true },
         )
+        androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(if (task.pinned) com.lodo.app.ui.L("取消置顶", "Unpin") else com.lodo.app.ui.L("置顶", "Pin")) },
+                onClick = { menu = false; vm.togglePin(task.uuid) },
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(com.lodo.app.ui.L("稍等", "Snooze")) }, onClick = { menu = false; vm.snooze(task.uuid) },
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(com.lodo.app.ui.L("编辑", "Edit")) }, onClick = { menu = false; vm.sheet = SheetMode.Edit(task) },
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(com.lodo.app.ui.L("删除", "Delete"), color = MaterialTheme.colorScheme.error) },
+                onClick = { menu = false; vm.delete(task.uuid) },
+            )
+        }
     }
 }
 
@@ -525,6 +460,7 @@ private fun DueCard(task: TaskEntity, vm: TodoViewModel, snoozeMinutes: Int) {
 }
 
 /** 待办行:右滑完成、左滑删除(带振动),点击编辑。 */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun PendingRow(
     task: TaskEntity,
@@ -533,6 +469,7 @@ internal fun PendingRow(
     onDelete: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: () -> Unit = {},
 ) {
     val haptics = LocalHapticFeedback.current
     val currentOnComplete by rememberUpdatedState(onComplete)
@@ -561,13 +498,22 @@ internal fun PendingRow(
             backgroundContent = { SwipeBackground(dismissState.dismissDirection) },
         ) {
             ListItem(
-                headlineContent = { Text(task.title) },
-                supportingContent = { Text(localizedTaskCaption(task)) },
+                leadingContent = {
+                    IconButton(onClick = onComplete) {
+                        Icon(Icons.Outlined.Circle, contentDescription = com.lodo.app.ui.L("完成", "Complete"),
+                            tint = if (task.toData().isDue(java.time.LocalDateTime.now())) com.lodo.app.ui.theme.LodoColor.critical
+                            else MaterialTheme.colorScheme.outline)
+                    }
+                },
+                headlineContent = { Text(task.title, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
+                supportingContent = {
+                    Text(localizedTaskCaption(task) + if (task.project.isNotBlank()) " · ${task.project}" else "")
+                },
+                trailingContent = if (task.pinned) ({ Icon(Icons.Filled.PushPin, null, tint = MaterialTheme.colorScheme.primary) }) else null,
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.clickable(onClick = onClick),
+                modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
             )
         }
-        HorizontalDivider()
     }
 }
 

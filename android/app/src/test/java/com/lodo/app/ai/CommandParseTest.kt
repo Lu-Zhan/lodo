@@ -109,9 +109,10 @@ class CommandParseTest {
             .put("question", "什么时候提醒你交材料?")
             .put("options", JSONArray(listOf("明天 09:00", "明天 14:00")))
         val result = DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false)
-        val clarify = result as? AICommandResult.Clarify ?: return fail("expected clarify")
-        assertEquals("什么时候提醒你交材料?", clarify.question)
-        assertEquals(listOf("明天 09:00", "明天 14:00"), clarify.options)
+        // 老格式单问题反问折算成一道提问卡(Android 已升级到 iOS 的多问题 ask)。
+        val ask = result as? AICommandResult.Ask ?: return fail("expected ask")
+        assertEquals("什么时候提醒你交材料?", ask.questions[0].question)
+        assertEquals(listOf("明天 09:00", "明天 14:00"), ask.questions[0].options.map { it.label })
     }
 
     @Test(expected = DeepSeekException::class)

@@ -54,6 +54,11 @@ data class TaskEntity(
     val doneAtMillis: Long?,
     /** 连续"忽略"次数,语义见 core.TaskData.ignoreStreak。 */
     val ignoreStreak: Int = 0,
+    /** 置顶("重要的事"),纯展示字段,不进调度器(同 iOS TaskItem.pinned)。 */
+    val pinned: Boolean = false,
+    val pinnedAtMillis: Long? = null,
+    /** 所属项目/主题,AI 会填,空串 = 没有。 */
+    val project: String = "",
 ) {
     val repeatTypeEnum: RepeatType get() = RepeatType.from(repeatType)
     val statusEnum: TaskStatus get() = TaskStatus.from(status)
@@ -69,7 +74,7 @@ data class TaskEntity(
     fun toParsedTask() = ParsedTask(
         title = title, remindAt = remindAt, allDay = allDay,
         durationMinutes = durationMinutes, repeatType = repeatTypeEnum,
-        repeatDays = repeatDaysList, repeatTimes = repeatTimesList,
+        repeatDays = repeatDaysList, repeatTimes = repeatTimesList, project = project,
     )
 
     /** 转成 core 层的纯数据结构做调度计算。 */

@@ -23,3 +23,6 @@ web/.claude/
 ios/build/
 ios/LodoCore/.build/
 *.xcuserdatad/
+
+# android debug builds
+releases/*.apk

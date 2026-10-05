@@ -33,6 +33,12 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE uuid = :uuid")
     suspend fun delete(uuid: String)
 
+    @Query("UPDATE tasks SET pinned = :pinned, pinnedAtMillis = :atMillis WHERE uuid = :uuid")
+    suspend fun setPinned(uuid: String, pinned: Boolean, atMillis: Long?)
+
+    @Query("UPDATE tasks SET project = :project WHERE uuid = :uuid")
+    suspend fun setProject(uuid: String, project: String)
+
     /** 条件化原子更新:只在当前仍是 pending 时才写入,返回受影响行数(0/1)。
      * 用来防止并发场景下(通知按钮、界面按钮、闹钟自我延续三条路径可能同时
      * 触发同一个 uuid 的 complete/snooze/persistNotified)重复处理同一次状态变更——

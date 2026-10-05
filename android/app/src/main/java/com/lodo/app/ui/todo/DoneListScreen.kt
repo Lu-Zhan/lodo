@@ -58,7 +58,7 @@ import java.time.LocalDate
 /** 已完成标签页,对应 iOS DoneListView:本周洞察 + 右滑恢复未完成、左滑删除。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel()) {
+fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(), contentPadding: PaddingValues = PaddingValues()) {
     val state by vm.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.done.size) { vm.loadInsight() }
@@ -75,15 +75,13 @@ fun DoneListScreen(modifier: Modifier = Modifier, vm: TodoViewModel = viewModel(
     }
     var expandedDays by remember { mutableStateOf(setOf<LocalDate>()) }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.android_ui_done_2)) }) },
-    ) { padding ->
+    run {
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp, end = 16.dp, top = contentPadding.calculateTopPadding() + 8.dp,
+                bottom = contentPadding.calculateBottomPadding() + 8.dp,
+            ),
         ) {
             vm.insight?.let { insight ->
                 item(key = "insight") {

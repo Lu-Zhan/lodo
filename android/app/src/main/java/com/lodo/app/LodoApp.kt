@@ -28,6 +28,21 @@ sealed interface PendingRoute {
     /** Google Assistant App Actions("创建待办"能力,与 iOS Siri AddTaskIntent
      * 对应)携带的事项标题,见 res/xml/shortcuts.xml 的 capability 声明。 */
     data class CreateTask(val title: String) : PendingRoute
+    /** 打开某个平级页面(通知/小组件深链),值为 AppSection 名。 */
+    data class Section(val name: String) : PendingRoute
+}
+
+/**
+ * 应用内语言落到系统的「按应用设置语言」上:Android 13+ 直接走 LocaleManager(AppCompatDelegate
+ * 在 ComponentActivity 上不生效,实测 get-app-locales 为空,界面一直跟着系统语言);
+ * 12 及以下由 MainActivity.attachBaseContext 覆盖配置。
+ */
+fun applyAppLocale(context: android.content.Context, language: String) {
+    if (android.os.Build.VERSION.SDK_INT >= 33) {
+        val manager = context.getSystemService(android.app.LocaleManager::class.java) ?: return
+        val wanted = android.os.LocaleList.forLanguageTags(if (language == "en") "en" else "zh-CN")
+        if (manager.applicationLocales != wanted) manager.applicationLocales = wanted
+    }
 }
 
 class LodoApp : Application() {
@@ -39,6 +54,15 @@ class LodoApp : Application() {
     }
     val memoryRepository: MemoryRepository by lazy { MemoryRepository(database) }
     val routineRepository: RoutineRepository by lazy { RoutineRepository(this, database, settings) }
+    val countdowns by lazy { com.lodo.app.data.CountdownRepository(this, database) }
+    val finance by lazy { com.lodo.app.data.FinanceRepository(this, database) }
+    val news by lazy { com.lodo.app.data.NewsRepository(this, database) }
+    val travel by lazy { com.lodo.app.data.TravelRepository(database, memoryRepository) }
+    val library by lazy { com.lodo.app.data.LibraryRepository(database, memoryRepository, news) }
+    val menus by lazy { com.lodo.app.data.MenuRepository(database) }
+    val health by lazy { com.lodo.app.data.HealthRepository(this) }
+    val calendar by lazy { com.lodo.app.data.CalendarRepository(this) }
+    val agent by lazy { com.lodo.app.data.AgentStore(this, database) }
 
     val pendingRoute = MutableStateFlow<PendingRoute?>(null)
 
@@ -48,11 +72,21 @@ class LodoApp : Application() {
         // DataStore 读的是本机小文件,冷启动这一次性阻塞读可接受。
         val language = runBlocking { settings.snapshot() }.language
         CurrentLang.value = if (language == "en") Lang.EN else Lang.ZH
+        // 新页面里的日期格式(星期几、月份名)跟应用内语言走,而不是系统语言。
+        java.util.Locale.setDefault(if (language == "en") java.util.Locale.ENGLISH else java.util.Locale.SIMPLIFIED_CHINESE)
         // AppCompatDelegate 自己的 locale 状态不知道我们的 DataStore 存了什么,
         // 每次冷启动都要显式同步一次,否则 Compose UI 层的 stringResource()
         // 会先用系统语言渲染,直到用户下次手动切换设置才纠正过来。
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(language))
+        applyAppLocale(this, language)
         Notifications.createChannels(this)
+        val skillPrefs = getSharedPreferences("agent-skills", MODE_PRIVATE)
+        com.lodo.app.ai.AgentSkillStore.init(
+            filesDir,
+            isEnabled = { skillPrefs.getBoolean(it, true) },
+            setEnabled = { id, on -> skillPrefs.edit().putBoolean(id, on).apply() },
+        )
+        com.lodo.app.data.ExchangeRates.load(this)
         scheduleRoutineCheck()
     }
 

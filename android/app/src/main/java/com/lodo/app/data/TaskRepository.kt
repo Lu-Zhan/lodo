@@ -109,7 +109,7 @@ class TaskRepository(
             durationMinutes = parsed.durationMinutes, allDay = parsed.allDay,
             repeatType = parsed.repeatType, repeatDays = parsed.repeatDays,
             repeatTimes = parsed.repeatTimes,
-        )
+        ).copy(project = parsed.project)
         dao.upsert(entity)
         alarms.scheduleReminder(entity.uuid, entity.nextRemindAt)
         DurationMemory.learn(context, settings.aiConfig(), parsed.title, parsed.durationMinutes)
@@ -134,6 +134,7 @@ class TaskRepository(
                 ignoreStreak = 0,
             )
             if (dao.updateIfPending(updated) == 0) return@withTransaction null
+            dao.setProject(uuid, parsed.project)
             updated
         } ?: return
         alarms.scheduleReminder(uuid, updated.nextRemindAt)
@@ -198,6 +199,12 @@ class TaskRepository(
     /** 撤销快照捕获专用:即时查一次当前状态,不能用调用方手头可能已经过时的
      * UI 快照(agent 批量确认执行期间,目标事项可能已被通知按钮/Siri 并发
      * 改动;用陈旧状态当"撤销回去的原样"会在撤销时把并发的改动覆盖掉)。 */
+    /** 置顶/取消置顶("重要的事"),纯展示字段。 */
+    suspend fun togglePin(uuid: String) {
+        val e = dao.byUuid(uuid) ?: return
+        dao.setPinned(uuid, !e.pinned, if (e.pinned) null else System.currentTimeMillis())
+    }
+
     suspend fun current(uuid: String): TaskEntity? = dao.byUuid(uuid)
 
     /** ReminderReceiver 专用:通知真正展示成功后原子顺延 nextRemindAt

@@ -109,6 +109,24 @@ data class Settings(
     val quietHoursEnabled: Boolean = true,
     val quietHoursStart: String = "22:00",
     val quietHoursEnd: String = "08:00",
+    /** 强调色:dynamic = 跟随系统壁纸取色(Material You),其余是预设(同 iOS AccentPalette 六档)。 */
+    val accentPalette: String = "dynamic",
+    /** 健康分析总开关,默认关(关着时一次都不读 Health Connect,同 iOS healthEnabled)。 */
+    val healthEnabled: Boolean = false,
+    /** 读系统日历,默认关(同 iOS calendarEnabled)。 */
+    val calendarEnabled: Boolean = false,
+    /** 冷启动直接落在 AI 助手页,默认开(同 iOS openAgentOnLaunch)。 */
+    val openAgentOnLaunch: Boolean = true,
+    /** 总览模块布局:逗号分隔的 "kind:size",空 = 默认布局。 */
+    val overviewLayout: String = "",
+    /** 日历页上次用的视图:agenda/day/week/month。 */
+    val calendarViewMode: String = "agenda",
+    /** 新闻阅读:总结语言(app/zh/en/ja/ko/source)、字号档(0..4)、边距档(0..2)。 */
+    val newsSummaryLanguage: String = "app",
+    val newsFontSize: Int = 2,
+    val newsMargin: Int = 1,
+    /** 当前服务商有内置 key 时直接用它,默认开(同 iOS useBuiltInKey)。 */
+    val useBuiltInKey: Boolean = true,
 )
 
 /** 应用设置(Preferences DataStore);API key 经 AndroidKeyStore 加密后存储,对应 iOS 钥匙串。 */
@@ -138,6 +156,16 @@ class SettingsRepository(private val context: Context) {
         val QUIET_HOURS_ENABLED = booleanPreferencesKey("quietHoursEnabled")
         val QUIET_HOURS_START = stringPreferencesKey("quietHoursStart")
         val QUIET_HOURS_END = stringPreferencesKey("quietHoursEnd")
+        val ACCENT_PALETTE = stringPreferencesKey("accentPalette")
+        val HEALTH_ENABLED = booleanPreferencesKey("healthEnabled")
+        val CALENDAR_ENABLED = booleanPreferencesKey("calendarEnabled")
+        val OPEN_AGENT_ON_LAUNCH = booleanPreferencesKey("openAgentOnLaunch")
+        val OVERVIEW_LAYOUT = stringPreferencesKey("overviewLayout")
+        val CALENDAR_VIEW_MODE = stringPreferencesKey("calendarViewMode")
+        val NEWS_SUMMARY_LANGUAGE = stringPreferencesKey("newsSummaryLanguage")
+        val NEWS_FONT_SIZE = intPreferencesKey("newsFontSize")
+        val NEWS_MARGIN = intPreferencesKey("newsMargin")
+        val USE_BUILT_IN_KEY = booleanPreferencesKey("useBuiltInKey")
         /** 旧版单一 DeepSeek key,读取时兼容。 */
         val API_KEY_ENCRYPTED = stringPreferencesKey("apiKeyEncrypted")
 
@@ -176,6 +204,16 @@ class SettingsRepository(private val context: Context) {
             quietHoursEnabled = p[Keys.QUIET_HOURS_ENABLED] ?: true,
             quietHoursStart = p[Keys.QUIET_HOURS_START] ?: "22:00",
             quietHoursEnd = p[Keys.QUIET_HOURS_END] ?: "08:00",
+            accentPalette = p[Keys.ACCENT_PALETTE] ?: "dynamic",
+            healthEnabled = p[Keys.HEALTH_ENABLED] ?: false,
+            calendarEnabled = p[Keys.CALENDAR_ENABLED] ?: false,
+            openAgentOnLaunch = p[Keys.OPEN_AGENT_ON_LAUNCH] ?: true,
+            overviewLayout = p[Keys.OVERVIEW_LAYOUT] ?: "",
+            calendarViewMode = p[Keys.CALENDAR_VIEW_MODE] ?: "agenda",
+            newsSummaryLanguage = p[Keys.NEWS_SUMMARY_LANGUAGE] ?: "app",
+            newsFontSize = p[Keys.NEWS_FONT_SIZE] ?: 2,
+            newsMargin = p[Keys.NEWS_MARGIN] ?: 1,
+            useBuiltInKey = p[Keys.USE_BUILT_IN_KEY] ?: true,
         )
     }
 
@@ -257,6 +295,7 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[Keys.LANGUAGE] = language }
         com.lodo.app.core.CurrentLang.value =
             if (language == "en") com.lodo.app.core.Lang.EN else com.lodo.app.core.Lang.ZH
+        java.util.Locale.setDefault(if (language == "en") java.util.Locale.ENGLISH else java.util.Locale.SIMPLIFIED_CHINESE)
     }
 
     suspend fun setRepeatReminderEnabled(enabled: Boolean) {
@@ -274,6 +313,17 @@ class SettingsRepository(private val context: Context) {
     suspend fun setQuietHoursEnd(hhmm: String) {
         context.dataStore.edit { it[Keys.QUIET_HOURS_END] = hhmm }
     }
+
+    suspend fun setUseBuiltInKey(v: Boolean) { context.dataStore.edit { it[Keys.USE_BUILT_IN_KEY] = v } }
+    suspend fun setAccentPalette(v: String) { context.dataStore.edit { it[Keys.ACCENT_PALETTE] = v } }
+    suspend fun setHealthEnabled(v: Boolean) { context.dataStore.edit { it[Keys.HEALTH_ENABLED] = v } }
+    suspend fun setCalendarEnabled(v: Boolean) { context.dataStore.edit { it[Keys.CALENDAR_ENABLED] = v } }
+    suspend fun setOpenAgentOnLaunch(v: Boolean) { context.dataStore.edit { it[Keys.OPEN_AGENT_ON_LAUNCH] = v } }
+    suspend fun setOverviewLayout(v: String) { context.dataStore.edit { it[Keys.OVERVIEW_LAYOUT] = v } }
+    suspend fun setCalendarViewMode(v: String) { context.dataStore.edit { it[Keys.CALENDAR_VIEW_MODE] = v } }
+    suspend fun setNewsSummaryLanguage(v: String) { context.dataStore.edit { it[Keys.NEWS_SUMMARY_LANGUAGE] = v } }
+    suspend fun setNewsFontSize(v: Int) { context.dataStore.edit { it[Keys.NEWS_FONT_SIZE] = v.coerceIn(0, 4) } }
+    suspend fun setNewsMargin(v: Int) { context.dataStore.edit { it[Keys.NEWS_MARGIN] = v.coerceIn(0, 2) } }
 
     suspend fun setNotificationPermissionDenied(denied: Boolean) {
         context.dataStore.edit { it[Keys.NOTIFICATION_PERMISSION_DENIED] = denied }
@@ -314,8 +364,10 @@ class SettingsRepository(private val context: Context) {
             "自定义" -> s.personaCustom.trim().ifEmpty { null }
             else -> personaPresets.firstOrNull { it.first == s.personaStyle }?.second
         }
+        // 开着「使用内置 API Key」且这个服务商有内置值时用内置的(同 iOS),否则用用户自己填的。
+        val builtIn = if (s.useBuiltInKey) com.lodo.app.ai.BuiltInAPIKey.key(s.aiProvider) else null
         return AIConfig(
-            apiKey = apiKey(s.aiProvider),
+            apiKey = builtIn ?: apiKey(s.aiProvider),
             endpoint = endpoint,
             model = model,
             persona = persona,

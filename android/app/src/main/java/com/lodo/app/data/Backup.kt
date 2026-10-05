@@ -8,7 +8,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-data class ImportResult(val taskCount: Int, val memoryCount: Int, val relationshipCount: Int)
+data class ImportResult(val taskCount: Int, val memoryCount: Int, val relationshipCount: Int, val otherCount: Int = 0)
 
 /**
  * 全量备份导入/导出:待办 + 记忆(含资产/人脉)+ 人脉关系边打成一个 zip,
@@ -26,10 +26,18 @@ object Backup {
         val memories = db.memoryDao().all()
         val relationships = db.contactRelationshipDao().all()
         val json = JSONObject()
-            .put("version", 2)
-            .put("tasks", JSONArray(tasks.map(::taskToJson)))
-            .put("memories", JSONArray(memories.map(::memoryToJson)))
+            .put("version", 3)
+            .put("tasks", JSONArray(tasks.map { it.toJson() }))
+            .put("memories", JSONArray(memories.map { it.toJson() }))
             .put("contactRelationships", JSONArray(relationships.map(::relationshipToJson)))
+            // v3 起(对齐 iOS):倒数日、收入/支出/信用卡、旅行与行李清单、菜品、新闻订阅。
+            // 文章不进备份(随时能重抓),AI 对话也不进(同 iOS)。
+            .put("countdownEvents", JSONArray(db.countdownDao().all().map { it.toJson() }))
+            .put("financeEntries", JSONArray(db.financeDao().all().map { it.toJson() }))
+            .put("travelTrips", JSONArray(db.tripDao().all().map { it.toJson() }))
+            .put("packingItems", JSONArray(db.tripDao().allPacking().map { it.toJson() }))
+            .put("menuDishes", JSONArray(db.menuDao().allDishes().map { it.toJson() }))
+            .put("newsFeeds", JSONArray(db.newsDao().feeds().map { it.toJson() }))
         val out = context.contentResolver.openOutputStream(uri)
             ?: throw IllegalStateException("无法打开导出文件")
         out.use { stream ->
@@ -99,57 +107,22 @@ object Backup {
                 }
             }
         }
-        return ImportResult(taskCount, memoryCount, relationshipCount)
+        var otherCount = 0
+        suspend fun <T> merge(key: String, parse: (JSONObject) -> T, uuid: (T) -> String, existing: Set<String>, save: suspend (T) -> Unit) {
+            val arr = json.optJSONArray(key) ?: return
+            for (i in 0 until arr.length()) {
+                val item = parse(arr.getJSONObject(i))
+                if (uuid(item) !in existing) { save(item); otherCount++ }
+            }
+        }
+        merge("countdownEvents", ::countdownFromJson, { it.uuid }, db.countdownDao().all().map { it.uuid }.toSet()) { db.countdownDao().upsert(it) }
+        merge("financeEntries", ::financeFromJson, { it.uuid }, db.financeDao().all().map { it.uuid }.toSet()) { db.financeDao().upsert(it) }
+        merge("travelTrips", ::tripFromJson, { it.uuid }, db.tripDao().all().map { it.uuid }.toSet()) { db.tripDao().upsert(it) }
+        merge("packingItems", ::packingFromJson, { it.uuid }, db.tripDao().allPacking().map { it.uuid }.toSet()) { db.tripDao().upsertPacking(it) }
+        merge("menuDishes", ::menuDishFromJson, { it.uuid }, db.menuDao().allDishes().map { it.uuid }.toSet()) { db.menuDao().upsert(it) }
+        merge("newsFeeds", ::newsFeedFromJson, { it.uuid }, db.newsDao().feeds().map { it.uuid }.toSet()) { db.newsDao().upsertFeed(it) }
+        return ImportResult(taskCount, memoryCount, relationshipCount, otherCount)
     }
-
-    private fun taskToJson(t: TaskEntity) = JSONObject()
-        .put("uuid", t.uuid).put("title", t.title)
-        .put("remindAtMillis", t.remindAtMillis).put("durationMinutes", t.durationMinutes)
-        .put("allDay", t.allDay).put("repeatType", t.repeatType)
-        .put("repeatDays", t.repeatDays).put("repeatTimes", t.repeatTimes)
-        .put("status", t.status).put("phase", t.phase)
-        .put("nextRemindAtMillis", t.nextRemindAtMillis).put("createdAtMillis", t.createdAtMillis)
-        .put("doneAtMillis", t.doneAtMillis ?: JSONObject.NULL)
-        .put("ignoreStreak", t.ignoreStreak)
-
-    private fun taskFromJson(o: JSONObject) = TaskEntity(
-        uuid = o.getString("uuid"), title = o.getString("title"),
-        remindAtMillis = o.getLong("remindAtMillis"), durationMinutes = o.getInt("durationMinutes"),
-        allDay = o.getBoolean("allDay"), repeatType = o.getString("repeatType"),
-        repeatDays = o.getString("repeatDays"), repeatTimes = o.getString("repeatTimes"),
-        status = o.getString("status"), phase = o.getString("phase"),
-        nextRemindAtMillis = o.getLong("nextRemindAtMillis"),
-        createdAtMillis = o.optLong("createdAtMillis", o.getLong("remindAtMillis")),
-        doneAtMillis = o.longOrNull("doneAtMillis"),
-        ignoreStreak = o.optInt("ignoreStreak", 0),
-    )
-
-    private fun memoryToJson(m: MemoryEntity) = JSONObject()
-        .put("uuid", m.uuid).put("kind", m.kind).put("title", m.title).put("summary", m.summary)
-        .put("tags", m.tags).put("sourceText", m.sourceText)
-        .put("urlString", m.urlString ?: JSONObject.NULL)
-        .put("status", m.status).put("createdAtMillis", m.createdAtMillis)
-        .put("assetValue", m.assetValue ?: JSONObject.NULL)
-        .put("assetCurrency", m.assetCurrency ?: JSONObject.NULL)
-        .put("assetLiability", m.assetLiability ?: JSONObject.NULL)
-        .put("assetInterestRate", m.assetInterestRate ?: JSONObject.NULL)
-        .put("contactNickname", m.contactNickname ?: JSONObject.NULL)
-        .put("contactPhone", m.contactPhone ?: JSONObject.NULL)
-        .put("contactEmail", m.contactEmail ?: JSONObject.NULL)
-        .put("contactBirthdayMillis", m.contactBirthdayMillis ?: JSONObject.NULL)
-        .put("contactPreferences", m.contactPreferences ?: JSONObject.NULL)
-
-    private fun memoryFromJson(o: JSONObject) = MemoryEntity(
-        uuid = o.getString("uuid"), kind = o.getString("kind"), title = o.getString("title"),
-        summary = o.getString("summary"), tags = o.getString("tags"), sourceText = o.getString("sourceText"),
-        urlString = o.stringOrNull("urlString"), status = o.getString("status"),
-        createdAtMillis = o.getLong("createdAtMillis"),
-        assetValue = o.doubleOrNull("assetValue"), assetCurrency = o.stringOrNull("assetCurrency"),
-        assetLiability = o.doubleOrNull("assetLiability"), assetInterestRate = o.doubleOrNull("assetInterestRate"),
-        contactNickname = o.stringOrNull("contactNickname"), contactPhone = o.stringOrNull("contactPhone"),
-        contactEmail = o.stringOrNull("contactEmail"), contactBirthdayMillis = o.longOrNull("contactBirthdayMillis"),
-        contactPreferences = o.stringOrNull("contactPreferences"),
-    )
 
     private fun relationshipToJson(r: ContactRelationshipEntity) = JSONObject()
         .put("uuid", r.uuid).put("fromUuid", r.fromUuid).put("toUuid", r.toUuid).put("label", r.label)
@@ -159,12 +132,4 @@ object Backup {
         toUuid = o.getString("toUuid"), label = o.getString("label"),
     )
 
-    private fun JSONObject.stringOrNull(key: String): String? =
-        if (!has(key) || isNull(key)) null else getString(key)
-
-    private fun JSONObject.doubleOrNull(key: String): Double? =
-        if (!has(key) || isNull(key)) null else getDouble(key)
-
-    private fun JSONObject.longOrNull(key: String): Long? =
-        if (!has(key) || isNull(key)) null else getLong(key)
 }

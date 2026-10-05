@@ -27,10 +27,12 @@ data class ParsedTask(
     val repeatType: RepeatType,
     val repeatDays: List<Int>,
     val repeatTimes: List<String>,
+    /** 所属项目/主题,空串 = 没有。 */
+    val project: String = "",
 )
 
 /** 错误文案与 iOS DeepSeekError 一致,直接展示给用户。 */
-class DeepSeekException(message: String) : Exception(message)
+open class DeepSeekException(message: String) : Exception(message)
 
 /** [DeepSeekClient.memorize] 整理出的字段;与 iOS MemorizedEntry 对齐,不含
  * 资产子功能字段(iOS 独有)。 */
@@ -68,9 +70,17 @@ sealed interface AIAction {
     data class Memorize(val text: String) : AIAction
     /** 查询以前收藏/完成过的内容,与 iOS AIAction.askMemory 对齐。 */
     data class AskMemory(val question: String) : AIAction
-    /** AI 主动建议收藏(不落库,UI 上一个"收藏这条"按钮点了才存),与 iOS
-     * AIAction.suggestMemorize 对齐。 */
+    /** AI 主动建议收藏(不落库,UI 上一个"收藏这条"按钮点了才存)。 */
     data class SuggestMemorize(val text: String) : AIAction
+    /** 对话中顺带提到的重点事实,静默落库成「AI记录」(同 iOS auto_memorize)。 */
+    data class AutoMemorize(val title: String, val text: String) : AIAction
+    /** 用户的长期做事偏好,静默记进 agent-preferences.md(同 iOS remember_preference)。 */
+    data class RememberPreference(val text: String) : AIAction
+    data class PlanTrip(val plan: TripPlanProposal) : AIAction
+    data class EditTrip(val edit: TripEdit) : AIAction
+    data class Countdown(val op: CountdownOp) : AIAction
+    data class Asset(val op: AssetOp) : AIAction
+    data class Feed(val op: FeedOp) : AIAction
 }
 
 /** ReAct 循环里可调用的只读工具;只读是硬性要求——写操作永远只能是最终答案的
@@ -80,18 +90,62 @@ sealed interface AITool {
     /** 用户直接给了一个链接、需要看链接内容本身(而不是搜关键词)时用;
      * 与 WebSearch 共用 webSearchEnabled 开关与 skill 文案。 */
     data class WebFetch(val url: String) : AITool
-    /** 新建/修改待办要用到的内容依赖以前存的记忆,但还不知道具体写了什么时
-     * 先查一次,与 iOS AITool.searchMemory 对齐。 */
     data class SearchMemory(val query: String) : AITool
+    data class ReadHealth(val days: Int) : AITool
+    data class ReadTrip(val name: String) : AITool
+    data class SearchNews(val query: String) : AITool
 }
 
-/** AI 总入口的返回:操作列表、关键信息缺失时的反问(附候选补充),或 ReAct
- * 循环里的中间步骤(还没准备好给最终答案,先要执行一个只读工具)。 */
+/** AI 总入口的返回:操作列表、关键信息缺失时的提问卡,或 ReAct 循环里的中间步骤。
+ * Android 原来的单问题 clarify 已升级成 iOS 的多问题 ask(CLAUDE.md 约定:要动就是
+ * 把 Android 也升级成 ask);老格式 {"question", "options"} 解析时折算成一道题。 */
 sealed interface AICommandResult {
     data class Actions(val actions: List<AIAction>) : AICommandResult
-    data class Clarify(val question: String, val options: List<String>) : AICommandResult
+    data class Ask(val questions: List<AskQuestion>) : AICommandResult
     data class ToolCall(val thought: String, val tool: AITool) : AICommandResult
 }
+
+/** 调用方声明的能力(由数据/权限/配置决定),再与 skill 开关相与才生效(同 iOS CommandCapabilities)。 */
+data class CommandCapabilities(
+    val memory: Boolean = false,
+    val webSearch: Boolean = false,
+    val health: Boolean = false,
+    val travel: Boolean = false,
+    val tripPlan: Boolean = false,
+    val news: Boolean = false,
+    val countdown: Boolean = false,
+    val assets: Boolean = false,
+    val feeds: Boolean = false,
+)
+
+/** prompt 里倒数日/资产/订阅清单的一行(带 id,修改时原样引用)。 */
+data class CountdownPromptEntry(
+    val id: String, val title: String, val start: LocalDateTime, val end: LocalDateTime?, val allDay: Boolean,
+    val showInWidget: Boolean, val archived: Boolean, val startReminders: List<Int>, val endReminders: List<Int>,
+)
+data class AssetPromptEntry(
+    val id: String, val title: String, val category: String, val value: Double?, val currency: String,
+    val liability: Double?, val interestRate: Double?, val updatedAt: LocalDateTime,
+)
+data class FeedPromptEntry(val id: String, val title: String, val url: String, val kind: String, val enabled: Boolean)
+
+/** command 的上下文:能力 + 各清单 + 页面焦点 + 对话历史 + 摘要 + 偏好。 */
+data class CommandContext(
+    val tasks: List<Pair<String, ParsedTask>>,
+    val caps: CommandCapabilities = CommandCapabilities(),
+    val countdowns: List<CountdownPromptEntry> = emptyList(),
+    val assets: List<AssetPromptEntry> = emptyList(),
+    val feeds: List<FeedPromptEntry> = emptyList(),
+    /** 页面焦点块(在哪一页唤出),null = 不出现。 */
+    val pageFocus: String? = null,
+    val history: List<Pair<String, String>> = emptyList(),
+    val summary: String? = null,
+    val preferences: String? = null,
+    val existingProjects: List<String> = emptyList(),
+)
+
+/** 模型按约定返回 {"error": "原因"}——那是它想对用户说的话,command 入口当成 answer。 */
+class ModelErrorException(message: String) : DeepSeekException(message)
 
 /** DeepSeek 自然语言创建/编辑,prompt 与 ios/Lodo/AI/DeepSeekClient.swift、web/lodo/ai.py 保持一致。 */
 object DeepSeekClient {
@@ -103,83 +157,25 @@ object DeepSeekClient {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
-    private val taskSchema = """
-        {"title": "事项内容(去掉时间词,保留做什么)",
-          "remind_at": "YYYY-MM-DD HH:MM",
-          "all_day": false,
-          "duration_minutes": 0,
-          "repeat_type": "none",
-          "repeat_days": [],
-          "repeat_times": []}
-    """.trimIndent()
-
-    private val taskRules = """
-        规则:
-        - "今天/明天/后天/周X/X月X日" 等相对时间基于当前时间换算成具体日期。
-        - 只说了点数没说上下午时,按常理推断(如"9点开会"在当前时间之前则理解为最近的将来时间)。
-        - 未提到时长时 duration_minutes 为 0;"开会一小时"之类则换算成分钟数。
-        - 只有日期、没有具体时间点的事项(如"明天要交报告""后天交水电费"):all_day 设为 true,remind_at 用 "YYYY-MM-DD 00:00",不要自己补 09:00 之类的时刻(全天事项按用户设置的全天提醒时间提醒)。
-        - 重复事项:"每天…"时 repeat_type 为 "daily";"每周一三五…"之类时 repeat_type 为 "weekly",repeat_days 为选中的周几(0=周一 … 6=周日)。repeat_times 为当天的提醒时间点列表,可以有多个(如"每天9点和21点提醒吃药" → ["09:00", "21:00"]);重复事项 remind_at 填第一次提醒的时间。
-        - 无法解析出时间时,返回 {"error": "原因"}。
-    """.trimIndent()
-
-    private val formatAndRules = "返回格式(不适用的字段用默认值):\n$taskSchema\n\n$taskRules"
-
-    /** 联网搜索 skill,与 iOS AgentSkillStore 的 webSearch skill 逐字一致
-     * (包括下面 answer 判断规则里"且和新建/修改待办、收藏/查记忆都无关"这一句——
-     * Android 现在也有记忆功能了,不能再省掉这个排除条件,否则 memoryEnabled
-     * 同时开启时,一句话里同时问"待办安排"之外的一般性问题、又想查记忆,
-     * 可能被错误地当成 answer 处理);仅 webSearchEnabled(配置了 Tavily key)
-     * 时拼进 command() 的 system prompt。 */
-    private val webSearchSkill = """
-        额外支持的工具:
-        - 联网搜索:{"thought": "为什么需要搜", "tool": "web_search", "query": "要搜索的关键词"}(仅在需要查最新/实时/你不确定的信息时用;每次交流最多用一次,拿到搜索结果后必须在下一轮给出真正的最终答案——action 列表或反问,不能连续再搜、也不能一直用这个占位不给结果)
-        - 抓取链接内容:{"thought": "为什么需要看这个链接", "tool": "web_fetch", "url": "用户给的链接原样"}(用户直接给了一个具体链接、要你总结/回答链接里的内容时用,直接抓取该链接本身,不要把链接当关键词去 web_search;同样每次交流最多用一次,拿到页面内容后必须在下一轮给出真正的最终答案)
-
-        额外判断规则:
-        - 涉及待办本身的问题(如"我明天有什么安排""这个事项还有多久到期")按当前待办列表自己回答,不需要联网搜索。
-        - 用户消息里包含具体链接(http/https 开头)且意图是了解/总结该链接内容时,用 web_fetch 直接抓取那个链接,不要用 web_search 搜链接文字本身。
-        - 需要最新/实时信息(新闻、天气、价格、赛事结果等)但没有具体链接、或你不确定答案是否过时时,用 web_search 查关键词,不要凭空编内容;已经拿到搜索/抓取结果的,直接用结果内容给最终答案,不要重复搜/重复抓。
-    """.trimIndent()
-
-    /** 记忆 skill:与 iOS AgentSkillStore.defaultMemory 共享的子集(memorize/
-     * ask_memory/suggest_memorize/search_memory 及各自的判断规则)逐字一致,
-     * 资产/人脉子功能目前仅 iOS 有、这份文案本身没提到它们不需要额外裁剪;
-     * 但 iOS 独有的 auto_memorize(对话中顺带记录重点事实,见 CLAUDE.md)及其
-     * 判断规则、以及那条与 remember_preference 互斥的说明,Android 没有对应
-     * 功能,不在这份文案里——不是遗漏,是这份 skill 是 iOS 全文的一个真子集,
-     * 不要理解成"完全逐字对齐"。仅 memoryEnabled(记忆数据层已接入)时拼进
-     * command() 的 system prompt。 */
-    private val memorySkill = """
-        额外支持的操作:
-        - 收藏:{"action": "memorize", "text": "要收藏的内容原文"}
-        - 查记忆:{"action": "ask_memory", "question": "用户想查询收藏的问题"}
-        - 主动建议收藏(不是用户直接要求,是你判断这条信息以后可能有用):{"action": "suggest_memorize", "text": "建议收藏的内容,客观简洁"}
-        - 先查记忆再回答:{"thought": "为什么需要先查", "tool": "search_memory", "query": "要查的内容"}(只在新建/修改事项要填的具体内容来自以前存的记忆、但你还不知道那段内容具体是什么时用;每次交流最多用一次,拿到查询结果后必须在下一轮给出真正的最终答案——action 列表或反问,不能连续再查、也不能一直用这个占位不给结果)
-
-        额外判断规则:
-        - 用户明确要求"记住/收藏/存一下"一段内容本身(而不是要提醒做某事)→ memorize,text 原样保留内容部分,只去掉"帮我记住"这类指令词,不要改写、不要总结;可与其他操作并存(如"明天9点开会,再记住门禁码1234"→ 一条 create + 一条 memorize)。
-        - "记得提醒我…""帮我记住明天要交报告"这类带时间、语义是提醒做某事的,仍按 create 处理,不算收藏。
-        - 用户没有要求收藏,但这句话*唯一*的意图是陈述一条看起来长期有效的偏好/习惯/事实(如"我周三下午一般没空""我对海鲜过敏")→ suggest_memorize,此时整个 actions 只放这一条,不与其他操作混用;大多数对话不需要这条,只在信息明显值得长期记住时才提,不要每句话都建议。用户当次消息如果同时有别的待办/新建/查询意图,只处理那些,不要附带这条建议。
-        - 用户在询问以前收藏/记过的内容(如"我之前存的 wifi 密码是多少""收藏里有没有关于爬山的")→ ask_memory,此时整个 actions 只放这一条,不与其他操作混用;询问待办安排(如"我明天有什么事")不算查记忆。
-        - 用户要新建/修改的事项,内容细节依赖以前存的记忆(如"参考我存的装备清单新建一个待办")且你还没看到那段记忆具体写了什么 → 先用 search_memory 查,不要凭空编内容;已经在对话历史里看到查询结果的,直接用结果里的内容给最终答案,不要重复查。
-    """.trimIndent()
+    /** 新建/编辑共用的字段格式与规则 = todo skill(同 iOS parse/edit 用 todoContent)。 */
+    private fun formatAndRules(projects: List<String> = emptyList()) =
+        "返回格式(不适用的字段用默认值):\n" + AgentSkillStore.todoContent(projects)
 
     /** AI 个性块:只影响面向用户的文字(反问/汇总/洞察),不影响 JSON 结构。 */
     private fun personaBlock(config: AIConfig): String =
         config.persona?.let { "\n\n说话风格(仅影响面向用户的文字,不得改变 JSON 结构与字段值):$it" } ?: ""
 
-    private fun timeContext(): String {
+    fun timeContext(): String {
         val now = LocalDateTime.now()
         val weekdays = "一二三四五六日"
         return "当前时间:${now.format(dateFormatter)}(星期${weekdays[now.dayOfWeek.value - 1]})"
     }
 
     /** 自然语言 → 新事项字段。 */
-    suspend fun parse(config: AIConfig, text: String): ParsedTask {
+    suspend fun parse(config: AIConfig, text: String, projects: List<String> = emptyList()): ParsedTask {
         val system = "你是提醒事项应用 lodo 的解析助手。用户会用自然语言描述一个提醒事项," +
             "你需要解析出结构化信息,只返回 JSON,不要任何其他文字。\n\n" +
-            "${timeContext()}\n\n$formatAndRules"
+            "${timeContext()}\n\n${formatAndRules(projects)}"
         return parsePayload(complete(config, system, text))
     }
 
@@ -188,173 +184,270 @@ object DeepSeekClient {
         val system = "你是提醒事项应用 lodo 的编辑助手。给定一个现有事项和用户的修改指令," +
             "输出修改后的完整事项,只返回 JSON,不要任何其他文字。" +
             "用户没有提到的字段一律保持原值;无法理解指令时返回 {\"error\": \"原因\"}。\n\n" +
-            "${timeContext()}\n\n现有事项:\n${taskJson(current)}\n\n$formatAndRules"
+            "${timeContext()}\n\n现有事项:\n${taskJson(current)}\n\n${formatAndRules()}"
         return parsePayload(complete(config, system, instruction))
     }
 
-    /**
-     * AI 总入口:给定当前待办列表,把用户的一句话解析成一组操作
-     * (新建/修改/完成/删除,可多条),或在关键信息缺失时反问。
-     * prompt 与 iOS DeepSeekClient.command 逐字一致(webSearchEnabled 开启时
-     * 额外拼入联网搜索 skill,和 iOS 的拼接顺序一致)。这是"AI 助手"对话入口,
-     * 按设置里的思考强度传 reasoning_effort(thinking = true),不影响解析/
-     * 汇总等其他后台小请求的响应速度。
-     */
-    suspend fun command(
-        config: AIConfig,
-        text: String,
-        allTasks: List<Pair<String, ParsedTask>>,
-        webSearchEnabled: Boolean = false,
-        memoryEnabled: Boolean = false,
-    ): AICommandResult {
-        // token 预算:按提醒时间取最近 50 条进 prompt
-        val tasks = allTasks.sortedBy { it.second.remindAt }.take(50)
+    /** 实际生效的能力 = 调用方能力 ∧ skill 开关;prompt 拼装和解析共用这一组值。 */
+    fun effectiveCaps(caps: CommandCapabilities) = CommandCapabilities(
+        memory = caps.memory && AgentSkillStore.isEnabled(AgentSkillId.MEMORY),
+        webSearch = caps.webSearch && AgentSkillStore.isEnabled(AgentSkillId.WEB_SEARCH),
+        health = caps.health && AgentSkillStore.isEnabled(AgentSkillId.HEALTH),
+        travel = caps.travel && AgentSkillStore.isEnabled(AgentSkillId.TRAVEL),
+        tripPlan = caps.tripPlan && AgentSkillStore.isEnabled(AgentSkillId.TRIP_PLANNER),
+        news = caps.news && AgentSkillStore.isEnabled(AgentSkillId.NEWS),
+        countdown = caps.countdown && AgentSkillStore.isEnabled(AgentSkillId.COUNTDOWN),
+        assets = caps.assets && AgentSkillStore.isEnabled(AgentSkillId.ASSET_LEDGER),
+        feeds = caps.feeds && AgentSkillStore.isEnabled(AgentSkillId.FEEDS),
+    )
+
+    private val dayOnly = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+    private fun countdownList(entries: List<CountdownPromptEntry>): String = JSONArray().apply {
+        entries.forEach { e ->
+            val f = if (e.allDay) dayOnly else dateFormatter
+            put(JSONObject().put("id", e.id).put("title", e.title).put("start", e.start.format(f))
+                .put("all_day", e.allDay).put("show_in_widget", e.showInWidget).apply {
+                    if (e.archived) put("archived", true)
+                    e.end?.let { put("end", it.format(f)) }
+                    if (e.startReminders.isNotEmpty()) put("start_reminders", JSONArray(e.startReminders))
+                    if (e.endReminders.isNotEmpty()) put("end_reminders", JSONArray(e.endReminders))
+                })
+        }
+    }.toString()
+
+    private fun assetList(entries: List<AssetPromptEntry>): String = JSONArray().apply {
+        entries.forEach { e ->
+            put(JSONObject().put("id", e.id).put("title", e.title).put("category", e.category)
+                .put("currency", e.currency).put("updated", e.updatedAt.format(dayOnly)).apply {
+                    e.value?.let { put("value", it) }
+                    e.liability?.let { put("liability", it) }
+                    e.interestRate?.let { put("interest_rate", it) }
+                })
+        }
+    }.toString()
+
+    private fun feedList(entries: List<FeedPromptEntry>): String = JSONArray().apply {
+        entries.forEach { e ->
+            put(JSONObject().put("id", e.id).put("title", e.title).put("url", e.url).put("kind", e.kind)
+                .apply { if (!e.enabled) put("enabled", false) })
+        }
+    }.toString()
+
+    /** command 实际发给模型的 system prompt(设置里「查看最终 Prompt」与真实请求共用),
+     * 拼接顺序同 iOS commandSystemPrompt。 */
+    fun commandSystemPrompt(config: AIConfig, ctx: CommandContext): String {
+        val caps = effectiveCaps(ctx.caps)
         val list = JSONArray()
-        tasks.forEach { (uuid, task) -> list.put(taskJson(task).put("uuid", uuid)) }
-        val system = "你是提醒事项应用 lodo 的智能入口。给定当前待办事项列表和用户的一句话," +
-            "解析出要执行的操作列表,只返回 JSON,不要任何其他文字。\n\n" +
-            "支持的操作(action):\n" +
-            "- 新建:{\"action\": \"create\", ...事项字段}\n" +
-            "- 修改:{\"action\": \"update\", \"uuid\": \"原样取自当前待办列表,不要自己生成\", ...事项字段}" +
-            "(输出修改后的完整字段值,用户没有提到的字段一律保持原值)\n" +
-            "- 完成:{\"action\": \"complete\", \"uuid\": \"原样取自当前待办列表\"}\n" +
-            "- 删除:{\"action\": \"delete\", \"uuid\": \"原样取自当前待办列表\"}\n" +
-            // answer 不跟着联网搜索开关走:"直接回话"是聊天入口的基本能力,
-            // 绑在 Tavily key 上的话,没配 key 的用户一句闲聊就会让模型交白卷。
-            "- 直接回答:{\"action\": \"answer\", \"text\": \"给用户的完整回答\"}" +
-            "(用户说的话里没有要执行的待办操作——一般性问题、闲聊等——都用这条回话," +
-            "不要返回空的 actions)\n\n" +
-            "判断规则:\n" +
-            "- 一句话里包含多件事时返回多个操作,如\"明天上午开会,周五交报告\"→ 两条 create。\n" +
-            "- 修改/完成/删除按标题语义匹配列表中的事项(\"开会完成了\"→ complete," +
-            "\"把取快递删了\"→ delete);匹配不到时返回 {\"error\": \"原因\"}。\n" +
-            "- 新建缺少关键时间信息且无法按常理推断时(如只说\"提醒我交材料\"),不要猜," +
-            "改为反问:{\"question\": \"要问用户的问题\", \"options\": [\"候选补充1\", \"候选补充2\", \"候选补充3\"]}," +
-            "options 给 2-3 个具体可直接采用的补充(如\"明天 09:00\")。\n" +
-            "- 用户提出一般性问题(如\"这个词是什么意思\")或只是闲聊 → answer," +
-            "此时整个 actions 只放这一条,不与其他操作混用(一句话里同时有新建待办和提问时," +
-            "只处理新建待办,提问可以重新单独问)。\n" +
-            "- 无法解析时返回 {\"error\": \"原因\"}。\n\n" +
-            "${timeContext()}\n\n当前待办列表:\n$list\n\n" +
-            "返回格式(二选一):\n" +
-            "{\"actions\": [操作, ...]}\n" +
-            "{\"question\": \"...\", \"options\": [\"...\", \"...\"]}\n\n" +
-            "事项字段:\n$taskSchema\n\n$taskRules" +
-            (if (webSearchEnabled) "\n\n$webSearchSkill" else "") +
-            (if (memoryEnabled) "\n\n$memorySkill" else "") + personaBlock(config)
-        val payload = complete(config, system, text, thinking = true)
-        return parseCommandResult(payload, tasks.map { it.first }.toSet(), webSearchEnabled, memoryEnabled)
+        ctx.tasks.take(50).forEach { (uuid, task) -> list.put(taskJson(task).put("uuid", uuid)) }
+        fun block(on: Boolean, id: AgentSkillId) = if (on) "\n\n" + AgentSkillStore.content(id) else ""
+        val countdownBlock = if (caps.countdown) "\n\n" + AgentSkillStore.content(AgentSkillId.COUNTDOWN) +
+            "\n\n当前倒数日列表:\n" + (if (ctx.countdowns.isEmpty()) "(还没有)" else countdownList(ctx.countdowns)) else ""
+        val assetBlock = if (caps.assets) "\n\n" + AgentSkillStore.content(AgentSkillId.ASSET_LEDGER) +
+            "\n\n当前资产列表:\n" + (if (ctx.assets.isEmpty()) "(还没有)" else assetList(ctx.assets)) else ""
+        val feedBlock = if (caps.feeds) "\n\n" + AgentSkillStore.content(AgentSkillId.FEEDS) +
+            "\n\n当前订阅列表:\n" + (if (ctx.feeds.isEmpty()) "(还没有)" else feedList(ctx.feeds)) else ""
+        val preferences = ctx.preferences?.takeIf { it.isNotBlank() }?.let {
+            "\n\n用户偏好(你以前记下的,除非这次用户明确另说,否则一律遵守):\n$it"
+        } ?: ""
+        val focus = ctx.pageFocus?.let { "\n\n$it" } ?: ""
+        val summary = ctx.summary?.takeIf { it.isNotBlank() }?.let {
+            "\n\n更早对话的摘要(更久以前聊过的,已经压缩过;对话历史里找不到的上下文从这里找):\n$it"
+        } ?: ""
+        val history = if (ctx.history.isEmpty()) "" else
+            "\n\n对话历史(供理解上下文用,不要重复执行历史里已经完成的操作):\n" +
+                ctx.history.joinToString("\n") { (role, content) -> (if (role == "user") "用户" else "助手") + ":" + content }
+        return AgentSkillStore.content(AgentSkillId.AGENT) + "\n\n" +
+            AgentSkillStore.todoContent(ctx.existingProjects) +
+            block(caps.memory, AgentSkillId.MEMORY) + block(caps.webSearch, AgentSkillId.WEB_SEARCH) +
+            block(caps.health, AgentSkillId.HEALTH) + block(caps.travel, AgentSkillId.TRAVEL) +
+            block(caps.tripPlan, AgentSkillId.TRIP_PLANNER) + block(caps.news, AgentSkillId.NEWS) +
+            countdownBlock + assetBlock + feedBlock +
+            "\n\n" + timeContext() + preferences + focus +
+            "\n\n当前待办列表:\n" + list + personaBlock(config) + summary + history
     }
 
-    /** 从 payload 里解析总入口结果(单测入口)。webSearchEnabled/memoryEnabled ==
-     * false 时对应的工具/action 按未知工具/action 处理(即使模型幻觉出来,也保持
-     * 旧行为——prompt 里根本没提过,幻觉概率很低)。 */
+    /**
+     * AI 总入口:给定当前待办列表和上下文,把用户的一句话解析成操作,或在关键信息缺失时
+     * 用提问卡反问。prompt 拼装同 iOS(总则 + 待办 + 按能力拼入的 skill + 清单 + 时间/偏好/
+     * 页面焦点 + 待办列表 + 个性 + 摘要 + 历史)。这是"AI 助手"对话入口,按设置里的思考
+     * 强度传 reasoning_effort。模型用 {"error": "原因"} 表示没有能执行的操作时,当成回话。
+     */
+    suspend fun command(config: AIConfig, text: String, ctx: CommandContext): AICommandResult {
+        val system = commandSystemPrompt(config, ctx)
+        val caps = effectiveCaps(ctx.caps)
+        val payload = try {
+            complete(config, system, text, timeoutSeconds = 90, thinking = true)
+        } catch (e: ModelErrorException) {
+            val message = e.message.orEmpty().removePrefix(Strings.translate("无法解析:", CurrentLang.value)).trim()
+            if (message.isNotEmpty()) return AICommandResult.Actions(listOf(AIAction.Answer(message)))
+            throw e
+        }
+        val result = parseCommandResult(
+            payload, ctx.tasks.take(50).map { it.first }.toSet(), caps.webSearch, caps.memory,
+            health = caps.health, travel = caps.travel, tripPlan = caps.tripPlan, news = caps.news,
+            countdown = caps.countdown, validCountdownIds = ctx.countdowns.map { it.id },
+            assets = caps.assets, validAssetIds = ctx.assets.map { it.id },
+            feeds = caps.feeds, validFeedIds = ctx.feeds.map { it.id },
+        )
+        return guardMisdirectedUpdates(result, ctx.tasks, text)
+    }
+
+    /** 防"张冠李戴"(同 iOS guardMisdirectedUpdates):一条 update 把标题换成了毫不相干的
+     * 另一件事、用户这句话里又没提到原来那件事,改成新建,原事项不动。 */
+    internal fun guardMisdirectedUpdates(
+        result: AICommandResult, tasks: List<Pair<String, ParsedTask>>, userText: String,
+    ): AICommandResult {
+        if (result !is AICommandResult.Actions) return result
+        val userGrams = bigrams(userText)
+        return AICommandResult.Actions(result.actions.map { action ->
+            if (action !is AIAction.Update) return@map action
+            val original = tasks.firstOrNull { it.first == action.uuid }?.second ?: return@map action
+            if (original.title == action.task.title) return@map action
+            val old = bigrams(original.title)
+            if (old.isEmpty() || old.any { it in bigrams(action.task.title) } || old.any { it in userGrams }) action
+            else AIAction.Create(action.task)
+        })
+    }
+
+    internal fun bigrams(text: String): Set<String> {
+        val chars = text.lowercase().filter { it.isLetterOrDigit() }.map { it.toString() }
+        if (chars.size <= 1) return chars.toSet()
+        return (0 until chars.size - 1).map { chars[it] + chars[it + 1] }.toSet()
+    }
+
+    private fun parseToolCall(
+        raw: JSONObject, name: String, webSearchEnabled: Boolean, memoryEnabled: Boolean,
+        health: Boolean, travel: Boolean, news: Boolean,
+    ): AICommandResult.ToolCall? {
+        val thought = raw.optString("thought")
+        fun err(detail: String): Nothing =
+            throw DeepSeekException(Strings.translate("无法解析:返回格式异常:$detail", CurrentLang.value))
+        return when {
+            name == "web_search" && webSearchEnabled -> {
+                val query = raw.optString("query").trim()
+                if (query.isBlank()) err("web_search 缺少 query")
+                AICommandResult.ToolCall(thought, AITool.WebSearch(query))
+            }
+            name == "web_fetch" && webSearchEnabled -> {
+                val url = raw.optString("url").trim()
+                if (url.isBlank()) err("web_fetch 缺少 url")
+                AICommandResult.ToolCall(thought, AITool.WebFetch(url))
+            }
+            name == "search_memory" && memoryEnabled -> {
+                val query = raw.optString("query").trim()
+                if (query.isBlank()) err("search_memory 缺少 query")
+                AICommandResult.ToolCall(thought, AITool.SearchMemory(query))
+            }
+            name == "read_health" && health -> {
+                val days = raw.optString("days").trim().toIntOrNull() ?: 7
+                AICommandResult.ToolCall(thought, AITool.ReadHealth(days.coerceIn(1, 90)))
+            }
+            name == "read_trip" && travel -> AICommandResult.ToolCall(thought, AITool.ReadTrip(raw.optString("name").trim()))
+            name == "search_news" && news -> AICommandResult.ToolCall(thought, AITool.SearchNews(raw.optString("query").trim()))
+            else -> null
+        }
+    }
+
+    /** 从 payload 里解析总入口结果(单测入口)。各能力为 false 时对应的工具/action 按未知处理
+     * (即使模型幻觉出来也不认),同 iOS parseCommand。 */
     internal fun parseCommandResult(
         payload: JSONObject, validUuids: Set<String>, webSearchEnabled: Boolean,
         memoryEnabled: Boolean = false,
+        health: Boolean = false, travel: Boolean = false, tripPlan: Boolean = false, news: Boolean = false,
+        countdown: Boolean = false, validCountdownIds: List<String> = emptyList(),
+        assets: Boolean = false, validAssetIds: List<String> = emptyList(),
+        feeds: Boolean = false, validFeedIds: List<String> = emptyList(),
+        now: LocalDateTime = LocalDateTime.now(),
     ): AICommandResult {
-        payload.optString("question").takeIf { it.isNotEmpty() }?.let { question ->
+        payload.optJSONArray("ask")?.takeIf { it.length() > 0 }?.let { return AICommandResult.Ask(parseAsk(it)) }
+        // 老格式单问题反问:折算成一道题。
+        payload.optString("question").takeIf { it.isNotEmpty() && !payload.has("actions") }?.let { question ->
             val options = payload.optJSONArray("options")?.let { arr ->
                 (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotEmpty) }
             } ?: emptyList()
-            return AICommandResult.Clarify(question, options)
+            return AICommandResult.Ask(listOf(AskQuestion("", question, false, options.map { AskOption(it) })))
         }
-        // ReAct 中间步骤:webSearchEnabled == false 时 prompt 里根本没提过这个
-        // 选项,模型幻觉出来也不认——落到下面 actions 解析,大概率报"缺少 actions"。
-        if (webSearchEnabled) {
-            payload.optString("tool").takeIf { it == "web_search" }?.let {
-                val thought = payload.optString("thought")
-                val query = payload.optString("query")
-                if (query.isBlank()) {
-                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:web_search 缺少 query", CurrentLang.value))
-                }
-                return AICommandResult.ToolCall(thought, AITool.WebSearch(query))
-            }
-            payload.optString("tool").takeIf { it == "web_fetch" }?.let {
-                val thought = payload.optString("thought")
-                val url = payload.optString("url")
-                if (url.isBlank()) {
-                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:web_fetch 缺少 url", CurrentLang.value))
-                }
-                return AICommandResult.ToolCall(thought, AITool.WebFetch(url))
+        val anyTool = webSearchEnabled || memoryEnabled || health || travel || news
+        if (anyTool) {
+            payload.optString("tool").takeIf { it.isNotEmpty() }?.let { name ->
+                return parseToolCall(payload, name, webSearchEnabled, memoryEnabled, health, travel, news)
+                    ?: throw DeepSeekException(
+                        Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value) + " $name")
             }
         }
-        if (memoryEnabled) {
-            payload.optString("tool").takeIf { it == "search_memory" }?.let {
-                val thought = payload.optString("thought")
-                val query = payload.optString("query")
-                if (query.isBlank()) {
-                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:search_memory 缺少 query", CurrentLang.value))
-                }
-                return AICommandResult.ToolCall(thought, AITool.SearchMemory(query))
-            }
+        var rawActions = payload.optJSONArray("actions")
+        // 单条操作直接摊在顶层、漏了 actions 外壳:当成只有一条处理。
+        if ((rawActions == null || rawActions.length() == 0) && payload.optString("action").isNotEmpty()) {
+            rawActions = JSONArray().put(payload)
         }
-        val rawActions = payload.optJSONArray("actions")
-            ?: throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 actions", CurrentLang.value))
-        if (rawActions.length() == 0) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 actions", CurrentLang.value))
-        val actions = (0 until rawActions.length()).map { i ->
+        if (rawActions == null || rawActions.length() == 0) {
+            // 没有任何操作、却捎了一句话回来:这是它在回话,不是故障。
+            listOf("reply", "answer", "text", "message", "response", "content")
+                .firstNotNullOfOrNull { payload.optString(it).trim().takeIf { t -> t.isNotEmpty() } }
+                ?.let { return AICommandResult.Actions(listOf(AIAction.Answer(it))) }
+            throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 actions", CurrentLang.value))
+        }
+        // ReAct 工具被塞进 actions 数组且只有这一条:按工具调用处理。
+        if (rawActions.length() == 1 && anyTool) {
+            val only = rawActions.optJSONObject(0)
+            val name = only?.optString("tool")?.takeIf { it.isNotEmpty() } ?: only?.optString("action").orEmpty()
+            if (only != null) parseToolCall(only, name, webSearchEnabled, memoryEnabled, health, travel, news)?.let { return it }
+        }
+        val actions = mutableListOf<AIAction>()
+        for (i in 0 until rawActions.length()) {
             val raw = rawActions.getJSONObject(i)
-            fun validUuid(): String {
-                val uuid = raw.optString("uuid")
-                if (uuid !in validUuids) {
-                    throw DeepSeekException(Strings.translate("无法解析:找不到要操作的事项", CurrentLang.value))
-                }
-                return uuid
+            fun validUuid(): String = canonicalId(raw.optString("uuid"), validUuids)
+                ?: throw DeepSeekException(Strings.translate("无法解析:找不到要操作的事项", CurrentLang.value))
+            fun unknown(name: String): Nothing = throw DeepSeekException(
+                Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value) +
+                    (if (name.isNotEmpty()) " $name" else ""))
+            fun nonEmpty(key: String, detail: String): String = raw.optString(key).trim().ifEmpty {
+                throw DeepSeekException(Strings.translate("无法解析:返回格式异常:$detail", CurrentLang.value))
             }
             when (val action = raw.optString("action")) {
-                "create" -> AIAction.Create(parsePayload(raw))
-                "update" -> AIAction.Update(validUuid(), parsePayload(raw))
-                "complete" -> AIAction.Complete(validUuid())
-                "delete" -> AIAction.Delete(validUuid())
-                // answer 不受 webSearchEnabled 门控,理由见 command() 里那段注释。
-                "answer" -> {
-                    val answerText = raw.optString("text").trim()
-                    if (answerText.isEmpty()) {
-                        throw DeepSeekException(
-                            Strings.translate("无法解析:返回格式异常:回答内容为空", CurrentLang.value))
+                "create" -> actions += AIAction.Create(parsePayload(raw))
+                "update" -> actions += AIAction.Update(validUuid(), parsePayload(raw))
+                "complete" -> actions += AIAction.Complete(validUuid())
+                "delete" -> actions += AIAction.Delete(validUuid())
+                "answer" -> actions += AIAction.Answer(nonEmpty("text", "回答内容为空"))
+                "remember_preference" -> actions += AIAction.RememberPreference(nonEmpty("text", "偏好内容为空"))
+                "memorize" -> if (memoryEnabled) actions += AIAction.Memorize(nonEmpty("text", "收藏内容为空")) else unknown(action)
+                "suggest_memorize" -> if (memoryEnabled) actions += AIAction.SuggestMemorize(nonEmpty("text", "建议收藏内容为空")) else unknown(action)
+                "ask_memory" -> if (memoryEnabled) actions += AIAction.AskMemory(nonEmpty("question", "查询问题为空")) else unknown(action)
+                "auto_memorize" -> if (memoryEnabled) {
+                    val title = raw.optString("title").trim()
+                    val text = raw.optString("text").trim()
+                    if (title.isEmpty() || text.isEmpty()) {
+                        throw DeepSeekException(Strings.translate("无法解析:返回格式异常:自动记录内容为空", CurrentLang.value))
                     }
-                    AIAction.Answer(answerText)
-                }
-                "memorize" -> if (memoryEnabled) {
-                    val text2 = raw.optString("text").trim()
-                    if (text2.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:收藏内容为空", CurrentLang.value))
-                    AIAction.Memorize(text2)
-                } else {
-                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
-                }
-                "suggest_memorize" -> if (memoryEnabled) {
-                    val text2 = raw.optString("text").trim()
-                    if (text2.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:建议收藏内容为空", CurrentLang.value))
-                    AIAction.SuggestMemorize(text2)
-                } else {
-                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
-                }
-                "ask_memory" -> if (memoryEnabled) {
-                    val question = raw.optString("question").trim()
-                    if (question.isEmpty()) throw DeepSeekException(Strings.translate("无法解析:返回格式异常:查询问题为空", CurrentLang.value))
-                    AIAction.AskMemory(question)
-                } else {
-                    throw DeepSeekException(Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value))
-                }
-                else -> throw DeepSeekException(
-                    Strings.translate("无法解析:返回格式异常:未知 action", CurrentLang.value) + " $action")
+                    actions += AIAction.AutoMemorize(title, text)
+                } else unknown(action)
+                "plan_trip" -> if (tripPlan) actions += AIAction.PlanTrip(parseTripPlan(raw, now)) else unknown(action)
+                "edit_trip" -> if (travel) actions += AIAction.EditTrip(parseTripEdit(raw)) else unknown(action)
+                "create_countdown", "update_countdown", "delete_countdown" ->
+                    if (countdown) actions += AIAction.Countdown(parseCountdownOp(raw, action, validCountdownIds)) else unknown(action)
+                "create_asset", "update_asset" ->
+                    if (assets) actions += AIAction.Asset(parseAssetOp(raw, action, validAssetIds)) else unknown(action)
+                "subscribe_feed", "update_feed" ->
+                    if (feeds) parseFeedOps(raw, action, validFeedIds).forEach { actions += AIAction.Feed(it) } else unknown(action)
+                else -> unknown(action)
             }
         }
-        // 归一化:prompt 已要求 answer/ask_memory/suggest_memorize 这类"陈述性"
-        // 结果单独出现,这里是模型不守规矩时的确定性兜底——和写操作混合时丢弃、
-        // 只留写操作(写操作是用户要落地的事不能丢,提问可以重新问);全是陈述性
-        // 结果时只留第一条,与 iOS route() 的归一化规则一致。
-        val informational = actions.filter {
-            it is AIAction.Answer || it is AIAction.AskMemory || it is AIAction.SuggestMemorize
+        // 倒数日/资产/订阅:直接执行、不参与问答归一化,排在前面(同 iOS)。
+        val direct = actions.filter { it is AIAction.Countdown || it is AIAction.Asset || it is AIAction.Feed }
+        val rest = actions - direct.toSet()
+        if (rest.isEmpty()) return AICommandResult.Actions(direct)
+        // 归一化:问答类(answer/ask_memory/suggest_memorize/plan_trip/edit_trip)和写操作混在
+        // 一起时丢掉问答类;全是问答类时只留第一条。
+        fun informational(a: AIAction) = a is AIAction.Answer || a is AIAction.AskMemory ||
+            a is AIAction.SuggestMemorize || a is AIAction.PlanTrip || a is AIAction.EditTrip
+        val info = rest.filter(::informational)
+        if (info.isNotEmpty()) {
+            return if (info.size == rest.size) AICommandResult.Actions(direct + rest[0])
+            else AICommandResult.Actions(direct + rest.filterNot(::informational))
         }
-        if (informational.isNotEmpty()) {
-            return if (informational.size == actions.size) {
-                AICommandResult.Actions(listOf(actions[0]))
-            } else {
-                AICommandResult.Actions(actions - informational.toSet())
-            }
-        }
-        return AICommandResult.Actions(actions)
+        return AICommandResult.Actions(direct + rest)
     }
 
     /** 按记忆文件为"没说时长"的新事项建议时长(分钟);无相近类型或明确不需要时返回 0。 */
@@ -522,6 +615,295 @@ object DeepSeekClient {
         return result
     }
 
+    // ---------------- 这一轮从 iOS 移植的 AI 小请求(同 prompt) ----------------
+
+    /** 应用内语言对应的写作语言名。 */
+    fun languageName(): String = if (CurrentLang.value == com.lodo.app.core.Lang.EN) "English" else "中文"
+
+    private fun requireText(payload: JSONObject, key: String): String =
+        payload.optString(key).trim().ifEmpty {
+            throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 $key", CurrentLang.value))
+        }
+
+    /** 总览:一句今天任务的处理建议。 */
+    suspend fun suggestTodayHandling(config: AIConfig, summary: String): String {
+        val system = "你是提醒事项应用 lodo 的今日助手。根据今天的待办列表(可能含到期未处理的)," +
+            "给一句不超过 60 个字的处理建议:侧重优先级和取舍,具体可执行," +
+            "不要\"合理安排时间\"这类空话。只返回 JSON:{\"suggestion\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
+        return requireText(complete(config, system, summary, timeoutSeconds = 60), "suggestion")
+    }
+
+    /** 总览:一句今天新收藏的记忆总结。 */
+    suspend fun summarizeTodayMemories(config: AIConfig, summary: String): String {
+        val system = "你是提醒事项应用 lodo 的记忆助手。根据今天新收藏的记忆条目(标题+摘要)," +
+            "用一句不超过 60 个字的话总结今天收藏了什么、有没有共同点或值得注意的地方。" +
+            "只返回 JSON:{\"summary\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
+        return requireText(complete(config, system, summary, timeoutSeconds = 60), "summary")
+    }
+
+    /** 倒数页顶部那一句。 */
+    suspend fun countdownInsight(config: AIConfig, summary: String): String {
+        val language = languageName()
+        val system = "你是提醒事项应用 lodo 的倒数日助手。下面是用户记下的日子:还没到的(倒数日)和已经" +
+            "过去、在往上数的(正数日,如在一起、入职、宝宝出生),以及它们接下来的节点(周年、整百天)。" +
+            "挑今天**最值得一提**的一两件,用${language}写一句不超过 30 个字(英文不超过 20 个词)的话:像朋友提醒,有温度、具体," +
+            "比如\"在一起马上两周年啦,想想怎么庆祝\"\"还有 5 天考研,稳住\"。\n规则:\n" +
+            "- 每一行是**一件**事,节点(几天后开始、满几周年、满几百天)只属于它那一行;" +
+            "**不要把两件事的节点拼到一起**(A 三天后开始、B 三天后满周年,不能写成\"A 三天后满周年\")。\n" +
+            "- 提到的事用列表里「」中的名字,可以略去修饰但不能换成别的事。\n" +
+            "- 只根据列出的事实写,不编日子、不编数字;没什么特别的就说离得最近的那件。\n" +
+            "只返回 JSON:{\"text\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
+        return requireText(complete(config, system, summary, timeoutSeconds = 60), "text")
+    }
+
+    /** 总览:一句今天的健康提示。 */
+    suspend fun suggestTodayHealth(config: AIConfig, summary: String): String {
+        val system = "你是提醒事项应用 lodo 的健康助手。根据最近几天的健康数据汇总," +
+            "给一句不超过 60 个字的提示:指出一个最值得注意的变化,并给一个具体可做的小建议," +
+            "不要\"注意身体\"\"保持健康\"这类空话。你不是医生,不做诊断、不提药物;" +
+            "数据明显异常时提示去看医生即可。只返回 JSON:{\"suggestion\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
+        return requireText(complete(config, system, summary, timeoutSeconds = 60), "suggestion")
+    }
+
+    data class HealthAnalysis(val analysis: String, val suggestions: List<String>)
+
+    /** 健康页:一段分析 + 最多 3 条建议。 */
+    suspend fun analyzeHealth(config: AIConfig, summary: String, memoryContext: String? = null): HealthAnalysis {
+        val system = "你是提醒事项应用 lodo 的健康助手。根据用户最近几天的健康数据汇总" +
+            "(可能附带用户自己收藏的健康资料),写一段不超过 150 个字的分析:" +
+            "说清楚哪些指标在变好、哪些在变差、可能的原因,再给最多 3 条具体可执行的建议。" +
+            "你不是医生:不做诊断、不推荐药物、不解读化验值的临床意义;" +
+            "发现明显异常时,请建议用户去看医生。" +
+            "只返回 JSON:{\"analysis\": \"一段话\", \"suggestions\": [\"建议1\", \"建议2\"]},不要任何其他文字。" + personaBlock(config)
+        val user = memoryContext?.let { "$summary\n\n用户收藏的健康资料:\n$it" } ?: summary
+        val payload = complete(config, system, user, timeoutSeconds = 90)
+        return HealthAnalysis(requireText(payload, "analysis"), strings(payload.optJSONArray("suggestions")).take(3))
+    }
+
+    private fun strings(arr: JSONArray?): List<String> = arr?.let { a ->
+        (0 until a.length()).mapNotNull { a.optString(it).trim().takeIf(String::isNotEmpty) }
+    } ?: emptyList()
+
+    /** 旅行卡片上那句备注,口径同 plan_trip 的 summary。 */
+    suspend fun suggestTripNote(config: AIConfig, summary: String): String {
+        val system = "你是旅行应用 lodo 的旅行助手。根据这次旅行的名字、日期和行程," +
+            "写一句写在旅行卡片上的话:**20 个字以内**,有人情味,像朋友送行时说的——" +
+            "\"好好享受这趟白雪之旅\"\"慢慢逛,别赶\"\"吃好睡好,把京都的秋天看够\"。" +
+            "不要复述排程逻辑(\"避开航班时段\"\"按地理位置串联\"\"每天安排三个景点\"这类一律不要)," +
+            "不要列行程,不要加引号。只返回 JSON:{\"note\": \"一句话\"},不要任何其他文字。" + personaBlock(config)
+        return requireText(complete(config, system, summary, timeoutSeconds = 60), "note")
+    }
+
+    data class PackingSuggestion(val title: String, val category: String, val reason: String)
+
+    suspend fun suggestPackingList(config: AIConfig, summary: String, existing: List<String>): List<PackingSuggestion> {
+        val language = languageName()
+        val system = "你是旅行应用 lodo 的行李助手。根据用户这次旅行的目的地、日期(季节、天数)和行程" +
+            "(有没有温泉、徒步、海边、正式场合、长途飞行),建议要带的东西,用${language}写。\n\n" +
+            "只返回 JSON:{\"items\": [{\"title\": \"物品\", \"category\": \"分类\", \"reason\": \"为什么带\"}]}," +
+            "不要任何其他文字。\n\n规则:\n- 12 到 30 件,按重要程度排,证件和钱最先。\n" +
+            "- category 从这几个里选:证件、钱与卡、衣物、电子、洗护、药品、其他。\n" +
+            "- title 写具体的东西(\"转换插头(日本 A 型)\"\"薄羽绒服\"),不写\"必需品\"\"衣服若干\"。\n" +
+            "- reason 一句话、15 字以内,说和这趟旅行有关的理由(\"十一月京都早晚凉\"\"有温泉\");" +
+            "人人都带的(牙刷、手机)可以留空。\n- 已有清单里有的不要再建议。"
+        val owned = if (existing.isEmpty()) "(还没有)" else existing.joinToString("、")
+        val payload = complete(config, system, "$summary\n\n已有清单:$owned", timeoutSeconds = 60)
+        val arr = payload.optJSONArray("items")
+            ?: throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 items", CurrentLang.value))
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val title = o.optString("title").trim().ifEmpty { return@mapNotNull null }
+            PackingSuggestion(title, o.optString("category").trim().ifEmpty { "其他" }, o.optString("reason").trim())
+        }
+    }
+
+    data class ParsedTravelItem(
+        val kind: com.lodo.app.core.TravelItemKind, val title: String, val code: String?,
+        val start: LocalDateTime?, val end: LocalDateTime?, val placeName: String?, val originName: String?,
+        val price: Double?, val currency: String?, val note: String, val transport: com.lodo.app.core.TransportDetails?,
+    )
+
+    /** 订单/确认单/行程单文本 → 行程项(调用方先给用户确认再落库)。prompt 同 iOS parseTravelItems。 */
+    suspend fun parseTravelItems(
+        config: AIConfig, text: String, tripTitle: String, tripStart: LocalDateTime, tripEnd: LocalDateTime,
+    ): List<ParsedTravelItem> {
+        val system = """你是旅行助手。从用户给的订单/确认单/行程单/登机牌/航班动态文本里,抽取出所有行程项。文本可能是截图 OCR 出来的,会有断行、串行、错字,按常识理解。
+当前这趟旅行叫「$tripTitle」,日期范围 ${tripStart.format(dateFormatter)} 到 ${tripEnd.format(dateFormatter)}。
+
+只返回 JSON:{"items": [行程项, ...]},不要任何其他文字。每个行程项:
+{"kind": "flight|train|coach|lodging|place", "title": "简短名称", "code": "航班号/车次/订单号,没有就省略", "start": "yyyy-MM-dd HH:mm", "end": "yyyy-MM-dd HH:mm", "place": "主要地点(住宿/地点填它本身,航班/火车/客车填**到达地**)", "origin": "航班/火车/客车的出发地,其余类型省略", "price": 数字, "currency": "ISO 4217 币种码如 CNY/JPY/USD", "note": "补充说明", "flight": 交通补充信息,flight/train/coach 才有,见下}
+
+交通补充信息(航班、火车、客车共用这个对象;每个字段都是可选的,文本里没有就省略,整个对象都没有就省略 flight):
+{"airline": "航空公司/铁路公司/客运公司", "departure_code": "出发机场三字码如 PEK", "arrival_code": "到达机场三字码", "departure_timezone": "出发地时区,IANA 标识如 Asia/Tokyo", "arrival_timezone": "到达地时区,IANA 标识", "departure_terminal": "出发航站楼如 T3", "arrival_terminal": "到达航站楼", "check_in_counter": "值机柜台/值机岛", "gate": "航班填登机口,火车/客车填检票口", "platform": "火车站台,客车填上车点", "carriage": "火车车厢号", "boarding_time": "yyyy-MM-dd HH:mm", "estimated_departure": "yyyy-MM-dd HH:mm", "estimated_arrival": "yyyy-MM-dd HH:mm", "seat": "座位号", "cabin": "航班舱位如 经济舱,火车座席如 二等座/指定席", "aircraft": "机型如 空客A330", "baggage_belt": "行李转盘", "status": "scheduled|check_in|boarding|gate_closed|departed|delayed|arrived|canceled|diverted"}
+
+规则:
+- 往返机票是**两条** flight,别合成一条;火车票、大巴票同理,一程一条。
+- 高铁/动车/城际按 train,长途大巴/机场大巴/旅游巴士按 coach;车次填进 code。
+- 航班的 start/end 填**计划**起降时刻;航班动态里显示的变更后/预计时刻填 estimated_departure/estimated_arrival,不要覆盖到 start/end 上。只有预计时刻、看不到计划时刻时省略 start/end。
+- **所有时刻都照抄票面上的当地时间**:出发时刻是出发地的当地时间,到达时刻是到达地的当地时间,不要换算成别的时区。
+- departure_timezone/arrival_timezone 按出发地、到达地所在城市给出 IANA 时区(北京、上海 → Asia/Shanghai,东京、大阪 → Asia/Tokyo,首尔 → Asia/Seoul,巴黎 → Europe/Paris);城市看不出来就省略,别猜。
+- status 只在文本明确写了状态(如"延误""登机中""已取消")时填,别从时间推断;火车、客车一般没有。
+- 登机口、座位这些照抄原文,读不清就省略,别猜。
+- 住宿的 start 是入住、end 是退房。
+- 年份没写明时按上面给的旅行日期范围推断,不要凭空用今年。
+- 时间拿不准就省略 start/end,别编一个;金额拿不准就省略 price。
+- 文本里没有任何行程信息时返回 {"items": []}。""" + personaBlock(config)
+        return parseTravelPayload(complete(config, system, text, timeoutSeconds = 90))
+    }
+
+    internal fun parseTravelPayload(payload: JSONObject): List<ParsedTravelItem> {
+        val arr = payload.optJSONArray("items")
+            ?: throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 items", CurrentLang.value))
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val kind = com.lodo.app.core.TravelItemKind.from(o.text("kind")) ?: return@mapNotNull null
+            val title = o.text("title") ?: return@mapNotNull null
+            ParsedTravelItem(
+                kind, title, o.text("code"), parsePlanDate(o.text("start")), parsePlanDate(o.text("end")),
+                o.text("place"), o.text("origin"), o.number("price"), o.text("currency")?.uppercase(),
+                o.text("note") ?: "",
+                if (kind.isTransport) com.lodo.app.core.TransportDetails.parse(o.optJSONObject("flight")) else null,
+            )
+        }
+    }
+
+    data class ParsedMenuDish(val originalName: String, val translatedName: String, val intro: String, val category: String, val price: Double?)
+    data class ParsedMenu(val restaurant: String, val sourceLanguage: String, val currency: String?, val dishes: List<ParsedMenuDish>)
+
+    /** 菜单文字(OCR 或粘贴)→ 菜品清单 + 翻译,prompt 同 iOS parseMenu。不给确认页,整理完直接落库。 */
+    suspend fun parseMenu(config: AIConfig, text: String, targetLanguage: String = languageName()): ParsedMenu {
+        val t = targetLanguage
+        val system = """你是点餐助手。用户给的是一张菜单上的文字,可能来自拍照/截图的 OCR,会有断行、串行、错字。把它整理成菜品清单,并翻译成$t。
+
+只返回 JSON:{"restaurant": "店名,菜单上没印就省略", "language": "菜单原文是什么语言,用${t}说,如 日语;认不出来就省略", "currency": "ISO 4217 币种码如 CNY/JPY/EUR,只有符号认不准就省略", "dishes": [菜品, ...]},不要任何其他文字。每道菜:
+{"original": "菜单上的原文名称,照抄不要翻译", "translated": "${t}译名", "category": "分类如 前菜/主菜/甜点/饮品,用${t}写", "price": 数字, "description": "一句不超过 40 字的介绍:主要食材、做法、口味"}
+
+规则:
+- 只整理菜品。店名、地址、电话、营业时间、"本店谢绝自带酒水"这类说明文字都不是菜。
+- original 照抄菜单原文,不要把译名写进去;菜单本来就是${t}时,translated 填和 original 一样的文字。
+- category 优先用菜单上印的分类;菜单没分类就按常识归类,归不出来就省略。
+- description 一定要给:菜单只写了菜名、或者名字看不出是什么(如"月见とろろ")时,按常识补全说明这是什么菜;拿不准就在句子里说明是推测,不要编造具体做法。
+- price 只填数字,不带货币符号;菜单没标价就省略 price,不要填 0。
+- OCR 串行、错字明显的按常识修正成合理的菜名,不要原样保留乱码。
+- 一道菜也读不出来时返回 {"dishes": []}。""" + personaBlock(config)
+        return parseMenuPayload(complete(config, system, text, timeoutSeconds = 90))
+    }
+
+    internal fun parseMenuPayload(payload: JSONObject): ParsedMenu {
+        val arr = payload.optJSONArray("dishes")
+            ?: throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 dishes", CurrentLang.value))
+        val dishes = (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val original = o.text("original") ?: o.text("translated") ?: return@mapNotNull null
+            val price = o.number("price") ?: o.text("price")?.filter { it.isDigit() || it == '.' }?.toDoubleOrNull()
+            ParsedMenuDish(original, o.text("translated") ?: "", o.text("description") ?: "", o.text("category") ?: "", price)
+        }
+        return ParsedMenu(payload.text("restaurant") ?: "", payload.text("language") ?: "", payload.text("currency")?.uppercase(), dishes)
+    }
+
+    data class ArticleSummary(val summary: String, val points: List<String>) {
+        fun toJson(): String = JSONObject().put("summary", summary).put("points", JSONArray(points)).toString()
+
+        companion object {
+            fun decode(json: String?): ArticleSummary? = json?.let {
+                runCatching {
+                    val o = JSONObject(it)
+                    ArticleSummary(o.optString("summary"), (0 until (o.optJSONArray("points")?.length() ?: 0))
+                        .map { i -> o.getJSONArray("points").optString(i) })
+                }.getOrNull()
+            }
+        }
+    }
+
+    suspend fun summarizeArticle(config: AIConfig, title: String, source: String, text: String, language: String = languageName()): ArticleSummary {
+        val system = "你是阅读助手。用户给你一篇文章(标题、来源和正文,正文可能是网页抽出来的纯文本," +
+            "夹着导航、广告、评论等无关文字,忽略它们),用${language}总结。\n\n" +
+            "只返回 JSON:{\"summary\": \"两三句话讲清这篇文章说了什么、结论是什么\", " +
+            "\"points\": [\"要点\", ...]},不要任何其他文字。\n\n规则:\n" +
+            "- summary 不超过 120 字;points 3 到 5 条,每条不超过 40 字,讲具体事实、数字、观点," +
+            "不写\"文章介绍了…\"这种空话。\n" +
+            "- 原文是别的语言时照样用${language}总结,专有名词第一次出现可以括号带原文。\n" +
+            "- 只根据给的内容总结,不补充文章里没有的信息;正文只有一两句时就照实简短总结。"
+        val payload = complete(config, system, "标题:$title\n来源:$source\n\n正文:\n${text.take(12000)}", timeoutSeconds = 60)
+        return ArticleSummary(requireText(payload, "summary"), strings(payload.optJSONArray("points")).take(5))
+    }
+
+    data class NewsDigestItem(val title: String, val detail: String, val refs: List<Int>)
+    data class NewsDigest(val overview: String, val items: List<NewsDigestItem>)
+
+    suspend fun newsDigest(config: AIConfig, headlines: String, language: String = languageName()): NewsDigest {
+        val system = "你是新闻编辑。下面是用户订阅的新闻和博客里最近的文章清单(每行开头是编号," +
+            "后面是来源、标题、时间、摘要)。只挑出今天**最重要**的几件事,写成一份简报。\n\n" +
+            "只返回 JSON:{\"overview\": \"一句话概括今天最重要的事,不超过 40 字\", " +
+            "\"items\": [{\"title\": \"这件事本身,一句话说清发生了什么\", " +
+            "\"detail\": \"关键事实和影响,不超过 60 字\", \"refs\": [这条依据的文章编号]}]}," +
+            "不要任何其他文字。\n\n规则:\n" +
+            "- refs 写这条依据的是清单里哪几篇(编号,1 到 3 个),只写真的讲了这件事的那几篇。\n" +
+            "- items 3 到 5 条,按重要程度排,最重要的放第一条;多个来源讲同一件事的合并成一条。\n" +
+            "- 只写事情本身,**不写来源、媒体名、作者**,也不写\"某某报道\"\"据某某\"。\n" +
+            "- 重要程度看影响面和新鲜度:政策、市场、行业大事、重大发布优先;软文、清单、" +
+            "个人随笔、周刊目录这类没有\"事\"的内容不要选。\n" +
+            "- 用${language}写,别的语言的标题翻译过来;只根据清单里的内容写,不编造清单里没有的细节。\n" +
+            "- 清单里只有零星几条时就照实少写,不要凑数。" + personaBlock(config)
+        val payload = complete(config, system, headlines, timeoutSeconds = 60)
+        val arr = payload.optJSONArray("items") ?: JSONArray()
+        val items = (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val title = o.text("title") ?: return@mapNotNull null
+            val refsArr = o.optJSONArray("refs") ?: JSONArray()
+            val refs = (0 until refsArr.length()).mapNotNull { j ->
+                when (val v = refsArr.opt(j)) {
+                    is Number -> v.toInt()
+                    is String -> v.trim('[', ']', ' ').toIntOrNull()
+                    else -> null
+                }
+            }
+            NewsDigestItem(title, o.optString("detail").trim(), refs)
+        }
+        val overview = payload.optString("overview").trim()
+        if (items.isEmpty() && overview.isEmpty()) {
+            throw DeepSeekException(Strings.translate("无法解析:返回格式异常:缺少 items", CurrentLang.value))
+        }
+        return NewsDigest(overview, items)
+    }
+
+    /** 把一段更早的对话压成常驻摘要(滚动摘要),同 iOS summarizeConversation。 */
+    suspend fun summarizeConversation(config: AIConfig, previous: String?, transcript: String): String {
+        val system = "你是提醒事项应用 lodo 的对话记忆整理助手。下面是用户与 AI 助手更早的一段对话," +
+            "请把它压缩成一段摘要,供之后的对话理解上下文。" +
+            "保留:用户说过的事实与偏好、已经执行过的操作及其结果(新建/修改/完成了什么、" +
+            "收藏了什么、规划或调整了哪次行程)、还没了结的话题。" +
+            "丢弃:寒暄、重复的确认、纯粹的客套。用第三人称陈述,不要复述原话。" +
+            (if (previous == null) "" else "已有摘要要一并合并进来,不要丢掉它里面的事实。") +
+            "只返回 JSON:{\"summary\": \"摘要正文\"},不要任何其他文字。"
+        val user = previous?.let { "已有摘要:\n$it\n\n新增对话:\n$transcript" } ?: transcript
+        return requireText(complete(config, system, user, timeoutSeconds = 60), "summary")
+    }
+
+    /** 偏好超过 40 条时归纳合并,同 iOS consolidatePreferences。 */
+    suspend fun consolidatePreferences(config: AIConfig, current: String): String {
+        val system = "你是提醒事项应用 lodo 的偏好整理助手。下面是 AI 在对话里陆续记下的用户长期做事偏好," +
+            "一行一条。把它们归纳合并:相同或相近的合成一条,前后矛盾的以后面的为准,最多 25 条," +
+            "每条一句陈述句。只返回 JSON:{\"preferences\": [\"一条偏好\", ...]},不要任何其他文字。"
+        val payload = complete(config, system, current, timeoutSeconds = 60)
+        return strings(payload.optJSONArray("preferences")).joinToString("\n")
+    }
+
+    /** 定时任务带订阅新闻的版本(Android 仍是单轮直接作答,不带 ReAct)。 */
+    suspend fun runRoutine(config: AIConfig, prompt: String, newsContext: String?, taskContext: String?): String {
+        val tasks = taskContext?.let { "\n\n今天的待办:\n$it" } ?: ""
+        val news = newsContext?.let { "\n\n用户订阅的新闻与博客(最近的文章):\n$it" } ?: ""
+        val system = "你是提醒事项应用 lodo 的定时任务助手。用户预先设定了一条会自动执行的例行任务," +
+            "现在到了执行时间,你要按用户写的指令生成这一次的内容,直接展示给用户看。\n\n要求:\n" +
+            "- 只输出这次要说的内容本身,不要复述指令,不要开场白和客套话。\n" +
+            "- 具体、可执行,不说\"合理安排时间\"\"注意身体\"这类空话。\n" +
+            "- 不超过 120 个字,一段纯文本,不要 markdown 标题或列表符号。\n" +
+            "- 信息不足时按常理给出最有用的内容,不要反问用户——定时任务没有人能回答你。\n\n" +
+            "只返回 JSON:{\"text\": \"这次要展示给用户的内容\"},不要任何其他文字。\n\n" +
+            timeContext() + tasks + news + personaBlock(config)
+        return requireText(complete(config, system, prompt, timeoutSeconds = 60), "text")
+    }
+
     private fun taskJson(task: ParsedTask): JSONObject = JSONObject()
         .put("title", task.title)
         .put("remind_at", task.remindAt.format(dateFormatter))
@@ -530,6 +912,7 @@ object DeepSeekClient {
         .put("repeat_type", task.repeatType.raw)
         .put("repeat_days", JSONArray(task.repeatDays))
         .put("repeat_times", JSONArray(task.repeatTimes))
+        .put("project", task.project)
 
     /**
      * 模型输出文本 → JSON:剥 markdown 围栏、从首个 { 截到末个 },
@@ -624,7 +1007,7 @@ object DeepSeekClient {
                 }
                 val payload = decodePayload(content)
                 payload.optString("error").takeIf { it.isNotEmpty() }?.let {
-                    throw DeepSeekException(Strings.translate("无法解析:", CurrentLang.value) + it)
+                    throw ModelErrorException(Strings.translate("无法解析:", CurrentLang.value) + it)
                 }
                 payload
             }
@@ -670,6 +1053,7 @@ object DeepSeekClient {
             repeatType = RepeatType.from(payload.optString("repeat_type", "none")),
             repeatDays = days,
             repeatTimes = times,
+            project = payload.optString("project").trim(),
         )
     }
 

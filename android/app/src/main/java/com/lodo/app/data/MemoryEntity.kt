@@ -69,6 +69,31 @@ data class MemoryEntity(
     val contactBirthdayMillis: Long? = null,
     /** 喜好,自由文本。 */
     val contactPreferences: String? = null,
+    /** 资产最近一次核对/更新的时间;null 按 createdAt(同 iOS assetUpdatedAt)。 */
+    val assetUpdatedAtMillis: Long? = null,
+    /** 旅行行程项:挂在哪次旅行上(TripEntity.uuid)。只挂了旅行、没有 travelKind 的
+     * 是"旅行文件"(资料),同 iOS。 */
+    val travelTripUuid: String? = null,
+    /** flight/train/coach/lodging/place,与 iOS TravelItemKind 存储值一致。 */
+    val travelKind: String? = null,
+    val travelStartMillis: Long? = null,
+    val travelEndMillis: Long? = null,
+    val travelPlaceName: String? = null,
+    /** 交通类的出发地。 */
+    val travelOriginName: String? = null,
+    /** 航班号/车次/订单号。 */
+    val travelCode: String? = null,
+    val travelPrice: Double? = null,
+    val travelCurrency: String? = null,
+    val travelLatitude: Double? = null,
+    val travelLongitude: Double? = null,
+    /** 交通补充信息整块 JSON(航站楼/登机口/座位/时区…),同 iOS travelFlightData。 */
+    val travelFlightData: String? = null,
+    val travelNote: String? = null,
+    /** 整张菜单(tags 含「菜单」)的原文语言/译文语言/币种。 */
+    val menuSourceLanguage: String? = null,
+    val menuTargetLanguage: String? = null,
+    val menuCurrency: String? = null,
 ) {
     val kindEnum: MemoryKind get() = MemoryKind.from(kind)
     val statusEnum: MemoryStatus get() = MemoryStatus.from(status)
@@ -77,6 +102,10 @@ data class MemoryEntity(
     val contactBirthday: LocalDateTime? get() = contactBirthdayMillis?.toLocalDateTime()
     val isAsset: Boolean get() = tagsList.contains(assetTagName)
     val isContact: Boolean get() = tagsList.contains(contactTagName)
+    val isMenu: Boolean get() = tagsList.contains(menuTagName)
+    /** 有行程类型的才是行程项;只挂了旅行的是旅行文件。 */
+    val isTravelItem: Boolean get() = travelTripUuid != null && travelKind != null
+    val assetUpdatedAt: Long get() = assetUpdatedAtMillis ?: createdAtMillis
     val assetCurrencyOrDefault: String get() = assetCurrency ?: "CNY"
 
     /** 本地关键词过滤,对应 iOS MemoryItem.matches(_:)——标题/摘要/标签/原文,
@@ -94,6 +123,12 @@ data class MemoryEntity(
         /** 与 iOS MemoryItem.assetTagName/contactTagName 一致的保留标签字面量。 */
         const val assetTagName = "资产"
         const val contactTagName = "人脉"
+        const val travelTagName = "旅行"
+        const val menuTagName = "菜单"
+        const val healthTagName = "健康"
+        const val autoTagName = "AI记录"
+        /** 保留标签:不能改名/删除;资产/人脉默认不在记忆列表里出现。 */
+        val reservedTagNames = setOf(assetTagName, contactTagName, travelTagName, menuTagName, healthTagName, autoTagName)
 
         fun create(
             kind: MemoryKind,

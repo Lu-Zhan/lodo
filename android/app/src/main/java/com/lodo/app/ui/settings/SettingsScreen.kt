@@ -89,10 +89,14 @@ fun SettingsScreen(
     var confirmMemoryReset by remember { mutableStateOf(false) }
     var showRoutines by remember { mutableStateOf(false) }
 
+    var showSkills by remember { mutableStateOf(false) }
+    var showPreferences by remember { mutableStateOf(false) }
     if (showRoutines) {
         RoutineListScreen(onBack = { showRoutines = false })
         return
     }
+    if (showSkills) { SkillsScreen(onBack = { showSkills = false }); return }
+    if (showPreferences) { PreferencesScreen(onBack = { showPreferences = false }); return }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip")
@@ -138,6 +142,8 @@ fun SettingsScreen(
                 }
             }
             FooterText(stringResource(R.string.shared_independent_of_the_system_language))
+
+            ExtraSettingsSection(onOpenSkills = { showSkills = true }, onOpenPreferences = { showPreferences = true })
 
             SectionHeader(stringResource(R.string.shared_reminders))
             Row(
@@ -339,23 +345,34 @@ fun SettingsScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
-            OutlinedTextField(
-                value = vm.apiKey,
-                onValueChange = vm::onApiKeyChange,
-                placeholder = { Text("API Key") },
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
-            Button(
-                onClick = vm::saveApiKey,
-                enabled = !vm.keySaved,
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                Text(
-                    if (vm.keySaved) stringResource(R.string.android_ui_saved)
-                    else stringResource(R.string.android_ui_save_api_key),
+            val builtInKey = com.lodo.app.ai.BuiltInAPIKey.key(settings.aiProvider) != null
+            if (builtInKey) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text(com.lodo.app.ui.L("使用内置 API Key", "Use built-in API key"), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Switch(checked = settings.useBuiltInKey, onCheckedChange = vm::setUseBuiltInKey)
+                }
+            }
+            if (builtInKey && settings.useBuiltInKey) {
+                FooterText(com.lodo.app.ui.L("已使用内置 API Key,无需再填。", "Using the built-in API key; nothing to fill in."))
+            } else {
+                OutlinedTextField(
+                    value = vm.apiKey,
+                    onValueChange = vm::onApiKeyChange,
+                    placeholder = { Text("API Key") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                Button(
+                    onClick = vm::saveApiKey,
+                    enabled = !vm.keySaved,
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text(
+                        if (vm.keySaved) stringResource(R.string.android_ui_saved)
+                        else stringResource(R.string.android_ui_save_api_key),
+                    )
+                }
             }
             FooterText(stringResource(R.string.android_ui_ai_provider_storage_footer))
 

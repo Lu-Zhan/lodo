@@ -124,18 +124,105 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+/** v7→v8:对齐 iOS 的一批新功能——任务置顶/项目、倒数日、收入支出信用卡、旅行
+ * (旅行本身/行李清单 + 记忆条目上的行程字段)、菜单菜品、新闻订阅与文章、AI 对话
+ * 消息。全是新表或可空/有默认值的新列,不动已有数据。 */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE tasks ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE tasks ADD COLUMN pinnedAtMillis INTEGER")
+        db.execSQL("ALTER TABLE tasks ADD COLUMN project TEXT NOT NULL DEFAULT ''")
+        listOf(
+            "assetUpdatedAtMillis INTEGER", "travelTripUuid TEXT", "travelKind TEXT",
+            "travelStartMillis INTEGER", "travelEndMillis INTEGER", "travelPlaceName TEXT",
+            "travelOriginName TEXT", "travelCode TEXT", "travelPrice REAL", "travelCurrency TEXT",
+            "travelLatitude REAL", "travelLongitude REAL", "travelFlightData TEXT", "travelNote TEXT",
+            "menuSourceLanguage TEXT", "menuTargetLanguage TEXT", "menuCurrency TEXT",
+        ).forEach { db.execSQL("ALTER TABLE memories ADD COLUMN $it") }
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS countdowns (
+                uuid TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, startMillis INTEGER NOT NULL,
+                endMillis INTEGER, allDay INTEGER NOT NULL, notes TEXT NOT NULL,
+                startReminders TEXT NOT NULL, endReminders TEXT NOT NULL,
+                showInWidget INTEGER NOT NULL, archived INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL)"""
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS finance_entries (
+                uuid TEXT NOT NULL PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, amount REAL,
+                currency TEXT NOT NULL, cadence TEXT NOT NULL, dayOfMonth INTEGER, statementDay INTEGER,
+                institution TEXT NOT NULL, endDateMillis INTEGER, notes TEXT NOT NULL,
+                remindEnabled INTEGER NOT NULL, reminderCycle TEXT NOT NULL, reminderTaskUuid TEXT,
+                sortIndex INTEGER NOT NULL, updatedAtMillis INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL)"""
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS trips (
+                uuid TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, emoji TEXT NOT NULL,
+                startMillis INTEGER NOT NULL, endMillis INTEGER NOT NULL, city TEXT NOT NULL,
+                country TEXT NOT NULL, notes TEXT NOT NULL, travelersJson TEXT NOT NULL,
+                createdAtMillis INTEGER NOT NULL)"""
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS packing_items (
+                uuid TEXT NOT NULL PRIMARY KEY, tripUuid TEXT NOT NULL, title TEXT NOT NULL,
+                category TEXT NOT NULL, packed INTEGER NOT NULL, sortIndex INTEGER NOT NULL,
+                createdAtMillis INTEGER NOT NULL)"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_packing_items_tripUuid ON packing_items(tripUuid)")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS menu_dishes (
+                uuid TEXT NOT NULL PRIMARY KEY, menuUuid TEXT NOT NULL, originalName TEXT NOT NULL,
+                translatedName TEXT NOT NULL, intro TEXT NOT NULL, category TEXT NOT NULL, price REAL,
+                selected INTEGER NOT NULL, sortIndex INTEGER NOT NULL)"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_menu_dishes_menuUuid ON menu_dishes(menuUuid)")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS news_feeds (
+                uuid TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, url TEXT NOT NULL,
+                siteUrl TEXT NOT NULL, kind TEXT NOT NULL, enabled INTEGER NOT NULL,
+                lastFetchedMillis INTEGER, createdAtMillis INTEGER NOT NULL)"""
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS news_articles (
+                uuid TEXT NOT NULL PRIMARY KEY, feedUuid TEXT NOT NULL, dedupeKey TEXT NOT NULL,
+                title TEXT NOT NULL, summary TEXT NOT NULL, link TEXT NOT NULL, author TEXT NOT NULL,
+                publishedMillis INTEGER NOT NULL, fetchedMillis INTEGER NOT NULL, read INTEGER NOT NULL,
+                starred INTEGER NOT NULL, aiSummaryJson TEXT)"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_news_articles_feedUuid ON news_articles(feedUuid)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_news_articles_publishedMillis ON news_articles(publishedMillis)")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS index_news_articles_feedUuid_dedupeKey " +
+                "ON news_articles(feedUuid, dedupeKey)"
+        )
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS agent_messages (
+                uuid TEXT NOT NULL PRIMARY KEY, role TEXT NOT NULL, kind TEXT NOT NULL,
+                content TEXT NOT NULL, payloadJson TEXT, createdAtMillis INTEGER NOT NULL)"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_agent_messages_createdAtMillis ON agent_messages(createdAtMillis)")
+    }
+}
+
 @Database(
     entities = [
         TaskEntity::class, MemoryEntity::class, RoutineEntity::class, RoutineRunEntity::class,
-        ContactRelationshipEntity::class,
+        ContactRelationshipEntity::class, CountdownEntity::class, FinanceEntity::class,
+        TripEntity::class, PackingEntity::class, MenuDishEntity::class, NewsFeedEntity::class,
+        NewsArticleEntity::class, AgentMessageEntity::class,
     ],
-    version = 7, exportSchema = false,
+    version = 8, exportSchema = false,
 )
 abstract class LodoDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun memoryDao(): MemoryDao
     abstract fun routineDao(): RoutineDao
     abstract fun contactRelationshipDao(): ContactRelationshipDao
+    abstract fun countdownDao(): CountdownDao
+    abstract fun financeDao(): FinanceDao
+    abstract fun tripDao(): TripDao
+    abstract fun menuDao(): MenuDao
+    abstract fun newsDao(): NewsDao
+    abstract fun agentMessageDao(): AgentMessageDao
 
     companion object {
         @Volatile
@@ -147,7 +234,7 @@ abstract class LodoDatabase : RoomDatabase() {
                     context.applicationContext, LodoDatabase::class.java, "lodo.db"
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-                    MIGRATION_6_7,
+                    MIGRATION_6_7, MIGRATION_7_8,
                 ).build().also { instance = it }
             }
     }

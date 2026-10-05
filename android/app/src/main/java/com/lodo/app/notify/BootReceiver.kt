@@ -19,6 +19,7 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 app.repository.syncAlarms()
+                runCatching { app.countdowns.reschedule() }
             } finally {
                 result.finish()
             }

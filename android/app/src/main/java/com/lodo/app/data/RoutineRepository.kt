@@ -71,7 +71,18 @@ class RoutineRepository(
         val due = dao.due(now.toEpochMillis())
         for (routine in due) {
             val result = try {
-                DeepSeekClient.runRoutine(settings.aiConfig(), routine.prompt)
+                // 指令里提到新闻/订阅时带上最近 24 小时的订阅文章(同 iOS 的「今日新闻简报」预设),
+                // 一篇都没有时如实告诉模型,不让它编。
+                val app = context.applicationContext as com.lodo.app.LodoApp
+                val wantsNews = Regex("新闻|订阅|简报|博客|news|feed", RegexOption.IGNORE_CASE).containsMatchIn(routine.prompt) &&
+                    app.news.feeds().isNotEmpty()
+                val newsContext = if (wantsNews) {
+                    runCatching { app.news.refresh() }
+                    app.news.digestCandidates(30).takeIf { it.isNotEmpty() }?.let { com.lodo.app.core.NewsPlan.promptLines(it) }
+                        ?: "(最近 24 小时订阅里没有新文章)"
+                } else null
+                if (newsContext != null) DeepSeekClient.runRoutine(settings.aiConfig(), routine.prompt, newsContext, null)
+                else DeepSeekClient.runRoutine(settings.aiConfig(), routine.prompt)
             } catch (e: Exception) {
                 "执行失败:${e.message}"
             }

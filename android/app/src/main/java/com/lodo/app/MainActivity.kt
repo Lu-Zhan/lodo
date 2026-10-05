@@ -11,7 +11,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.lodo.app.notify.AlarmScheduler
 import com.lodo.app.notify.NotificationPermission
-import com.lodo.app.ui.MainScreen
+import com.lodo.app.ui.AppShell
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.lodo.app.ui.theme.LodoTheme
 import kotlinx.coroutines.launch
 
@@ -25,6 +27,14 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch { app.settings.setNotificationPermissionDenied(!granted) }
         }
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        if (android.os.Build.VERSION.SDK_INT < 33) {
+            val lang = if (com.lodo.app.core.CurrentLang.value == com.lodo.app.core.Lang.EN) java.util.Locale.ENGLISH else java.util.Locale.SIMPLIFIED_CHINESE
+            val config = android.content.res.Configuration(newBase.resources.configuration).apply { setLocale(lang) }
+            super.attachBaseContext(newBase.createConfigurationContext(config))
+        } else super.attachBaseContext(newBase)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -32,9 +42,14 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         consumeRouteIntent(intent)
+        val app = application as LodoApp
+        val initial = kotlinx.coroutines.runBlocking { app.settings.snapshot() }
         setContent {
-            LodoTheme {
-                MainScreen()
+            val settings by app.settings.settings.collectAsState(initial = initial)
+            LodoTheme(accent = settings.accentPalette) {
+                androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.surface) {
+                    AppShell(settings)
+                }
             }
         }
     }
@@ -50,6 +65,14 @@ class MainActivity : ComponentActivity() {
      * capability 声明)。 */
     private fun consumeRouteIntent(intent: Intent) {
         val app = application as LodoApp
+        // 仅可调试版本:adb 传进来的 key 写进本机设置(加密存储),APK 里不内置任何 key。
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            intent.getStringExtra("debugApiKey")?.takeIf { it.isNotBlank() }?.let { key ->
+                lifecycleScope.launch { app.settings.saveApiKey(key, app.settings.snapshot().aiProvider) }
+            }
+        }
+        // 调试/深链:直接打开某个平级页面(值为 AppSection 名,如 TRAVEL)。
+        intent.getStringExtra("section")?.let { app.pendingRoute.value = PendingRoute.Section(it) }
         when (intent.getStringExtra("route")) {
             "agent" -> app.pendingRoute.value = PendingRoute.Agent(autoStart = false)
             "add" -> app.pendingRoute.value = PendingRoute.Agent(autoStart = true)
@@ -59,6 +82,9 @@ class MainActivity : ComponentActivity() {
             "create_task" -> intent.getStringExtra("taskTitle")?.takeIf { it.isNotBlank() }?.let { title ->
                 app.pendingRoute.value = PendingRoute.CreateTask(title)
             }
+            "countdown" -> app.pendingRoute.value = PendingRoute.Section("COUNTDOWN")
+            "tasks" -> app.pendingRoute.value = PendingRoute.Section("TASKS")
+            "news" -> app.pendingRoute.value = PendingRoute.Section("NEWS")
         }
     }
 
@@ -74,6 +100,10 @@ class MainActivity : ComponentActivity() {
         val now = System.currentTimeMillis()
         if (now - lastSyncMillis < 30_000) return
         lastSyncMillis = now
-        lifecycleScope.launch { app.repository.syncAlarms() }
+        lifecycleScope.launch {
+            app.repository.syncAlarms()
+            runCatching { app.countdowns.reschedule() }
+            runCatching { app.finance.syncReminders(app.repository, app.settings.snapshot().allDayTime) }
+        }
     }
 }

@@ -59,6 +59,8 @@ import com.lodo.app.data.MemoryEntity
 import com.lodo.app.data.MemoryKind
 import com.lodo.app.data.MemoryStatus
 import com.lodo.app.ui.EmptyState
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Flight
 
 /** "记忆"tab,对应 iOS MemoryListView:AI 整理后的收藏条目列表 + 资产/人脉
  * 子功能(打了保留标签的记忆条目,默认从列表隐藏,靠专门的筛选开关显示),
@@ -81,110 +83,53 @@ fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewMo
         return
     }
 
+    // 人脉有自己的页面、资产有自己的页面,记忆列表里一律不出现(同 iOS MemoryListView.filtered)。
     val filtered = items.filter { item ->
-        (if (item.isAsset) vm.showAssets else true) &&
-            (if (item.isContact) vm.showContacts else true) &&
-            (vm.selectedTag == null || item.tagsList.contains(vm.selectedTag)) &&
-            item.matches(vm.query)
-    }
-    var addMenuOpen by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val pickContactLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickContact()
-    ) { uri ->
-        uri?.let { picked ->
-            ContactsBridge.read(context, picked)?.let { c ->
-                vm.saveContact(c.name, c.phone, c.email, null, null)
-            }
-        }
+        !item.isContact && !item.isAsset &&
+            (vm.selectedTag == null || item.tagsList.contains(vm.selectedTag))
     }
 
-    Scaffold(
+    com.lodo.app.ui.LodoPage(
+        title = com.lodo.app.ui.L("记忆", "Memory"),
+        focus = com.lodo.app.ai.AgentFocus(com.lodo.app.ai.AgentPageFocus.MEMORY),
+        askPrompt = com.lodo.app.ui.L("想找点什么?", "Looking for something?"),
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.android_ui_memory_tab)) },
-                actions = {
-                    if (vm.showContacts) {
-                        IconButton(onClick = { vm.showGraph = true }) {
-                            Icon(Icons.Filled.Hub, contentDescription = stringResource(R.string.android_ui_contact_graph))
-                        }
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            Box {
-                FloatingActionButton(onClick = { addMenuOpen = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.android_ui_memorize))
-                }
-                DropdownMenu(expanded = addMenuOpen, onDismissRequest = { addMenuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.android_ui_input_text)) },
-                        onClick = { addMenuOpen = false; vm.showCompose = true },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.android_ui_record_asset)) },
-                        onClick = { addMenuOpen = false; vm.showAssetCompose = true },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.android_ui_record_contact)) },
-                        onClick = { addMenuOpen = false; vm.showContactCompose = true },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.android_ui_import_from_contacts)) },
-                        onClick = { addMenuOpen = false; pickContactLauncher.launch(null) },
-                    )
-                }
+        actions = {
+            // AI 是主入口;手动收藏一段文字/链接这一条 AI 也能做,但留在右上角方便粘贴。
+            IconButton(onClick = { vm.showCompose = true }) {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.android_ui_memorize))
             }
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
-                value = vm.query,
-                onValueChange = { vm.query = it },
-                placeholder = { Text(stringResource(R.string.android_ui_search_memories)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                singleLine = true,
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            ) {
-                FilterChip(
-                    selected = vm.showAssets,
-                    onClick = { vm.showAssets = !vm.showAssets },
-                    label = { Text(stringResource(R.string.android_ui_assets)) },
-                    leadingIcon = { Icon(Icons.Filled.AttachMoney, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                )
-                FilterChip(
-                    selected = vm.showContacts,
-                    onClick = { vm.showContacts = !vm.showContacts },
-                    label = { Text(stringResource(R.string.android_ui_contacts)) },
-                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                )
-                vm.allTags.forEach { tag ->
-                    FilterChip(
-                        selected = vm.selectedTag == tag,
-                        onClick = { vm.toggleTag(tag) },
-                        label = { Text(tag) },
-                    )
+            // 标签只取这一页会出现的条目(资产的分类、人脉的标签不混进来)。
+            val tags = items.filter { !it.isContact && !it.isAsset }.flatMap { it.tagsList }
+                .filterNot { it in MemoryEntity.reservedTagNames }.distinct().sorted()
+            if (tags.isNotEmpty()) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    items(tags) { tag ->
+                        FilterChip(selected = vm.selectedTag == tag, onClick = { vm.toggleTag(tag) }, label = { Text(tag) })
+                    }
                 }
             }
             if (filtered.isEmpty()) {
-                EmptyState(
+                com.lodo.app.ui.FullEmpty(
                     Icons.Outlined.Bookmarks,
-                    if (items.isEmpty()) {
-                        stringResource(R.string.android_ui_no_memories_yet)
-                    } else {
-                        stringResource(R.string.android_ui_no_matching_memories)
-                    },
+                    if (vm.selectedTag == null) stringResource(R.string.android_ui_no_memories_yet) else stringResource(R.string.android_ui_no_matching_memories),
+                    com.lodo.app.ui.L("说一句「帮我记住门禁码 1234」,或从别的 app 分享进来。", "Say \"remember the door code is 1234\", or share into Lodo."),
                 )
             } else {
-                LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
+                LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(filtered, key = { it.uuid }) { item ->
-                        MemoryRow(item, onClick = { vm.detailUuid = item.uuid })
-                        HorizontalDivider()
+                        androidx.compose.material3.Card(
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        ) { MemoryRow(item, onClick = { vm.detailUuid = item.uuid }) }
                     }
                 }
             }
@@ -250,11 +195,14 @@ fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewMo
 private fun MemoryRow(item: MemoryEntity, onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
         leadingContent = {
             when {
                 item.statusEnum == MemoryStatus.PROCESSING -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 item.isAsset -> Icon(Icons.Filled.AttachMoney, contentDescription = null)
                 item.isContact -> Icon(Icons.Filled.Person, contentDescription = null)
+                item.isMenu -> Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                item.isTravelItem || item.travelTripUuid != null -> Icon(Icons.Outlined.Flight, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 else -> Icon(iconFor(item.kindEnum), contentDescription = null)
             }
         },
@@ -314,7 +262,6 @@ private fun MemoryRow(item: MemoryEntity, onClick: () -> Unit) {
                 }
             }
         },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
     )
 }
 

@@ -32,13 +32,13 @@ class MemoryRepository(
      * MemoryTagManageView 一致)。 */
     suspend fun allTags(): List<String> = dao.all()
         .flatMap { it.tagsList }
-        .filterNot { it == MemoryEntity.assetTagName || it == MemoryEntity.contactTagName }
+        .filterNot { it in MemoryEntity.reservedTagNames }
         .distinct().sorted()
 
     /** 收藏一段文字:整段是裸链接时按 link 处理,否则按 text;立即插入
      * processing 条目,随后调用 AI 整理成标题/摘要/标签,失败退化成 fallback
      * 标题 + failed 状态(原文已保留,可重试)。 */
-    suspend fun saveText(config: AIConfig, text: String): MemoryEntity {
+    suspend fun saveText(config: AIConfig, text: String, extraTags: List<String> = emptyList()): MemoryEntity {
         val trimmed = text.trim()
         val url = detectedUrl(trimmed)
         val item = MemoryEntity.create(
@@ -47,9 +47,30 @@ class MemoryRepository(
             urlString = url,
         )
         dao.upsert(item)
-        val organized = organize(config, item)
+        var organized = organize(config, item)
+        // 保留标签在 AI 整理之后补(整理会整体覆盖 tags),整理失败也照样打上(同 iOS)。
+        if (extraTags.isNotEmpty()) organized = organized.copy(tags = joinCsv((organized.tagsList + extraTags).distinct()))
         dao.upsert(organized)
         return organized
+    }
+
+    /** auto_memorize:不经 AI 整理直接落成 ready、打「AI记录」;客户端去重——新内容包含已有
+     * 某条自动记录且更长时原地更新,被已有摘要包含时跳过(同 iOS saveAutoMemory)。 */
+    suspend fun saveAutoMemory(title: String, text: String): MemoryEntity? {
+        val autos = dao.all().filter { it.tagsList.contains(MemoryEntity.autoTagName) }
+        val norm = text.trim()
+        autos.firstOrNull { it.summary.contains(norm) }?.let { return null }
+        autos.firstOrNull { norm.contains(it.summary) && norm.length > it.summary.length }?.let { old ->
+            val updated = old.copy(title = title, summary = norm, sourceText = norm)
+            dao.upsert(updated)
+            return updated
+        }
+        val item = MemoryEntity.create(
+            kind = MemoryKind.TEXT, sourceText = norm, title = title, summary = norm,
+            tags = listOf(MemoryEntity.autoTagName), status = MemoryStatus.READY,
+        )
+        dao.upsert(item)
+        return item
     }
 
     /** 整理失败后重试:原文不变,重新调一次 AI。 */
@@ -94,6 +115,8 @@ class MemoryRepository(
      * MemoryPipeline.delete 一致)。 */
     suspend fun delete(uuid: String) {
         db.contactRelationshipDao().deleteForContact(uuid)
+        // 删整张菜单时连菜品一起删(同 iOS MemoryPipeline.delete)。
+        db.menuDao().deleteForMenu(uuid)
         dao.delete(uuid)
     }
 
@@ -103,33 +126,44 @@ class MemoryRepository(
     suspend fun saveAsset(
         title: String, value: Double?, currency: String,
         liability: Double?, interestRate: Double?, extraTags: List<String> = emptyList(),
+        note: String = "",
     ): MemoryEntity {
         val item = MemoryEntity.create(
             kind = MemoryKind.TEXT,
             title = title,
+            summary = note,
             status = MemoryStatus.READY,
             tags = (listOf(MemoryEntity.assetTagName) + extraTags).distinct(),
             assetValue = value,
             assetCurrency = currency,
             assetLiability = liability,
             assetInterestRate = interestRate,
-        )
+        ).copy(assetUpdatedAtMillis = System.currentTimeMillis())
         dao.upsert(item)
         return item
     }
 
+    /** 资产编辑表单保存:每次保存都算核对过一次(同 iOS assetUpdatedAt)。 */
     suspend fun updateAsset(
         uuid: String, title: String, value: Double?, currency: String,
-        liability: Double?, interestRate: Double?,
+        liability: Double?, interestRate: Double?, category: String? = null, note: String? = null,
     ) {
         val item = dao.byUuid(uuid) ?: return
+        val tags = if (category != null) (listOf(MemoryEntity.assetTagName, category) +
+            item.tagsList.filter { it in MemoryEntity.reservedTagNames && it != MemoryEntity.assetTagName }).distinct()
+        else item.tagsList
         dao.upsert(
             item.copy(
                 title = title, assetValue = value, assetCurrency = currency,
                 assetLiability = liability, assetInterestRate = interestRate,
+                tags = joinCsv(tags), summary = note ?: item.summary,
+                assetUpdatedAtMillis = System.currentTimeMillis(),
             )
         )
     }
+
+    suspend fun upsert(item: MemoryEntity) = dao.upsert(item)
+    suspend fun all() = dao.all()
 
     /** "记一位人脉":同样是结构化字段直接落库,不走 AI 整理。姓名复用 title,
      * 备注复用 summary,与 iOS 一致。tags 固定带上 contactTagName。 */

@@ -16,6 +16,12 @@ interface MemoryDao {
     @Query("SELECT * FROM memories WHERE uuid = :uuid LIMIT 1")
     suspend fun byUuid(uuid: String): MemoryEntity?
 
+    @Query("SELECT * FROM memories WHERE travelTripUuid = :tripUuid ORDER BY createdAtMillis")
+    fun observeForTrip(tripUuid: String): Flow<List<MemoryEntity>>
+
+    @Query("SELECT * FROM memories WHERE travelTripUuid = :tripUuid ORDER BY createdAtMillis")
+    suspend fun forTrip(tripUuid: String): List<MemoryEntity>
+
     @Upsert
     suspend fun upsert(item: MemoryEntity)
 
