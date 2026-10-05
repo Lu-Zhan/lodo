@@ -11,6 +11,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Add
@@ -161,10 +163,17 @@ fun AgentChat(vm: AgentViewModel, inSheet: Boolean, onClose: (() -> Unit)?) {
                 }
             },
         )
+        // 输入区浮在消息列表上面(用户要求):列表铺满,底部按输入区的实际高度留白,
+        // 滚动时聊天内容从输入框和按钮四周透出来;输入框和按钮自带阴影,分出层次。
+        val askPending = latest?.kind == AgentKind.ASK && JSONObject(latest.payloadJson ?: "{}").optString("state") == "pending"
+        var inputHeight by remember { mutableStateOf(0) }
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        Box(Modifier.weight(1f).fillMaxWidth()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp,
+                bottom = 8.dp + if (askPending) 0.dp else with(density) { inputHeight.toDp() }),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (messages.size >= 60) item("earlier") {
@@ -181,7 +190,7 @@ fun AgentChat(vm: AgentViewModel, inSheet: Boolean, onClose: (() -> Unit)?) {
                 item("stream") { AiCard(header = text, selectable = false) }
             }
             item("status") {
-                AnimatedVisibility(vm.busy && vm.streamText == null) {
+                androidx.compose.animation.AnimatedVisibility(visible = vm.busy && vm.streamText == null) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(4.dp)) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.size(10.dp))
@@ -193,8 +202,9 @@ fun AgentChat(vm: AgentViewModel, inSheet: Boolean, onClose: (() -> Unit)?) {
             }
         }
         // 提问卡待答期间收起输入区(问题摆着等选、底下再留个输入框是两个并行入口,同 iOS)。
-        val askPending = latest?.kind == AgentKind.ASK && JSONObject(latest.payloadJson ?: "{}").optString("state") == "pending"
-        if (!askPending) InputBar(vm)
+        if (!askPending) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+            .onSizeChanged { inputHeight = it.height }) { InputBar(vm) }
+        }
     }
 
     if (confirmClear) {
@@ -265,7 +275,8 @@ private fun InputBar(vm: AgentViewModel) {
         ) {
             // 「+」附件(同 iOS):照片 / 文件 / 从记忆库选择。照片和 PDF 在端上 OCR,只把文字发出去。
             Box {
-                androidx.compose.material3.FilledTonalIconButton(onClick = { plusMenu = true }, modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height)) {
+                androidx.compose.material3.FilledTonalIconButton(onClick = { plusMenu = true },
+                    modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height).shadow(6.dp, CircleShape)) {
                     Icon(Icons.Filled.Add, L("添加附件", "Attach"))
                 }
                 DropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
@@ -286,7 +297,7 @@ private fun InputBar(vm: AgentViewModel) {
                 value = vm.draft,
                 onValueChange = { vm.draft = it },
                 placeholder = if (dictation.listening) L("正在听…", "Listening…") else L("说点什么…", "Say something…"),
-                modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                modifier = Modifier.weight(1f).shadow(6.dp, com.lodo.app.ui.ComposerMetrics.shape).focusRequester(focusRequester),
                 trailing = if ((vm.draft.isBlank() || dictation.listening) && !vm.busy) {
                     {
                         // 应用内实时听写(同 iOS):边说边把字写进输入框,说完自己点发送;再点一下停止。
@@ -305,9 +316,15 @@ private fun InputBar(vm: AgentViewModel) {
                 } else null,
             )
             if (vm.busy) {
-                FilledIconButton(onClick = vm::cancel, modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height)) { Icon(Icons.Filled.Stop, L("取消", "Cancel")) }
+                FilledIconButton(onClick = vm::cancel, modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height).shadow(6.dp, CircleShape)) { Icon(Icons.Filled.Stop, L("取消", "Cancel")) }
             } else {
-                FilledIconButton(onClick = { dictation.stop(); vm.send() }, enabled = vm.canSend, modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height)) {
+                // 发送键不可点时(灰色)默认是半透明底,浮在内容上会透出下面的字,换成不透明的容器色。
+                FilledIconButton(onClick = { dictation.stop(); vm.send() }, enabled = vm.canSend,
+                    modifier = Modifier.size(com.lodo.app.ui.ComposerMetrics.height).shadow(6.dp, CircleShape),
+                    colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )) {
                     Icon(Icons.AutoMirrored.Filled.Send, L("发送", "Send"))
                 }
             }

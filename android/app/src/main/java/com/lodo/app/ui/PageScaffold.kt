@@ -1,6 +1,7 @@
 package com.lodo.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,8 @@ import com.lodo.app.ai.AgentFocus
 /**
  * 平级页面的统一外壳:顶栏(左 ☰、右侧页面自己的操作)+ 底部常驻「问问 AI」+ 内容。
  * 页面上不放「+」:新建一律走 AI(同 iOS),只有 AI 接不了的入口才放在右上角。
+ * 顶栏按 M3 规范给一级页面用 Medium 顶栏:大标题,往上滚收成小标题(exitUntilCollapsed),
+ * 标题用字阶默认字重,不额外加粗。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,12 +68,12 @@ fun LodoPage(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val shell = LocalShell.current
-    val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold) },
+            androidx.compose.material3.MediumTopAppBar(
+                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     if (shell.showMenuButton) IconButton(onClick = shell.openNav) {
                         Icon(Icons.Filled.Menu, contentDescription = L("导航", "Navigation"))
@@ -103,17 +106,20 @@ fun LodoSubPage(
 ) {
     androidx.activity.compose.BackHandler(onBack = onBack)
     val shell = LocalShell.current
+    // 二级页:顶栏固定,内容滚到它下面时换成 M3 的「已滚动」底色,分出层次。
+    val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold) },
+                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = L("返回", "Back"))
                     }
                 },
                 actions = actions,
+                scrollBehavior = scroll,
             )
         },
         bottomBar = { if (focus != null) AskBar(askPrompt) { shell.askAi(focus) } },
@@ -126,8 +132,10 @@ fun LodoSubPage(
 /** 底部「问问 AI」胶囊:假输入框 + 拉起真页面(同 iOS AskBar)。 */
 @Composable
 fun AskBar(prompt: String, onClick: () -> Unit) {
+    // 垫一层页面底色:底栏区域透明时,往上滚的列表会从胶囊四周透出来。
     Box(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(ComposerMetrics.outerPadding),
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+            .navigationBarsPadding().padding(ComposerMetrics.outerPadding),
     ) {
         // 和 AI 页真正的输入框同一套高度/圆角/底色/字号(ComposerMetrics),拉起弹层时位置不跳。
         Surface(
@@ -213,10 +221,11 @@ fun LodoRow(
     }
 }
 
-/** 整页空态(居中):图标 + 标题 + 说明 + 可选按钮。 */
+/** 整页空态(居中):图标 + 标题 + 说明 + 可选按钮。延迟一下再淡入,数据还在读时不闪一下空态。 */
 @Composable
 fun FullEmpty(icon: ImageVector, title: String, message: String? = null, padding: PaddingValues = PaddingValues(), action: (@Composable () -> Unit)? = null) {
     Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+        DelayedReveal {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.padding(32.dp)) {
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(72.dp)) {
@@ -229,6 +238,20 @@ fun FullEmpty(icon: ImageVector, title: String, message: String? = null, padding
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             action?.invoke()
         }
+        }
+    }
+}
+
+/**
+ * 空态晚 350ms 再淡入:页面一打开时列表的 Flow 还没吐第一批数据,直接显示空态会先闪一下
+ * 「还没有…」再换成列表。真正为空时多等这一下察觉不到。
+ */
+@Composable
+fun DelayedReveal(content: @Composable () -> Unit) {
+    val visible = remember { androidx.compose.animation.core.MutableTransitionState(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(350); visible.targetState = true }
+    androidx.compose.animation.AnimatedVisibility(visibleState = visible, enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220))) {
+        content()
     }
 }
 

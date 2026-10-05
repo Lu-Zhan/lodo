@@ -152,41 +152,43 @@ fun TodoListScreen(
                 DoneListScreen(vm = vm)
                 return@Column
             }
+            // 行是 M3 ListItem,自带 16dp 内边距,所以列表本身贴边;标题和卡片自己留 16dp。
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
             ) {
                 if (state.notificationPermissionDenied) {
                     item(key = "notify-banner") {
                         NotificationDeniedBanner(
-                            modifier = Modifier.animateItem(),
+                            modifier = Modifier.animateItem().padding(horizontal = 16.dp),
                             onOpenSettings = { NotificationPermission.openAppSettings(app) },
                         )
                     }
                 }
                 vm.askDurationQueue.firstOrNull()?.let { (title, planned) ->
                     item(key = "ask-duration") {
-                        AskDurationCard(title = title, planned = planned, onAnswer = vm::answerActualDuration, onSkip = vm::skipActualDuration, modifier = Modifier.animateItem())
+                        AskDurationCard(title = title, planned = planned, onAnswer = vm::answerActualDuration, onSkip = vm::skipActualDuration, modifier = Modifier.animateItem().padding(horizontal = 16.dp))
                     }
                 }
                 if (pinned.isNotEmpty()) {
-                    item(key = "pinned-header") { SectionHeader(com.lodo.app.ui.L("重要的事", "Pinned")) }
+                    item(key = "pinned-header") { ListHeader(com.lodo.app.ui.L("重要的事", "Pinned")) }
                     items(pinned, key = { "pin-" + it.uuid }) { task -> TaskRowFor(task, state, vm, Modifier.animateItem()) }
                 }
                 if (state.due.isNotEmpty() && filter != TaskFilter.FUTURE) {
-                    item(key = "due-header") { SectionHeader(stringResource(R.string.android_ui_due_now)) }
+                    item(key = "due-header") { ListHeader(stringResource(R.string.android_ui_due_now)) }
                     items(state.due.filter { !it.pinned }, key = { "due-${it.uuid}" }) { task ->
-                        Box(Modifier.animateItem()) { DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes) }
+                        Box(Modifier.animateItem().padding(horizontal = 16.dp)) { DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes) }
                     }
                     vm.rescheduleError?.let { error ->
                         item(key = "reschedule-error") {
-                            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 }
                 groups.forEach { (date, tasks) ->
-                    item(key = "h-$date") { SectionHeader(dayHeader(date, today)) }
-                    items(tasks, key = { it.uuid }) { task -> TaskRowFor(task, state, vm, Modifier.animateItem()) }
+                    item(key = "h-$date") { ListHeader(dayHeader(date, today)) }
+                    // 已经在日期分组下面了,行里只写时间,不再重复一遍日期。
+                    items(tasks, key = { it.uuid }) { task -> TaskRowFor(task, state, vm, Modifier.animateItem(), timeOnly = true) }
                 }
                 if (groups.isEmpty() && state.due.isEmpty() && pinned.isEmpty()) {
                     item(key = "empty") {
@@ -222,6 +224,13 @@ fun TodoListScreen(
     }
 }
 
+/** 列表分组标题(贴边列表里自己留出和 ListItem 一样的 16dp)。 */
+@Composable
+private fun ListHeader(text: String) {
+    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+}
+
 @Composable
 private fun dayHeader(date: LocalDate, today: LocalDate): String {
     val locale = LocalConfiguration.current.locales[0]
@@ -234,11 +243,12 @@ private fun dayHeader(date: LocalDate, today: LocalDate): String {
 }
 
 @Composable
-private fun TaskRowFor(task: TaskEntity, state: TodoUiState, vm: TodoViewModel, modifier: Modifier) {
+private fun TaskRowFor(task: TaskEntity, state: TodoUiState, vm: TodoViewModel, modifier: Modifier, timeOnly: Boolean = false) {
     var menu by remember { mutableStateOf(false) }
     Box(modifier) {
         PendingRow(
             task = task,
+            timeOnly = timeOnly,
             hapticsEnabled = state.hapticsEnabled,
             onComplete = { vm.completeWithSampling(task) },
             onDelete = { vm.delete(task.uuid) },
@@ -470,6 +480,7 @@ internal fun PendingRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: () -> Unit = {},
+    timeOnly: Boolean = false,
 ) {
     val haptics = LocalHapticFeedback.current
     val currentOnComplete by rememberUpdatedState(onComplete)
@@ -507,7 +518,7 @@ internal fun PendingRow(
                 },
                 headlineContent = { Text(task.title, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) },
                 supportingContent = {
-                    Text(localizedTaskCaption(task) + if (task.project.isNotBlank()) " · ${task.project}" else "")
+                    Text(localizedTaskCaption(task, timeOnly) + if (task.project.isNotBlank()) " · ${task.project}" else "")
                 },
                 trailingContent = if (task.pinned) ({ Icon(Icons.Filled.PushPin, null, tint = MaterialTheme.colorScheme.primary) }) else null,
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
@@ -518,8 +529,13 @@ internal fun PendingRow(
 }
 
 @Composable
-private fun localizedTaskCaption(task: TaskEntity): String {
-    val parts = mutableListOf(localizedDateTimeLabel(task.nextRemindAt))
+private fun localizedTaskCaption(task: TaskEntity, timeOnly: Boolean = false): String {
+    // 日期分组下面只写时间;重复事项和全天事项下面会再写「每周一 09:00」「全天」,这里就不重复了。
+    val parts = mutableListOf<String>()
+    when {
+        !timeOnly -> parts += localizedDateTimeLabel(task.nextRemindAt)
+        !task.isRecurring && !task.allDay -> parts += task.nextRemindAt.format(com.lodo.app.ui.appFormatter("HH:mm"))
+    }
     if (task.isRecurring) {
         val times = task.repeatTimesList.joinToString("/")
         val recurrence = when (task.repeatTypeEnum) {

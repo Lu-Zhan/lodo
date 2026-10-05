@@ -6,12 +6,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -35,13 +37,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ModalWideNavigationRail
 import androidx.compose.material3.Text
-import androidx.compose.material3.WideNavigationRail
-import androidx.compose.material3.WideNavigationRailItem
-import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -125,10 +122,11 @@ object ShellRequests {
 }
 
 /**
- * 导航外壳(对应 iOS AppShellView)。Material 3 Expressive 的做法:
- * - 窄屏(手机):模态宽导航栏(ModalWideNavigationRail,从左边滑出,取代旧的抽屉),
- *   只能点左上角 ☰ 唤出;
- * - 宽屏(平板/折叠屏展开,≥ 600dp):常驻的宽导航栏(WideNavigationRail),☰ 收起/展开成图标栏。
+ * 导航外壳(对应 iOS AppShellView),侧边栏是 M3 标准的导航抽屉:
+ * - 窄屏(手机):模态抽屉(ModalNavigationDrawer),点 ☰ 或在页面上右划唤出,在抽屉上左划收起;
+ * - 宽屏(平板/折叠屏展开,≥ 600dp):常驻的同款抽屉,☰ 收起/展开。
+ * 抽屉里:顶部「Lodo」、中间十二个页面(行高 48dp、行间不留空,一屏放得下)、
+ * 最底下用分隔线隔开的「设置」(固定在底部,不跟着页面列表滚)。
  * 各页底部常驻一条「问问 AI」,点一下把 AI 助手从底部拉起(带页面焦点)。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
@@ -142,14 +140,15 @@ fun AppShell(settings: Settings) {
     var askSheet by remember { mutableStateOf(false) }
     val visited = remember { mutableStateListOf(section) }
     val holder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-    val railState = rememberWideNavigationRailState(if (wide) WideNavigationRailValue.Expanded else WideNavigationRailValue.Collapsed)
+    val drawerState = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed)
+    var wideDrawerOpen by rememberSaveable { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
     fun go(target: AppSection) {
         section = target
         if (target !in visited) visited += target
         askSheet = false
-        if (!wide) scope.launch { railState.collapse() }
+        if (!wide) scope.launch { drawerState.close() }
     }
 
     val pendingRoute by app.pendingRoute.collectAsStateWithLifecycle()
@@ -166,7 +165,10 @@ fun AppShell(settings: Settings) {
 
     val actions = ShellActions(
         showMenuButton = true,
-        openNav = { scope.launch { if (railState.targetValue == WideNavigationRailValue.Expanded) railState.collapse() else railState.expand() } },
+        openNav = {
+            if (wide) wideDrawerOpen = !wideDrawerOpen
+            else scope.launch { if (drawerState.targetValue == androidx.compose.material3.DrawerValue.Open) drawerState.close() else drawerState.open() }
+        },
         go = ::go,
         askAi = { focus ->
             agentVm.focus = focus
@@ -185,71 +187,65 @@ fun AppShell(settings: Settings) {
         return
     }
 
-    val railContent: @Composable () -> Unit = {
-        AppSection.entries.forEach { s ->
-            WideNavigationRailItem(
-                selected = section == s,
-                onClick = { go(s) },
-                icon = { Icon(s.icon, contentDescription = null) },
-                label = { Text(s.title, maxLines = 1) },
-                railExpanded = railState.targetValue == WideNavigationRailValue.Expanded,
-            )
-        }
-        WideNavigationRailItem(
-            selected = false,
-            onClick = { showSettings = true; if (!wide) scope.launch { railState.collapse() } },
-            icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
-            label = { Text(L("设置", "Settings")) },
-            railExpanded = railState.targetValue == WideNavigationRailValue.Expanded,
-        )
-    }
-    val railHeader: @Composable () -> Unit = {
-        Text(
-            "Lodo",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp),
+    val drawerContent: @Composable () -> Unit = {
+        DrawerBody(
+            section = section,
+            onSelect = ::go,
+            onSettings = { showSettings = true; if (!wide) scope.launch { drawerState.close() } },
         )
     }
 
-    CompositionLocalProvider(LocalShell provides actions, LocalSettings provides settings) {
-        Row(Modifier.fillMaxSize()) {
-            if (wide) {
-                WideNavigationRail(
-                    state = railState,
-                    header = { if (railState.targetValue == WideNavigationRailValue.Expanded) railHeader() },
-                ) {
-                    // 滚动放在栏内的内容上(给栏本身加 verticalScroll 会让它按无限高测量,直接崩)。
-                    Column(Modifier.verticalScroll(rememberScrollState())) { railContent() }
-                }
-            }
-            Box(
-                Modifier.weight(1f).fillMaxSize()
-                    .navSwipe(enabled = !wide) { scope.launch { railState.expand() } },
-            ) {
-                // 切回来时筛选/滚动位置还在(SaveableStateHolder 按页面保留),没打开过的不构建(同 iOS)。
-                AnimatedContent(
-                    targetState = section,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
-                    label = "section",
-                ) { s ->
-                    holder.SaveableStateProvider(s.name) { PageFor(s, agentVm) }
-                }
+    val pages: @Composable () -> Unit = {
+        Box(
+            Modifier.fillMaxSize()
+                .navSwipe(enabled = !wide) { scope.launch { drawerState.open() } },
+        ) {
+            // 切回来时筛选/滚动位置还在(SaveableStateHolder 按页面保留),没打开过的不构建(同 iOS)。
+            AnimatedContent(
+                targetState = section,
+                // M3 的 fade through:旧页先淡出,新页稍后淡入并从 92% 放大,两个没有空间关系的平级页之间用它。
+                transitionSpec = {
+                    (fadeIn(androidx.compose.animation.core.tween(210, delayMillis = 90)) +
+                        androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(210, delayMillis = 90), initialScale = 0.92f)) togetherWith
+                        fadeOut(androidx.compose.animation.core.tween(90))
+                },
+                label = "section",
+            ) { s ->
+                holder.SaveableStateProvider(s.name) { PageFor(s, agentVm) }
             }
         }
-        if (!wide) {
-            ModalWideNavigationRail(
-                state = railState,
-                hideOnCollapse = true,
-                header = { railHeader() },
-            ) {
-                Column(
-                    Modifier.verticalScroll(rememberScrollState())
-                        .navSwipe(enabled = true, toLeft = true) { scope.launch { railState.collapse() } },
-                ) {
-                    railContent()
-                    Spacer(Modifier.height(16.dp))
+    }
+
+    CompositionLocalProvider(LocalShell provides actions, LocalSettings provides settings) {
+        if (wide) {
+            Row(Modifier.fillMaxSize()) {
+                androidx.compose.animation.AnimatedVisibility(wideDrawerOpen,
+                    enter = androidx.compose.animation.expandHorizontally(), exit = androidx.compose.animation.shrinkHorizontally()) {
+                    androidx.compose.material3.PermanentDrawerSheet(Modifier.width(280.dp)) { drawerContent() }
                 }
+                Box(Modifier.weight(1f)) { pages() }
+            }
+        } else {
+            // 抽屉自带的手势全关:关着时整页横拖都会被它当成"拉开"(和地图、左滑删除抢手势),
+            // 打开时它的拖动收起又不灵、还吃掉我们的左划(实测)。代价是遮罩点击也跟着关了,
+            // 所以页面上另垫一层透明点击层负责「点遮罩收起」(见 pages)。左划收起用 navSwipe(toLeft)。
+            androidx.compose.material3.ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = false,
+                drawerContent = {
+                    androidx.compose.material3.ModalDrawerSheet(
+                        drawerState = drawerState,
+                        modifier = Modifier.width(DRAWER_WIDTH).navSwipe(enabled = true, toLeft = true) { scope.launch { drawerState.close() } },
+                    ) { drawerContent() }
+                },
+            ) { pages() }
+            // 「点遮罩收起」:抽屉手势关掉后它自己的遮罩会挡住点击又不收起,所以在整个抽屉上面、
+            // 抽屉右边露出来的那块另盖一层透明点击层(实测垫在页面里收不到点击)。
+            if (drawerState.targetValue == androidx.compose.material3.DrawerValue.Open) {
+                Box(Modifier.fillMaxSize().padding(start = DRAWER_WIDTH).clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                ) { scope.launch { drawerState.close() } })
             }
         }
         if (askSheet) {
@@ -263,6 +259,43 @@ fun AppShell(settings: Settings) {
             }
         }
     }
+}
+
+/**
+ * 抽屉内容:标题贴顶、页面列表紧凑(48dp 一行、行间不留空)、设置固定在最底下。
+ * 中间的页面列表单独可滚(矮屏放不下时),设置不跟着滚。
+ */
+private val DRAWER_WIDTH = 300.dp
+
+@Composable
+private fun DrawerBody(section: AppSection, onSelect: (AppSection) -> Unit, onSettings: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        Text(
+            "Lodo",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 28.dp, top = 12.dp, bottom = 12.dp),
+        )
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            AppSection.entries.forEach { s ->
+                DrawerItem(s.title, s.icon, selected = section == s) { onSelect(s) }
+            }
+        }
+        androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
+        DrawerItem(L("设置", "Settings"), Icons.Outlined.Settings, selected = false, onClick = onSettings)
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun DrawerItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, onClick: () -> Unit) {
+    androidx.compose.material3.NavigationDrawerItem(
+        label = { Text(label, maxLines = 1) },
+        icon = { Icon(icon, contentDescription = null) },
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.padding(androidx.compose.material3.NavigationDrawerItemDefaults.ItemPadding).height(48.dp),
+    )
 }
 
 @Composable

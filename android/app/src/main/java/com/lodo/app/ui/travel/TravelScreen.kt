@@ -176,7 +176,9 @@ fun TravelScreen(vm: TravelViewModel = viewModel()) {
                                 color = MaterialTheme.colorScheme.onPrimaryContainer)
                             Text(tripDates(t) + t.destinationLabel.let { if (it.isEmpty()) "" else " · $it" },
                                 color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text(tripStatus(t), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            // 压在 primaryContainer 上要用 onPrimaryContainer(primary 在容器色上对比度不够)。
+                            Text(tripStatus(t), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                             if (t.notes.isNotBlank()) Text(t.notes, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }

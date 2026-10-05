@@ -143,7 +143,7 @@ fun MenuScreen(vm: MenuViewModel = viewModel()) {
         if (menus.isEmpty()) {
             FullEmpty(Icons.AutoMirrored.Outlined.MenuBook, L("还没有菜单", "No menus yet"),
                 L("在餐厅拍一张菜单,lodo 帮你翻译、介绍每道菜,点好了给服务员看。", "Snap a menu — Lodo translates and explains each dish."), padding) {
-                OutlinedButton(onClick = { importing = true }) { Text(L("拍菜单", "Scan a menu")) }
+                androidx.compose.material3.Button(onClick = { importing = true }) { Text(L("拍菜单", "Scan a menu")) }
             }
         } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp,
             top = padding.calculateTopPadding() + 4.dp, bottom = padding.calculateBottomPadding() + 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -5,6 +5,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -105,25 +106,25 @@ fun LodoTimePickerDialog(
     }
 }
 
-/** 空状态占位:图标 + 说明文字。 */
+/** 列表里的空状态:和整页空态(FullEmpty)同一套样子——容器色圆底图标 + 一句说明。 */
 @Composable
-fun EmptyState(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+fun EmptyState(icon: ImageVector, text: String, modifier: Modifier = Modifier) = DelayedReveal {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 40.dp),
+            .padding(vertical = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        androidx.compose.material3.Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            modifier = Modifier.size(64.dp),
+        ) {
+            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(30.dp))
+            }
+        }
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
