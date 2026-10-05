@@ -129,6 +129,8 @@ object OSMGeocode {
     data class Place(
         val name: String, val displayName: String, val point: GeoPoint, val countryCode: String?,
         val names: List<String>, val addressType: String, val importance: Double,
+        /** OSM 的 osm_type + osm_id,合并两路候选时去重用。 */
+        val id: String = "",
     )
 
     const val MIN_NAME_SCORE = 0.6
@@ -166,7 +168,8 @@ object OSMGeocode {
             val display = o.optString("display_name")
             Place(names.firstOrNull() ?: display.substringBefore(","), display, GeoPoint(lat, lon),
                 o.optJSONObject("address")?.optString("country_code")?.uppercase()?.takeIf { it.isNotEmpty() },
-                names, o.optString("addresstype"), o.optDouble("importance", 0.0).takeIf { !it.isNaN() } ?: 0.0)
+                names, o.optString("addresstype"), o.optDouble("importance", 0.0).takeIf { !it.isNaN() } ?: 0.0,
+                o.optString("osm_type") + (if (o.has("osm_id")) o.opt("osm_id").toString() else "$lat,$lon"))
         }
     }.getOrDefault(emptyList())
 
@@ -205,6 +208,95 @@ object OSMGeocode {
         val chosen = best(near.ifEmpty { candidates }) ?: return null
         if (maxDistance != null && TravelGeo.distance(anchor, chosen.point) > maxDistance) return null
         return chosen
+    }
+}
+
+/**
+ * AI 校准选点(同 iOS PlaceCalibration):每个地点从 OSM 拿一组过了国家和名字校验的候选
+ * (标题和地点名两路都搜、合在一起,最多 8 个),整趟一次交给模型,每条回一个编号或 null。
+ */
+object PlaceCalibration {
+    const val MAX_CANDIDATES = 8
+
+    /** 标题去掉括号里的补充、住宿去掉「住…一带」,再加上地点名;去重。 */
+    fun queries(title: String, place: String, isLodging: Boolean): List<String> {
+        var t = title.replace(Regex("[（(【\\[][^）)】\\]]*[）)】\\]]"), "")
+        if (isLodging) t = TravelDestination.lodgingQuery(t)
+        return listOf(t, place).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+    }
+
+    /** 两路候选按轮流配额合并,按 OSM id 和约 100 米的位置去重,最多 8 个。 */
+    fun merge(lists: List<List<OSMGeocode.Place>>): List<OSMGeocode.Place> {
+        val perList = if (lists.size > 1) maxOf(1, MAX_CANDIDATES / lists.size) else MAX_CANDIDATES
+        val ids = mutableSetOf<String>()
+        val spots = mutableSetOf<String>()
+        val result = mutableListOf<OSMGeocode.Place>()
+        fun add(p: OSMGeocode.Place): Boolean {
+            val spot = String.format(Locale.ROOT, "%.3f,%.3f", p.point.latitude, p.point.longitude)
+            if (result.size >= MAX_CANDIDATES || (p.id.isNotEmpty() && p.id in ids) || spot in spots) return false
+            if (p.id.isNotEmpty()) ids += p.id
+            spots += spot
+            result += p
+            return true
+        }
+        val leftovers = mutableListOf<OSMGeocode.Place>()
+        for (list in lists) {
+            var taken = 0
+            for (p in list) if (taken < perList && add(p)) taken++ else leftovers += p
+        }
+        leftovers.forEach { add(it) }
+        return result
+    }
+
+    data class Candidate(val name: String, val address: String, val type: String, val importance: Double, val distanceKm: Double?)
+    data class Item(val id: String, val title: String, val place: String, val kind: String, val time: String?, val note: String, val candidates: List<Candidate>)
+
+    sealed interface Choice {
+        data class Pick(val index: Int) : Choice
+        data object None : Choice
+    }
+
+    fun prompt(trip: String, items: List<Item>): String {
+        val lines = mutableListOf(trip, "", "要定位的地点(同一天的地点一般离得不远):")
+        for (item in items) {
+            var head = "[id:${item.id}] ${item.kind}「${item.title}」"
+            if (item.place.isNotEmpty() && item.place != item.title) head += "(地点:${item.place})"
+            item.time?.let { head += " · $it" }
+            item.note.trim().takeIf { it.isNotEmpty() }?.let { head += " · 备注:${it.take(60)}" }
+            lines += head
+            item.candidates.forEachIndexed { i, c ->
+                var line = "  ${i + 1}. ${c.name} — ${c.address}"
+                if (c.type.isNotEmpty()) line += " · 类型 ${c.type}"
+                line += String.format(Locale.ROOT, " · 知名度 %.2f", c.importance)
+                c.distanceKm?.let { line += String.format(Locale.ROOT, " · 距目的地 %.0f km", it) }
+                lines += line
+            }
+        }
+        return lines.joinToString("\n")
+    }
+
+    /** {"choices": [{"id", "pick"}]} → 每条的结论;pick 为 null/0 = 都不对,越界的丢掉。 */
+    fun parse(payload: JSONObject, items: List<Item>): Map<String, Choice> {
+        val arr = payload.optJSONArray("choices") ?: return emptyMap()
+        val byId = items.associateBy { it.id.lowercase() }
+        val result = linkedMapOf<String, Choice>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            var raw = o.optString("id").trim().removePrefix("[").removeSuffix("]").trim()
+            if (raw.lowercase().startsWith("id:")) raw = raw.drop(3).trim()
+            val item = byId[raw.lowercase()] ?: continue
+            if (item.id in result) continue
+            val pick = when (val v = o.opt("pick")) {
+                is Number -> v.toInt()
+                is String -> v.trim().toIntOrNull()
+                else -> null
+            }
+            when {
+                pick == null || pick == 0 -> result[item.id] = Choice.None
+                pick in 1..item.candidates.size -> result[item.id] = Choice.Pick(pick - 1)
+            }
+        }
+        return result
     }
 }
 

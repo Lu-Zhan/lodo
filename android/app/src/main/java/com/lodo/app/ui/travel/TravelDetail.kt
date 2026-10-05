@@ -214,10 +214,14 @@ fun TravelDetail(trip: TripEntity, vm: TravelViewModel, onBack: () -> Unit) {
     val info: (TravelEntry) -> Unit = { e -> editingItem = byId[e.id] }
     val relocate: () -> Unit = {
         scope.launch {
-            val r = vm.relocateAll(trip) { i, n -> say(L("刷新地点中:$i/$n", "Refreshing places: $i/$n"), true) }
+            val r = vm.relocateAll(trip) { p ->
+                say(L("刷新地点中:${p.done}/${p.total}", "Refreshing places: ${p.done}/${p.total}") +
+                    if (p.calibrating) L(" · AI 正在从候选里挑选…", " · AI is picking from candidates…") else "", true)
+            }
             if (r.noDestination) say(L("认不出这趟旅行在哪,先填城市和国家", "Add a city and country first"), action = fillAction)
             else say(L("位置有更新 ${r.updated} 个 · 没变 ${r.unchanged} 个 · 没搜到 ${r.notFound} 个",
-                "Updated ${r.updated} · unchanged ${r.unchanged} · not found ${r.notFound}"))
+                "Updated ${r.updated} · unchanged ${r.unchanged} · not found ${r.notFound}") +
+                if (r.aiPicked > 0) L("(${r.aiPicked} 个由 AI 校准)", " (${r.aiPicked} picked by AI)") else "")
         }
     }
 

@@ -75,3 +75,41 @@ class TravelGeoTest {
         assertEquals(listOf("h"), TravelGeo.dayRoute(d1, listOf(hotel)).map { it.id })
     }
 }
+
+/** AI 校准选点的纯逻辑,同 iOS PlaceCalibrationTests。 */
+class PlaceCalibrationTest {
+    private fun p(id: String, lat: Double, lon: Double, name: String = id) =
+        OSMGeocode.Place(name, "$name, 东京", GeoPoint(lat, lon), "JP", listOf(name), "attraction", 0.5, id)
+
+    @Test
+    fun queriesStripBracketsAndLodgingWords() {
+        assertEquals(listOf("浅草寺", "浅草"), PlaceCalibration.queries("浅草寺(雷门)", "浅草", false))
+        assertEquals(listOf("新宿"), PlaceCalibration.queries("住新宿一带", "新宿", true))
+    }
+
+    @Test
+    fun mergeTakesFromBothListsAndDedupes() {
+        val a = (1..6).map { p("a$it", 35.0 + it, 139.0) }
+        val b = listOf(p("a1", 36.0, 139.0), p("b1", 35.0, 140.0), p("b2", 35.0, 141.0))
+        val merged = PlaceCalibration.merge(listOf(a, b))
+        assertEquals(PlaceCalibration.MAX_CANDIDATES, merged.size)
+        assertTrue(merged.any { it.id == "b1" } && merged.any { it.id == "b2" })
+        assertEquals(merged.size, merged.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun promptAndParse() {
+        val item = PlaceCalibration.Item("U-1", "清水寺", "清水寺", "地点", "第 2 天 10:00", "",
+            listOf(PlaceCalibration.Candidate("清水寺", "京都", "temple", 0.6, 3.0), PlaceCalibration.Candidate("清水寺", "福冈", "temple", 0.4, 500.0)))
+        val prompt = PlaceCalibration.prompt("旅行:京都", listOf(item))
+        assertTrue(prompt.contains("[id:U-1] 地点「清水寺」 · 第 2 天 10:00"))
+        assertTrue(prompt.contains("  2. 清水寺 — 福冈 · 类型 temple · 知名度 0.40 · 距目的地 500 km"))
+        val other = item.copy(id = "U-2")
+        val choices = PlaceCalibration.parse(org.json.JSONObject(
+            """{"choices":[{"id":"[id:u-1]","pick":"1"},{"id":"U-2","pick":null},{"id":"U-3","pick":1}]}"""), listOf(item, other))
+        assertEquals(PlaceCalibration.Choice.Pick(0), choices["U-1"])
+        assertEquals(PlaceCalibration.Choice.None, choices["U-2"])
+        assertEquals(2, choices.size)
+        assertTrue(PlaceCalibration.parse(org.json.JSONObject("""{"choices":[{"id":"U-1","pick":9}]}"""), listOf(item)).isEmpty())
+    }
+}

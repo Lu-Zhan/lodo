@@ -2,7 +2,9 @@ package com.lodo.app.data
 
 import android.content.Context
 import com.lodo.app.core.GeoPoint
+import com.lodo.app.ai.AIConfig
 import com.lodo.app.core.OSMGeocode
+import com.lodo.app.core.PlaceCalibration
 import com.lodo.app.core.PlaceRegion
 import com.lodo.app.core.RoadRoute
 import com.lodo.app.core.TravelDestination
@@ -104,37 +106,124 @@ class TravelGeocoder(private val context: Context, private val db: LodoDatabase)
         return found
     }
 
-    data class RelocateResult(val updated: Int, val unchanged: Int, val notFound: Int, val noDestination: Boolean = false)
+    data class RelocateResult(
+        val updated: Int, val unchanged: Int, val notFound: Int,
+        val noDestination: Boolean = false, val aiPicked: Int = 0,
+    )
 
-    /** 「刷新地点位置」:全部非交通项按地名重查,查到就覆盖、查不到保留原坐标(同 iOS relocateAll)。 */
-    suspend fun relocateAll(trip: TripEntity, progress: (Int, Int) -> Unit): RelocateResult {
+    /** 进度:第几个 / 一共几个;calibrating = 候选都拿齐了,正在等 AI 一次性挑。 */
+    data class Progress(val done: Int, val total: Int, val calibrating: Boolean = false)
+
+    /** 「刷新地点位置」:全部非交通项按地名重查,选哪一个由 AI 从 OSM 候选里校准;
+     * 查到就覆盖、查不到保留原坐标(同 iOS relocateAll)。 */
+    suspend fun relocateAll(trip: TripEntity, config: AIConfig?, progress: (Progress) -> Unit): RelocateResult {
         missed.clear()
-        val items = db.memoryDao().forTrip(trip.uuid).filter(::locatable)
+        val all = db.memoryDao().forTrip(trip.uuid).filter(::locatable)
+        // 一次最多 25 条(Nominatim 每秒 1 次,两路查询);超出的算没查到,如实报。
+        val items = all.take(25)
+        if (items.isEmpty()) return RelocateResult(0, 0, 0)
         val ctx = context(trip) ?: return RelocateResult(0, 0, items.size, noDestination = true)
-        var updated = 0; var same = 0; var miss = 0
-        items.forEachIndexed { i, m ->
-            progress(i + 1, items.size)
-            val p = lookUp(queries(m), ctx)
-            when {
-                p == null -> miss++
-                m.travelLatitude != null && TravelGeo.distance(p, GeoPoint(m.travelLatitude, m.travelLongitude ?: 0.0)) < 50 -> same++
-                else -> {
-                    db.memoryDao().byUuid(m.uuid)?.let { db.memoryDao().upsert(it.copy(travelLatitude = p.latitude, travelLongitude = p.longitude)) }
-                    updated++
-                }
+        val outcomes = calibratedLookUp(items, trip, ctx, config, progress)
+        var updated = 0; var same = 0; var miss = 0; var ai = 0
+        for (m in items) {
+            val (p, byAi) = outcomes[m.uuid] ?: run { miss++; null } ?: continue
+            if (byAi) ai++
+            if (m.travelLatitude != null && TravelGeo.distance(p, GeoPoint(m.travelLatitude, m.travelLongitude ?: 0.0)) < 50) same++
+            else {
+                db.memoryDao().byUuid(m.uuid)?.let { db.memoryDao().upsert(it.copy(travelLatitude = p.latitude, travelLongitude = p.longitude)) }
+                updated++
             }
         }
-        return RelocateResult(updated, same, miss)
+        return RelocateResult(updated, same, miss + (all.size - items.size), aiPicked = ai)
     }
 
-    /** 单条重查(先清掉它的「查不到」缓存);查不到保留原坐标,返回 false。 */
-    suspend fun locate(trip: TripEntity, uuid: String): Boolean {
+    /** 单条重查(先清掉它的「查不到」缓存),同样走 AI 校准;查不到保留原坐标,返回 false。 */
+    suspend fun locate(trip: TripEntity, uuid: String, config: AIConfig?): Boolean {
         val m = db.memoryDao().byUuid(uuid) ?: return false
         val ctx = context(trip) ?: return false
         queries(m).forEach { missed -= "${ctx.region}|${it.trim()}" }
-        val p = lookUp(queries(m), ctx) ?: return false
+        val (p, _) = calibratedLookUp(listOf(m), trip, ctx, config) {}[m.uuid] ?: return false
         db.memoryDao().upsert(m.copy(travelLatitude = p.latitude, travelLongitude = p.longitude))
         return true
+    }
+
+    /** 一个查询词在 OSM 上的候选:过国家和名字校验,离锚点 200 公里内的排前面(同 iOS osmCandidates)。 */
+    private suspend fun candidates(query: String, ctx: GeoContext): List<OSMGeocode.Place> {
+        val q = query.trim()
+        if (q.isEmpty() || (ctx.region == null && ctx.anchor == null)) return emptyList()
+        val language = if (com.lodo.app.core.CurrentLang.value == com.lodo.app.core.Lang.EN) "en" else "zh"
+        val places = get(OSMGeocode.searchUrl(q, ctx.region, ctx.anchor, language))?.let(OSMGeocode::parse).orEmpty()
+        val valid = places.filter {
+            PlaceRegion.matches(ctx.region, it.countryCode) && OSMGeocode.nameScore(q, it.names) >= OSMGeocode.MIN_NAME_SCORE &&
+                (ctx.region != null || ctx.anchor == null || TravelGeo.distance(ctx.anchor, it.point) <= 500_000)
+        }
+        val anchor = ctx.anchor ?: return valid
+        val near = valid.filter { TravelGeo.distance(anchor, it.point) <= OSMGeocode.NEARBY }
+        return near + valid.filter { it !in near }
+    }
+
+    /**
+     * AI 校准选点(同 iOS calibratedLookUp):每条先从 OSM 拿候选(标题和地点名两路合并),整趟
+     * **一次**交给模型挑。退路:没候选 → 原来的自动查;没配 AI / 请求失败 / 没给结论 → 按知名度自动挑;
+     * **AI 明说都不对 → 算没找到**(不再退回自动挑,那等于把否掉的又选回来)。
+     * 返回每条的坐标和是不是 AI 挑的;每条的候选和结论写进 Logcat(tag TravelGeocode)。
+     */
+    private suspend fun calibratedLookUp(
+        items: List<MemoryEntity>, trip: TripEntity, ctx: GeoContext, config: AIConfig?, progress: (Progress) -> Unit,
+    ): Map<String, Pair<GeoPoint, Boolean>> {
+        val out = linkedMapOf<String, Pair<GeoPoint, Boolean>>()
+        val pending = mutableListOf<Pair<MemoryEntity, List<OSMGeocode.Place>>>()
+        items.forEachIndexed { i, m ->
+            val lists = PlaceCalibration.queries(m.title, m.travelPlaceName.orEmpty(), m.travelKind == TravelItemKind.LODGING.raw)
+                .map { candidates(it, ctx) }
+            val merged = PlaceCalibration.merge(lists)
+            if (merged.isNotEmpty()) pending += m to merged
+            else lookUp(queries(m), ctx)?.let { out[m.uuid] = it to false }
+            progress(Progress(i + 1, items.size))
+        }
+        if (pending.isEmpty()) return out
+        val start = trip.startMillis.toLocalDateTime().toLocalDate()
+        val calItems = pending.map { (m, places) ->
+            PlaceCalibration.Item(
+                id = m.uuid, title = m.title, place = m.travelPlaceName.orEmpty(),
+                kind = if (m.travelKind == TravelItemKind.LODGING.raw) "住宿" else "地点",
+                time = m.travelStartMillis?.toLocalDateTime()?.let { t ->
+                    "第 ${java.time.temporal.ChronoUnit.DAYS.between(start, t.toLocalDate()) + 1} 天 " +
+                        t.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                },
+                note = m.travelNote ?: m.summary,
+                candidates = places.map { p ->
+                    PlaceCalibration.Candidate(p.name, p.displayName, p.addressType, p.importance,
+                        ctx.anchor?.let { TravelGeo.distance(it, p.point) / 1000 })
+                },
+            )
+        }
+        var choices: Map<String, PlaceCalibration.Choice> = emptyMap()
+        if (config != null && !config.apiKey.isNullOrBlank()) {
+            progress(Progress(items.size, items.size, calibrating = true))
+            val fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
+            val tripLine = "旅行:${trip.title};目的地:${listOf(trip.city, trip.country).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { "未填" }};" +
+                "日期:${trip.startMillis.toLocalDateTime().format(fmt)} 至 ${trip.endMillis.toLocalDateTime().format(fmt)}"
+            choices = runCatching { com.lodo.app.ai.DeepSeekClient.calibratePlaces(config, tripLine, calItems) }
+                .onFailure { android.util.Log.w("TravelGeocode", "AI calibration failed: ${it.message}") }
+                .getOrDefault(emptyMap())
+        }
+        for ((m, places) in pending) {
+            val choice = choices[m.uuid]
+            android.util.Log.i("TravelGeocode", "${m.title}: ${places.size} candidates, " + when (choice) {
+                is PlaceCalibration.Choice.Pick -> "AI → #${choice.index + 1} ${places[choice.index].displayName}"
+                PlaceCalibration.Choice.None -> "AI → none"
+                null -> "auto"
+            })
+            places.forEachIndexed { i, p -> android.util.Log.i("TravelGeocode", "  #${i + 1} ${p.name} [${p.addressType} ${p.importance}] ${p.displayName}") }
+            when (choice) {
+                is PlaceCalibration.Choice.Pick -> out[m.uuid] = places[choice.index].point to true
+                PlaceCalibration.Choice.None -> {}
+                null -> (OSMGeocode.pick(places, queries(m).firstOrNull { it.isNotBlank() } ?: m.title, ctx.region, ctx.anchor) ?: places.first())
+                    .let { out[m.uuid] = it.point to false }
+            }
+        }
+        return out
     }
 
     suspend fun setManual(uuid: String, point: GeoPoint) {

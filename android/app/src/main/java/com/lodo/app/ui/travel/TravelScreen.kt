@@ -96,8 +96,9 @@ class TravelViewModel(application: Application) : AndroidViewModel(application) 
 
     suspend fun suggestNote(trip: TripEntity) = DeepSeekClient.suggestTripNote(app.settings.aiConfig(), app.travel.aiSummary(trip))
     suspend fun fillMissing(trip: TripEntity, progress: (Int, Int) -> Unit) = app.geocoder.fillMissing(trip, progress)
-    suspend fun relocateAll(trip: TripEntity, progress: (Int, Int) -> Unit) = app.geocoder.relocateAll(trip, progress)
-    suspend fun locate(trip: TripEntity, uuid: String) = app.geocoder.locate(trip, uuid)
+    suspend fun relocateAll(trip: TripEntity, progress: (com.lodo.app.data.TravelGeocoder.Progress) -> Unit) =
+        app.geocoder.relocateAll(trip, app.settings.aiConfig(), progress)
+    suspend fun locate(trip: TripEntity, uuid: String) = app.geocoder.locate(trip, uuid, app.settings.aiConfig())
     suspend fun setManual(uuid: String, p: com.lodo.app.core.GeoPoint) = app.geocoder.setManual(uuid, p)
     suspend fun leg(a: com.lodo.app.core.GeoPoint, b: com.lodo.app.core.GeoPoint) = app.geocoder.leg(a, b)
     fun cachedLeg(a: com.lodo.app.core.GeoPoint, b: com.lodo.app.core.GeoPoint) = app.geocoder.cachedLeg(a, b)
