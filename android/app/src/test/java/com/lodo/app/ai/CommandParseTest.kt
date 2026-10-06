@@ -373,6 +373,51 @@ class CommandParseTest {
         assertTrue(actions[0] is AIAction.Create)
     }
 
+    // ---- delete_memory(删除记忆,同 iOS)----
+
+    private fun parseMemory(payload: JSONObject, enabled: Boolean = true) =
+        DeepSeekClient.parseCommandResult(payload, emptySet(), webSearchEnabled = false, memoryEnabled = enabled)
+
+    @Test
+    fun deleteMemoryNormalizesIds() {
+        val id1 = "6F1C2D3E-4A5B-4C6D-8E7F-901A2B3C4D5E"
+        val id2 = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
+        val payload = payloadWithActions(JSONObject().put("action", "delete_memory")
+            .put("ids", JSONArray(listOf("[id:$id1]", " {$id2} ", id1, "家里 WiFi"))))
+        val actions = (parseMemory(payload) as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(listOf(AIAction.DeleteMemory(listOf(id1.lowercase(), id2))), actions)
+    }
+
+    @Test
+    fun deleteMemoryAcceptsSingleId() {
+        val id = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
+        val payload = payloadWithActions(JSONObject().put("action", "delete_memory").put("id", id))
+        val actions = (parseMemory(payload) as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(listOf(AIAction.DeleteMemory(listOf(id))), actions)
+    }
+
+    /** 模型拿标题当 id 时不能静默变成"什么都没删"。 */
+    @Test(expected = DeepSeekException::class)
+    fun deleteMemoryWithoutValidIdThrows() {
+        parseMemory(payloadWithActions(JSONObject().put("action", "delete_memory")
+            .put("ids", JSONArray(listOf("家里 WiFi")))))
+    }
+
+    @Test(expected = DeepSeekException::class)
+    fun deleteMemoryWhenDisabledThrows() {
+        parseMemory(payloadWithActions(JSONObject().put("action", "delete_memory")
+            .put("ids", JSONArray(listOf("1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d")))), enabled = false)
+    }
+
+    /** 删除记忆是写操作,和待办写操作混在一起时两样都留(一起进确认清单)。 */
+    @Test
+    fun deleteMemoryMixedWithCreateKeepsBoth() {
+        val payload = payloadWithActions(taskPayload("create"), JSONObject().put("action", "delete_memory")
+            .put("ids", JSONArray(listOf("1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"))))
+        val actions = (parseMemory(payload) as? AICommandResult.Actions)?.actions ?: return fail("expected actions")
+        assertEquals(2, actions.size)
+    }
+
     // ---- ReAct 工具调用(search_memory)----
 
     @Test

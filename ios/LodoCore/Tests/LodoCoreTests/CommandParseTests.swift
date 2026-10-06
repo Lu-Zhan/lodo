@@ -346,6 +346,58 @@ final class CommandParseTests: XCTestCase {
         }
     }
 
+    // MARK: - delete_memory(删除记忆)
+
+    func testDeleteMemoryNormalizesIDs() throws {
+        let id1 = "6f1c2d3e-4a5b-4c6d-8e7f-901a2b3c4d5e"
+        let id2 = "1A2B3C4D-5E6F-4A7B-8C9D-0E1F2A3B4C5D"
+        let payload: [String: Any] = ["actions": [[
+            "action": "delete_memory", "ids": ["[id:\(id1)]", " {\(id2)} ", id1, "家里 WiFi"]
+        ]]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .actions(let actions) = result, actions.count == 1,
+              case .deleteMemory(let ids) = actions[0] else {
+            return XCTFail("expected single deleteMemory action")
+        }
+        XCTAssertEqual(ids, [id1.uppercased(), id2])
+    }
+
+    func testDeleteMemoryAcceptsSingleID() throws {
+        let id = "1A2B3C4D-5E6F-4A7B-8C9D-0E1F2A3B4C5D"
+        let payload: [String: Any] = ["actions": [["action": "delete_memory", "id": id]]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .actions(let actions) = result, case .deleteMemory(let ids)? = actions.first else {
+            return XCTFail("expected deleteMemory")
+        }
+        XCTAssertEqual(ids, [id])
+    }
+
+    /// 模型拿标题当 id 时不能静默变成"什么都没删"。
+    func testDeleteMemoryWithoutValidIDThrows() {
+        let payload: [String: Any] = ["actions": [["action": "delete_memory", "ids": ["家里 WiFi"]]]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true))
+    }
+
+    func testDeleteMemoryWhenDisabledThrows() {
+        let payload: [String: Any] = ["actions": [[
+            "action": "delete_memory", "ids": ["1A2B3C4D-5E6F-4A7B-8C9D-0E1F2A3B4C5D"]
+        ]]]
+        XCTAssertThrowsError(
+            try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
+
+    /// 删除记忆是写操作,和待办写操作混在一起时两样都留(一起进确认清单)。
+    func testDeleteMemoryMixedWithCreateKeepsBoth() throws {
+        let payload: [String: Any] = ["actions": [
+            taskPayload(action: "create"),
+            ["action": "delete_memory", "ids": ["1A2B3C4D-5E6F-4A7B-8C9D-0E1F2A3B4C5D"]]
+        ]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: true)
+        guard case .actions(let actions) = result else { return XCTFail("expected actions") }
+        XCTAssertEqual(actions.count, 2)
+    }
+
     // MARK: - ask_memory(查记忆)+ 归一化兜底
 
     func testAskMemoryAlone() throws {

@@ -78,7 +78,12 @@ extension AgentHostView {
                 onThought(thought)
                 let candidates = await retrieveMemoryCandidates(query)
                 let observation = candidates.isEmpty ? "没有找到相关记忆内容" :
-                    candidates.map { ($0.isTaskHistory ? "[待办历史] " : "") + "「\($0.title)」\($0.excerpt)" }
+                    candidates.map { candidate in
+                        // 记忆条目带 [id:…],delete_memory 只认这里给出去的 id;
+                        // 待办历史不是记忆,不给 id(删不了,也不该删)。
+                        candidate.isTaskHistory ? "[待办历史] 「\(candidate.title)」\(candidate.excerpt)"
+                            : "「\(candidate.title)」\(candidate.excerpt) [id:\(candidate.uuid)]"
+                    }
                         .joined(separator: "\n")
                 reasoningHistory.append((role: "assistant", content: "思考:\(thought);查记忆:\(query)"))
                 reasoningHistory.append((role: "user", content: "记忆检索结果:\n\(observation)"))
@@ -219,6 +224,34 @@ extension AgentHostView {
                             role: .assistant, kind: .libraryEdit, content: record.transcript,
                             librarySnapshotData: try? JSONEncoder().encode(record)))
                         try? context.save()
+                    }
+                }
+                // 删除记忆:一条 delete_memory 可能带好几个 id,拆成一条一项进确认清单
+                // (清单一行对应一项,才看得清删的是哪几条)。查不到的 id、行程项
+                // (那是旅行的一部分,走 edit_trip)不进清单,如实告诉用户。
+                var memorySkipped: [String] = []
+                if actions.contains(where: { if case .deleteMemory = $0 { return true } else { return false } }) {
+                    actions = actions.flatMap { action -> [AIAction] in
+                        guard case .deleteMemory(let uuids) = action else { return [action] }
+                        return uuids.compactMap { uuid in
+                            guard let item = memoryItem(uuid) else {
+                                memorySkipped.append("有一条记忆没找到")
+                                return nil
+                            }
+                            guard item.travelKind == nil else {
+                                memorySkipped.append("「\(item.title)」是旅行行程,请在旅行里删")
+                                return nil
+                            }
+                            return .deleteMemory(uuids: [uuid])
+                        }
+                    }
+                    if actions.isEmpty {
+                        return .answer(text: memorySkipped.isEmpty ? "没有找到要删除的记忆。"
+                                       : memorySkipped.joined(separator: ";") + "。", related: [])
+                    }
+                    // 一部分能删、一部分不能:清单照常出,跳过的那几条弹一句说明,别悄悄少删。
+                    if !memorySkipped.isEmpty {
+                        actionsWarning = memorySkipped.joined(separator: ";") + "。"
                     }
                 }
                 guard !actions.isEmpty else {
@@ -466,6 +499,10 @@ extension AgentHostView {
             // 混合批次里理论上不会出现,兜底给出可读描述。
             return String(format: LocalizedStrings.text(.ios_core_action_save, language: language),
                           MemorySearch.truncate(text, limit: 20))
+        case .deleteMemory(let uuids):
+            // route() 已经拆成一条一项;附件文件删了就回不来,清单上说清楚。
+            let names = uuids.map { memoryItem($0)?.title ?? "未知记忆" }.joined(separator: "、")
+            return String(localized: "删除记忆:\(names)(无法撤销)", bundle: .appLanguage())
         case .askMemory:
             // 防御性分支:parseCommand 已把 ask_memory 与写操作混合时丢弃,
             // 正常不会走到这里。
@@ -526,6 +563,12 @@ extension AgentHostView {
         pending.first { $0.uuid.uuidString == uuid }?.title
     }
 
+    private func memoryItem(_ uuid: String) -> MemoryItem? {
+        guard let id = UUID(uuidString: uuid) else { return nil }
+        return (try? context.fetch(FetchDescriptor<MemoryItem>(
+            predicate: #Predicate<MemoryItem> { $0.uuid == id }))).flatMap(\.first)
+    }
+
     /// 执行确认后的批量操作;不关闭 agent 聊天页,由 AgentView 自己往当前
     /// 对话里追加一条结果消息。等待确认期间,目标事项可能已被通知按钮/
     /// 小组件/Siri 改动或完成/删除;找不到时计入 missingCount,而不是静默
@@ -567,6 +610,16 @@ extension AgentHostView {
                 // 里执行时也要记进 undoOps,否则撤销批次时这条记忆会被漏掉。
                 if let created = MemoryPipeline.saveText(text, context: context) {
                     undoOps.append(.memorized(uuid: created.uuid))
+                }
+            case .deleteMemory(let uuids):
+                // 不进 undoOps:MemoryPipeline.delete 会连附件文件、向量分片一起清,
+                // 撤销恢复不了文件——确认清单上已经写明「无法撤销」。
+                for uuid in uuids {
+                    if let item = memoryItem(uuid), item.travelKind == nil {
+                        MemoryPipeline.delete(item, context: context)
+                    } else {
+                        missingCount += 1
+                    }
                 }
             case .askMemory, .answer, .suggestMemorize, .rememberPreference, .autoMemorize, .planTrip,
                  .editTrip, .countdown, .asset, .feed:

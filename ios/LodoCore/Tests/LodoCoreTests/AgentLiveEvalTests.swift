@@ -134,7 +134,8 @@ final class AgentLiveEvalTests: XCTestCase {
         switch tool {
         case .searchMemory(let q):
             return ("查记忆:\(q)", "记忆检索结果",
-                    "「家里 WiFi」名称 Lodo-Home,密码 sunshine2026\n「班主任」王老师,喜欢手写贺卡")
+                    "「家里 WiFi」名称 Lodo-Home,密码 sunshine2026 [id:\(Self.wifiMemoryID)]\n"
+                    + "「班主任」王老师,喜欢手写贺卡 [id:\(Self.teacherMemoryID)]")
         case .webSearch(let q):
             return ("联网搜索:\(q)", "搜索结果",
                     "「上海天气预报」今天多云转晴,18–24°C,东北风 3 级。\n来源:https://weather.example.com/shanghai")
@@ -304,6 +305,17 @@ final class AgentLiveEvalTests: XCTestCase {
         if searched, case .answer(let text)? = r.actions.first {
             XCTAssertTrue(text.contains("sunshine2026"), "答案应来自检索结果:\(text)")
         }
+    }
+
+    static let wifiMemoryID = "6F1C2D3E-4A5B-4C6D-8E7F-901A2B3C4D5E"
+    static let teacherMemoryID = "1A2B3C4D-5E6F-4A7B-8C9D-0E1F2A3B4C5D"
+
+    func testDeleteMemoryUsesSearchedID() async throws {
+        let r = try await run("把我收藏的家里 WiFi 那条记忆删掉")
+        let searched = r.tools.contains { if case .searchMemory = $0 { return true } else { return false } }
+        XCTAssertTrue(searched, "应该先查记忆拿 id:\(r.result)")
+        guard case .deleteMemory(let ids)? = r.actions.first else { return XCTFail("\(r.result)") }
+        XCTAssertEqual(ids, [Self.wifiMemoryID], "只删用户指的那条:\(r.result)")
     }
 
     func testRememberPreference() async throws {

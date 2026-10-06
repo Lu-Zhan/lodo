@@ -67,6 +67,10 @@ public enum AIAction {
     case delete(uuid: String)
     case memorize(text: String)
     case askMemory(question: String)
+    /// 删除记忆条目(id 来自本轮 search_memory 的结果)。**不直接执行**:和删除待办
+    /// 一样进确认清单——附件文件删了就回不来,撤销兜不住,只能先拦一道。
+    /// 解析层只保证是合法 uuid,条目在不在、能不能删由调用方查库判断。
+    case deleteMemory(uuids: [String])
     /// 与待办/记忆都无关的一般性问题,直接给用户的回答(可能是联网搜索后给出的)。
     case answer(text: String)
     /// AI 主动建议收藏(不是用户明确要求),前端展示成一个"收藏这条"按钮,
@@ -614,6 +618,8 @@ public enum DeepSeekClient {
                     throw DeepSeekError.parse("返回格式异常:查询问题为空")
                 }
                 actions.append(.askMemory(question: question))
+            case "delete_memory" where memoryEnabled:
+                actions.append(.deleteMemory(uuids: try parseMemoryIDs(raw)))
             // answer 不受 webSearchEnabled 门控:"直接回话"是聊天入口的基本能力,
             // 和有没有配 Tavily 搜索 key 无关。原来绑在一起时,没配 key 的用户
             // 一句闲聊就会让模型交白卷({"actions": []}),前端只能报错。
@@ -678,6 +684,25 @@ public enum DeepSeekClient {
             actions = actions.filter { !isInformational($0) }
         }
         return .actions(countdownActions + actions)
+    }
+
+    /// delete_memory 的 ids:认 "ids" 数组或单个 "id",去掉 `[id:…]` 外壳和花括号,
+    /// 只留合法 uuid(统一成大写,和 `UUID.uuidString` 一致)并去重。
+    /// 一个都没有时报错——模型编了个标题当 id 时不能静默变成"什么都没删"。
+    static func parseMemoryIDs(_ raw: [String: Any]) throws -> [String] {
+        var given = (raw["ids"] as? [Any])?.compactMap { $0 as? String } ?? []
+        if let single = raw["id"] as? String { given.append(single) }
+        var seen = Set<String>()
+        let ids = given.compactMap { value -> String? in
+            var key = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if key.hasPrefix("[id:"), key.hasSuffix("]") { key = String(key.dropFirst(4).dropLast()) }
+            key = key.trimmingCharacters(in: CharacterSet(charactersIn: "{}").union(.whitespaces))
+            return UUID(uuidString: key)?.uuidString
+        }.filter { seen.insert($0).inserted }
+        guard !ids.isEmpty else {
+            throw DeepSeekError.parse("返回格式异常:delete_memory 缺少有效的记忆 id")
+        }
+        return ids
     }
 
     /// ReAct 工具载荷 → 工具调用;不认得这个名字(或对应能力没开)时返回 nil,

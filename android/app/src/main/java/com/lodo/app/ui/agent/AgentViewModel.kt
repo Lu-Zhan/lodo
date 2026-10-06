@@ -286,7 +286,9 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         is AITool.SearchMemory -> {
             val c = app.memoryRepository.retrieveCandidates(tool.query)
             "[记忆检索“${tool.query}”的结果]\n" + if (c.isEmpty()) "没有找到相关记忆内容" else c.joinToString("\n") {
-                (if (it.uuid.startsWith("task:")) "[待办历史] " else "") + "「${it.title}」${it.excerpt}"
+                // 记忆条目带 [id:…],delete_memory 只认这里给出去的 id;待办历史不给(同 iOS)。
+                if (it.uuid.startsWith("task:")) "[待办历史] 「${it.title}」${it.excerpt}"
+                else "「${it.title}」${it.excerpt} [id:${it.uuid}]"
             }
         }
         is AITool.ReadHealth -> {
@@ -333,6 +335,33 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 app.agent.insert("assistant", AgentKind.TEXT, L("好的,记住了。", "Got it, I'll remember that."))
             }
             return
+        }
+
+        // 删除记忆:一条可能带好几个 id,拆成一条一项进确认清单;查不到的、旅行行程项
+        // (走 edit_trip)不进清单,如实说明(同 iOS route())。
+        if (actions.any { it is AIAction.DeleteMemory }) {
+            val skipped = mutableListOf<String>()
+            actions = actions.flatMap { a ->
+                if (a !is AIAction.DeleteMemory) return@flatMap listOf(a)
+                a.uuids.mapNotNull { id ->
+                    val item = memoryItem(id)
+                    when {
+                        item == null -> { skipped += L("有一条记忆没找到", "A memory wasn't found"); null }
+                        item.isTravelItem -> {
+                            skipped += L("「${item.title}」是旅行行程,请在旅行里删", "“${item.title}” is part of a trip; delete it in Travel")
+                            null
+                        }
+                        else -> AIAction.DeleteMemory(listOf(item.uuid))
+                    }
+                }
+            }
+            if (skipped.isNotEmpty()) {
+                app.agent.insert("assistant", AgentKind.TEXT, skipped.joinToString(L(";", "; ")) + L("。", "."))
+            }
+            if (actions.isEmpty()) {
+                if (skipped.isEmpty()) app.agent.insert("assistant", AgentKind.TEXT, L("没有找到要删除的记忆。", "No memory to delete."))
+                return
+            }
         }
 
         if (actions.size == 1) {
@@ -416,9 +445,17 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             is AIAction.Complete -> L("完成:", "Complete: ") + title(a.uuid)
             is AIAction.Delete -> L("删除:", "Delete: ") + title(a.uuid)
             is AIAction.Memorize -> L("收藏:", "Save: ") + a.text
+            // handleActions 已经拆成一条一项;附件删了就回不来,清单上说清楚。
+            is AIAction.DeleteMemory -> L("删除记忆:", "Delete memory: ") + a.uuids.joinToString("、") { id ->
+                kotlinx.coroutines.runBlocking { memoryItem(id)?.title } ?: L("(未知记忆)", "(unknown memory)")
+            } + L("(无法撤销)", " (can't be undone)")
             else -> a.toString()
         }
     }
+
+    /** 按 uuid 取记忆;iOS 备份导进来的是大写 uuid,两种写法都试一次。 */
+    private suspend fun memoryItem(id: String) =
+        app.memoryRepository.byUuid(id) ?: app.memoryRepository.byUuid(id.uppercase())
 
     private suspend fun insertTaskResult(task: TaskEntity, mode: String): AgentMessageEntity {
         val header = if (mode == "created") L("已新建", "Created") else L("已修改", "Updated")
@@ -484,6 +521,11 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     if (before != null) { app.repository.delete(a.uuid); ops += UndoOp.Deleted(before) } else missing++
                 }
                 is AIAction.Memorize -> ops += UndoOp.Memorized(app.memoryRepository.saveText(app.settings.aiConfig(), a.text).uuid)
+                // 不进撤销:记忆删了恢复不了附件,确认清单上已写明「无法撤销」。
+                is AIAction.DeleteMemory -> a.uuids.forEach { id ->
+                    val item = memoryItem(id)
+                    if (item != null && !item.isTravelItem) app.memoryRepository.delete(item.uuid) else missing++
+                }
                 else -> {}
             }
         }

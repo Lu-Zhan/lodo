@@ -4127,6 +4127,22 @@
         }
       }
     },
+    "删除记忆:%@(无法撤销)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete memory: %@ (can't be undone)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除记忆:%@(无法撤销)"
+          }
+        }
+      }
+    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {

@@ -71,6 +71,9 @@ sealed interface AIAction {
     data class Memorize(val text: String) : AIAction
     /** 查询以前收藏/完成过的内容,与 iOS AIAction.askMemory 对齐。 */
     data class AskMemory(val question: String) : AIAction
+    /** 删除记忆条目(id 来自本轮 search_memory 的结果),同 iOS AIAction.deleteMemory:
+     * 进确认清单、不进撤销——附件文件删了就回不来。解析层只保证是合法 uuid。 */
+    data class DeleteMemory(val uuids: List<String>) : AIAction
     /** AI 主动建议收藏(不落库,UI 上一个"收藏这条"按钮点了才存)。 */
     data class SuggestMemorize(val text: String) : AIAction
     /** 对话中顺带提到的重点事实,静默落库成「AI记录」(同 iOS auto_memorize)。 */
@@ -433,6 +436,7 @@ object DeepSeekClient {
                 "remember_preference" -> actions += AIAction.RememberPreference(nonEmpty("text", "偏好内容为空"))
                 "memorize" -> if (memoryEnabled) actions += AIAction.Memorize(nonEmpty("text", "收藏内容为空")) else unknown(action)
                 "suggest_memorize" -> if (memoryEnabled) actions += AIAction.SuggestMemorize(nonEmpty("text", "建议收藏内容为空")) else unknown(action)
+                "delete_memory" -> if (memoryEnabled) actions += AIAction.DeleteMemory(parseMemoryIds(raw)) else unknown(action)
                 "ask_memory" -> if (memoryEnabled) actions += AIAction.AskMemory(nonEmpty("question", "查询问题为空")) else unknown(action)
                 "auto_memorize" -> if (memoryEnabled) {
                     val title = raw.optString("title").trim()

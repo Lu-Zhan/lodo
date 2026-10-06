@@ -49,6 +49,27 @@ fun canonicalId(given: String, valid: Collection<String>): String? {
     return valid.firstOrNull { it.equals(key, ignoreCase = true) }
 }
 
+/** delete_memory 的 ids(同 iOS DeepSeekClient.parseMemoryIDs):认 "ids" 数组或单个 "id",
+ * 去 [id:…] 外壳和花括号,只留合法 uuid(统一成小写,同 UUID.toString())并去重;
+ * 一个都没有时报错——模型拿标题当 id 时不能静默变成"什么都没删"。 */
+fun parseMemoryIds(raw: JSONObject): List<String> {
+    val given = mutableListOf<String>()
+    raw.optJSONArray("ids")?.let { arr -> for (i in 0 until arr.length()) arr.optString(i).let(given::add) }
+    raw.optString("id").takeIf { it.isNotEmpty() }?.let(given::add)
+    val ids = given.mapNotNull { value ->
+        var key = value.trim()
+        if (key.startsWith("[id:") && key.endsWith("]")) key = key.drop(4).dropLast(1)
+        if (key.startsWith("id:")) key = key.drop(3)
+        key = key.trim('{', '}', ' ')
+        runCatching { java.util.UUID.fromString(key) }.getOrNull()
+            ?.toString()?.takeIf { it.equals(key, ignoreCase = true) }
+    }.distinct()
+    if (ids.isEmpty()) {
+        throw DeepSeekException(Strings.translate("无法解析:返回格式异常:delete_memory 缺少有效的记忆 id", CurrentLang.value))
+    }
+    return ids
+}
+
 private val dateTimeFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
