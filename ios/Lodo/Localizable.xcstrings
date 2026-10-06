@@ -6463,6 +6463,38 @@
         }
       }
     },
+    "在左边的列表或地图上点一项,详情会显示在这里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select an item in the list or on the map to see its details here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在左边的列表或地图上点一项,详情会显示在这里。"
+          }
+        }
+      }
+    },
+    "在左边的列表里点一篇,正文会显示在这里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select an article in the list to read it here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在左边的列表里点一篇,正文会显示在这里。"
+          }
+        }
+      }
+    },
     "在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。" : {
       "localizations" : {
         "en" : {
@@ -13830,6 +13862,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有还没到的日子了。"
+          }
+        }
+      }
+    },
+    "没有选中文章" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Article Selected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有选中文章"
+          }
+        }
+      }
+    },
+    "没有选中行程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Item Selected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有选中行程"
           }
         }
       }

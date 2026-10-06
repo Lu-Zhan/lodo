@@ -84,8 +84,9 @@ struct TravelDetailView: View {
     @State private var preparingShare = false
     /// 宽屏右栏(inspector)显示哪一项的详情:点了 ⓘ 的那一项;没点过就跟着地图上选中的点走。
     @State private var inspectorEntryID: UUID?
-    /// 宽屏右栏开着没有(工具栏右上角那颗可以收起,同系统 app 的检查器)。
-    @State private var showsInspector = true
+    /// 宽屏右栏开着没有(工具栏右上角那颗可以收起,同系统 app 的检查器)。默认收起
+    /// (用户要求),点行尾 ⓘ 时自动打开并显示那一项(见 open)。
+    @State private var showsInspector = false
     /// macOS 宽屏左栏(行程面板)的宽度,拖分隔线改,记在本机。
     @AppStorage("travelPanelWidth") private var panelWidth = 372.0
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -163,7 +164,16 @@ struct TravelDetailView: View {
             ToolbarItem(placement: .navigation) {
                 Button(action: leave) {
                     Label("返回", systemImage: "chevron.backward")
+                        #if os(macOS)
+                        // 玻璃底按内容宽度包,一个 < 比按钮高度窄,会是一条窄高的胶囊;
+                        // 给图标一块方形的内容区,和旁边侧栏按钮一样是正圆(用户要求)。
+                        .labelStyle(.iconOnly)
+                        .frame(width: 22, height: 22)
+                        #endif
                 }
+                #if os(macOS)
+                .buttonBorderShape(.circle)
+                #endif
                 .disabled(leaving)
             }
             ToolbarItemGroup(placement: .primaryAction) {
