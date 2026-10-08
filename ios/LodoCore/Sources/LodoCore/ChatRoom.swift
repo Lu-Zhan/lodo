@@ -106,6 +106,9 @@ public final class ChatRoomMessage {
     public var createdAt: Date = Date.now
     /// `card` 消息的内容卡片(JSON 编码的 `ChatCard`);其余 kind 为 nil。
     public var cardData: Data? = nil
+    /// `ai` 消息附带的提案(JSON 编码的 `ChatProposal`):AI 在群聊里不直接写任何东西,
+    /// 结论变成卡片,成员各自确认后才写进自己的(或共享的)lodo。
+    public var proposalData: Data? = nil
 
     public init(uuid: UUID = UUID(), roomUUID: UUID, kind: ChatMessageKind = .text,
                 content: String, senderName: String = "", senderHint: String = "",
@@ -122,6 +125,7 @@ public final class ChatRoomMessage {
 
     public var kind: ChatMessageKind { ChatMessageKind(rawValue: kindRaw) ?? .text }
     public var card: ChatCard? { ChatCard.decode(cardData) }
+    public var proposal: ChatProposal? { ChatProposal.decode(proposalData) }
 }
 
 // MARK: - 同步映射
@@ -160,6 +164,7 @@ public enum SharedChatMapping {
         f["createdAt"] = .date(message.createdAt)
         if !message.senderHint.isEmpty { f["senderHint"] = .string(message.senderHint) }
         if let card = message.cardData { f["card"] = .data(card) }
+        if let proposal = message.proposalData { f["proposal"] = .data(proposal) }
         return SharedRecordSnapshot(type: .chatMessage, uuid: message.uuid, fields: f)
     }
 
@@ -169,6 +174,7 @@ public enum SharedChatMapping {
         message.createdAt = f.date("createdAt") ?? message.createdAt
         message.senderHint = f.string("senderHint") ?? ""
         message.cardData = f.data("card")
+        message.proposalData = f.data("proposal")
     }
 
     public static func senderHint(_ f: SharedFields) -> String? {
@@ -210,5 +216,127 @@ public enum ChatRoomPlan {
         var n = 2
         while taken.contains("\(base) \(n)") { n += 1 }
         return "\(base) \(n)"
+    }
+}
+
+// MARK: - 群聊里的 AI
+
+/// AI 在群聊里给出的、要成员确认才写入的东西。几种可以同时有(「定了:规划这样排,
+/// 我负责订酒店」= 一份规划 + 一条任务)。
+public struct ChatProposal: Codable, Equatable {
+    /// 规划/整理出来的行程。成员点「写入行程」走 `TravelStore.applyPlan`:按旅行名
+    /// 完全一致写进已有的那趟(共享旅行就随之同步给所有人),否则新建。
+    public var tripPlan: TripPlanProposal?
+    /// 调整一趟已经记下的(共享)旅行。id 是共享旅行里行程项的 uuid,各成员一致。
+    public var tripEdit: TripEdit?
+    /// 给叫 AI 的那位成员建的任务(「我负责订酒店」);谁点谁的 lodo 里加。
+    public var tasks: [ParsedTask]
+    public var countdowns: [CountdownDraft]
+
+    public init(tripPlan: TripPlanProposal? = nil, tripEdit: TripEdit? = nil,
+                tasks: [ParsedTask] = [], countdowns: [CountdownDraft] = []) {
+        self.tripPlan = tripPlan
+        self.tripEdit = tripEdit
+        self.tasks = tasks
+        self.countdowns = countdowns
+    }
+
+    public var isEmpty: Bool {
+        tripPlan == nil && tripEdit == nil && tasks.isEmpty && countdowns.isEmpty
+    }
+
+    public var encoded: Data? { try? JSONEncoder().encode(self) }
+
+    public static func decode(_ data: Data?) -> ChatProposal? {
+        data.flatMap { try? JSONDecoder().decode(ChatProposal.self, from: $0) }
+    }
+}
+
+/// 把房间里的消息拼成发给模型的「聊天记录」。
+public enum ChatTranscript {
+    public struct Entry: Sendable {
+        public var sender: String
+        public var isMe: Bool
+        public var kind: ChatMessageKind
+        public var content: String
+        public var cardBody: String?
+        public var createdAt: Date
+
+        public init(sender: String, isMe: Bool, kind: ChatMessageKind, content: String,
+                    cardBody: String? = nil, createdAt: Date) {
+            self.sender = sender
+            self.isMe = isMe
+            self.kind = kind
+            self.content = content
+            self.cardBody = cardBody
+            self.createdAt = createdAt
+        }
+    }
+
+    /// 只取最近的:条数和总字数都封顶,超了从最早的开始丢(最近说的最要紧)。
+    /// 卡片快照单独截断,一张长行程不该挤掉整段讨论。
+    public static func build(_ entries: [Entry], maxMessages: Int = 40, maxChars: Int = 12_000,
+                             cardBodyLimit: Int = 1_500, calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MM-dd HH:mm"
+        var lines: [String] = []
+        var total = 0
+        for entry in entries.suffix(maxMessages).reversed() {
+            let line = format(entry, time: formatter.string(from: entry.createdAt), cardBodyLimit: cardBodyLimit)
+            if total + line.count > maxChars, !lines.isEmpty { break }
+            lines.append(line)
+            total += line.count + 1
+        }
+        return lines.reversed().joined(separator: "\n")
+    }
+
+    private static func format(_ entry: Entry, time: String, cardBodyLimit: Int) -> String {
+        let who = entry.isMe ? "我" : entry.sender
+        switch entry.kind {
+        case .system:
+            return "[\(time)] (系统)\(entry.content)"
+        case .ai:
+            return "[\(time)] \(who)的 AI:\(entry.content)"
+        case .card:
+            var line = "[\(time)] \(who) 分享了「\(entry.content)」"
+            if let body = entry.cardBody?.trimmingCharacters(in: .whitespacesAndNewlines), !body.isEmpty {
+                let clipped = body.count > cardBodyLimit ? String(body.prefix(cardBodyLimit)) + "…" : body
+                line += ":\n" + clipped
+            }
+            return line
+        case .text:
+            return "[\(time)] \(who):\(entry.content)"
+        }
+    }
+}
+
+/// 群聊模式的 prompt 段,拼在 command 的 system prompt 末尾(`groupChat:`)。
+/// 喂给模型的格式,不随应用语言变。
+public enum GroupChatPrompt {
+    /// requester:叫 AI 的那位成员的名字(取不到时为空)。
+    public static func block(roomTitle: String, requester: String = "") -> String {
+        let who = requester.isEmpty ? "叫你的这位成员" : "「\(requester)」"
+        return """
+        群聊模式:你在一个多人共享聊天室「\(roomTitle)」里,被其中一位成员叫来帮忙,\
+        用户消息里的「聊天记录」是房间里最近的对话(每行写明是谁说的,「我」= \(who);\
+        「分享了」后面是成员分享进来的内容当时的样子)。
+        1. 你的回复会发给房间里**所有人**看:用大家都能看懂的口吻,提到某个人就用他的名字;\
+        回复里**不要**用「我」指代叫你的那位成员(大家看到的「我」会以为是你自己),\
+        说到他时写\(requester.isEmpty ? "「你」" : "他的名字或「你」")。
+        2. 以大家讨论**敲定**的结论为准;还在争的地方列出几种意见、给建议,不要替大家拍板。
+        3. 这一轮没有给你叫你那位成员的私人数据(任务、记忆、资产、健康、偏好),也不要编造或打听。
+        4. 能用的动作只有:answer(回话)、plan_trip(把讨论出来的行程整理成一份规划)、\
+        edit_trip(调整已经共享的旅行,必须先 read_trip 拿到 id)、create(给「我」新建任务)、\
+        create_countdown。其他动作在群聊里都不可用,需要时用 answer 说明请成员到自己的 AI 助手里处理。
+        6. 「我」在聊天里认领的分工(「订酒店我来负责」「机票我来买」)**一定**单独给一条 create,\
+        标题写要做的事,时间按聊天里说的,没说就定在出发前几天;不要只写进行程的备注里。\
+        别人认领的事不给「我」建任务。
+        5. 写操作都**不会直接执行**:会变成聊天里的一张卡片,成员确认后才写入。\
+        所以大家已经说定的事可以直接给出 plan_trip / edit_trip,不必再反问确认;\
+        同时给一句 answer 说明你整理了什么。
+        """
     }
 }

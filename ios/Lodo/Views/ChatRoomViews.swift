@@ -183,7 +183,16 @@ struct ChatRoomView: View {
     @State private var sharePicker: AgentReferenceCategory?
     /// 正在为几张卡片取共享链接(取到再发,期间底部挂一行提示)。
     @State private var preparingCards = 0
+    /// 这台设备的 AI 正在处理(那一行「我的 AI 正在…」提示的内容)。
+    @State private var aiThought: String?
+    @State private var aiTask: Task<Void, Never>?
+    /// 第一次点亮 AI 开关时的说明(聊天内容会发给自己配置的 AI 服务商)。
+    @State private var showsAINotice = false
+    @AppStorage("chatAINoticeShown") private var aiNoticeShown = false
     @FocusState private var inputFocused: Bool
+    #if DEBUG
+    private static var demoSent = false
+    #endif
 
     init(roomUUID: UUID) {
         self.roomUUID = roomUUID
@@ -213,36 +222,47 @@ struct ChatRoomView: View {
     private func content(_ room: ChatRoom) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 8) {
+                // 普通 VStack 而不是 LazyVStack,每条消息(连同它上面那行时间)是**一个**带 id
+                // 的视图:同 AI 助手页的消息列表,scrollTo 才不会落空(Lazy 的还没建出来、
+                // 或者 id 只挂在兄弟视图之一上时,新消息插进来列表不跟着滚到底,实测)。
+                VStack(spacing: 8) {
                     if uniqueMessages.isEmpty {
                         emptyHint(room)
                     }
                     ForEach(Array(uniqueMessages.enumerated()), id: \.element.uuid) { index, message in
-                        if showsTimestamp(at: index) {
-                            Text(message.createdAt, format: .dateTime.month().day().hour().minute())
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 8)
+                        VStack(spacing: 8) {
+                            if showsTimestamp(at: index) {
+                                Text(message.createdAt, format: .dateTime.month().day().hour().minute())
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, 8)
+                            }
+                            ChatMessageBubble(message: message, showsSender: showsSender(at: index))
                         }
-                        ChatMessageBubble(message: message, showsSender: showsSender(at: index))
-                            .id(message.uuid)
+                        .id(message.uuid)
                     }
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 12)
                 .frame(maxWidth: DesignMetrics.readableChatWidth)
                 .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
             .defaultScrollAnchor(.bottom)
+            .softTopScrollEdgeTransition()
+            .onAppear { scrollToBottom(proxy) }
+            #if os(iOS)
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIResponder.keyboardDidShowNotification)) { _ in scrollToBottom(proxy) }
+            #endif
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: uniqueMessages.count) { _, _ in
-                if let last = uniqueMessages.last {
-                    withAnimation(.lodoAware(.snappy(duration: 0.25))) {
-                        proxy.scrollTo(last.uuid, anchor: .bottom)
-                    }
-                }
+                scrollToBottom(proxy)
                 markRead(room)
             }
+            // 底部多出/收起一行提示(AI 在处理、报错)时输入区变高,最后一条会被压住一截。
+            .onChange(of: aiThought == nil) { _, _ in scrollToBottom(proxy) }
+            .onChange(of: errorText) { _, _ in scrollToBottom(proxy) }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 6) {
@@ -257,7 +277,19 @@ struct ChatRoomView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar { toolbar(room) }
-        .onAppear { markRead(room) }
+        .onAppear {
+            markRead(room)
+            #if DEBUG
+            // 截图验证用:真发一次——打开 AI 开关、发一句话,看群聊模式下模型给什么。
+            let args = ProcessInfo.processInfo.arguments
+            if !Self.demoSent, let index = args.firstIndex(of: "--demo-chat-send"), index + 1 < args.count {
+                Self.demoSent = true
+                room.aiEnabled = true
+                text = args[index + 1]
+                send(room)
+            }
+            #endif
+        }
         .alert("重命名聊天室", isPresented: $renaming) {
             TextField("聊天室名字", text: $newTitle)
             Button("保存") { rename(room) }
@@ -266,6 +298,15 @@ struct ChatRoomView: View {
         .chatRoomRemovalDialog(room: $pendingRemoval) { room in
             SharedTripSync.shared.destroyOrLeave(room)
             dismiss()
+        }
+        .alert("让 AI 参与聊天?", isPresented: $showsAINotice) {
+            Button("开启") {
+                aiNoticeShown = true
+                setAI(true, room: room)
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("开启后,你每发一条消息,这台设备都会把最近的聊天记录发给你配置的 AI 服务商来处理;AI 的回复房间里所有人都能看到。你的任务、记忆、资产、健康数据不会发出去。")
         }
         .sheet(item: $sharePicker) { category in
             AgentReferencePickerView(category: category, excluding: []) { picked in
@@ -343,7 +384,18 @@ struct ChatRoomView: View {
 
     @ViewBuilder
     private func statusBanner(_ room: ChatRoom) -> some View {
-        if let message = errorText ?? (preparingShare
+        if let thought = aiThought {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text(thought)
+                    .lineLimit(1)
+                Button("停止") { aiTask?.cancel() }
+                    .font(.footnote.weight(.semibold))
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal)
+        } else if let message = errorText ?? (preparingShare
             ? String(localized: "正在建立共享…", bundle: .appLanguage())
             : preparingCards > 0 ? String(localized: "正在准备分享的内容…", bundle: .appLanguage()) : nil) {
             Text(message)
@@ -365,12 +417,47 @@ struct ChatRoomView: View {
 
     private func inputBar(_ room: ChatRoom) -> some View {
         HStack(alignment: .bottom, spacing: 8) {
+            aiToggle(room)
             shareMenu
             textCapsule(room)
         }
         .glassGroup()
         .padding(.horizontal)
         .padding(.bottom, 12)
+    }
+
+    /// 输入栏最左边的「AI」:默认灰色(关),点亮后这台设备每发一条消息都请 AI 看一遍
+    /// 聊天记录再回话。开关是每人各自的(`ChatRoom.aiEnabled` 不进共享)。
+    private func aiToggle(_ room: ChatRoom) -> some View {
+        Button {
+            if room.aiEnabled {
+                setAI(false, room: room)
+            } else if aiNoticeShown {
+                setAI(true, room: room)
+            } else {
+                showsAINotice = true
+            }
+        } label: {
+            Text(verbatim: "AI")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(room.aiEnabled ? AnyShapeStyle(lodoAccent.onFill) : AnyShapeStyle(.secondary))
+                .frame(width: DesignMetrics.aiInputHeight, height: DesignMetrics.aiInputHeight)
+                .background {
+                    if room.aiEnabled {
+                        Circle().fill(lodoAccent.fill)
+                    } else {
+                        Color.clear.glassBackground(Circle())
+                    }
+                }
+        }
+        .pressable()
+        .accessibilityLabel(room.aiEnabled ? "关闭 AI" : "开启 AI")
+    }
+
+    private func setAI(_ enabled: Bool, room: ChatRoom) {
+        withAnimation(.lodoAware(.snappy(duration: 0.2))) { room.aiEnabled = enabled }
+        try? context.save()
+        if !enabled { aiTask?.cancel() }
     }
 
     /// 输入栏左边的「+」:把 app 里的内容(旅行、资产…)分享进聊天。和 AI 页输入栏的
@@ -430,6 +517,16 @@ struct ChatRoomView: View {
         .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
     }
 
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard let last = uniqueMessages.last else { return }
+        // 等这一帧的输入区高度定下来再滚。
+        DispatchQueue.main.async {
+            withAnimation(.lodoAware(.snappy(duration: 0.25))) {
+                proxy.scrollTo(last.uuid, anchor: .bottom)
+            }
+        }
+    }
+
     private var canSend: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -438,6 +535,26 @@ struct ChatRoomView: View {
         guard canSend else { return }
         SharedTripSync.shared.send(text, in: room)
         text = ""
+        if room.aiEnabled { runAI(room) }
+    }
+
+    /// 这台设备的 AI 看一遍聊天记录再回话;上一轮还在跑就先停掉(以最新那句为准)。
+    private func runAI(_ room: ChatRoom) {
+        aiTask?.cancel()
+        errorText = nil
+        aiThought = String(localized: "我的 AI 正在看聊天记录…", bundle: .appLanguage())
+        aiTask = Task {
+            defer { aiThought = nil }
+            do {
+                try await ChatRoomAI.respond(in: room, context: context) { thought in
+                    aiThought = thought
+                }
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled else { return }
+                errorText = error.localizedDescription
+            }
+        }
     }
 
     /// 和上一条隔了 10 分钟以上(或是第一条)就插一行时间。
@@ -507,13 +624,17 @@ private struct ChatMessageBubble: View {
             HStack(alignment: .bottom) {
                 if message.fromMe { Spacer(minLength: 48) }
                 VStack(alignment: message.fromMe ? .trailing : .leading, spacing: 3) {
-                    if showsSender || (message.kind == .ai && !message.fromMe) {
+                    if showsSender || message.kind == .ai {
                         senderLine
                     }
                     if message.kind == .card, let card = message.card {
                         ChatCardView(card: card)
                     } else {
                         bubble
+                    }
+                    if message.kind == .ai, let proposal = message.proposal {
+                        ChatProposalView(messageID: message.uuid, proposal: proposal,
+                                         roomUUID: message.roomUUID)
                     }
                 }
                 if !message.fromMe { Spacer(minLength: 48) }
@@ -714,5 +835,224 @@ extension AgentReferenceKind {
         case .menu: return "菜单"
         case .news: return "新闻"
         }
+    }
+}
+
+// MARK: - AI 提案
+
+/// 这台设备上已经写入过哪些提案(按消息 uuid + 哪一部分)。消息本身只追加、不能改,
+/// 写入状态记在本机;写入的同时往房间里发一条系统消息,其他成员看得到"谁写了什么"。
+enum ChatProposalLedger {
+    enum Part: String { case plan, edit, tasks, countdowns }
+    private static let key = "chatAppliedProposals"
+
+    static func isApplied(_ message: UUID, _ part: Part) -> Bool {
+        (UserDefaults.standard.dictionary(forKey: key)?[message.uuidString] as? [String])?
+            .contains(part.rawValue) ?? false
+    }
+
+    static func markApplied(_ message: UUID, _ part: Part) {
+        var all = UserDefaults.standard.dictionary(forKey: key) ?? [:]
+        var parts = all[message.uuidString] as? [String] ?? []
+        if !parts.contains(part.rawValue) { parts.append(part.rawValue) }
+        all[message.uuidString] = parts
+        UserDefaults.standard.set(all, forKey: key)
+    }
+}
+
+/// AI 回复下面那张"待确认"卡片:规划 / 行程调整 / 任务 / 倒数日,各自一颗写入按钮。
+/// 谁点就写进谁的 lodo;写进共享旅行时其他成员那边随共享同步一起变。
+private struct ChatProposalView: View {
+    let messageID: UUID
+    let proposal: ChatProposal
+    let roomUUID: UUID
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.itemNavigator) private var navigator
+    /// 写入后让按钮刷新(写入状态存在 UserDefaults,SwiftUI 看不见它变)。
+    @State private var revision = 0
+    @State private var note: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let plan = proposal.tripPlan { planSection(plan) }
+            if let edit = proposal.tripEdit { editSection(edit) }
+            if !proposal.tasks.isEmpty { tasksSection }
+            if !proposal.countdowns.isEmpty { countdownSection }
+            if let note {
+                Text(note).font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: 360, alignment: .leading)
+        .background(.fill.tertiary,
+                    in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+        .id(revision)
+    }
+
+    // MARK: 规划
+
+    private func planSection(_ plan: TripPlanProposal) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label {
+                Text("行程规划「\(plan.tripTitle)」")
+            } icon: {
+                Image(systemName: "map")
+            }
+            .font(.subheadline.weight(.semibold))
+            Text(plan.startDate.formatted(Self.dayFormat) + " – "
+                 + plan.endDate.formatted(Self.dayFormat)
+                 + " · " + String(localized: "\(plan.items.count) 项安排", bundle: .appLanguage()))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Text(plan.items.prefix(4).map(\.title).joined(separator: "、") + (plan.items.count > 4 ? "…" : ""))
+                .font(.footnote)
+                .lineLimit(2)
+            if ChatProposalLedger.isApplied(messageID, .plan) {
+                appliedRow(open: existingTrip(named: plan.tripTitle).map { AppDestination.trip($0) })
+            } else {
+                Button("写入行程") { applyPlan(plan) }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func applyPlan(_ plan: TripPlanProposal) {
+        let applied = TravelStore.applyPlan(plan, context: context)
+        ChatProposalLedger.markApplied(messageID, .plan)
+        announce { who in String(localized: "\(who)把行程写进了旅行「\(applied.tripTitle)」", bundle: .appLanguage()) }
+    }
+
+    // MARK: 调整
+
+    private func editSection(_ edit: TripEdit) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label {
+                Text("调整旅行「\(edit.tripTitle)」")
+            } icon: {
+                Image(systemName: "slider.horizontal.3")
+            }
+            .font(.subheadline.weight(.semibold))
+            Text(String(localized: "删 \(edit.removeIDs.count) 项 · 加 \(edit.additions.count) 项 · 改 \(edit.updates.count) 项",
+                        bundle: .appLanguage()))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if ChatProposalLedger.isApplied(messageID, .edit) {
+                appliedRow(open: existingTrip(named: edit.tripTitle).map { AppDestination.trip($0) })
+            } else {
+                Button("调整行程") { applyEdit(edit) }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func applyEdit(_ edit: TripEdit) {
+        guard let record = TravelStore.applyEdit(edit, context: context) else {
+            note = String(localized: "这台设备上没有这趟旅行,先加入它的共享再调整。", bundle: .appLanguage())
+            return
+        }
+        guard record.hasChanges else {
+            note = String(localized: "没有可以改的行程项(航班和带附件的不改)。", bundle: .appLanguage())
+            return
+        }
+        ChatProposalLedger.markApplied(messageID, .edit)
+        announce { who in String(localized: "\(who)调整了旅行「\(record.tripTitle)」", bundle: .appLanguage()) }
+    }
+
+    // MARK: 任务 / 倒数日
+
+    private var tasksSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("任务", systemImage: "checklist")
+                .font(.subheadline.weight(.semibold))
+            ForEach(Array(proposal.tasks.enumerated()), id: \.offset) { _, task in
+                Text("· " + task.title + "  " + LocalizedContent.taskCaption(task))
+                    .font(.footnote)
+                    .lineLimit(1)
+            }
+            if ChatProposalLedger.isApplied(messageID, .tasks) {
+                appliedRow(open: nil)
+            } else {
+                Button("加到我的任务") { applyTasks() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func applyTasks() {
+        for task in proposal.tasks {
+            TaskActions.create(task, context: context)
+        }
+        WidgetBridge.sync(context: context)
+        CalendarSync.sync(context: context)
+        ChatProposalLedger.markApplied(messageID, .tasks)
+        revision += 1
+    }
+
+    private var countdownSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("倒数日", systemImage: "hourglass")
+                .font(.subheadline.weight(.semibold))
+            ForEach(Array(proposal.countdowns.enumerated()), id: \.offset) { _, draft in
+                Text("· " + draft.title + "  " + draft.start.formatted(Self.dayFormat))
+                    .font(.footnote)
+                    .lineLimit(1)
+            }
+            if ChatProposalLedger.isApplied(messageID, .countdowns) {
+                appliedRow(open: .countdown)
+            } else {
+                Button("加到我的倒数日") { applyCountdowns() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func applyCountdowns() {
+        _ = CountdownStore.apply(proposal.countdowns.map { CountdownOp.create($0) }, context: context)
+        ChatProposalLedger.markApplied(messageID, .countdowns)
+        revision += 1
+    }
+
+    // MARK: 共用
+
+    /// 日期按应用内语言出(`.formatted` 默认跟系统语言)。
+    private static var dayFormat: Date.FormatStyle {
+        Date.FormatStyle.dateTime.month().day().locale(AppSettings.language.locale)
+    }
+
+    private func appliedRow(open destination: AppDestination?) -> some View {
+        HStack(spacing: 8) {
+            Label("已写入", systemImage: "checkmark.circle.fill")
+                .font(.footnote)
+                .foregroundStyle(LodoColor.positive)
+            if let destination, let navigator {
+                Button("打开") { navigator.open(destination) }
+                    .font(.footnote)
+                    .controlSize(.small)
+                    .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private func existingTrip(named title: String) -> UUID? {
+        TravelStore.trips(in: context).first {
+            $0.title.trimmingCharacters(in: .whitespaces).lowercased()
+                == title.trimmingCharacters(in: .whitespaces).lowercased()
+        }?.uuid
+    }
+
+    /// 写进行程这类会影响别人的,在房间里留一句话。
+    private func announce(_ sentence: (String) -> String) {
+        revision += 1
+        let id = roomUUID
+        guard let room = try? context.fetch(FetchDescriptor<ChatRoom>(
+            predicate: #Predicate { $0.uuid == id })).first else { return }
+        let me = SharedTripSync.myDisplayName
+        let who = me.isEmpty ? String(localized: "一位成员", bundle: .appLanguage()) : me
+        SharedTripSync.shared.send(sentence(who), kind: .system, in: room)
     }
 }

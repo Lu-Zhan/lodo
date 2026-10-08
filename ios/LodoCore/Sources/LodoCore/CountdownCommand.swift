@@ -11,7 +11,7 @@ public enum CountdownOp: Equatable, Sendable {
 }
 
 /// 新建一个倒数日要的字段。
-public struct CountdownDraft: Equatable, Sendable {
+public struct CountdownDraft: Codable, Equatable, Sendable {
     public var title: String
     public var start: Date
     public var end: Date?

@@ -587,13 +587,20 @@ final class SharedTripSync {
         insertMessage(card.summaryLine, kind: .card, card: card, in: room)
     }
 
-    private func insertMessage(_ text: String, kind: ChatMessageKind, card: ChatCard?, in room: ChatRoom) {
+    /// 这台设备上的 AI 在房间里的回复(可带一份待确认的提案)。
+    func sendAI(_ text: String, proposal: ChatProposal?, in room: ChatRoom) {
+        insertMessage(text, kind: .ai, card: nil, proposal: proposal, in: room)
+    }
+
+    private func insertMessage(_ text: String, kind: ChatMessageKind, card: ChatCard?,
+                               proposal: ChatProposal? = nil, in room: ChatRoom) {
         guard let context else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let message = ChatRoomMessage(roomUUID: room.uuid, kind: kind, content: trimmed,
                                       senderHint: Self.myDisplayName, fromMe: true)
         message.cardData = card?.encoded
+        if let proposal, !proposal.isEmpty { message.proposalData = proposal.encoded }
         context.insert(message)
         room.lastMessageAt = message.createdAt
         room.lastReadAt = message.createdAt

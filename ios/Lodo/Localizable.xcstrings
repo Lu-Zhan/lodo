@@ -33,6 +33,22 @@
         }
       }
     },
+    "%@把行程写进了旅行「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ added the plan to trip “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@把行程写进了旅行「%@」"
+          }
+        }
+      }
+    },
     "%@的 AI" : {
       "localizations" : {
         "en" : {
@@ -45,6 +61,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@的 AI"
+          }
+        }
+      }
+    },
+    "%@调整了旅行「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ adjusted trip “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@调整了旅行「%@」"
+          }
+        }
+      }
+    },
+    "%lld 项安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 项安排"
           }
         }
       }
@@ -1482,6 +1530,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tavily API Key"
+          }
+        }
+      }
+    },
+    "一位成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A member"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一位成员"
           }
         }
       }
@@ -3179,6 +3243,22 @@
         }
       }
     },
+    "停止" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
     "停止共享" : {
       "localizations" : {
         "en" : {
@@ -3967,6 +4047,22 @@
         }
       }
     },
+    "关闭 AI" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off AI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭 AI"
+          }
+        }
+      }
+    },
     "关闭导航" : {
       "localizations" : {
         "en" : {
@@ -4223,6 +4319,22 @@
         }
       }
     },
+    "删 %lld 项 · 加 %lld 项 · 改 %lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld removed · %lld added · %lld changed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删 %lld 项 · 加 %lld 项 · 改 %lld 项"
+          }
+        }
+      }
+    },
     "删除记忆:%@(无法撤销)" : {
       "localizations" : {
         "en" : {
@@ -4255,6 +4367,38 @@
         }
       }
     },
+    "加到我的任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to My Tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加到我的任务"
+          }
+        }
+      }
+    },
+    "加到我的倒数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to My Countdowns"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加到我的倒数日"
+          }
+        }
+      }
+    },
     "发消息" : {
       "localizations" : {
         "en" : {
@@ -4267,6 +4411,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "发消息"
+          }
+        }
+      }
+    },
+    "已写入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已写入"
           }
         }
       }
@@ -4303,6 +4463,54 @@
         }
       }
     },
+    "开启" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn On"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启"
+          }
+        }
+      }
+    },
+    "开启 AI" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn On AI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启 AI"
+          }
+        }
+      }
+    },
+    "开启后,你每发一条消息,这台设备都会把最近的聊天记录发给你配置的 AI 服务商来处理;AI 的回复房间里所有人都能看到。你的任务、记忆、资产、健康数据不会发出去。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each time you send a message, this device sends the recent chat to your AI provider. Everyone in the room can see the AI's reply. Your tasks, memories, assets, and health data are never sent."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启后,你每发一条消息,这台设备都会把最近的聊天记录发给你配置的 AI 服务商来处理;AI 的回复房间里所有人都能看到。你的任务、记忆、资产、健康数据不会发出去。"
+          }
+        }
+      }
+    },
     "引用任务、旅行、资产…" : {
       "localizations" : {
         "en" : {
@@ -4315,6 +4523,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "引用任务、旅行、资产…"
+          }
+        }
+      }
+    },
+    "想先确认几件事:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A few things to confirm first:"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想先确认几件事:"
           }
         }
       }
@@ -4347,6 +4571,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我的 AI"
+          }
+        }
+      }
+    },
+    "我的 AI 正在看聊天记录…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My AI is reading the chat…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我的 AI 正在看聊天记录…"
           }
         }
       }
@@ -14074,6 +14314,22 @@
         }
       }
     },
+    "没有可以改的行程项(航班和带附件的不改)。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to change (flights and items with attachments are left as is)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可以改的行程项(航班和带附件的不改)。"
+          }
+        }
+      }
+    },
     "没有地图位置" : {
       "localizations" : {
         "en" : {
@@ -15462,6 +15718,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "聊天室名字"
+          }
+        }
+      }
+    },
+    "行程规划「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trip Plan “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程规划「%@」"
           }
         }
       }
@@ -17113,6 +17385,22 @@
         }
       }
     },
+    "让 AI 参与聊天?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let AI Join the Chat?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 AI 参与聊天?"
+          }
+        }
+      }
+    },
     "让 AI 在你设定的时间自动跑一件事,比如早上总结今天的任务、看天气给穿搭建议。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -17563,6 +17851,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请选择"
+          }
+        }
+      }
+    },
+    "调整旅行「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adjust Trip “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整旅行「%@」"
+          }
+        }
+      }
+    },
+    "调整行程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply Changes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整行程"
           }
         }
       }
@@ -19013,6 +19333,22 @@
         }
       }
     },
+    "还没有配置 AI,去「设置 → AI 设置」里选一个服务商" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI isn't set up yet. Choose a provider in Settings → AI."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有配置 AI,去「设置 → AI 设置」里选一个服务商"
+          }
+        }
+      }
+    },
     "还没连上 iCloud" : {
       "localizations" : {
         "en" : {
@@ -19169,6 +19505,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这句话会显示在旅行列表的卡片上。"
+          }
+        }
+      }
+    },
+    "这台设备上没有这趟旅行,先加入它的共享再调整。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This trip isn't on this device. Join its share first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台设备上没有这趟旅行,先加入它的共享再调整。"
           }
         }
       }

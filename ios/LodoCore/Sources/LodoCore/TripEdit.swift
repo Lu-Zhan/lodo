@@ -3,7 +3,7 @@ import Foundation
 /// AI「调整行程」(`edit_trip`)的一次改动:对**已经记下**的某次旅行删几项、加几项、
 /// 改几项。和 `plan_trip` 不同,这条**直接执行**——用户已经指名道姓说了哪天要怎么
 /// 改,再出一张确认卡没带来信息量;执行结果卡片上带撤销兜底(同单条修改待办)。
-public struct TripEdit: Equatable, Sendable {
+public struct TripEdit: Codable, Equatable, Sendable {
     /// 旅行名(模型从 read_trip 读到的原名);删/改的 id 能定位到旅行时以 id 为准。
     public var tripTitle: String
     /// 一句话说明这次怎么调整的,结果卡片顶上那行。
@@ -26,7 +26,7 @@ public struct TripEdit: Equatable, Sendable {
 }
 
 /// 改一项已有安排:nil 的字段保持原样。
-public struct TripEditUpdate: Equatable, Sendable {
+public struct TripEditUpdate: Codable, Equatable, Sendable {
     public var id: UUID
     public var title: String?
     public var note: String?

@@ -299,6 +299,8 @@ public enum DeepSeekClient {
         feeds: [FeedEntry] = [],
         /// 从哪一页唤出;nil ⇒ 整段不出现(侧栏 AI 页、Watch)。
         pageFocus: AgentFocus? = nil,
+        /// 共享聊天室里被叫来时的「群聊模式」说明(`GroupChatPrompt.block`);nil ⇒ 整段不出现。
+        groupChat: String? = nil,
         history: [(role: String, content: String)] = [],
         /// 更早对话的摘要;默认 nil ⇒ 整段不出现,Watch 等调用方 prompt 逐字不变。
         summary: String? = nil,
@@ -314,7 +316,8 @@ public enum DeepSeekClient {
             travel: travelEnabled, tripPlan: tripPlanEnabled, news: newsEnabled,
             countdown: countdownEnabled, assets: assetsEnabled, feeds: feedsEnabled)
         let (system, tasks) = commandSystemPrompt(
-            tasks: allTasks, capabilities: caps, pageFocus: pageFocus, history: history,
+            tasks: allTasks, capabilities: caps, pageFocus: pageFocus, groupChat: groupChat,
+            history: history,
             summary: summary, existingProjects: existingProjects, countdowns: countdowns,
             assets: assets, feeds: feeds)
         let memoryEnabled = caps.memory && AgentSkillStore.isEnabled(.memory)
@@ -355,7 +358,8 @@ public enum DeepSeekClient {
             validCountdownIDs: countdowns.map(\.id.uuidString),
             assetsEnabled: assetsEnabled, validAssetIDs: assets.map(\.id.uuidString),
             feedsEnabled: feedsEnabled, validFeedIDs: feeds.map(\.id.uuidString),
-            loadSkillEnabled: hasCatalog)
+            loadSkillEnabled: hasCatalog,
+            keepsAllActions: groupChat != nil)
         return guardMisdirectedUpdates(result, tasks: tasks, userText: text)
     }
 
@@ -438,6 +442,7 @@ public enum DeepSeekClient {
         tasks allTasks: [(uuid: String, task: ParsedTask)],
         capabilities: CommandCapabilities,
         pageFocus: AgentFocus? = nil,
+        groupChat: String? = nil,
         history: [(role: String, content: String)] = [],
         summary: String? = nil,
         existingProjects: [String] = [],
@@ -488,7 +493,7 @@ public enum DeepSeekClient {
         \(feedBlock)\
         \(catalog.map { "\n\n" + $0 } ?? "")
 
-        \(timeContext)\(preferencesBlock)\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")
+        \(timeContext)\(groupChat == nil ? preferencesBlock : "")\(pageFocus.map { "\n\n" + $0.promptBlock } ?? "")\(groupChat.map { "\n\n" + $0 } ?? "")
 
         当前待办列表:
         \(json(list))\(personaBlock)\(summaryBlock(summary))\(historyBlock(history))
@@ -510,6 +515,9 @@ public enum DeepSeekClient {
         assetsEnabled: Bool = false, validAssetIDs: [String] = [],
         feedsEnabled: Bool = false, validFeedIDs: [String] = [],
         loadSkillEnabled: Bool = false,
+        /// 群聊模式:所有动作都只是卡片、不执行,下面"问答类与写操作互斥"的归一化不适用
+        /// ——「回一句 + 整理一份规划 + 给我建一条任务」三样都要留着。
+        keepsAllActions: Bool = false,
         /// 行程规划的年份校正要拿"今天"比;单测传固定日期,别让结果随真实日期变。
         now: Date = Date()
     ) throws -> AICommandResult {
@@ -670,6 +678,7 @@ public enum DeepSeekClient {
         let countdownActions = actions.filter(isDirectEdit)
         actions.removeAll(where: isDirectEdit)
         guard !actions.isEmpty else { return .actions(countdownActions) }
+        if keepsAllActions { return .actions(countdownActions + actions) }
         func isInformational(_ action: AIAction) -> Bool {
             switch action {
             case .askMemory, .answer, .suggestMemorize, .planTrip, .editTrip: return true
@@ -1785,6 +1794,8 @@ public enum DeepSeekClient {
     /// 模型压根没给出可解析 JSON 时的固定错误文案。模型自己用 {"error": "原因"}
     /// 说明"这件事我做不了"时抛的是那句原因,两者据此区分(见 command())。
     static let malformedPayloadMessage = "返回格式异常"
+    /// 最近一次解析不了的模型原文(评测/排查用:错误本身只说"返回格式异常")。
+    nonisolated(unsafe) public static var lastMalformedText: String?
 
     /// 模型输出文本 → JSON payload:剥 markdown 围栏、从首个 { 截到末个 },
     /// 兼容部分服务/端侧模型不严格遵守纯 JSON 的情况。云端与苹果智能共用。
@@ -1810,6 +1821,7 @@ public enum DeepSeekClient {
             if !cleaned.isEmpty, !cleaned.contains("{") {
                 throw DeepSeekError.parse(MemorySearch.truncate(cleaned, limit: 500))
             }
+            lastMalformedText = text
             throw DeepSeekError.parse(malformedPayloadMessage)
         }
         if let error = payload["error"] as? String {

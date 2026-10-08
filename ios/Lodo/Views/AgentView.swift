@@ -1424,7 +1424,26 @@ struct AgentView: View {
             message.cardData = entry.2.encoded
             context.insert(message)
         }
-        room.lastMessageAt = start.addingTimeInterval(Double(lines.count + cards.count) * 90)
+        let plan = TripPlanProposal(
+            tripTitle: "京都五日",
+            startDate: Calendar.current.date(byAdding: .day, value: 25, to: .now)!,
+            endDate: Calendar.current.date(byAdding: .day, value: 29, to: .now)!,
+            summary: "按大家说的排好了,第三天去奈良。",
+            items: [TripPlanItem(kind: .place, title: "伏见稻荷大社"),
+                    TripPlanItem(kind: .place, title: "岚山竹林"),
+                    TripPlanItem(kind: .place, title: "奈良公园"),
+                    TripPlanItem(kind: .place, title: "清水寺"),
+                    TripPlanItem(kind: .lodging, title: "住四条河原町一带")])
+        let aiReply = ChatRoomMessage(
+            roomUUID: room.uuid, kind: .ai, content: "按大家说的排好了:第三天去奈良,清水寺放在最后一天。订酒店记给你了。",
+            fromMe: true, createdAt: start.addingTimeInterval(Double(lines.count + cards.count) * 90))
+        aiReply.proposalData = ChatProposal(
+            tripPlan: plan,
+            tasks: [ParsedTask(title: "订四条河原町的酒店", remindAt: Calendar.current.date(byAdding: .day, value: 2, to: .now)!,
+                               allDay: true, repeatType: .none, repeatDays: [], repeatTimes: [])]).encoded
+        context.insert(aiReply)
+        room.aiEnabled = true
+        room.lastMessageAt = start.addingTimeInterval(Double(lines.count + cards.count + 1) * 90)
         room.lastReadAt = start.addingTimeInterval(200)
         context.insert(ChatRoom(title: "家里"))
         try? context.save()
