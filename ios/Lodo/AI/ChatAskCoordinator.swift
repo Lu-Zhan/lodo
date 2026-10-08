@@ -70,13 +70,19 @@ final class ChatAskCoordinator {
         errors[roomUUID] = nil
         running[roomUUID] = String(localized: "我的 AI 正在汇总大家的选择…", bundle: .appLanguage())
         Task {
-            defer { running[roomUUID] = nil }
             do {
                 try await ChatRoomAI.respond(in: room, context: context, closingAsk: askID) { [weak self] thought in
                     self?.running[roomUUID] = thought
                 }
+                running[roomUUID] = nil
+                // 同一个房间里可能还有别的提问也答完了(同一批同步带来、或者在这次汇总期间
+                // 答完),一次只汇总一张,做完再看一遍。只在成功后再看:失败了立刻再查会
+                // 对同一张提问反复重试。
+                check(roomUUID: roomUUID)
             } catch is CancellationError {
+                running[roomUUID] = nil
             } catch {
+                running[roomUUID] = nil
                 errors[roomUUID] = error.localizedDescription
             }
         }

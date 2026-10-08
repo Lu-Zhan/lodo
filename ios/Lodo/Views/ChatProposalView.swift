@@ -83,14 +83,9 @@ struct ChatProposalView: View {
 
     private func applyPlan(_ plan: TripPlanProposal) {
         guard !appliedElsewhere(.plan) else { return }
-        // 写进房间里讨论的那趟:名字和本机的旅行一字不差就是它;对不上、而房间里只分享过
-        // 一趟本机也有的旅行时,就写进那一趟(AI 起的名字差一个字也不该另建一趟私人旅行)。
-        var plan = plan
-        if existingTrip(named: plan.tripTitle) == nil,
-           let target = roomTripOnThisDevice() {
-            plan.tripTitle = target.title
-        }
-        let applied = TravelStore.applyPlan(plan, context: context)
+        // 写进房间里讨论的那趟(按 id,不按名字——本机可能另有同名的私人旅行);
+        // 房间里没分享过旅行时才按名字写进已有的同名旅行或新建。
+        let applied = TravelStore.applyPlan(plan, into: roomTarget(for: plan.tripTitle)?.uuid, context: context)
         context.insert(ChatProposalApplication(messageUUID: message.uuid, part: Part.plan.rawValue,
                                                undo: .plan(applied)))
         try? context.save()
@@ -141,7 +136,7 @@ struct ChatProposalView: View {
     @ViewBuilder
     private func sharedStatus(_ part: Part, tripTitle: String, applyTitle: LocalizedStringKey,
                               applyAgainTitle: LocalizedStringKey?, apply: @escaping () -> Void) -> some View {
-        let trip = existingTrip(named: tripTitle) ?? roomTripOnThisDevice()?.uuid
+        let trip = roomTarget(for: tripTitle)?.uuid ?? existingTrip(named: tripTitle)
         if mine(part) != nil || appliedElsewhere(part) {
             let application = mine(part)
             HStack(spacing: 8) {
@@ -312,11 +307,18 @@ struct ChatProposalView: View {
         return try? context.fetch(FetchDescriptor<ChatRoom>(predicate: #Predicate { $0.uuid == id })).first
     }
 
-    /// 房间里分享过、这台设备上也有的旅行;正好一趟时返回它。
-    private func roomTripOnThisDevice() -> TravelTrip? {
-        let ids = Set(state.tripCardIDs)
+    /// 这张卡要写进的、房间里分享过的旅行:房间里**全部**旅行卡片(不只是当前加载的那一页)
+    /// 指向的、这台设备上也有的那几趟里,名字对得上的那趟;对不上而只有一趟时就是它。
+    private func roomTarget(for title: String) -> TravelTrip? {
+        let roomUUID = message.roomUUID
+        let cards = (try? context.fetch(FetchDescriptor<ChatRoomMessage>(
+            predicate: #Predicate { $0.roomUUID == roomUUID && $0.kindRaw == "card" }))) ?? []
+        let ids = ChatRoomAI.roomTripIDs(in: cards)
         let trips = TravelStore.trips(in: context).filter { ids.contains($0.uuid) }
-        return trips.count == 1 ? trips.first : nil
+        let wanted = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trips.first { $0.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                                .caseInsensitiveCompare(wanted) == .orderedSame }
+            ?? (trips.count == 1 ? trips.first : nil)
     }
 
     /// 写进/撤销行程这类会影响别人的,在房间里留一句带引用的话。

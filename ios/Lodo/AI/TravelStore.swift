@@ -273,12 +273,16 @@ enum TravelStore {
     /// 那次,否则按规划的名字和日期新建一次——不做模糊匹配:"东京"和"东京四日"
     /// 可能真的是两趟,写错了比多建一趟麻烦得多。已有旅行的日期不跟着规划改,
     /// 落在区间外的安排按天视图会单独列出来(`TravelPlan.outOfRange`)。
-    static func applyPlan(_ plan: TripPlanProposal, context: ModelContext) -> TripPlanProposal {
+    /// `into`:调用方已经知道写进哪一趟(聊天室里按旅行卡片的 id 定位),不再按名字找——
+    /// 本机可能另有一趟同名的私人旅行。
+    static func applyPlan(_ plan: TripPlanProposal, into tripUUID: UUID? = nil,
+                          context: ModelContext) -> TripPlanProposal {
         let name = plan.tripTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let existing = trips(in: context).first {
-            $0.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                .caseInsensitiveCompare(name) == .orderedSame
-        }
+        let existing = tripUUID.flatMap { id in trips(in: context).first { $0.uuid == id } }
+            ?? trips(in: context).first {
+                $0.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .caseInsensitiveCompare(name) == .orderedSame
+            }
         let trip: TravelTrip
         if let existing {
             trip = existing

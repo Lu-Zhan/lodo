@@ -43,10 +43,11 @@ enum ChatRoomAI {
                 + "\n\n请汇总大家的选择:一致的直接给结论,不一致的列出各自的选择并给建议;"
                 + "能落成行程、任务的照常给出动作。这一轮不要再提问。"
         } ?? "聊天记录:\n\(transcript)\n\n请根据以上聊天记录,回应「我」最新说的话。"
-        // 只读这个房间里**分享过卡片**的旅行:本机所有共享旅行里可能有和别的圈子共享的
-        // (和家人那趟不该被朋友群的 AI 读出来)。
+        // 只读这个房间里**分享过卡片**、并且**真正共享着**的旅行:本机所有共享旅行里可能有
+        // 和别的圈子共享的(和家人那趟不该被朋友群的 AI 读出来);私人旅行的卡片只是分享
+        // 那一刻的快照,AI 也只该用那份快照(它在聊天记录里),不能去读本机的完整内容。
         let roomTrips = roomTripIDs(in: messages)
-        let allowedTrips = TravelStore.trips(in: context).filter { roomTrips.contains($0.uuid) }
+        let allowedTrips = TravelStore.trips(in: context).filter { roomTrips.contains($0.uuid) && $0.isShared }
         let groupBlock = GroupChatPrompt.block(roomTitle: room.title,
                                                requester: SharedTripSync.myDisplayName,
                                                roomTrips: allowedTrips.map(\.title))

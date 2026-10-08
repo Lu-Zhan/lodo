@@ -1230,7 +1230,8 @@ final class SharedTripSync {
     }
 
     /// 收到的文件落回 App Group 里同一个相对路径(文件名本来就带 uuid,各设备一致)。
-    private func saveAssets(of record: CKRecord, fields: SharedFields) {
+    /// 路径取**这一条本地已经校验、认领过的**(`claimFiles` 之后的 item),不取对方 payload 里的。
+    private func saveAssets(of record: CKRecord, to item: MemoryItem) {
         func copy(_ value: Any?, to relative: String?) {
             guard let asset = value as? CKAsset, let source = asset.fileURL,
                   let relative, let target = AppGroup.containerURL?.appending(path: relative) else { return }
@@ -1239,15 +1240,37 @@ final class SharedTripSync {
             try? FileManager.default.removeItem(at: target)
             try? FileManager.default.copyItem(at: source, to: target)
         }
-        // 对方给的路径先过 SharedFilePath:只认 Memory/、Contacts/ 下的一个文件名。
-        if case .string(let path) = fields["relativeFilePath"], let safe = SharedFilePath.safe(path) {
-            copy(record["file"], to: safe)
+        copy(record["file"], to: item.relativeFilePath)
+        for (index, path) in item.attachmentRelativePaths.enumerated() {
+            copy(record["attachment\(index)"], to: path)
         }
-        if case .strings(let paths) = fields["attachmentRelativePaths"] {
-            for (index, path) in paths.enumerated() {
-                guard let safe = SharedFilePath.safe(path) else { continue }
-                copy(record["attachment\(index)"], to: safe)
+    }
+
+    /// 共享过来的条目只能用**没有别的条目在用**的文件路径:`SharedFilePath` 挡住了目录穿越,
+    /// 但对方仍可以填一个合法的、属于本机另一条记忆的路径,收到时"先删后拷"就把那条的
+    /// 附件覆盖了(之后删掉这条还会连带删掉那条的文件)。撞上的路径直接丢掉。
+    /// 同一个 uuid 的另一行(自己另一台设备同步来的同一条)不算别人。
+    private func claimFiles(of item: MemoryItem, paths: inout [String: UUID]?, context: ModelContext) {
+        if paths == nil {
+            var map: [String: UUID] = [:]
+            for other in (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? [] {
+                if let path = other.relativeFilePath { map[path] = map[path] ?? other.uuid }
+                for path in other.attachmentRelativePaths { map[path] = map[path] ?? other.uuid }
+                if let avatar = other.contactAvatarRelativePath { map[avatar] = map[avatar] ?? other.uuid }
             }
+            paths = map
+        }
+        func free(_ path: String) -> Bool {
+            guard let owner = paths?[path] else { return true }
+            return owner == item.uuid
+        }
+        if let path = item.relativeFilePath {
+            if free(path) { paths?[path] = item.uuid } else { item.relativeFilePath = nil }
+        }
+        item.attachmentRelativePaths = item.attachmentRelativePaths.filter { path in
+            guard free(path) else { return false }
+            paths?[path] = item.uuid
+            return true
         }
     }
 
@@ -1310,6 +1333,8 @@ final class SharedTripSync {
         var zones = SharedTripLedger.zones
         var reindex: [MemoryItem] = []
         var financeChanged = false
+        /// 本地每个文件路径归哪一条记忆(第一次用到时才建,见 claimFiles)。
+        var filePaths: [String: UUID]?
         for record in records {
             let zoneID = record.recordID.zoneID
             let key = SharedZoneLedger.key(zoneName: zoneID.zoneName, ownerName: zoneID.ownerName)
@@ -1351,8 +1376,9 @@ final class SharedTripSync {
                     SharedTripMapping.apply(fields, to: new)
                     new.travelTripUUID = zone.tripUUID
                     new.sharedAddedBy = addedBy
+                    claimFiles(of: new, paths: &filePaths, context: context)
                     context.insert(new)
-                    saveAssets(of: record, fields: fields)
+                    saveAssets(of: record, to: new)
                     reindex.append(new)
                 case .update(let fields):
                     if let item {
@@ -1360,7 +1386,8 @@ final class SharedTripSync {
                         SharedTripMapping.apply(fields, to: item)
                         item.travelTripUUID = zone.tripUUID
                         if item.sharedAddedBy == nil { item.sharedAddedBy = addedBy }
-                        saveAssets(of: record, fields: fields)
+                        claimFiles(of: item, paths: &filePaths, context: context)
+                        saveAssets(of: record, to: item)
                         if textChanged { reindex.append(item) }
                     }
                 case .skipDeletedLocally:
@@ -1376,8 +1403,9 @@ final class SharedTripSync {
                     SharedAssetMapping.applyAsset(fields, to: new)
                     new.assetLedgerUUID = zone.containerUUID
                     new.sharedAddedBy = addedBy
+                    claimFiles(of: new, paths: &filePaths, context: context)
                     context.insert(new)
-                    saveAssets(of: record, fields: fields)
+                    saveAssets(of: record, to: new)
                     reindex.append(new)
                 case .update(let fields):
                     if let item {
@@ -1385,7 +1413,8 @@ final class SharedTripSync {
                         SharedAssetMapping.applyAsset(fields, to: item)
                         item.assetLedgerUUID = zone.containerUUID
                         if item.sharedAddedBy == nil { item.sharedAddedBy = addedBy }
-                        saveAssets(of: record, fields: fields)
+                        claimFiles(of: item, paths: &filePaths, context: context)
+                        saveAssets(of: record, to: item)
                         if textChanged { reindex.append(item) }
                     }
                 case .skipDeletedLocally:

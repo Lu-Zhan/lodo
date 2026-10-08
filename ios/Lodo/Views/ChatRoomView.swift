@@ -778,14 +778,11 @@ private struct ChatTimeline: View {
 /// 从窗口内的消息现算(提问的回答、写入提示都在它们指向的那条之后,同在窗口里)。
 struct ChatTimelineState {
     let asks: [ChatRoomMessage]
-    /// 房间里分享过的旅行卡片指向的旅行(「写入行程」找目标旅行时用)。
-    let tripCardIDs: [UUID]
     private let replies: [UUID: [ChatRoomMessage]]
     private let refs: [(ref: ChatProposalRef, by: String, fromMe: Bool, at: Date)]
 
     init(messages: [ChatRoomMessage]) {
         asks = messages.filter { $0.kind == .ask }
-        tripCardIDs = Array(ChatRoomAI.roomTripIDs(in: messages))
         var replies: [UUID: [ChatRoomMessage]] = [:]
         for message in messages where message.kind == .askAnswer {
             if let askID = message.reply?.askID { replies[askID, default: []].append(message) }
