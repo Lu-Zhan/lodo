@@ -1444,8 +1444,56 @@ struct AgentView: View {
             tasks: [ParsedTask(title: "订四条河原町的酒店", remindAt: Calendar.current.date(byAdding: .day, value: 2, to: .now)!,
                                allDay: true, repeatType: .none, repeatDays: [], repeatTimes: [])]).encoded
         context.insert(aiReply)
+        // 小林的 AI 在群里出的选择题(我还没答);后面跟几条,让它滚出屏幕、输入栏上方出现「问题:… ›」。
+        var cursor = start.addingTimeInterval(Double(lines.count + cards.count + 2) * 90)
+        let ask = ChatRoomMessage(roomUUID: room.uuid, kind: .ask,
+                                  content: "1. 住哪一片?\n2. 第一天几点出发?", senderName: "小林",
+                                  createdAt: cursor)
+        ask.askData = try? JSONEncoder().encode(AgentAskSnapshot(questions: [
+            AskQuestion(header: "住宿", question: "住哪一片?", options: [
+                AskOption(label: "京都站", description: "交通方便,去奈良顺路", recommended: true),
+                AskOption(label: "四条河原町", description: "吃饭逛街多")]),
+            AskQuestion(header: "出发", question: "第一天几点出发?", options: [
+                AskOption(label: "早上 8 点"), AskOption(label: "中午")]),
+        ]))
+        context.insert(ask)
+        cursor += 60
+        let answer = ChatRoomMessage(roomUUID: room.uuid, kind: .askAnswer,
+                                     content: "问:住哪一片?\n答:京都站", senderName: "阿杰", createdAt: cursor)
+        answer.senderID = "_ajie"
+        answer.replyData = ChatAskReply(askID: ask.uuid, answers: [["京都站"], ["早上 8 点"]]).encoded
+        context.insert(answer)
+        // 一张图、一个文件(文件内容现写进 App Group,模拟别人发来已经下载好的附件)。
+        #if os(iOS)
+        if let base = AppGroup.containerURL {
+            let image = UIGraphicsImageRenderer(size: CGSize(width: 800, height: 600)).image { ctx in
+                UIColor.systemTeal.setFill()
+                ctx.fill(CGRect(x: 0, y: 0, width: 800, height: 600))
+            }
+            for (kind, name, data) in [(ChatMessageKind.image, "kyoto.jpg", image.jpegData(compressionQuality: 0.8) ?? Data()),
+                                       (.file, "京都行程单.pdf", Data(repeating: 0, count: 120_000))] {
+                cursor += 60
+                let message = ChatRoomMessage(roomUUID: room.uuid, kind: kind, content: name,
+                                              senderName: "阿杰", createdAt: cursor)
+                message.fileName = name
+                message.filePath = SharedChatMapping.attachmentPath(roomUUID: room.uuid, messageUUID: message.uuid,
+                                                                     fileName: name)
+                let target = base.appending(path: message.filePath)
+                try? FileManager.default.createDirectory(at: target.deletingLastPathComponent(),
+                                                         withIntermediateDirectories: true)
+                try? data.write(to: target)
+                context.insert(message)
+            }
+        }
+        #endif
+        for line in ["酒店我看了几家,晚上发链接", "好", "第二天岚山要早点去,人少",
+                     "嗯,6 点半出门吧", "那得前一晚早点睡", "我带充电宝", "我订嵯峨野小火车的票"] {
+            cursor += 60
+            context.insert(ChatRoomMessage(roomUUID: room.uuid, content: line, senderName: "小林",
+                                           createdAt: cursor))
+        }
         room.aiEnabled = true
-        room.lastMessageAt = start.addingTimeInterval(Double(lines.count + cards.count + 1) * 90)
+        room.lastMessageAt = cursor
         room.lastReadAt = start.addingTimeInterval(200)
         context.insert(ChatRoom(title: "家里"))
         try? context.save()

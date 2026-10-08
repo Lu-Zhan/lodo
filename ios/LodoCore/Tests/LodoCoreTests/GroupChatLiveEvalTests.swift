@@ -63,8 +63,22 @@ final class GroupChatLiveEvalTests: XCTestCase {
             ("阿杰", false, "我觉得四条河原町好,吃饭多"),
             ("", true, "AI 你觉得住哪儿好?"),
         ]))
+        // 列出分歧给建议(answer),或者给大家出选择题(ask)都行;不能直接定规划。
+        if case .ask = result { return }
         guard case .actions(let actions) = result else { return XCTFail("expected actions, got \(result)") }
         XCTAssertTrue(actions.contains { if case .answer = $0 { return true } else { return false } })
         XCTAssertFalse(actions.contains { if case .planTrip = $0 { return true } else { return false } })
+    }
+
+    /// 「大家投个票」这类:应该出选择题给每个人答。
+    func testVoteBecomesAsk() async throws {
+        let result = try await ask(transcript([
+            ("小林", false, "住京都站附近吧"),
+            ("阿杰", false, "我想住四条河原町"),
+            ("", true, "AI 给大家出个选择,大家投票决定住哪"),
+        ]))
+        guard case .ask(let questions) = result else { return XCTFail("expected ask, got \(result)") }
+        XCTAssertFalse(questions.isEmpty)
+        XCTAssertGreaterThanOrEqual(questions[0].options.count, 2)
     }
 }

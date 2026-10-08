@@ -10,6 +10,8 @@ struct AgentAskCard: View {
     /// 每题的答案,与 snapshot.questions 等长。
     let onSubmit: ([[String]]) -> Void
     let onCancel: () -> Void
+    /// 群聊里的提问没有"跳过"——不想答就不答,卡片留着等别人。
+    var allowsCancel = true
 
     @State private var currentIndex = 0
     /// 逐题的已选 label;单选题也是数组(只放一个),方便和多选统一处理。
@@ -18,10 +20,11 @@ struct AgentAskCard: View {
     @State private var otherText: [String]
 
     init(snapshot: AgentAskSnapshot, onSubmit: @escaping ([[String]]) -> Void,
-         onCancel: @escaping () -> Void) {
+         onCancel: @escaping () -> Void, allowsCancel: Bool = true) {
         self.snapshot = snapshot
         self.onSubmit = onSubmit
         self.onCancel = onCancel
+        self.allowsCancel = allowsCancel
         _picked = State(initialValue: Array(repeating: [], count: snapshot.questions.count))
         _otherText = State(initialValue: Array(repeating: "", count: snapshot.questions.count))
     }
@@ -89,15 +92,17 @@ struct AgentAskCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
-            Button {
-                onCancel()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+            if allowsCancel {
+                Button {
+                    onCancel()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .pressable()
+                .accessibilityLabel("跳过提问")
             }
-            .pressable()
-            .accessibilityLabel("跳过提问")
         }
     }
 

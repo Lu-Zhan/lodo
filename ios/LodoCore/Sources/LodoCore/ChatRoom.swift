@@ -51,6 +51,31 @@ public enum ChatMessageKind: String, Codable, Sendable {
     case system
     /// 分享进来的 app 内容(旅行、资产…),`cardData` 存 `ChatCard`。
     case card
+    /// 图片 / 文件:`filePath`(App Group 里的相对路径)+ `fileName`,文件本身是 CKAsset。
+    case image
+    case file
+    /// 某位成员的 AI 在群里提的问题(`askData` = `AgentAskSnapshot`,只有题目),
+    /// 大家各自作答;答完由提问那台设备汇总出结论。
+    case ask
+    /// 一位成员对某个 ask 的回答(`replyData` = `ChatAskReply`),`content` 是可读的问答。
+    case askAnswer
+}
+
+/// 一位成员对群里 AI 提问的回答。
+public struct ChatAskReply: Codable, Equatable, Sendable {
+    public var askID: UUID
+    /// 与那次提问的 questions 等长。
+    public var answers: [[String]]
+
+    public init(askID: UUID, answers: [[String]]) {
+        self.askID = askID
+        self.answers = answers
+    }
+
+    public var encoded: Data? { try? JSONEncoder().encode(self) }
+    public static func decode(_ data: Data?) -> ChatAskReply? {
+        data.flatMap { try? JSONDecoder().decode(ChatAskReply.self, from: $0) }
+    }
 }
 
 /// 聊天里分享的一张内容卡片。`body` 是分享那一刻整理好的内容快照(和 AI 对话里「引用」
@@ -105,6 +130,19 @@ public final class ChatRoomMessage {
     public var senderHint: String = ""
     /// 这条是不是自己(这个 iCloud 账号)发的。按记录创建者判断,不进 payload。
     public var fromMe: Bool = false
+    /// 发送者在 CloudKit 里的 userRecordID.recordName(收到的一端按记录创建者记下,
+    /// 不进 payload)。成员表后来才取到时按它把「成员」补成真名字。自己发的为空。
+    public var senderID: String = ""
+    /// `image` / `file` 的文件名与 App Group 里的相对路径。
+    public var fileName: String = ""
+    public var filePath: String = ""
+    /// `ask` 的题目(JSON 编码的 `AgentAskSnapshot`)。
+    public var askData: Data? = nil
+    /// `askAnswer` 的回答(JSON 编码的 `ChatAskReply`)。
+    public var replyData: Data? = nil
+    /// system 消息记着它说的是哪张提案卡的哪一部分被写入/撤销了(`ChatProposalRef.raw`),
+    /// 其他成员据此在卡片上显示「已由 X 写入」。
+    public var refRaw: String = ""
     public var createdAt: Date = Date.now
     /// `card` 消息的内容卡片(JSON 编码的 `ChatCard`);其余 kind 为 nil。
     public var cardData: Data? = nil
@@ -128,6 +166,11 @@ public final class ChatRoomMessage {
     public var kind: ChatMessageKind { ChatMessageKind(rawValue: kindRaw) ?? .text }
     public var card: ChatCard? { ChatCard.decode(cardData) }
     public var proposal: ChatProposal? { ChatProposal.decode(proposalData) }
+    public var ask: AgentAskSnapshot? {
+        askData.flatMap { try? JSONDecoder().decode(AgentAskSnapshot.self, from: $0) }
+    }
+    public var reply: ChatAskReply? { ChatAskReply.decode(replyData) }
+    public var ref: ChatProposalRef? { ChatProposalRef(raw: refRaw) }
 }
 
 // MARK: - 同步映射
@@ -167,6 +210,11 @@ public enum SharedChatMapping {
         if !message.senderHint.isEmpty { f["senderHint"] = .string(message.senderHint) }
         if let card = message.cardData { f["card"] = .data(card) }
         if let proposal = message.proposalData { f["proposal"] = .data(proposal) }
+        if !message.fileName.isEmpty { f["fileName"] = .string(message.fileName) }
+        if !message.filePath.isEmpty { f["filePath"] = .string(message.filePath) }
+        if let ask = message.askData { f["ask"] = .data(ask) }
+        if let reply = message.replyData { f["reply"] = .data(reply) }
+        if !message.refRaw.isEmpty { f["ref"] = .string(message.refRaw) }
         return SharedRecordSnapshot(type: .chatMessage, uuid: message.uuid, fields: f)
     }
 
@@ -177,6 +225,17 @@ public enum SharedChatMapping {
         message.senderHint = f.string("senderHint") ?? ""
         message.cardData = f.data("card")
         message.proposalData = f.data("proposal")
+        message.fileName = f.string("fileName") ?? ""
+        message.filePath = f.string("filePath") ?? ""
+        message.askData = f.data("ask")
+        message.replyData = f.data("reply")
+        message.refRaw = f.string("ref") ?? ""
+    }
+
+    /// 聊天室图片/文件在 App Group 里的相对路径(各设备一致,同旅行文件的做法)。
+    public static func attachmentPath(roomUUID: UUID, messageUUID: UUID, fileName: String) -> String {
+        let ext = (fileName as NSString).pathExtension
+        return "Chat/\(roomUUID.uuidString)/\(messageUUID.uuidString)" + (ext.isEmpty ? "" : "." + ext)
     }
 
     public static func senderHint(_ f: SharedFields) -> String? {
@@ -191,15 +250,27 @@ public enum SharedChatMapping {
 /// - **消息永不经对账删除**:消息只追加,本地少一条(去重、刚退出)不代表要删服务器上的;
 ///   整个房间的去留走 zone 的删除。
 public enum SharedChatPlanner {
-    public static func pushPlan(room: SharedRecordSnapshot?, myMessages: [SharedRecordSnapshot],
+    /// 房间记录按字段比;消息**只看账本里有没有**(只追加、不会改,账本里也不存正文,
+    /// 见 `SharedLedgerRecord.stored`)。
+    public static func pushPlan(room: SharedRecordSnapshot?, myMessages: [UUID],
                                 ledger: [UUID: SharedLedgerRecord]) -> SharedPushPlan {
         var plan = SharedPushPlan()
-        let candidates = (room.map { [$0] } ?? []) + myMessages
-        for snapshot in candidates where ledger[snapshot.uuid]?.fields != snapshot.fields {
-            plan.saves.append(snapshot.uuid)
-        }
+        if let room, ledger[room.uuid]?.fields != room.fields { plan.saves.append(room.uuid) }
+        plan.saves += myMessages.filter { ledger[$0] == nil }
         plan.saves.sort { $0.uuidString < $1.uuidString }
         return plan
+    }
+}
+
+extension SharedLedgerRecord {
+    /// 写进账本的那一份。聊天消息**只记"有这条"**,不存正文和系统字段:消息只追加、
+    /// 不会再改,用不上三方合并的 base,也不会带着旧版本去存;每条都存全文的话账本
+    /// (每次同步都整份读写的一个 JSON)会随聊天越来越大。
+    public static func stored(type: SharedRecordType, fields: SharedFields,
+                              systemFields: Data?) -> SharedLedgerRecord {
+        type == .chatMessage
+            ? SharedLedgerRecord(type: type, fields: [:])
+            : SharedLedgerRecord(type: type, fields: fields, systemFields: systemFields)
     }
 }
 
@@ -311,6 +382,14 @@ public enum ChatTranscript {
             return line
         case .text:
             return "[\(time)] \(who):\(entry.content)"
+        case .image:
+            return "[\(time)] \(who) 发了一张图片"
+        case .file:
+            return "[\(time)] \(who) 发了文件「\(entry.content)」"
+        case .ask:
+            return "[\(time)] \(who)的 AI 向大家提问:\n\(entry.content)"
+        case .askAnswer:
+            return "[\(time)] \(who) 回答了 AI 的提问:\n\(entry.content)"
         }
     }
 }
@@ -328,7 +407,9 @@ public enum GroupChatPrompt {
         1. 你的回复会发给房间里**所有人**看:用大家都能看懂的口吻,提到某个人就用他的名字;\
         回复里**不要**用「我」指代叫你的那位成员(大家看到的「我」会以为是你自己),\
         说到他时写\(requester.isEmpty ? "「你」" : "他的名字或「你」")。
-        2. 以大家讨论**敲定**的结论为准;还在争的地方列出几种意见、给建议,不要替大家拍板。
+        2. 以大家讨论**敲定**的结论为准;还在争的地方列出几种意见、给建议,不要替大家拍板。\
+        需要**每个人表态**才能往下排的事(住哪一片、哪天出发、去不去某个地方),可以用 ask \
+        出选择题(每个成员会各自作答,大家答完你会再被叫来汇总);只是回答问题时不要用 ask。
         3. 这一轮没有给你叫你那位成员的私人数据(任务、记忆、资产、健康、偏好),也不要编造或打听。
         4. 能用的动作只有:answer(回话)、plan_trip(把讨论出来的行程整理成一份规划)、\
         edit_trip(调整已经共享的旅行,必须先 read_trip 拿到 id)、create(给「我」新建任务)、\
@@ -367,5 +448,116 @@ public enum ChatNotificationPlan {
     public static func body(lines: [String], moreFormat: (Int) -> String) -> String? {
         guard let last = lines.last else { return nil }
         return lines.count > 1 ? last + "\n" + moreFormat(lines.count) : last
+    }
+}
+
+// MARK: - 提案的写入状态
+
+/// system 消息里记着的「哪张提案卡的哪一部分被写入/撤销了」。原样字符串
+/// `<消息 uuid>|<part>|<applied/reverted>`(进 payload,别改格式)。
+public struct ChatProposalRef: Equatable, Sendable {
+    public enum Action: String, Sendable { case applied, reverted }
+
+    public var messageID: UUID
+    public var part: String
+    public var action: Action
+
+    public init(messageID: UUID, part: String, action: Action) {
+        self.messageID = messageID
+        self.part = part
+        self.action = action
+    }
+
+    public init?(raw: String) {
+        let parts = raw.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 3, let id = UUID(uuidString: parts[0]),
+              let action = Action(rawValue: parts[2]), !parts[1].isEmpty else { return nil }
+        self.init(messageID: id, part: parts[1], action: action)
+    }
+
+    public var raw: String { "\(messageID.uuidString)|\(part)|\(action.rawValue)" }
+
+    /// 房间里关于某张卡某一部分的**最后一次**写入/撤销(按时间)。没人动过为 nil。
+    public static func latest(_ refs: [(ref: ChatProposalRef, by: String, fromMe: Bool, at: Date)],
+                              messageID: UUID, part: String)
+        -> (action: Action, by: String, fromMe: Bool)? {
+        refs.filter { $0.ref.messageID == messageID && $0.ref.part == part }
+            .max { $0.at < $1.at }
+            .map { ($0.ref.action, $0.by, $0.fromMe) }
+    }
+}
+
+/// 写入提案后能撤销的那份记录(存在 `ChatProposalApplication.undoData`)。
+public enum ChatProposalUndo: Codable {
+    case plan(TripPlanProposal)
+    case edit(TripEditRecord)
+    case tasks([UUID])
+    case countdowns(CountdownEditRecord)
+}
+
+/// 这个 iCloud 账号写入过哪些提案卡(哪张卡、哪一部分、怎么撤销)。和聊天记录分开、
+/// 放在主库里——经 SwiftData 私有库同步到**自己的其他设备**,iPhone 上写过的,iPad 上
+/// 那张卡也显示「已写入」,不会再写一遍。
+@Model
+public final class ChatProposalApplication {
+    public var uuid: UUID = UUID()
+    public var messageUUID: UUID = UUID()
+    public var part: String = ""
+    public var appliedAt: Date = Date.now
+    public var undoData: Data? = nil
+    public var reverted: Bool = false
+
+    public init(messageUUID: UUID, part: String, undo: ChatProposalUndo?) {
+        self.uuid = UUID()
+        self.messageUUID = messageUUID
+        self.part = part
+        self.appliedAt = Date()
+        self.undoData = undo.flatMap { try? JSONEncoder().encode($0) }
+    }
+
+    public var undo: ChatProposalUndo? {
+        undoData.flatMap { try? JSONDecoder().decode(ChatProposalUndo.self, from: $0) }
+    }
+}
+
+// MARK: - 群里的 AI 提问
+
+public enum ChatAskTally {
+    /// 已经回答了的人(按发送者去重;自己的回答记作 "me")。同一个人改答以最后一次为准。
+    public static func respondents(_ replies: [(senderID: String, fromMe: Bool)]) -> Set<String> {
+        Set(replies.map { $0.fromMe ? "me" : $0.senderID })
+    }
+
+    /// 是不是大家都答完了:成员数取不到(离线)时只能等提问的人手动汇总,返回 false。
+    public static func isComplete(answered: Int, memberCount: Int?) -> Bool {
+        guard let memberCount, memberCount > 0 else { return false }
+        return answered >= memberCount
+    }
+
+    /// 回答的可读文本(消息 `content`、AI 上下文都用它)。
+    public static func transcript(questions: [AskQuestion], answers: [[String]]) -> String {
+        AgentAskSnapshot(questions: questions, answers: answers).transcript
+    }
+
+    /// 提问消息的 `content`:题目逐行列出来(AI 上下文用)。
+    public static func questionList(_ questions: [AskQuestion]) -> String {
+        questions.enumerated().map { "\($0.offset + 1). \($0.element.question)" }.joined(separator: "\n")
+    }
+}
+
+// MARK: - 撤回
+
+public enum ChatRecall {
+    /// 发出多久以内能撤回(同常见聊天软件的 2 分钟)。
+    public static let window: TimeInterval = 2 * 60
+
+    /// 只有自己发的文字/图片/文件/卡片能撤回;AI 回复、系统提示、提问与回答不能(撤掉会让
+    /// 后面依赖它的卡片和汇总对不上)。
+    public static func canRecall(fromMe: Bool, kind: ChatMessageKind, createdAt: Date, now: Date) -> Bool {
+        guard fromMe else { return false }
+        switch kind {
+        case .text, .image, .file, .card: return now.timeIntervalSince(createdAt) <= window
+        case .ai, .system, .ask, .askAnswer: return false
+        }
     }
 }

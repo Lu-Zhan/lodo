@@ -27,8 +27,14 @@ enum AppDatabase {
         AgentMessage.self, AIRoutine.self, AIRoutineRun.self,
         ContactRelationship.self, TravelTrip.self, MenuDish.self,
         NewsFeed.self, NewsArticle.self, CountdownEvent.self, PackingItem.self, FinanceEntry.self,
-        ChatRoom.self, ChatRoomMessage.self,
+        ChatProposalApplication.self,
     ]
+
+    /// 共享聊天室的数据放一个**单独的本地库**,不走 SwiftData 的 iCloud 私有库镜像:
+    /// 房间和消息本来就经 CloudKit 共享 zone 同步(`SharedTripSync`),再镜像一份的话
+    /// 每个成员的私有空间都多存一遍,自己另一台设备上还会从两条路各收到一份、把自己的
+    /// 消息重复推送。代价是已读位置、免打扰、AI 开关这几个本机偏好不再跨设备同步。
+    private static let chatModels: [any PersistentModel.Type] = [ChatRoom.self, ChatRoomMessage.self]
 
     /// 依次尝试 App Group 存储 → 默认存储 → 内存态兜底,避免存储损坏/迁移失败时直接崩溃。
     /// 前两级是否开 CloudKit 同步由设置里的开关决定(默认开,entitlements 里声明的容器);
@@ -37,11 +43,14 @@ enum AppDatabase {
     static let container: ModelContainer = {
         let cloudKitOn = AppSettings.icloudSyncEnabled
         let cloudKit: ModelConfiguration.CloudKitDatabase = cloudKitOn ? .automatic : .none
-        let schema = Schema(models)
+        let schema = Schema(models + chatModels)
+        let mainSchema = Schema(models)
+        let chatSchema = Schema(chatModels)
 
-        func attempt(_ name: String, _ configuration: ModelConfiguration) -> ModelContainer? {
+        func attempt(_ name: String, _ configuration: ModelConfiguration,
+                     _ chat: ModelConfiguration) -> ModelContainer? {
             do {
-                return try ModelContainer(for: schema, configurations: configuration)
+                return try ModelContainer(for: schema, configurations: configuration, chat)
             } catch {
                 let message = "\(name): \(error)"
                 log.error("\(message, privacy: .public)")
@@ -53,7 +62,10 @@ enum AppDatabase {
         if let storeURL = AppGroup.storeURL {
             AppGroup.migrateLegacyStoreIfNeeded(to: storeURL)
             if let container = attempt("App Group", ModelConfiguration(
-                schema: schema, url: storeURL, cloudKitDatabase: cloudKit)) {
+                schema: mainSchema, url: storeURL, cloudKitDatabase: cloudKit),
+                ModelConfiguration("Chat", schema: chatSchema,
+                                   url: storeURL.deletingLastPathComponent().appending(path: "lodo-chat.store"),
+                                   cloudKitDatabase: .none)) {
                 mode = cloudKitOn ? .appGroupCloudKit : .appGroupLocal
                 return container
             }
@@ -61,12 +73,16 @@ enum AppDatabase {
             failures.append("App Group: containerURL 为 nil(entitlements 里没有 group.com.lodo.app?)")
         }
         if let container = attempt("默认位置", ModelConfiguration(
-            schema: schema, cloudKitDatabase: cloudKit)) {
+            schema: mainSchema, cloudKitDatabase: cloudKit),
+            ModelConfiguration("Chat", schema: chatSchema,
+                               url: URL.applicationSupportDirectory.appending(path: "lodo-chat.store"),
+                               cloudKitDatabase: .none)) {
             mode = cloudKitOn ? .defaultCloudKit : .defaultLocal
             return container
         }
         guard let inMemory = attempt("内存", ModelConfiguration(
-            schema: schema, isStoredInMemoryOnly: true)) else {
+            schema: mainSchema, isStoredInMemoryOnly: true),
+            ModelConfiguration("Chat", schema: chatSchema, isStoredInMemoryOnly: true)) else {
             fatalError("无法初始化数据库(含内存兜底)")
         }
         mode = .inMemory

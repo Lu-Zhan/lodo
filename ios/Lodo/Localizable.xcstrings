@@ -33,6 +33,38 @@
         }
       }
     },
+    "%@加入了聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ joined the chat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@加入了聊天室"
+          }
+        }
+      }
+    },
+    "%@回答了 AI 的提问" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ answered the AI's question"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@回答了 AI 的提问"
+          }
+        }
+      }
+    },
     "%@把行程写进了旅行「%@」" : {
       "localizations" : {
         "en" : {
@@ -45,6 +77,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@把行程写进了旅行「%@」"
+          }
+        }
+      }
+    },
+    "%@撤回了一条消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ unsent a message"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@撤回了一条消息"
+          }
+        }
+      }
+    },
+    "%@撤销了写进旅行「%@」的行程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ undid the plan added to trip “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@撤销了写进旅行「%@」的行程"
+          }
+        }
+      }
+    },
+    "%@撤销了对旅行「%@」的调整" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ undid the changes to trip “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@撤销了对旅行「%@」的调整"
           }
         }
       }
@@ -81,6 +161,22 @@
         }
       }
     },
+    "%lld 人已回答" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld answered"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 人已回答"
+          }
+        }
+      }
+    },
     "%lld 项安排" : {
       "localizations" : {
         "en" : {
@@ -93,6 +189,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 项安排"
+          }
+        }
+      }
+    },
+    "%lld/%lld 人已回答" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld/%lld answered"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld/%lld 人已回答"
+          }
+        }
+      }
+    },
+    "[图片]" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "[Photo]"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "[图片]"
           }
         }
       }
@@ -1949,6 +2077,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "乘机"
+          }
+        }
+      }
+    },
+    "也写入我的行程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to My Trips Too"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "也写入我的行程"
           }
         }
       }
@@ -4591,6 +4735,38 @@
         }
       }
     },
+    "已汇总" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarized"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已汇总"
+          }
+        }
+      }
+    },
+    "已由%@写入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added by %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已由%@写入"
+          }
+        }
+      }
+    },
     "已邀请,还没接受" : {
       "localizations" : {
         "en" : {
@@ -4783,6 +4959,22 @@
         }
       }
     },
+    "我回答了 AI 的提问" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I answered the AI's question"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我回答了 AI 的提问"
+          }
+        }
+      }
+    },
     "我的 AI" : {
       "localizations" : {
         "en" : {
@@ -4795,6 +4987,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我的 AI"
+          }
+        }
+      }
+    },
+    "我的 AI 正在汇总大家的选择…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My AI is summarizing everyone's choices…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我的 AI 正在汇总大家的选择…"
           }
         }
       }
@@ -4847,6 +5055,38 @@
         }
       }
     },
+    "撤回" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤回"
+          }
+        }
+      }
+    },
+    "撤回了一条消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A message was unsent"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤回了一条消息"
+          }
+        }
+      }
+    },
     "收入、支出与信用卡" : {
       "localizations" : {
         "en" : {
@@ -4875,6 +5115,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "收支"
+          }
+        }
+      }
+    },
+    "文件太大了,聊天里一次最多发 50 MB" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File is too large. Chat attachments can be up to 50 MB."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件太大了,聊天里一次最多发 50 MB"
           }
         }
       }
@@ -12794,6 +13050,22 @@
         }
       }
     },
+    "有新成员加入了聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new member joined the chat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有新成员加入了聊天室"
+          }
+        }
+      }
+    },
     "有时长的事项会在开始和结束各提醒一次" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -15263,6 +15535,22 @@
         }
       }
     },
+    "滚动到这个问题" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrolls to this question"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "滚动到这个问题"
+          }
+        }
+      }
+    },
     "澳元" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -15454,6 +15742,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "现在值多少"
+          }
+        }
+      }
+    },
+    "现在汇总" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarize Now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在汇总"
           }
         }
       }
@@ -18111,6 +18415,22 @@
         }
       }
     },
+    "读不了这个文件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't read this file"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读不了这个文件"
+          }
+        }
+      }
+    },
     "调整旅行「%@」" : {
       "localizations" : {
         "en" : {
@@ -18723,6 +19043,22 @@
         }
       }
     },
+    "载入更早的消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load Earlier Messages"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "载入更早的消息"
+          }
+        }
+      }
+    },
     "较大" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -19120,6 +19456,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还款日前一天提醒"
+          }
+        }
+      }
+    },
+    "还没有下载到这台设备" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not downloaded to this device yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有下载到这台设备"
           }
         }
       }
@@ -21187,6 +21539,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "问问 AI"
+          }
+        }
+      }
+    },
+    "问题:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "问题:%@"
           }
         }
       }

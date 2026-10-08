@@ -79,27 +79,88 @@ final class SharedChatSyncTests: XCTestCase {
         XCTAssertEqual(ChatRoomPlan.defaultTitle(base: "聊天室", existing: ["聊天室", "聊天室 2"]), "聊天室 3")
     }
 
-    /// 只推自己发的、还没推过(或改过)的;房间名改了也推;从不删消息。
+    /// 消息只看账本里有没有;房间名改了才推房间;从不删消息。
     func testChatPushPlanOnlyPushesOwnNewMessages() {
         let roomID = UUID()
         let room = ChatRoom(uuid: roomID, title: "群")
         let roomSnapshot = SharedChatMapping.snapshot(of: room)
-        let sent = SharedChatMapping.snapshot(of: ChatRoomMessage(roomUUID: roomID, content: "a"))
-        let fresh = SharedChatMapping.snapshot(of: ChatRoomMessage(roomUUID: roomID, content: "b"))
+        let sent = UUID(), fresh = UUID()
         let gone = UUID()  // 账本里有、本地已经没有的一条(别人的,或者去重删掉的)
         let ledger: [UUID: SharedLedgerRecord] = [
             roomID: SharedLedgerRecord(type: .chatRoom, fields: roomSnapshot.fields),
-            sent.uuid: SharedLedgerRecord(type: .chatMessage, fields: sent.fields),
-            gone: SharedLedgerRecord(type: .chatMessage, fields: [:]),
+            sent: .stored(type: .chatMessage, fields: ["content": .string("a")], systemFields: Data([1])),
+            gone: .stored(type: .chatMessage, fields: [:], systemFields: nil),
         ]
         let plan = SharedChatPlanner.pushPlan(room: roomSnapshot, myMessages: [sent, fresh], ledger: ledger)
-        XCTAssertEqual(plan.saves, [fresh.uuid])
+        XCTAssertEqual(plan.saves, [fresh])
         XCTAssertEqual(plan.deletes, [])
 
         room.title = "京都群"
         let renamed = SharedChatPlanner.pushPlan(room: SharedChatMapping.snapshot(of: room),
                                                  myMessages: [sent], ledger: ledger)
         XCTAssertEqual(renamed.saves, [roomID])
+    }
+
+    /// 账本里聊天消息只记"有这条",不存正文和系统字段;别的类型照旧整份存。
+    func testLedgerStoresChatMessagesCompactly() {
+        let message = SharedLedgerRecord.stored(type: .chatMessage, fields: ["content": .string("长长的正文")],
+                                                systemFields: Data([1, 2, 3]))
+        XCTAssertEqual(message.fields, [:])
+        XCTAssertNil(message.systemFields)
+        let trip = SharedLedgerRecord.stored(type: .trip, fields: ["title": .string("京都")], systemFields: Data([1]))
+        XCTAssertEqual(trip.fields, ["title": .string("京都")])
+        XCTAssertEqual(trip.systemFields, Data([1]))
+    }
+
+    func testAttachmentAndAskFieldsRoundTrip() {
+        let roomID = UUID()
+        let message = ChatRoomMessage(roomUUID: roomID, kind: .file, content: "行程单.pdf")
+        message.fileName = "行程单.pdf"
+        message.filePath = SharedChatMapping.attachmentPath(roomUUID: roomID, messageUUID: message.uuid,
+                                                             fileName: "行程单.pdf")
+        XCTAssertTrue(message.filePath.hasSuffix(".pdf"))
+        XCTAssertTrue(message.filePath.hasPrefix("Chat/\(roomID.uuidString)/"))
+        message.askData = try? JSONEncoder().encode(AgentAskSnapshot(questions: [
+            AskQuestion(question: "住哪?", options: [AskOption(label: "京都站")])]))
+        message.replyData = ChatAskReply(askID: UUID(), answers: [["京都站"]]).encoded
+        message.refRaw = ChatProposalRef(messageID: UUID(), part: "plan", action: .applied).raw
+        message.senderID = "_abc"
+        let copy = ChatRoomMessage(roomUUID: roomID, content: "")
+        SharedChatMapping.apply(SharedChatMapping.snapshot(of: message).fields, to: copy)
+        XCTAssertEqual(copy.fileName, "行程单.pdf")
+        XCTAssertEqual(copy.filePath, message.filePath)
+        XCTAssertEqual(copy.ask?.questions.first?.question, "住哪?")
+        XCTAssertEqual(copy.reply, message.reply)
+        XCTAssertEqual(copy.ref, message.ref)
+        XCTAssertEqual(copy.senderID, "", "senderID 不进 payload")
+    }
+
+    func testProposalRefParseAndLatest() {
+        let id = UUID()
+        let applied = ChatProposalRef(messageID: id, part: "plan", action: .applied)
+        XCTAssertEqual(ChatProposalRef(raw: applied.raw), applied)
+        XCTAssertNil(ChatProposalRef(raw: "x|plan|applied"))
+        XCTAssertNil(ChatProposalRef(raw: id.uuidString + "|plan|done"))
+        let t0 = Date(timeIntervalSince1970: 0)
+        let refs: [(ref: ChatProposalRef, by: String, fromMe: Bool, at: Date)] = [
+            (applied, "小林", false, t0),
+            (ChatProposalRef(messageID: id, part: "plan", action: .reverted), "小林", false, t0.addingTimeInterval(5)),
+            (ChatProposalRef(messageID: id, part: "edit", action: .applied), "", true, t0),
+        ]
+        XCTAssertEqual(ChatProposalRef.latest(refs, messageID: id, part: "plan")?.action, .reverted)
+        XCTAssertEqual(ChatProposalRef.latest(refs, messageID: id, part: "edit")?.fromMe, true)
+        XCTAssertNil(ChatProposalRef.latest(refs, messageID: UUID(), part: "plan"))
+    }
+
+    func testAskTally() {
+        let who = ChatAskTally.respondents([("a", false), ("a", false), ("", true), ("b", false)])
+        XCTAssertEqual(who, ["a", "b", "me"])
+        XCTAssertTrue(ChatAskTally.isComplete(answered: 3, memberCount: 3))
+        XCTAssertFalse(ChatAskTally.isComplete(answered: 2, memberCount: 3))
+        XCTAssertFalse(ChatAskTally.isComplete(answered: 2, memberCount: nil))
+        XCTAssertEqual(ChatAskTally.questionList([AskQuestion(question: "住哪?", options: []),
+                                                  AskQuestion(question: "几号走?", options: [])]),
+                       "1. 住哪?\n2. 几号走?")
     }
 
     func testCardMessageRoundTrip() throws {
@@ -126,5 +187,14 @@ final class SharedChatSyncTests: XCTestCase {
         XCTAssertEqual(card.preview(maxLines: 3), "a\nb\nc\n…")
         XCTAssertEqual(card.preview(maxLines: 4), "a\nb\nc\nd")
         XCTAssertNil(ChatCard.decode(Data("x".utf8)))
+    }
+
+    func testRecallWindowAndKinds() {
+        let now = Date(timeIntervalSince1970: 1000)
+        XCTAssertTrue(ChatRecall.canRecall(fromMe: true, kind: .text, createdAt: now.addingTimeInterval(-60), now: now))
+        XCTAssertFalse(ChatRecall.canRecall(fromMe: true, kind: .text, createdAt: now.addingTimeInterval(-180), now: now))
+        XCTAssertFalse(ChatRecall.canRecall(fromMe: false, kind: .text, createdAt: now, now: now))
+        XCTAssertFalse(ChatRecall.canRecall(fromMe: true, kind: .ai, createdAt: now, now: now))
+        XCTAssertTrue(ChatRecall.canRecall(fromMe: true, kind: .image, createdAt: now, now: now))
     }
 }

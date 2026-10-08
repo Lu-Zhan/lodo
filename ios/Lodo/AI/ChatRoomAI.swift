@@ -22,7 +22,9 @@ enum ChatRoomAI {
         }
     }
 
-    static func respond(in room: ChatRoom, context: ModelContext,
+    /// `closingAsk`:这一轮是在汇总群里某次提问的回答(大家答完了,或者提问的人手动点了
+    /// 「现在汇总」);回复带上 ref,那张提问卡对所有人显示「已汇总」。
+    static func respond(in room: ChatRoom, context: ModelContext, closingAsk: UUID? = nil,
                         onThought: (String) -> Void) async throws {
         guard DeepSeekClient.isConfigured else { throw Failure.notConfigured }
         let roomUUID = room.uuid
@@ -36,7 +38,11 @@ enum ChatRoomAI {
                                  content: message.content, cardBody: message.card?.body,
                                  createdAt: message.createdAt)
         })
-        let request = "聊天记录:\n\(transcript)\n\n请根据以上聊天记录,回应「我」最新说的话。"
+        let request = closingAsk == nil
+            ? "聊天记录:\n\(transcript)\n\n请根据以上聊天记录,回应「我」最新说的话。"
+            : "聊天记录:\n\(transcript)\n\n大家已经回答了你之前在群里提的问题(见「回答了 AI 的提问」那几条)。"
+                + "请汇总大家的选择:一致的直接给结论,不一致的列出各自的选择并给建议;能落成行程、任务的照常给出动作。"
+                + "这一轮不要再提问。"
         let sharedTrips = TravelStore.trips(in: context).filter(\.isShared)
         let groupBlock = GroupChatPrompt.block(roomTitle: room.title,
                                                requester: SharedTripSync.myDisplayName)
@@ -63,10 +69,13 @@ enum ChatRoomAI {
             }
             switch result {
             case .ask(let questions):
-                // 群聊里没有可交互的询问卡:把问题列出来,大家在聊天里接着说。
-                let lines = questions.enumerated().map { "\($0.offset + 1). \($0.element.question)" }
-                post(String(localized: "想先确认几件事:", bundle: .appLanguage()) + "\n"
-                     + lines.joined(separator: "\n"), proposal: nil, in: room)
+                // 群里的提问卡:每个成员各自作答,答完由这台设备汇总(见 ChatRoomView)。
+                // 汇总那一轮不该再问,真问了就退化成文字列出来。
+                if closingAsk == nil {
+                    SharedTripSync.shared.sendAsk(questions, in: room)
+                } else {
+                    post(ChatAskTally.questionList(questions), proposal: nil, closing: closingAsk, in: room)
+                }
                 return
             case .toolCall(let thought, let tool):
                 onThought(thought)
@@ -76,15 +85,15 @@ enum ChatRoomAI {
                 currentText = "(请基于以上结果继续处理:\(request))"
             case .actions(let actions):
                 let (text, proposal) = collect(actions)
-                post(text, proposal: proposal, in: room)
+                post(text, proposal: proposal, closing: closingAsk, in: room)
                 return
             }
         }
         throw DeepSeekError.parse("多轮推理超过上限,换个说法试试")
     }
 
-    private static func post(_ text: String, proposal: ChatProposal?, in room: ChatRoom) {
-        SharedTripSync.shared.sendAI(text, proposal: proposal, in: room)
+    private static func post(_ text: String, proposal: ChatProposal?, closing: UUID? = nil, in room: ChatRoom) {
+        SharedTripSync.shared.sendAI(text, proposal: proposal, closing: closing, in: room)
     }
 
     /// 只读工具。群聊里只开联网和读**共享**旅行,别的一律如实说不可用。

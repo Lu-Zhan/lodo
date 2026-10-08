@@ -104,6 +104,8 @@ final class SharedTripSync {
     @ObservationIgnored private var participantNames: [String: [String: String]] = [:]
     /// 这一批收到的、要提醒的别人的消息(按房间)。applyIncoming 收尾时发通知并清空。
     @ObservationIgnored private var chatArrivals: [UUID: [ChatRoomMessage]] = [:]
+    /// 收到了成员表里还没有的人发的消息:这些 zone 要重取一次成员表(见 refreshStaleParticipants)。
+    @ObservationIgnored private var staleParticipantZones: Set<String> = []
 
     private init() {}
 
@@ -531,6 +533,13 @@ final class SharedTripSync {
         register(zoneID, role: .participant)
         await loadParticipants(metadata.share)
         try? await sharedEngine?.fetchChanges(.init(scope: .zoneIDs([zoneID])))
+        // 加入聊天室:在房间里留一句「X 加入了聊天室」,大家知道来了谁。
+        if kind == .chat, let context, let room = fetchRoom(containerUUID, context: context) {
+            let me = Self.myDisplayName
+            send(me.isEmpty ? String(localized: "有新成员加入了聊天室", bundle: .appLanguage())
+                            : String(localized: "\(me)加入了聊天室", bundle: .appLanguage()),
+                 kind: .system, in: room)
+        }
         open()
     }
 
@@ -619,13 +628,42 @@ final class SharedTripSync {
         insertMessage(card.summaryLine, kind: .card, card: card, in: room)
     }
 
-    /// 这台设备上的 AI 在房间里的回复(可带一份待确认的提案)。
-    func sendAI(_ text: String, proposal: ChatProposal?, in room: ChatRoom) {
-        insertMessage(text, kind: .ai, card: nil, proposal: proposal, in: room)
+    /// 这台设备上的 AI 在房间里的回复(可带一份待确认的提案)。`closing`:这条回复是
+    /// 对某次群里提问的汇总,记一个 ref,大家那张提问卡就显示「已汇总」。
+    func sendAI(_ text: String, proposal: ChatProposal?, closing askID: UUID? = nil, in room: ChatRoom) {
+        insertMessage(text, kind: .ai, card: nil, proposal: proposal, in: room) { message in
+            if let askID {
+                message.refRaw = ChatProposalRef(messageID: askID, part: "ask", action: .applied).raw
+            }
+        }
+    }
+
+    /// 这台设备上的 AI 在群里提问(大家各自作答)。
+    func sendAsk(_ questions: [AskQuestion], in room: ChatRoom) {
+        insertMessage(ChatAskTally.questionList(questions), kind: .ask, card: nil, in: room) { message in
+            message.askData = try? JSONEncoder().encode(AgentAskSnapshot(questions: questions))
+        }
+    }
+
+    /// 回答群里的一次提问。
+    func sendAnswer(_ answers: [[String]], to ask: ChatRoomMessage, in room: ChatRoom) {
+        guard let questions = ask.ask?.questions else { return }
+        insertMessage(ChatAskTally.transcript(questions: questions, answers: answers), kind: .askAnswer,
+                      card: nil, in: room) { message in
+            message.replyData = ChatAskReply(askID: ask.uuid, answers: answers).encoded
+        }
+    }
+
+    /// 带写入引用的系统提示(「X 把行程写进了…」「X 撤销了…」),其他成员的提案卡据此显示状态。
+    func sendSystem(_ text: String, ref: ChatProposalRef?, in room: ChatRoom) {
+        insertMessage(text, kind: .system, card: nil, in: room) { message in
+            message.refRaw = ref?.raw ?? ""
+        }
     }
 
     private func insertMessage(_ text: String, kind: ChatMessageKind, card: ChatCard?,
-                               proposal: ChatProposal? = nil, in room: ChatRoom) {
+                               proposal: ChatProposal? = nil, in room: ChatRoom,
+                               configure: (ChatRoomMessage) -> Void = { _ in }) {
         guard let context else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -633,6 +671,7 @@ final class SharedTripSync {
                                       senderHint: Self.myDisplayName, fromMe: true)
         message.cardData = card?.encoded
         if let proposal, !proposal.isEmpty { message.proposalData = proposal.encoded }
+        configure(message)
         context.insert(message)
         room.lastMessageAt = message.createdAt
         room.lastReadAt = message.createdAt
@@ -692,8 +731,116 @@ final class SharedTripSync {
             predicate: #Predicate { $0.uuid == roomUUID }))) ?? []
         rooms.forEach(context.delete)
         chatMessages(in: roomUUID, context: context).forEach(context.delete)
+        if let folder = AppGroup.containerURL?.appending(path: "Chat/\(roomUUID.uuidString)") {
+            try? FileManager.default.removeItem(at: folder)
+        }
         try? context.save()
         pendingCounts[roomUUID] = nil
+    }
+
+    // MARK: 附件 / 撤回 / 名字
+
+    /// 发一张图片或一个文件:先复制进 App Group 的聊天目录(各设备同一个相对路径),
+    /// 再落一条消息;推送时文件作为 CKAsset 随记录上传(单个超 50 MB 不传,见 fitsAssetLimit)。
+    @discardableResult
+    func sendAttachment(data: Data, fileName: String, kind: ChatMessageKind, in room: ChatRoom) -> Bool {
+        guard let context, let base = AppGroup.containerURL else { return false }
+        let message = ChatRoomMessage(roomUUID: room.uuid, kind: kind,
+                                      content: kind == .image
+                                        ? String(localized: "[图片]", bundle: .appLanguage()) : fileName,
+                                      senderHint: Self.myDisplayName, fromMe: true)
+        message.fileName = fileName
+        message.filePath = SharedChatMapping.attachmentPath(roomUUID: room.uuid, messageUUID: message.uuid,
+                                                             fileName: fileName)
+        let target = base.appending(path: message.filePath)
+        do {
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
+            try data.write(to: target, options: .atomic)
+        } catch {
+            report(error.localizedDescription)
+            return false
+        }
+        context.insert(message)
+        room.lastMessageAt = message.createdAt
+        room.lastReadAt = message.createdAt
+        try? context.save()
+        return true
+    }
+
+    /// 撤回自己的一条消息(发出 2 分钟内,同 `ChatRecall.window`):本地删掉、服务器上删掉,
+    /// 房间里留一句「X 撤回了一条消息」。还没推上去的直接删,不用发删除。
+    func recall(_ message: ChatRoomMessage, in room: ChatRoom) {
+        guard let context, message.fromMe else { return }
+        if let entry = SharedTripLedger.zones.values.first(where: {
+            $0.kind == .chat && $0.containerUUID == room.uuid
+        }), entry.records[message.uuid] != nil {
+            let zoneID = CKRecordZone.ID(zoneName: entry.zoneName, ownerName: entry.ownerName)
+            engine(for: entry.role)?.state.add(pendingRecordZoneChanges: [
+                .deleteRecord(CKRecord.ID(recordName: message.uuid.uuidString, zoneID: zoneID))])
+        }
+        removeChatFile(message.filePath)
+        applying = true
+        context.delete(message)
+        try? context.save()
+        applying = false
+        let me = Self.myDisplayName
+        send(me.isEmpty ? String(localized: "撤回了一条消息", bundle: .appLanguage())
+                        : String(localized: "\(me)撤回了一条消息", bundle: .appLanguage()),
+             kind: .system, in: room)
+    }
+
+    private func saveChatFile(of record: CKRecord, to relative: String) {
+        guard let asset = record["file"] as? CKAsset, let source = asset.fileURL,
+              let target = AppGroup.containerURL?.appending(path: relative) else { return }
+        try? FileManager.default.createDirectory(at: target.deletingLastPathComponent(),
+                                                 withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: target)
+        try? FileManager.default.copyItem(at: source, to: target)
+    }
+
+    private func removeChatFile(_ relative: String) {
+        guard !relative.isEmpty, let url = AppGroup.containerURL?.appending(path: relative) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// 成员表取到(或重取)之后,把这个聊天室里还写着「成员」/ 发送者自报名字的消息补成真名字。
+    private func fillChatSenderNames(zoneName: String, names: [String: String]) {
+        guard let context, !names.isEmpty,
+              let roomUUID = SharedChatMapping.roomUUID(fromZoneName: zoneName) else { return }
+        let stale = chatMessages(in: roomUUID, context: context).filter { message in
+            !message.fromMe && !message.senderID.isEmpty
+                && names[message.senderID].map { $0 != message.senderName } == true
+        }
+        guard !stale.isEmpty else { return }
+        applying = true
+        defer { applying = false }
+        for message in stale { message.senderName = names[message.senderID] ?? message.senderName }
+        try? context.save()
+    }
+
+    /// 收到成员表里没有的人的消息之后,强制重取那几个 zone 的成员表(新成员刚加入时最常见)。
+    private func refreshStaleParticipants() {
+        let keys = staleParticipantZones
+        staleParticipantZones = []
+        guard !keys.isEmpty, let ckContainer else { return }
+        Task {
+            for entry in SharedTripLedger.zones.values where keys.contains(entry.key) {
+                let zoneID = CKRecordZone.ID(zoneName: entry.zoneName, ownerName: entry.ownerName)
+                let database = entry.role == .owner ? ckContainer.privateCloudDatabase : ckContainer.sharedCloudDatabase
+                let id = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)
+                if let share = try? await database.record(for: id) as? CKShare {
+                    await loadParticipants(share)
+                }
+            }
+        }
+    }
+
+    /// 进聊天室时调:自己的名字还没取到过(刚建房间、刚装 app)就去成员表里取一次,
+    /// 这样发出去的消息带着名字,对方成员表还没更新时也不至于显示「成员」。
+    func ensureMyDisplayName(for room: ChatRoom) async {
+        guard Self.myDisplayName.isEmpty, room.shareRole != nil, isAvailable else { return }
+        _ = try? await prepareChatShare(for: room)
     }
 
     /// 每个房间一条通知(标识按房间,同一房间的新通知原地替换,不在通知中心里堆一串)。
@@ -797,7 +944,7 @@ final class SharedTripSync {
                 let plan = SharedChatPlanner.pushPlan(
                     room: SharedChatMapping.snapshot(of: room),
                     myMessages: chatMessages(in: zone.containerUUID, context: context)
-                        .filter(\.fromMe).map(SharedChatMapping.snapshot(of:)),
+                        .filter(\.fromMe).map(\.uuid),
                     ledger: zone.records)
                 guard !plan.isEmpty else { continue }
                 engine.state.add(pendingRecordZoneChanges:
@@ -957,6 +1104,17 @@ final class SharedTripSync {
             } else if let message = fetchChatMessage(uuid, context: context),
                       message.roomUUID == zone.containerUUID {
                 snapshot = SharedChatMapping.snapshot(of: message)
+                // 消息只推一次,图片/文件每次都随记录带上(推的时候服务器上本来就没有)。
+                if !message.filePath.isEmpty,
+                   let url = AppGroup.containerURL?.appending(path: message.filePath),
+                   FileManager.default.fileExists(atPath: url.path), Self.fitsAssetLimit(url) {
+                    let base = zone.records[uuid]
+                    let record = base?.systemFields.flatMap(Self.decodeSystemFields)
+                        ?? CKRecord(recordType: snapshot.type.rawValue, recordID: recordID)
+                    record["payload"] = SharedTripMapping.encode(snapshot.fields) as CKRecordValue?
+                    record["file"] = CKAsset(fileURL: url)
+                    return record
+                }
             } else {
                 return nil
             }
@@ -1202,13 +1360,18 @@ final class SharedTripSync {
             case .chatMessage:
                 // 消息只追加:本地已经有了(自己发的,或经私有库镜像先到了)就不动。
                 if fetchChatMessage(uuid, context: context) == nil {
-                    let fromMe = record.creatorUserRecordID.map { $0.recordName == CKCurrentUserDefaultName } ?? false
+                    let creator = record.creatorUserRecordID?.recordName ?? ""
+                    let fromMe = creator == CKCurrentUserDefaultName
                     let new = ChatRoomMessage(uuid: uuid, roomUUID: zone.containerUUID, content: "", fromMe: fromMe)
                     SharedChatMapping.apply(server, to: new)
                     if !fromMe {
+                        new.senderID = creator
                         new.senderName = addedBy ?? (new.senderHint.isEmpty
                             ? String(localized: "成员", bundle: .appLanguage()) : new.senderHint)
+                        // 成员表里还没有这个人(他是刚加入的):收尾时重取一次成员表,把名字补上。
+                        if addedBy == nil, !creator.isEmpty { staleParticipantZones.insert(zone.key) }
                     }
+                    if !new.filePath.isEmpty { saveChatFile(of: record, to: new.filePath) }
                     context.insert(new)
                     // 消息可能比房间记录先到(同一批里顺序不保证):先建个占位房间,
                     // 房间记录到了再写名字。
@@ -1241,13 +1404,14 @@ final class SharedTripSync {
                     break
                 }
             }
-            zone.records[uuid] = SharedLedgerRecord(type: type, fields: server,
-                                                    systemFields: Self.encodeSystemFields(record))
+            zone.records[uuid] = .stored(type: type, fields: server,
+                                         systemFields: Self.encodeSystemFields(record))
             zones[key] = zone
         }
         saveZones(zones)
         try? context.save()
         postChatNotifications(context: context)
+        refreshStaleParticipants()
         // 别人加的信用卡:这台设备也各自生成还款提醒(防重复标记不同步,见 SharedAssetMapping)。
         if financeChanged { FinanceReminders.sync(context: context) }
         if !reindex.isEmpty {
@@ -1289,7 +1453,11 @@ final class SharedTripSync {
                     }
                 }
             case .chatMessage:
-                if let message = fetchChatMessage(uuid, context: context) { context.delete(message) }
+                // 撤回:对方删了这条,本地连文件一起删。
+                if let message = fetchChatMessage(uuid, context: context) {
+                    removeChatFile(message.filePath)
+                    context.delete(message)
+                }
             case .trip, .chatRoom, nil:
                 break  // 旅行/聊天室本身的删除走 zone 删除(zoneRemoved)
             }
@@ -1331,6 +1499,7 @@ final class SharedTripSync {
             }
         }
         participantNames[key] = names
+        fillChatSenderNames(zoneName: zoneID.zoneName, names: names)
     }
 
     /// 每个 zone 的成员表(拉数据前先取一次,「由 X 添加」才有名字可用)。
@@ -1401,8 +1570,8 @@ final class SharedTripSync {
                   let type = SharedRecordType(rawValue: record.recordType),
                   let payload = record["payload"] as? Data,
                   let fields = SharedTripMapping.decode(payload) else { continue }
-            zone.records[uuid] = SharedLedgerRecord(type: type, fields: fields,
-                                                    systemFields: Self.encodeSystemFields(record))
+            zone.records[uuid] = .stored(type: type, fields: fields,
+                                         systemFields: Self.encodeSystemFields(record))
             zones[key] = zone
         }
         for recordID in sent.deletedRecordIDs {
