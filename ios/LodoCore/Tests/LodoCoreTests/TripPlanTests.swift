@@ -337,4 +337,24 @@ final class TripPlanTests: XCTestCase {
         XCTAssertEqual(Calendar.current.component(.year, from: plan.startDate), 2025)
         XCTAssertEqual(plan.recorded, true)
     }
+
+    /// 给已经记下的行程项补费用:update 里的 price/currency 要解析出来(原来整个被丢掉)。
+    func testParseTripEditUpdateCarriesPrice() throws {
+        let id = UUID()
+        let edit = try DeepSeekClient.parseTripEdit([
+            "action": "edit_trip", "trip": "京都",
+            "update": [["id": "[id:\(id.uuidString)]", "price": 500, "currency": "jpy"],
+                       ["id": UUID().uuidString, "price": "¥3,200"]],
+        ])
+        XCTAssertEqual(edit.updates.count, 2)
+        XCTAssertEqual(edit.updates[0].id, id)
+        XCTAssertEqual(edit.updates[0].price, 500)
+        XCTAssertEqual(edit.updates[0].currency, "JPY")
+        XCTAssertTrue(edit.updates[0].touchesOnlyCostOrNote)
+        XCTAssertEqual(edit.updates[1].price, 3200)
+        XCTAssertNil(edit.updates[1].currency)
+        XCTAssertFalse(TripEditUpdate(id: id, start: Date()).touchesOnlyCostOrNote)
+        XCTAssertNil(DeepSeekClient.planPrice(-5))
+        XCTAssertNil(DeepSeekClient.planPrice("免费"))
+    }
 }

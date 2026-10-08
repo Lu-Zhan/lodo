@@ -52,7 +52,7 @@ struct AgentTripEditCard: View {
                 }
                 ForEach(record.updatedAfter, id: \.id) { line in
                     row(symbol: "arrow.triangle.2.circlepath.circle.fill", tint: .orange,
-                        title: line.title, start: line.start)
+                        title: line.title, start: line.start, price: line.price, currency: line.currency)
                 }
             }
             .opacity(reverted ? 0.5 : 1)
@@ -87,7 +87,7 @@ struct AgentTripEditCard: View {
     }
 
     private func row(symbol: String, tint: Color, title: String, start: Date?,
-                     struck: Bool = false) -> some View {
+                     struck: Bool = false, price: Double? = nil, currency: String? = nil) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: symbol)
                 .foregroundStyle(tint)
@@ -96,10 +96,19 @@ struct AgentTripEditCard: View {
                     .font(.body)
                     .strikethrough(struck)
                     .foregroundStyle(struck ? .secondary : .primary)
-                if let start {
-                    Text(start, format: .dateTime.month().day().weekday().hour().minute())
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                if start != nil || price != nil {
+                    // 改了费用时把金额也写出来,不然"改了浅草寺"看不出改的是什么。
+                    HStack(spacing: 6) {
+                        if let start {
+                            Text(start, format: .dateTime.month().day().weekday().hour().minute())
+                        }
+                        if let price {
+                            Text(price, format: .currency(code: currency ?? "CNY")
+                                .precision(.fractionLength(0...2)))
+                        }
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
             }
         }

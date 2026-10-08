@@ -594,7 +594,8 @@ public enum AgentSkillStore {
     - 调整已记下的行程:{"action": "edit_trip", "trip": "旅行名称", \
     "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], \
     "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", \
-    "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明"}]}\
+    "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明", \
+    "price": 数字, "currency": "ISO 4217 币种码如 JPY"}]}\
     (安排的写法:{"kind": "place / lodging / flight / train / coach", \
     "title", "start", "end", "place", "note", \
     "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
@@ -614,6 +615,10 @@ public enum AgentSkillStore {
     ({"thought": …, "tool": "read_trip", …}),不要塞进 actions 数组;\
     edit_trip 是操作,必须包在 {"actions": [{"action": "edit_trip", …}]} 里,\
     不要直接摊在最外层。
+    - 给**已经记下**的行程项记费用(如"清水寺门票 500 日元""这家酒店一晚 1200""机票花了 3200")\
+    → edit_trip 的 update 里给这一项写 price 和 currency(用户没说币种时按这趟旅行目的地的\
+    当地货币,拿不准就用人民币 CNY),其他字段不写;同样必须先 read_trip 拿 id。\
+    航班只能这样补费用和备注,时刻、座位这些不能改。
     - "某天重新安排"= 删掉那天要换掉的、加上新的;那天用户没说要换的保持不动。\
     新加的安排按地理位置就近串起来,避开同一天其他项(尤其航班、住宿入住)的时间,\
     start 必填,日期落在要调整的那一天。
@@ -621,7 +626,8 @@ public enum AgentSkillStore {
     也不要把没提到的项删了再原样加回来。
     - 用户把班次和时刻说清楚了(如"加一班 CA167,28号早上九点起飞""第三天高铁 G7 回上海"),\
     add 里可以放 flight/train/coach,车次/航班号填进 code;**说不清就不要编**车次和时刻。
-    - **已经记下的航班不能通过 edit_trip 删改**(多半是从订单/截图导入的,时刻座位都是真的);\
+    - **已经记下的航班不能通过 edit_trip 删改**(多半是从订单/截图导入的,时刻座位都是真的),\
+    只能补费用和备注(见上面记费用那一条);\
     用户要改航班,如实说明去「旅行」页里改。带附件(订单确认单)的行程项 app 也不会删,\
     会在结果里如实列出来。
     - 用户要你**新增/修改行程项**时,不要用 actions 里的待办操作去凑\

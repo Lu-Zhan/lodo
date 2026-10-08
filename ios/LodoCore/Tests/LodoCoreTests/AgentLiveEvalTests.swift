@@ -410,6 +410,30 @@ final class AgentLiveEvalTests: XCTestCase {
         }
     }
 
+    /// 给已经记下的行程项记费用:update 带 price/currency,不新加一项、不删。
+    func testEditTripAddsPriceToExistingItem() async throws {
+        let r = try await run("东京四日里浅草寺的门票记一下,500 日元", caps: Caps(travel: true))
+        guard case .editTrip(let edit)? = r.actions.first else { return XCTFail("\(r.result)") }
+        guard let update = edit.updates.first(where: { $0.id == sensojiID }) else {
+            return XCTFail("应该 update 浅草寺:\(edit)")
+        }
+        XCTAssertEqual(update.price, 500)
+        XCTAssertEqual(update.currency, "JPY")
+        XCTAssertTrue(edit.removeIDs.isEmpty)
+        XCTAssertTrue(edit.additions.isEmpty, "不该另加一项:\(edit.additions)")
+    }
+
+    /// 航班可以补费用(时刻不动)。
+    func testEditTripAddsPriceToFlight() async throws {
+        let r = try await run("东京四日的去程机票花了 3200 块,帮我记上", caps: Caps(travel: true))
+        guard case .editTrip(let edit)? = r.actions.first else { return XCTFail("\(r.result)") }
+        guard let update = edit.updates.first(where: { $0.id == flightID }) else {
+            return XCTFail("应该 update 航班:\(edit)")
+        }
+        XCTAssertEqual(update.price, 3200)
+        XCTAssertTrue(update.touchesOnlyCostOrNote, "航班只能改费用:\(update)")
+    }
+
     func testTravelPageFocus() async throws {
         let r = try await run("第二天下午改去上野公园,晴空塔不去了",
                               caps: Caps(travel: true), focus: .travel(trip: "东京四日"))

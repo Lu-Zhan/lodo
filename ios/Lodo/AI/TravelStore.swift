@@ -949,8 +949,9 @@ enum TravelStore {
                 record.skipped.append("一项找不到的行程")
                 continue
             }
-            // 带附件的可以改时间/名称(不碰文件),只有航班不让改。
-            if item.travelKind == .flight {
+            // 带附件的可以改时间/名称(不碰文件);航班的时刻座位来自订单不让改,
+            // 但可以补费用和备注("机票花了 3200")。
+            if item.travelKind == .flight, !change.touchesOnlyCostOrNote {
                 record.skipped.append("\(item.title)(航班)")
                 continue
             }
@@ -967,16 +968,21 @@ enum TravelStore {
                 item, kind: item.travelKind ?? .place, title: change.title ?? item.title,
                 note: change.note ?? item.summary, code: item.travelCode,
                 start: newStart, end: newEnd,
-                price: item.travelPrice, currency: item.travelCurrency,
+                price: change.price ?? item.travelPrice,
+                // 给了价格没给币种:沿用原来的币种(原来也没有就留空,界面按默认币种显示)。
+                currency: change.currency ?? item.travelCurrency,
                 placeName: change.placeName ?? item.travelPlaceName,
                 // 地点换了,原来的坐标就不对了——宁可不上地图也不能画错位置。
                 latitude: placeChanged ? nil : item.travelLatitude,
                 longitude: placeChanged ? nil : item.travelLongitude,
                 originName: item.travelOriginName, originLatitude: item.travelOriginLatitude,
-                originLongitude: item.travelOriginLongitude, flight: nil, context: context)
+                // 交通类(航班/火车/客车)的航站楼、站台、车厢、座位要原样留着——原来这里传 nil,
+                // AI 改一下火车的时间就把这些全清空了。
+                originLongitude: item.travelOriginLongitude,
+                flight: FlightDetails.decode(item.travelFlightData), context: context)
             record.updatedAfter.append(TripEditLine(
                 id: item.uuid, kind: item.travelKind ?? .place, title: item.title,
-                start: item.travelStart))
+                start: item.travelStart, price: item.travelPrice, currency: item.travelCurrency))
         }
 
         for addition in edit.additions {

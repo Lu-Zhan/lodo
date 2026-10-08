@@ -24,7 +24,8 @@ internal fun JSONObject.number(key: String): Double? {
     if (!has(key) || isNull(key)) return null
     return when (val v = opt(key)) {
         is Number -> v.toDouble()
-        is String -> v.replace(",", "").trim().toDoubleOrNull()
+        // "3,200"、"¥3200"、"3200 元" 这类带符号/千分位/单位的也认(同 iOS planPrice)。
+        is String -> v.filter { it.isDigit() || it == '.' || it == '-' }.toDoubleOrNull()
         else -> null
     }
 }
@@ -339,8 +340,14 @@ fun parseTripPlan(raw: JSONObject, now: LocalDateTime = LocalDateTime.now()): Tr
 data class TripEditUpdate(
     val id: String, val title: String? = null, val note: String? = null,
     val start: LocalDateTime? = null, val end: LocalDateTime? = null, val placeName: String? = null,
+    /** 费用:给已经记下的行程项补/改花了多少钱(同 iOS TripEditUpdate.price/currency)。 */
+    val price: Double? = null, val currency: String? = null,
 ) {
-    val isEmpty get() = title == null && note == null && start == null && end == null && placeName == null
+    val isEmpty get() = title == null && note == null && start == null && end == null && placeName == null &&
+        price == null && currency == null
+
+    /** 只补/改费用和备注。航班允许这一种改法:时刻座位来自订单,但"机票花了 3200"该记得上。 */
+    val touchesOnlyCostOrNote get() = title == null && start == null && end == null && placeName == null
 }
 
 data class TripEdit(
@@ -373,7 +380,8 @@ fun parseTripEdit(raw: JSONObject): TripEdit {
         val start = parsePlanDate(o.text("start"))
         var end = parsePlanDate(o.text("end"))
         if (start != null && end != null && end.isBefore(start)) end = null
-        TripEditUpdate(id, o.text("title"), o.text("note"), start, end, o.text("place")).takeIf { !it.isEmpty }
+        TripEditUpdate(id, o.text("title"), o.text("note"), start, end, o.text("place"),
+            o.number("price")?.takeIf { it >= 0 }, o.text("currency")?.uppercase()).takeIf { !it.isEmpty }
     }.filter { it.id !in removeIds }
     if (removeIds.isEmpty() && additions.isEmpty() && updates.isEmpty()) throw parseError("返回格式异常:行程调整没有任何改动")
     return TripEdit(raw.text("trip") ?: "", raw.text("summary") ?: "", removeIds, additions, updates)

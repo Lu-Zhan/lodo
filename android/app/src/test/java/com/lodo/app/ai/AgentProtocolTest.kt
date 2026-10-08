@@ -137,6 +137,20 @@ class AgentProtocolTest {
         assertTrue(edit.updates.isEmpty())
     }
 
+    /** 给已经记下的行程项补费用:update 里的 price/currency 要解析出来(原来整个被丢掉)。 */
+    @Test
+    fun tripEditUpdateCarriesPrice() {
+        val raw = JSONObject().put("trip", "京都").put("update", JSONArray()
+            .put(JSONObject().put("id", "[id:a]").put("price", 500).put("currency", "jpy"))
+            .put(JSONObject().put("id", "b").put("price", "¥3,200")))
+        val edit = parseTripEdit(raw)
+        assertEquals(2, edit.updates.size)
+        assertEquals(500.0, edit.updates[0].price!!, 0.0)
+        assertEquals("JPY", edit.updates[0].currency)
+        assertTrue(edit.updates[0].touchesOnlyCostOrNote)
+        assertEquals(3200.0, edit.updates[1].price!!, 0.0)
+    }
+
     @Test
     fun planTripMixedWithCreateIsDropped() {
         val payload = actions(

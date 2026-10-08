@@ -224,7 +224,10 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
         for (u in edit.updates) {
             val m = items[com.lodo.app.ai.canonicalId(u.id, items.keys) ?: ""]
             if (m == null) { skipped += L("找不到要改的那一项", "An item to update wasn't found"); continue }
-            if (m.travelKind == TravelItemKind.FLIGHT.raw) { skipped += L("航班「${m.title}」不能在这里改", "Flight \"${m.title}\" can't be edited here"); continue }
+            // 航班的时刻座位来自订单不让改,但可以补费用和备注("机票花了 3200")。
+            if (m.travelKind == TravelItemKind.FLIGHT.raw && !u.touchesOnlyCostOrNote) {
+                skipped += L("航班「${m.title}」不能在这里改", "Flight \"${m.title}\" can't be edited here"); continue
+            }
             var start = m.travelStartMillis
             var end = m.travelEndMillis
             u.start?.let { s ->
@@ -240,14 +243,27 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
                 travelStartMillis = start, travelEndMillis = end, travelPlaceName = u.placeName ?: m.travelPlaceName,
                 travelLatitude = if (placeChanged) null else m.travelLatitude,
                 travelLongitude = if (placeChanged) null else m.travelLongitude,
+                travelPrice = u.price ?: m.travelPrice,
+                // 给了价格没给币种:沿用原来的币种。
+                travelCurrency = u.currency ?: m.travelCurrency,
             )
             mem.upsert(updated)
             before += m
-            updatedTitles += updated.title
+            // 改了费用时结果卡片上把金额写出来,不然"改了 X"看不出改的是什么。
+            updatedTitles += if (u.price != null) {
+                "${updated.title} · ${formatPrice(u.price, updated.travelCurrency)}"
+            } else {
+                updated.title
+            }
         }
         val added = edit.additions.map { newItem(trip.uuid, it).also { item -> mem.upsert(item) } }
         return TripEditRecord(trip.uuid, trip.title, edit.summary, removed, added.map { it.uuid }, added.map { it.title },
             before, updatedTitles, skipped)
+    }
+
+    private fun formatPrice(price: Double, currency: String?): String {
+        val amount = if (price % 1.0 == 0.0) price.toLong().toString() else String.format(java.util.Locale.US, "%.2f", price)
+        return listOfNotNull(amount, currency).joinToString(" ")
     }
 
     suspend fun revertEdit(record: TripEditRecord) {

@@ -843,11 +843,7 @@ public enum DeepSeekClient {
         }
         guard let kind = field("kind").flatMap(TravelItemKind.init(rawValue:)),
               let title = field("title") else { return nil }
-        let price: Double? = {
-            if let value = item["price"] as? Double { return value }
-            if let value = item["price"] as? Int { return Double(value) }
-            return field("price").flatMap(Double.init)
-        }()
+        let price = planPrice(item["price"])
         let start = field("start").flatMap(planDate)
         var end = field("end").flatMap(planDate)
         if let s = start, let e = end, e < s { end = nil }
@@ -860,6 +856,21 @@ public enum DeepSeekClient {
     /// `edit_trip` 单条载荷 → 调整(单测入口)。id 不是合法 UUID 的删/改直接跳过
     /// (是不是这次旅行里的项要到 app 层对着库才知道,那边再报"找不到");
     /// 删、加、改**一样都没有**才报错。
+    /// 价格字段:数字或数字字符串("3200"、"¥3,200" 这类带符号/千分位的也认),负数和认不出的给 nil。
+    static func planPrice(_ value: Any?) -> Double? {
+        let number: Double?
+        switch value {
+        case let value as Double: number = value
+        case let value as Int: number = Double(value)
+        case let value as String:
+            let digits = value.filter { $0.isNumber || $0 == "." }
+            number = Double(digits)
+        default: number = nil
+        }
+        guard let number, number >= 0, number.isFinite else { return nil }
+        return number
+    }
+
     static func parseTripEdit(_ raw: [String: Any]) throws -> TripEdit {
         func text(_ dict: [String: Any], _ key: String) -> String? {
             guard let value = (dict[key] as? String)?
@@ -886,7 +897,8 @@ public enum DeepSeekClient {
             if let s = start, let e = end, e < s { end = nil }
             let update = TripEditUpdate(
                 id: id, title: text(entry, "title"), note: text(entry, "note"),
-                start: start, end: end, placeName: text(entry, "place"))
+                start: start, end: end, placeName: text(entry, "place"),
+                price: planPrice(entry["price"]), currency: text(entry, "currency")?.uppercased())
             return update.isEmpty ? nil : update
         }
         // 同一项既删又改:以删为准,改那条丢掉。

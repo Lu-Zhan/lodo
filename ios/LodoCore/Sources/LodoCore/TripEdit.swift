@@ -33,19 +33,32 @@ public struct TripEditUpdate: Codable, Equatable, Sendable {
     public var start: Date?
     public var end: Date?
     public var placeName: String?
+    /// 费用(门票、房费、机票价……)。给已经记下的行程项补/改花了多少钱走这两个字段。
+    public var price: Double?
+    public var currency: String?
 
     public init(id: UUID, title: String? = nil, note: String? = nil, start: Date? = nil,
-                end: Date? = nil, placeName: String? = nil) {
+                end: Date? = nil, placeName: String? = nil, price: Double? = nil,
+                currency: String? = nil) {
         self.id = id
         self.title = title
         self.note = note
         self.start = start
         self.end = end
         self.placeName = placeName
+        self.price = price
+        self.currency = currency
     }
 
     public var isEmpty: Bool {
         title == nil && note == nil && start == nil && end == nil && placeName == nil
+            && price == nil && currency == nil
+    }
+
+    /// 只补/改费用和备注,不动时间、地点、名称。航班允许这一种改法:时刻和座位来自订单不让 AI
+    /// 动,但"机票花了 3200"是用户自己说的事实,该记得上。
+    public var touchesOnlyCostOrNote: Bool {
+        title == nil && start == nil && end == nil && placeName == nil
     }
 }
 
@@ -103,12 +116,18 @@ public struct TripEditLine: Codable, Equatable, Sendable {
     public var kindRaw: String
     public var title: String
     public var start: Date?
+    /// 改完之后的费用(卡片上显示;老记录里没有这两个字段,解出来是 nil)。
+    public var price: Double?
+    public var currency: String?
 
-    public init(id: UUID, kind: TravelItemKind, title: String, start: Date?) {
+    public init(id: UUID, kind: TravelItemKind, title: String, start: Date?,
+                price: Double? = nil, currency: String? = nil) {
         self.id = id
         self.kindRaw = kind.rawValue
         self.title = title
         self.start = start
+        self.price = price
+        self.currency = currency
     }
 
     public var kind: TravelItemKind { TravelItemKind(rawValue: kindRaw) ?? .place }
