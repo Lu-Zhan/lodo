@@ -59,6 +59,9 @@ public enum ChatMessageKind: String, Codable, Sendable {
     case ask
     /// 一位成员对某个 ask 的回答(`replyData` = `ChatAskReply`),`content` 是可读的问答。
     case askAnswer
+    /// 不显示的标记:只带一个 `refRaw`(如「我把这张卡的任务加进了自己的 lodo」),
+    /// 让自己的其他设备马上知道写过了,不用等主库私有同步。界面、通知、AI 上下文都跳过它。
+    case marker
 }
 
 /// 一位成员对群里 AI 提问的回答。
@@ -226,15 +229,22 @@ public enum SharedChatMapping {
         message.cardData = f.data("card")
         message.proposalData = f.data("proposal")
         message.fileName = f.string("fileName") ?? ""
-        message.filePath = f.string("filePath") ?? ""
+        // **不信任对方给的路径**:按房间 + 消息 uuid + 扩展名在本机重算。对方 payload 里的
+        // filePath 写成 `lodo.store` 或带 `../` 就能让收到的一端覆盖/删除 App Group 里的
+        // 任意文件(主数据库也在那儿)。
+        message.filePath = message.fileName.isEmpty ? ""
+            : attachmentPath(roomUUID: message.roomUUID, messageUUID: message.uuid, fileName: message.fileName)
         message.askData = f.data("ask")
         message.replyData = f.data("reply")
         message.refRaw = f.string("ref") ?? ""
     }
 
     /// 聊天室图片/文件在 App Group 里的相对路径(各设备一致,同旅行文件的做法)。
+    /// 扩展名只留字母数字、最多 10 位(文件名是对方给的,不能让它带进路径分隔符)。
     public static func attachmentPath(roomUUID: UUID, messageUUID: UUID, fileName: String) -> String {
-        let ext = (fileName as NSString).pathExtension
+        let raw = (fileName as NSString).pathExtension.lowercased()
+        let ext = String(raw.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) && $0.isASCII }
+            .prefix(10).map(Character.init))
         return "Chat/\(roomUUID.uuidString)/\(messageUUID.uuidString)" + (ext.isEmpty ? "" : "." + ext)
     }
 
@@ -357,7 +367,7 @@ public enum ChatTranscript {
         formatter.dateFormat = "MM-dd HH:mm"
         var lines: [String] = []
         var total = 0
-        for entry in entries.suffix(maxMessages).reversed() {
+        for entry in entries.filter({ $0.kind != .marker }).suffix(maxMessages).reversed() {
             let line = format(entry, time: formatter.string(from: entry.createdAt), cardBodyLimit: cardBodyLimit)
             if total + line.count > maxChars, !lines.isEmpty { break }
             lines.append(line)
@@ -390,6 +400,8 @@ public enum ChatTranscript {
             return "[\(time)] \(who)的 AI 向大家提问:\n\(entry.content)"
         case .askAnswer:
             return "[\(time)] \(who) 回答了 AI 的提问:\n\(entry.content)"
+        case .marker:
+            return ""
         }
     }
 }
@@ -398,8 +410,14 @@ public enum ChatTranscript {
 /// 喂给模型的格式,不随应用语言变。
 public enum GroupChatPrompt {
     /// requester:叫 AI 的那位成员的名字(取不到时为空)。
-    public static func block(roomTitle: String, requester: String = "") -> String {
+    /// roomTrips:这个房间里分享过的旅行名(整理/调整时 trip 字段要原样用,成员点「写入行程」
+    /// 才会写进那一趟,而不是另建一趟同名不同字的私人旅行)。
+    public static func block(roomTitle: String, requester: String = "", roomTrips: [String] = []) -> String {
         let who = requester.isEmpty ? "叫你的这位成员" : "「\(requester)」"
+        let trips = roomTrips.isEmpty ? "" : "\n7. 这个房间里分享过的旅行:"
+            + roomTrips.map { "「\($0)」" }.joined(separator: "、")
+            + "。整理或调整这几趟时,plan_trip / edit_trip 的 trip 字段**原样**用这个名字;"
+            + "read_trip 也只能读这几趟。"
         return """
         群聊模式:你在一个多人共享聊天室「\(roomTitle)」里,被其中一位成员叫来帮忙,\
         用户消息里的「聊天记录」是房间里最近的对话(每行写明是谁说的,「我」= \(who);\
@@ -414,12 +432,12 @@ public enum GroupChatPrompt {
         4. 能用的动作只有:answer(回话)、plan_trip(把讨论出来的行程整理成一份规划)、\
         edit_trip(调整已经共享的旅行,必须先 read_trip 拿到 id)、create(给「我」新建任务)、\
         create_countdown。其他动作在群聊里都不可用,需要时用 answer 说明请成员到自己的 AI 助手里处理。
-        6. 「我」在聊天里认领的分工(「订酒店我来负责」「机票我来买」)**一定**单独给一条 create,\
-        标题写要做的事,时间按聊天里说的,没说就定在出发前几天;不要只写进行程的备注里。\
-        别人认领的事不给「我」建任务。
         5. 写操作都**不会直接执行**:会变成聊天里的一张卡片,成员确认后才写入。\
         所以大家已经说定的事可以直接给出 plan_trip / edit_trip,不必再反问确认;\
         同时给一句 answer 说明你整理了什么。
+        6. 「我」在聊天里认领的分工(「订酒店我来负责」「机票我来买」)**一定**单独给一条 create,\
+        标题写要做的事,时间按聊天里说的,没说就定在出发前几天;不要只写进行程的备注里。\
+        别人认领的事不给「我」建任务。\(trips)
         """
     }
 }
@@ -444,10 +462,10 @@ public enum ChatNotificationPlan {
         }
     }
 
-    /// 一个房间这一批里有几条新消息:只发一条通知,正文是最新那条,多条时注明一共几条。
-    public static func body(lines: [String], moreFormat: (Int) -> String) -> String? {
-        guard let last = lines.last else { return nil }
-        return lines.count > 1 ? last + "\n" + moreFormat(lines.count) : last
+    /// 每个房间只留一条通知(新的原地替换旧的):正文是最新那条,还有别的未读时注明一共几条
+    /// ——条数按**全部未读**算,不只是这一批,上一批的通知已经被顶掉了。
+    public static func body(latest: String, unreadCount: Int, moreFormat: (Int) -> String) -> String {
+        unreadCount > 1 ? latest + "\n" + moreFormat(unreadCount) : latest
     }
 }
 
@@ -557,7 +575,7 @@ public enum ChatRecall {
         guard fromMe else { return false }
         switch kind {
         case .text, .image, .file, .card: return now.timeIntervalSince(createdAt) <= window
-        case .ai, .system, .ask, .askAnswer: return false
+        case .ai, .system, .ask, .askAnswer, .marker: return false
         }
     }
 }

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import ImageIO
 import UniformTypeIdentifiers
 import LodoCore
 
@@ -41,8 +42,8 @@ struct ChatRoomView: View {
     @AppStorage("chatAINoticeShown") private var aiNoticeShown = false
     /// 房间里已经接受邀请的人数(含自己),判断提问是不是大家都答完了。取不到为 nil。
     @State private var memberCount: Int?
-    /// 这台设备已经开始汇总的提问(防同一次提问被汇总两遍)。
-    @State private var summarizingAsks: Set<UUID> = []
+    /// 点「载入更早的消息」之前最上面那一条:时间线重建后停在它这儿,不跳回底部。
+    @State private var loadAnchor: UUID?
     /// 待回答的提问卡滚出可视范围时,输入栏上方那颗「问题:… ›」(时间线报上来)。
     @State private var offscreenAsk: ChatPendingAsk?
     /// 让时间线滚到某一条(点「问题」那颗按钮)。
@@ -61,10 +62,23 @@ struct ChatRoomView: View {
 
     private var room: ChatRoom? { rooms.first }
 
+    private var coordinator: ChatAskCoordinator { .shared }
+
     var body: some View {
         Group {
             if let room {
                 content(room)
+            } else if SharedTripSync.shared.isRoomLoading(roomUUID) {
+                // 接受了邀请、房间记录还没拉下来(网络慢、首次拉取失败):不是"已经不在了"。
+                ContentUnavailableView {
+                    Label("正在加载聊天室…", systemImage: "icloud.and.arrow.down")
+                } description: {
+                    Text("刚加入的聊天室要从 iCloud 拉下来,网络不好时会慢一些。")
+                } actions: {
+                    Button("重试") { Task { await SharedTripSync.shared.reloadRoom(roomUUID) } }
+                        .glassButton()
+                }
+                .task { await SharedTripSync.shared.reloadRoom(roomUUID) }
             } else {
                 ContentUnavailableView("这个聊天室已经不在了", systemImage: "bubble.left.and.bubble.right",
                                        description: Text("创建者销毁了聊天室,或者你已经退出。"))
@@ -74,12 +88,23 @@ struct ChatRoomView: View {
 
     private func content(_ room: ChatRoom) -> some View {
         ChatTimeline(
-            roomUUID: roomUUID, window: window, isOwner: room.isOwner, memberCount: memberCount,
+            roomUUID: roomUUID, window: window, anchor: loadAnchor, isOwner: room.isOwner,
+            memberCount: memberCount,
             scrollRequest: $scrollRequest, offscreenAsk: $offscreenAsk, bottomTick: bottomTick,
-            onLoadEarlier: { window += Self.pageSize },
+            onLoadEarlier: { oldest in
+                loadAnchor = oldest
+                window += Self.pageSize
+            },
             onInvite: { invite(room) },
-            onAnswer: { answers, ask in SharedTripSync.shared.sendAnswer(answers, to: ask, in: room) },
-            onSummarize: { ask in summarize(ask, in: room) },
+            onAnswer: { answers, ask in
+                SharedTripSync.shared.sendAnswer(answers, to: ask, in: room)
+                // 我可能是最后一个答的。
+                coordinator.check(roomUUID: roomUUID)
+            },
+            onSummarize: { ask in
+                guard ask.fromMe else { return }
+                coordinator.summarize(askID: ask.uuid, in: room)
+            },
             onRecall: { message in SharedTripSync.shared.recall(message, in: room) },
             onNewMessages: { markRead(room) })
             // 换一次窗口大小就要重建 @Query(同 AI 助手页 .id(historyWindow) 的写法)。
@@ -108,6 +133,8 @@ struct ChatRoomView: View {
             .onAppear {
                 SharedTripSync.shared.visibleRoom = roomUUID
                 markRead(room)
+                // 不在这页时大家答完了:进来时补一次检查。
+                coordinator.check(roomUUID: roomUUID)
                 #if DEBUG
                 // 截图验证用:真发一次——打开 AI 开关、发一句话,看群聊模式下模型给什么。
                 let args = ProcessInfo.processInfo.arguments
@@ -235,18 +262,20 @@ struct ChatRoomView: View {
 
     @ViewBuilder
     private func statusBanner(_ room: ChatRoom) -> some View {
-        if let thought = aiThought {
+        if let thought = aiThought ?? coordinator.running[roomUUID] {
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
                 Text(thought)
                     .lineLimit(1)
-                Button("停止") { aiTask?.cancel() }
-                    .font(.footnote.weight(.semibold))
+                if aiThought != nil {
+                    Button("停止") { aiTask?.cancel() }
+                        .font(.footnote.weight(.semibold))
+                }
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
             .padding(.horizontal)
-        } else if let message = errorText ?? (preparingShare
+        } else if let message = errorText ?? coordinator.errors[roomUUID] ?? (preparingShare
             ? String(localized: "正在建立共享…", bundle: .appLanguage())
             : preparing > 0 ? String(localized: "正在准备分享的内容…", bundle: .appLanguage()) : nil) {
             Text(message)
@@ -417,8 +446,10 @@ struct ChatRoomView: View {
             for item in items {
                 guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
                 let jpeg = ChatImage.normalized(data)
-                SharedTripSync.shared.sendAttachment(data: jpeg, fileName: "IMG-\(UUID().uuidString.prefix(8)).jpg",
-                                                     kind: .image, in: room)
+                if !SharedTripSync.shared.sendAttachment(
+                    data: jpeg, fileName: "IMG-\(UUID().uuidString.prefix(8)).jpg", kind: .image, in: room) {
+                    errorText = String(localized: "文件太大了,聊天里一次最多发 50 MB", bundle: .appLanguage())
+                }
             }
         }
     }
@@ -436,41 +467,33 @@ struct ChatRoomView: View {
             return
         }
         let isImage = UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) ?? false
-        SharedTripSync.shared.sendAttachment(data: isImage ? ChatImage.normalized(data) : data,
-                                             fileName: url.lastPathComponent,
-                                             kind: isImage ? .image : .file, in: room)
+        if !SharedTripSync.shared.sendAttachment(data: isImage ? ChatImage.normalized(data) : data,
+                                                 fileName: url.lastPathComponent,
+                                                 kind: isImage ? .image : .file, in: room) {
+            errorText = String(localized: "文件太大了,聊天里一次最多发 50 MB", bundle: .appLanguage())
+        }
     }
 
     // MARK: AI
 
     /// 这台设备的 AI 看一遍聊天记录再回话;上一轮还在跑就先停掉(以最新那句为准)。
-    private func runAI(_ room: ChatRoom, closingAsk: UUID? = nil) {
+    /// 提问的汇总不走这里,见 `ChatAskCoordinator`。
+    private func runAI(_ room: ChatRoom) {
         aiTask?.cancel()
         errorText = nil
-        aiThought = closingAsk == nil
-            ? String(localized: "我的 AI 正在看聊天记录…", bundle: .appLanguage())
-            : String(localized: "我的 AI 正在汇总大家的选择…", bundle: .appLanguage())
+        aiThought = String(localized: "我的 AI 正在看聊天记录…", bundle: .appLanguage())
         aiTask = Task {
             defer { aiThought = nil }
             do {
-                try await ChatRoomAI.respond(in: room, context: context, closingAsk: closingAsk) { thought in
+                try await ChatRoomAI.respond(in: room, context: context) { thought in
                     aiThought = thought
                 }
             } catch is CancellationError {
-                if let closingAsk { summarizingAsks.remove(closingAsk) }
             } catch {
-                if let closingAsk { summarizingAsks.remove(closingAsk) }
                 guard !Task.isCancelled else { return }
                 errorText = error.localizedDescription
             }
         }
-    }
-
-    /// 汇总一次提问的回答(大家都答完了自动触发,提问的人也可以手动点「现在汇总」)。
-    /// 只有发出这次提问的那台设备汇总——同一次提问不该冒出好几份结论。
-    private func summarize(_ ask: ChatRoomMessage, in room: ChatRoom) {
-        guard ask.fromMe, summarizingAsks.insert(ask.uuid).inserted else { return }
-        runAI(room, closingAsk: ask.uuid)
     }
 
     private func loadMemberCount() async {
@@ -531,6 +554,17 @@ enum ChatImage {
             image.draw(in: CGRect(origin: .zero, size: size))
         }
         return resized.jpegData(compressionQuality: 0.8) ?? data
+        #elseif os(macOS)
+        // Mac 上同样压:原图(尤其 HEIC/RAW)可能几十 MB,超过 50 MB 就发不出去。
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return data }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 2048,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return data }
+        let rep = NSBitmapImageRep(cgImage: image)
+        return rep.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) ?? data
         #else
         return data
         #endif
@@ -544,12 +578,14 @@ enum ChatImage {
 private struct ChatTimeline: View {
     let roomUUID: UUID
     let window: Int
+    /// 刚点了「载入更早的消息」时的那一条:重建后停在它这儿。
+    let anchor: UUID?
     let isOwner: Bool
     let memberCount: Int?
     @Binding var scrollRequest: UUID?
     @Binding var offscreenAsk: ChatPendingAsk?
     let bottomTick: Int
-    let onLoadEarlier: () -> Void
+    let onLoadEarlier: (UUID?) -> Void
     let onInvite: () -> Void
     let onAnswer: ([[String]], ChatRoomMessage) -> Void
     let onSummarize: (ChatRoomMessage) -> Void
@@ -560,15 +596,16 @@ private struct ChatTimeline: View {
     @State private var askFrames: [UUID: CGRect] = [:]
     @State private var viewportHeight: CGFloat = 0
 
-    init(roomUUID: UUID, window: Int, isOwner: Bool, memberCount: Int?,
+    init(roomUUID: UUID, window: Int, anchor: UUID?, isOwner: Bool, memberCount: Int?,
          scrollRequest: Binding<UUID?>, offscreenAsk: Binding<ChatPendingAsk?>, bottomTick: Int,
-         onLoadEarlier: @escaping () -> Void, onInvite: @escaping () -> Void,
+         onLoadEarlier: @escaping (UUID?) -> Void, onInvite: @escaping () -> Void,
          onAnswer: @escaping ([[String]], ChatRoomMessage) -> Void,
          onSummarize: @escaping (ChatRoomMessage) -> Void,
          onRecall: @escaping (ChatRoomMessage) -> Void,
          onNewMessages: @escaping () -> Void) {
         self.roomUUID = roomUUID
         self.window = window
+        self.anchor = anchor
         self.isOwner = isOwner
         self.memberCount = memberCount
         _scrollRequest = scrollRequest
@@ -590,15 +627,16 @@ private struct ChatTimeline: View {
 
     private var hasEarlier: Bool { newestFirst.count > window }
 
-    /// 窗口内的消息,按时间正序、按 uuid 去重。
-    private var messages: [ChatRoomMessage] {
+    /// 窗口内的消息,按时间正序、按 uuid 去重(含不显示的标记,状态要用)。
+    private var windowMessages: [ChatRoomMessage] {
         var seen = Set<UUID>()
         return newestFirst.prefix(window).reversed().filter { seen.insert($0.uuid).inserted }
     }
 
     var body: some View {
-        let list = messages
-        let state = ChatTimelineState(messages: list)
+        let all = windowMessages
+        let state = ChatTimelineState(messages: all)
+        let list = all.filter { $0.kind != .marker }
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 8) {
@@ -606,7 +644,7 @@ private struct ChatTimeline: View {
                         emptyHint
                     }
                     if hasEarlier {
-                        Button("载入更早的消息", action: onLoadEarlier)
+                        Button("载入更早的消息") { onLoadEarlier(list.first?.uuid) }
                             .buttonStyle(.bordered)
                             .buttonBorderShape(.capsule)
                             .font(.subheadline)
@@ -653,7 +691,12 @@ private struct ChatTimeline: View {
             .softTopScrollEdgeTransition()
             .scrollDismissesKeyboard(.interactively)
             .onAppear {
-                scrollToBottom(proxy, list)
+                // 载入更早的消息之后停在原来最上面那条(不然一重建就跳回底部,等于没载)。
+                if let anchor {
+                    proxy.scrollTo(anchor, anchor: .top)
+                } else {
+                    scrollToBottom(proxy, list)
+                }
                 updateOffscreenAsk(state)
             }
             #if os(iOS)
@@ -663,10 +706,10 @@ private struct ChatTimeline: View {
             .onChange(of: list.count) { _, _ in
                 scrollToBottom(proxy, list)
                 onNewMessages()
-                autoSummarize(state)
             }
-            .onChange(of: memberCount) { _, _ in autoSummarize(state) }
-            .onChange(of: bottomTick) { _, _ in scrollToBottom(proxy, list) }
+            // 输入区高度变化是带动画的(提示行、「问题」按钮 0.2 秒滑入),等它落定再滚,
+            // 不然按动画开始前的高度算,最后一条还是被压住一截。
+            .onChange(of: bottomTick) { _, _ in scrollToBottom(proxy, list, after: 0.3) }
             .onChange(of: scrollRequest) { _, target in
                 guard let target else { return }
                 withAnimation(.lodoAware(.snappy(duration: 0.3))) { proxy.scrollTo(target, anchor: .center) }
@@ -704,19 +747,11 @@ private struct ChatTimeline: View {
         if next != offscreenAsk { offscreenAsk = next }
     }
 
-    /// 我发起的提问,大家都答完了:自动汇总(外层防重复)。
-    private func autoSummarize(_ state: ChatTimelineState) {
-        for ask in state.asks where ask.fromMe && !state.isClosed(ask.uuid) {
-            if ChatAskTally.isComplete(answered: state.respondents(ask.uuid).count, memberCount: memberCount) {
-                onSummarize(ask)
-            }
-        }
-    }
-
-    private func scrollToBottom(_ proxy: ScrollViewProxy, _ list: [ChatRoomMessage]) {
+    private func scrollToBottom(_ proxy: ScrollViewProxy, _ list: [ChatRoomMessage],
+                                after delay: TimeInterval = 0) {
         guard let last = list.last else { return }
         // 等这一帧的输入区高度定下来再滚。
-        DispatchQueue.main.async {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             withAnimation(.lodoAware(.snappy(duration: 0.25))) {
                 proxy.scrollTo(last.uuid, anchor: .bottom)
             }
@@ -743,11 +778,14 @@ private struct ChatTimeline: View {
 /// 从窗口内的消息现算(提问的回答、写入提示都在它们指向的那条之后,同在窗口里)。
 struct ChatTimelineState {
     let asks: [ChatRoomMessage]
+    /// 房间里分享过的旅行卡片指向的旅行(「写入行程」找目标旅行时用)。
+    let tripCardIDs: [UUID]
     private let replies: [UUID: [ChatRoomMessage]]
     private let refs: [(ref: ChatProposalRef, by: String, fromMe: Bool, at: Date)]
 
     init(messages: [ChatRoomMessage]) {
         asks = messages.filter { $0.kind == .ask }
+        tripCardIDs = Array(ChatRoomAI.roomTripIDs(in: messages))
         var replies: [UUID: [ChatRoomMessage]] = [:]
         for message in messages where message.kind == .askAnswer {
             if let askID = message.reply?.askID { replies[askID, default: []].append(message) }

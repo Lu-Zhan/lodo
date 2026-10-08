@@ -4511,6 +4511,22 @@
         }
       }
     },
+    "刚加入的聊天室要从 iCloud 拉下来,网络不好时会慢一些。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A newly joined chat room is downloaded from iCloud. It may take a while on a slow connection."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刚加入的聊天室要从 iCloud 拉下来,网络不好时会慢一些。"
+          }
+        }
+      }
+    },
     "创建者" : {
       "localizations" : {
         "en" : {
@@ -13966,6 +13982,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在刷新「%@」的位置…"
+          }
+        }
+      }
+    },
+    "正在加载聊天室…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading Chat Room…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载聊天室…"
           }
         }
       }

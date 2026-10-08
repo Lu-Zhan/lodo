@@ -118,8 +118,7 @@ final class GroupChatAITests: XCTestCase {
     func testNotificationBody() {
         XCTAssertEqual(ChatNotificationPlan.line(sender: "小林", kind: .text, content: "到了吗"), "小林: 到了吗")
         XCTAssertEqual(ChatNotificationPlan.line(sender: "", kind: .system, content: "小林写入了行程"), "小林写入了行程")
-        XCTAssertEqual(ChatNotificationPlan.body(lines: ["a"], moreFormat: { "共 \($0) 条" }), "a")
-        XCTAssertEqual(ChatNotificationPlan.body(lines: ["a", "b"], moreFormat: { "共 \($0) 条" }), "b\n共 2 条")
-        XCTAssertNil(ChatNotificationPlan.body(lines: [], moreFormat: { "\($0)" }))
+        XCTAssertEqual(ChatNotificationPlan.body(latest: "a", unreadCount: 1, moreFormat: { "共 \($0) 条" }), "a")
+        XCTAssertEqual(ChatNotificationPlan.body(latest: "b", unreadCount: 5, moreFormat: { "共 \($0) 条" }), "b\n共 5 条")
     }
 }

@@ -301,6 +301,9 @@ public enum DeepSeekClient {
         pageFocus: AgentFocus? = nil,
         /// 共享聊天室里被叫来时的「群聊模式」说明(`GroupChatPrompt.block`);nil ⇒ 整段不出现。
         groupChat: String? = nil,
+        /// 计入 AI 助手页标题行的 token 用量/速度。聊天室里的请求传 false——那一行说的是
+        /// 「我的 AI 助手」这一轮的成本,混进群聊的请求数字就不对了。
+        tracksUsage: Bool = true,
         history: [(role: String, content: String)] = [],
         /// 更早对话的摘要;默认 nil ⇒ 整段不出现,Watch 等调用方 prompt 逐字不变。
         summary: String? = nil,
@@ -338,7 +341,7 @@ public enum DeepSeekClient {
         let raw: [String: Any]
         do {
             raw = try await payload(system: system, user: text, timeout: 90, thinking: true,
-                                    tracksUsage: true,
+                                    tracksUsage: tracksUsage,
                                     onStream: onStream, onReasoning: onReasoning)
         } catch let DeepSeekError.parse(message)
             where message != malformedPayloadMessage

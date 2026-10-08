@@ -106,7 +106,7 @@ private struct ChatRoomRow: View {
         self.room = room
         let id = room.uuid
         var descriptor = FetchDescriptor<ChatRoomMessage>(
-            predicate: #Predicate { $0.roomUUID == id },
+            predicate: #Predicate { $0.roomUUID == id && $0.kindRaw != "marker" },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
         descriptor.fetchLimit = 1
         _latest = Query(descriptor)
@@ -116,7 +116,8 @@ private struct ChatRoomRow: View {
         let id = room.uuid
         let read = room.lastReadAt
         return (try? context.fetchCount(FetchDescriptor<ChatRoomMessage>(
-            predicate: #Predicate { $0.roomUUID == id && !$0.fromMe && $0.createdAt > read }))) ?? 0
+            predicate: #Predicate { $0.roomUUID == id && !$0.fromMe && $0.createdAt > read
+                && $0.kindRaw != "marker" }))) ?? 0
     }
 
     var body: some View {
@@ -212,7 +213,8 @@ struct ChatRoomsToolbarButton: View {
             let id = room.uuid
             let read = room.lastReadAt
             return ((try? context.fetchCount(FetchDescriptor<ChatRoomMessage>(
-                predicate: #Predicate { $0.roomUUID == id && !$0.fromMe && $0.createdAt > read }))) ?? 0) > 0
+                predicate: #Predicate { $0.roomUUID == id && !$0.fromMe && $0.createdAt > read
+                    && $0.kindRaw != "marker" }))) ?? 0) > 0
         }
     }
 

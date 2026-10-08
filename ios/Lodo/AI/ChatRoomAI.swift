@@ -38,14 +38,18 @@ enum ChatRoomAI {
                                  content: message.content, cardBody: message.card?.body,
                                  createdAt: message.createdAt)
         })
-        let request = closingAsk == nil
-            ? "聊天记录:\n\(transcript)\n\n请根据以上聊天记录,回应「我」最新说的话。"
-            : "聊天记录:\n\(transcript)\n\n大家已经回答了你之前在群里提的问题(见「回答了 AI 的提问」那几条)。"
-                + "请汇总大家的选择:一致的直接给结论,不一致的列出各自的选择并给建议;能落成行程、任务的照常给出动作。"
-                + "这一轮不要再提问。"
-        let sharedTrips = TravelStore.trips(in: context).filter(\.isShared)
+        let request = closingAsk.map { askID in
+            "聊天记录:\n\(transcript)\n\n" + askDigest(askID, in: messages)
+                + "\n\n请汇总大家的选择:一致的直接给结论,不一致的列出各自的选择并给建议;"
+                + "能落成行程、任务的照常给出动作。这一轮不要再提问。"
+        } ?? "聊天记录:\n\(transcript)\n\n请根据以上聊天记录,回应「我」最新说的话。"
+        // 只读这个房间里**分享过卡片**的旅行:本机所有共享旅行里可能有和别的圈子共享的
+        // (和家人那趟不该被朋友群的 AI 读出来)。
+        let roomTrips = roomTripIDs(in: messages)
+        let allowedTrips = TravelStore.trips(in: context).filter { roomTrips.contains($0.uuid) }
         let groupBlock = GroupChatPrompt.block(roomTitle: room.title,
-                                               requester: SharedTripSync.myDisplayName)
+                                               requester: SharedTripSync.myDisplayName,
+                                               roomTrips: allowedTrips.map(\.title))
 
         var history: [(role: String, content: String)] = []
         var currentText = request
@@ -55,9 +59,9 @@ enum ChatRoomAI {
                 result = try await DeepSeekClient.command(
                 currentText, tasks: [], memoryEnabled: false,
                 webSearchEnabled: WebSearchClient.isConfigured,
-                travelEnabled: !sharedTrips.isEmpty, tripPlanEnabled: true,
+                travelEnabled: !allowedTrips.isEmpty, tripPlanEnabled: true,
                 countdownEnabled: true, countdowns: [],
-                groupChat: groupBlock, history: history)
+                groupChat: groupBlock, tracksUsage: false, history: history)
             } catch {
                 // 解析失败时错误只说"返回格式异常",原文写进日志
                 // (Console.app 里按 subsystem com.lodo.app、category ChatRoomAI 过滤)。
@@ -79,7 +83,7 @@ enum ChatRoomAI {
                 return
             case .toolCall(let thought, let tool):
                 onThought(thought)
-                let (call, observation) = await observe(tool, sharedTrips: sharedTrips, context: context)
+                let (call, observation) = await observe(tool, trips: allowedTrips, context: context)
                 history.append((role: "assistant", content: "思考:\(thought);\(call)"))
                 history.append((role: "user", content: observation))
                 currentText = "(请基于以上结果继续处理:\(request))"
@@ -92,12 +96,35 @@ enum ChatRoomAI {
         throw DeepSeekError.parse("多轮推理超过上限,换个说法试试")
     }
 
+    /// 房间里分享过的旅行卡片指向的旅行 id。
+    nonisolated static func roomTripIDs(in messages: [ChatRoomMessage]) -> Set<UUID> {
+        Set(messages.compactMap { message in
+            guard message.kind == .card, let card = message.card, card.reference.kind == .trip else { return nil }
+            return card.reference.id
+        })
+    }
+
+    /// 汇总时把那次提问和**所有**回答单独列给模型——聊天记录只带最近 40 条,
+    /// 中间聊得多的话提问本身可能已经被截掉了。
+    private static func askDigest(_ askID: UUID, in messages: [ChatRoomMessage]) -> String {
+        guard let ask = messages.first(where: { $0.uuid == askID }), let questions = ask.ask?.questions else {
+            return "大家已经回答了你之前在群里提的问题(见「回答了 AI 的提问」那几条)。"
+        }
+        let replies = messages.filter { $0.kind == .askAnswer && $0.reply?.askID == askID }
+        let lines = replies.map { reply in
+            "\(reply.fromMe ? "我" : reply.senderName):\n"
+                + ChatAskTally.transcript(questions: questions, answers: reply.reply?.answers ?? [])
+        }
+        return "你之前在群里提的问题:\n" + ChatAskTally.questionList(questions)
+            + "\n\n大家的回答(\(replies.count) 人):\n" + lines.joined(separator: "\n\n")
+    }
+
     private static func post(_ text: String, proposal: ChatProposal?, closing: UUID? = nil, in room: ChatRoom) {
         SharedTripSync.shared.sendAI(text, proposal: proposal, closing: closing, in: room)
     }
 
     /// 只读工具。群聊里只开联网和读**共享**旅行,别的一律如实说不可用。
-    private static func observe(_ tool: AITool, sharedTrips: [TravelTrip],
+    private static func observe(_ tool: AITool, trips: [TravelTrip],
                                 context: ModelContext) async -> (call: String, observation: String) {
         switch tool {
         case .webSearch(let query):
@@ -119,10 +146,10 @@ enum ChatRoomAI {
                     "链接内容:\n" + (extraction.text.isEmpty ? "抓取失败或页面无正文内容" : extraction.text))
         case .readTrip(let name):
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            let trip = sharedTrips.first { !trimmed.isEmpty && $0.title.localizedStandardContains(trimmed) }
-                ?? sharedTrips.first { $0.isOngoing() } ?? sharedTrips.first
+            let trip = trips.first { !trimmed.isEmpty && $0.title.localizedStandardContains(trimmed) }
+                ?? (trips.count == 1 ? trips.first : nil)
             let observation = trip.map { TravelStore.promptSummary(for: $0, includeIDs: true, in: context) }
-                ?? "这个聊天室里没有已经共享的旅行"
+                ?? "这个聊天室里没有分享过这趟旅行(只能读房间里分享过的旅行)"
             return ("读行程:\(trimmed.isEmpty ? "当前旅行" : trimmed)", "行程:\n\(observation)")
         default:
             return ("调用工具", "这个工具在群聊里不可用(不读成员的私人数据)")

@@ -17,6 +17,8 @@ struct ChatMessageBubble: View {
 
     var body: some View {
         switch message.kind {
+        case .marker:
+            EmptyView()
         case .system:
             Text(message.content)
                 .font(.footnote)

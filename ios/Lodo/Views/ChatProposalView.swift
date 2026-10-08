@@ -35,6 +35,14 @@ struct ChatProposalView: View {
         applications.last { $0.part == part.rawValue && !$0.reverted }
     }
 
+    /// 我(这个账号)在**别的设备**上写过了,但那台的写入记录还没经私有库同步过来:
+    /// 房间里的写入提示 / 标记是走聊天室同步的,比私有库快,先拿它挡住重复写入。
+    /// 两台设备几秒内同时点仍可能各写一次——跨设备做不到真正的原子互斥。
+    private func appliedElsewhere(_ part: Part) -> Bool {
+        guard mine(part) == nil, let latest = state.latestRef(message.uuid, part: part.rawValue) else { return false }
+        return latest.fromMe && latest.action == .applied
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let plan = proposal.tripPlan { planSection(plan) }
@@ -74,6 +82,14 @@ struct ChatProposalView: View {
     }
 
     private func applyPlan(_ plan: TripPlanProposal) {
+        guard !appliedElsewhere(.plan) else { return }
+        // 写进房间里讨论的那趟:名字和本机的旅行一字不差就是它;对不上、而房间里只分享过
+        // 一趟本机也有的旅行时,就写进那一趟(AI 起的名字差一个字也不该另建一趟私人旅行)。
+        var plan = plan
+        if existingTrip(named: plan.tripTitle) == nil,
+           let target = roomTripOnThisDevice() {
+            plan.tripTitle = target.title
+        }
         let applied = TravelStore.applyPlan(plan, context: context)
         context.insert(ChatProposalApplication(messageUUID: message.uuid, part: Part.plan.rawValue,
                                                undo: .plan(applied)))
@@ -103,6 +119,7 @@ struct ChatProposalView: View {
     }
 
     private func applyEdit(_ edit: TripEdit) {
+        guard !appliedElsewhere(.edit) else { return }
         guard let record = TravelStore.applyEdit(edit, context: context) else {
             note = String(localized: "这台设备上没有这趟旅行,先加入它的共享再调整。", bundle: .appLanguage())
             return
@@ -124,14 +141,18 @@ struct ChatProposalView: View {
     @ViewBuilder
     private func sharedStatus(_ part: Part, tripTitle: String, applyTitle: LocalizedStringKey,
                               applyAgainTitle: LocalizedStringKey?, apply: @escaping () -> Void) -> some View {
-        let trip = existingTrip(named: tripTitle)
-        if let application = mine(part) {
+        let trip = existingTrip(named: tripTitle) ?? roomTripOnThisDevice()?.uuid
+        if mine(part) != nil || appliedElsewhere(part) {
+            let application = mine(part)
             HStack(spacing: 8) {
                 appliedLabel(String(localized: "已写入", bundle: .appLanguage()))
                 if let trip, let navigator {
                     smallButton("打开") { navigator.open(.trip(trip)) }
                 }
-                smallButton("撤销") { revert(application, part: part) }
+                // 撤销要用写入时记下的那份记录;在别的设备上写的,到那台上撤销。
+                if let application {
+                    smallButton("撤销") { revert(application, part: part) }
+                }
             }
         } else if let latest = state.latestRef(message.uuid, part: part.rawValue), latest.action == .applied,
                   !latest.fromMe {
@@ -191,24 +212,35 @@ struct ChatProposalView: View {
     @ViewBuilder
     private func personalStatus(_ part: Part, applyTitle: LocalizedStringKey,
                                 apply: @escaping () -> Void) -> some View {
-        if let application = mine(part) {
+        if mine(part) != nil || appliedElsewhere(part) {
             HStack(spacing: 8) {
                 appliedLabel(String(localized: "已加入", bundle: .appLanguage()))
                 if part == .countdowns, let navigator {
                     smallButton("打开") { navigator.open(.countdown) }
                 }
-                smallButton("撤销") { revert(application, part: part) }
+                if let application = mine(part) {
+                    smallButton("撤销") { revert(application, part: part) }
+                }
             }
         } else {
-            Button(applyTitle, action: apply)
+            Button(applyTitle) {
+                guard !appliedElsewhere(part) else { return }
+                apply()
+            }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
         }
     }
 
+    /// 任务、倒数日只进自己的 lodo:记一条写入记录,再往房间里发一个**不显示的**标记,
+    /// 自己的其他设备马上就知道写过了(私有库同步要慢得多)。
     private func record(_ part: Part, undo: ChatProposalUndo) {
         context.insert(ChatProposalApplication(messageUUID: message.uuid, part: part.rawValue, undo: undo))
         try? context.save()
+        if let room = currentRoom() {
+            SharedTripSync.shared.sendMarker(
+                ChatProposalRef(messageID: message.uuid, part: part.rawValue, action: .applied), in: room)
+        }
     }
 
     // MARK: 撤销
@@ -242,6 +274,10 @@ struct ChatProposalView: View {
         }
         application.reverted = true
         try? context.save()
+        if part == .tasks || part == .countdowns, let room = currentRoom() {
+            SharedTripSync.shared.sendMarker(
+                ChatProposalRef(messageID: message.uuid, part: part.rawValue, action: .reverted), in: room)
+        }
     }
 
     // MARK: 共用
@@ -271,11 +307,21 @@ struct ChatProposalView: View {
         }?.uuid
     }
 
+    private func currentRoom() -> ChatRoom? {
+        let id = message.roomUUID
+        return try? context.fetch(FetchDescriptor<ChatRoom>(predicate: #Predicate { $0.uuid == id })).first
+    }
+
+    /// 房间里分享过、这台设备上也有的旅行;正好一趟时返回它。
+    private func roomTripOnThisDevice() -> TravelTrip? {
+        let ids = Set(state.tripCardIDs)
+        let trips = TravelStore.trips(in: context).filter { ids.contains($0.uuid) }
+        return trips.count == 1 ? trips.first : nil
+    }
+
     /// 写进/撤销行程这类会影响别人的,在房间里留一句带引用的话。
     private func announce(_ part: Part, _ action: ChatProposalRef.Action, _ sentence: (String) -> String) {
-        let id = message.roomUUID
-        guard let room = try? context.fetch(FetchDescriptor<ChatRoom>(
-            predicate: #Predicate { $0.uuid == id })).first else { return }
+        guard let room = currentRoom() else { return }
         let me = SharedTripSync.myDisplayName
         let who = me.isEmpty ? String(localized: "一位成员", bundle: .appLanguage()) : me
         SharedTripSync.shared.sendSystem(

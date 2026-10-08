@@ -178,8 +178,8 @@ public enum SharedTripMapping {
         item.sourceText = f.string("sourceText") ?? ""
         item.urlString = f.string("urlString")
         item.originalFileName = f.string("originalFileName")
-        item.relativeFilePath = f.string("relativeFilePath")
-        item.attachmentRelativePaths = f.strings("attachmentRelativePaths") ?? []
+        item.relativeFilePath = SharedFilePath.safe(f.string("relativeFilePath"))
+        item.attachmentRelativePaths = (f.strings("attachmentRelativePaths") ?? []).compactMap(SharedFilePath.safe)
         item.statusRaw = f.string("statusRaw") ?? MemoryStatus.ready.rawValue
         item.createdAt = f.date("createdAt") ?? item.createdAt
         item.travelKindRaw = f.string("travelKindRaw")
@@ -227,6 +227,24 @@ public enum SharedTripMapping {
 
     public static func decode(_ data: Data) -> SharedFields? {
         try? JSONDecoder().decode(SharedFields.self, from: data)
+    }
+}
+
+// MARK: - 远端给的文件路径
+
+/// 共享记录里带着的文件相对路径(App Group 里)。**对方给的路径不能直接用**:写成
+/// `lodo.store` 或带 `../` 就能让收到的一端覆盖/删除任意文件。只认 `Memory/<文件名>`、
+/// `Contacts/<文件名>` 这两种本 app 自己会生成的形状。
+public enum SharedFilePath {
+    public static let folders: Set<String> = ["Memory", "Contacts"]
+
+    public static func safe(_ path: String?) -> String? {
+        guard let path else { return nil }
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 2, folders.contains(parts[0]) else { return nil }
+        let name = parts[1]
+        guard !name.isEmpty, !name.hasPrefix("."), !name.contains("\\"), name != "Inbox" else { return nil }
+        return path
     }
 }
 
@@ -281,8 +299,8 @@ public enum SharedAssetMapping {
         item.tags = tags
         item.urlString = f.string("urlString")
         item.originalFileName = f.string("originalFileName")
-        item.relativeFilePath = f.string("relativeFilePath")
-        item.attachmentRelativePaths = f.strings("attachmentRelativePaths") ?? []
+        item.relativeFilePath = SharedFilePath.safe(f.string("relativeFilePath"))
+        item.attachmentRelativePaths = (f.strings("attachmentRelativePaths") ?? []).compactMap(SharedFilePath.safe)
         item.statusRaw = f.string("statusRaw") ?? MemoryStatus.ready.rawValue
         item.createdAt = f.date("createdAt") ?? item.createdAt
         item.assetValue = f.double("assetValue")

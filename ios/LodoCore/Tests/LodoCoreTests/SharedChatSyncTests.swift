@@ -128,7 +128,8 @@ final class SharedChatSyncTests: XCTestCase {
         let copy = ChatRoomMessage(roomUUID: roomID, content: "")
         SharedChatMapping.apply(SharedChatMapping.snapshot(of: message).fields, to: copy)
         XCTAssertEqual(copy.fileName, "行程单.pdf")
-        XCTAssertEqual(copy.filePath, message.filePath)
+        XCTAssertEqual(copy.filePath, SharedChatMapping.attachmentPath(roomUUID: roomID, messageUUID: copy.uuid,
+                                                                        fileName: "行程单.pdf"))
         XCTAssertEqual(copy.ask?.questions.first?.question, "住哪?")
         XCTAssertEqual(copy.reply, message.reply)
         XCTAssertEqual(copy.ref, message.ref)
@@ -196,5 +197,48 @@ final class SharedChatSyncTests: XCTestCase {
         XCTAssertFalse(ChatRecall.canRecall(fromMe: false, kind: .text, createdAt: now, now: now))
         XCTAssertFalse(ChatRecall.canRecall(fromMe: true, kind: .ai, createdAt: now, now: now))
         XCTAssertTrue(ChatRecall.canRecall(fromMe: true, kind: .image, createdAt: now, now: now))
+    }
+
+    /// 对方 payload 里的路径不用:收到的一端按房间 + 消息 uuid + 扩展名重算。
+    func testIncomingFilePathIsRecomputedLocally() {
+        let roomID = UUID()
+        let evil = ChatRoomMessage(roomUUID: roomID, kind: .file, content: "x")
+        evil.fileName = "a.pdf"
+        var fields = SharedChatMapping.snapshot(of: evil).fields
+        fields["filePath"] = .string("lodo.store")
+        fields["fileName"] = .string("../../x.st/ore")
+        let copy = ChatRoomMessage(uuid: UUID(), roomUUID: roomID, content: "")
+        SharedChatMapping.apply(fields, to: copy)
+        XCTAssertTrue(copy.filePath.hasPrefix("Chat/\(roomID.uuidString)/\(copy.uuid.uuidString)"))
+        XCTAssertFalse(copy.filePath.contains(".."))
+        XCTAssertEqual(SharedChatMapping.attachmentPath(roomUUID: roomID, messageUUID: copy.uuid, fileName: "a.P/D-F"),
+                       "Chat/\(roomID.uuidString)/\(copy.uuid.uuidString)")
+    }
+
+    func testSharedTripFilePathsAreValidated() {
+        XCTAssertEqual(SharedFilePath.safe("Memory/abc.pdf"), "Memory/abc.pdf")
+        XCTAssertEqual(SharedFilePath.safe("Contacts/a.jpg"), "Contacts/a.jpg")
+        XCTAssertNil(SharedFilePath.safe("lodo.store"))
+        XCTAssertNil(SharedFilePath.safe("Memory/../lodo.store"))
+        XCTAssertNil(SharedFilePath.safe("../Memory/a"))
+        XCTAssertNil(SharedFilePath.safe("Memory/"))
+        XCTAssertNil(SharedFilePath.safe("Memory/.hidden"))
+        XCTAssertNil(SharedFilePath.safe("Other/a"))
+        let item = MemoryItem(kind: .file)
+        SharedTripMapping.apply(["relativeFilePath": .string("lodo.store"),
+                                 "attachmentRelativePaths": .strings(["Contacts/ok.jpg", "../x"])], to: item)
+        XCTAssertNil(item.relativeFilePath)
+        XCTAssertEqual(item.attachmentRelativePaths, ["Contacts/ok.jpg"])
+    }
+
+    func testMarkerIsSkippedInTranscript() {
+        let now = Date()
+        let text = ChatTranscript.build([
+            .init(sender: "", isMe: true, kind: .marker, content: "x", createdAt: now),
+            .init(sender: "A", isMe: false, kind: .text, content: "hi", createdAt: now),
+        ])
+        XCTAssertFalse(text.contains("x"))
+        XCTAssertTrue(text.hasSuffix("A:hi"))
+        XCTAssertFalse(ChatRecall.canRecall(fromMe: true, kind: .marker, createdAt: now, now: now))
     }
 }
