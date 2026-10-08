@@ -27,6 +27,8 @@ public final class ChatRoom {
     /// 输入栏左边那颗「AI」开关(每人各自的,不进共享;开着时这台设备用自己配置的
     /// AI 服务商处理聊天上下文)。
     public var aiEnabled: Bool = false
+    /// 免打扰:收到新消息不发通知(本机偏好,不进共享)。
+    public var muted: Bool = false
 
     public init(uuid: UUID = UUID(), title: String = "", createdAt: Date = .now) {
         self.uuid = uuid
@@ -338,5 +340,32 @@ public enum GroupChatPrompt {
         所以大家已经说定的事可以直接给出 plan_trip / edit_trip,不必再反问确认;\
         同时给一句 answer 说明你整理了什么。
         """
+    }
+}
+
+// MARK: - 新消息提醒
+
+public enum ChatNotificationPlan {
+    /// 只提醒这么久以内发出的消息:刚加入房间、或者离线很久后一次拉下来的历史消息
+    /// 不该一条条弹出来。
+    public static let freshWindow: TimeInterval = 10 * 60
+
+    public static func shouldNotify(fromMe: Bool, createdAt: Date, now: Date,
+                                    muted: Bool, viewingRoom: Bool) -> Bool {
+        !fromMe && !muted && !viewingRoom && now.timeIntervalSince(createdAt) <= freshWindow
+    }
+
+    /// 通知正文的一行。界面语言的那部分(「分享了」「的 AI」)由调用方传进来已经翻好的格式。
+    public static func line(sender: String, kind: ChatMessageKind, content: String) -> String {
+        switch kind {
+        case .system: return content
+        default: return sender.isEmpty ? content : sender + ": " + content
+        }
+    }
+
+    /// 一个房间这一批里有几条新消息:只发一条通知,正文是最新那条,多条时注明一共几条。
+    public static func body(lines: [String], moreFormat: (Int) -> String) -> String? {
+        guard let last = lines.last else { return nil }
+        return lines.count > 1 ? last + "\n" + moreFormat(lines.count) : last
     }
 }

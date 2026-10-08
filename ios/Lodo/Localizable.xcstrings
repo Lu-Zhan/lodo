@@ -3502,6 +3502,22 @@
         }
       }
     },
+    "免打扰" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mute"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免打扰"
+          }
+        }
+      }
+    },
     "免打扰时段" : {
       "localizations" : {
         "en" : {
@@ -3771,6 +3787,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共 %lld 晚"
+          }
+        }
+      }
+    },
+    "共 %lld 条新消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld new messages"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共 %lld 条新消息"
           }
         }
       }
@@ -15910,6 +15942,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "聊天室"
+          }
+        }
+      }
+    },
+    "聊天室,有新消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat Rooms, new messages"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聊天室,有新消息"
           }
         }
       }

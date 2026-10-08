@@ -210,12 +210,7 @@ struct AgentView: View {
                 #endif
                 if !(sidebarChrome?.hidesChrome ?? false) {
                     ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            chatPath.append(.rooms)
-                        } label: {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                        }
-                        .accessibilityLabel("聊天室")
+                        ChatRoomsToolbarButton { chatPath.append(.rooms) }
                     }
                 }
                 if showsCloseButton {
@@ -429,9 +424,15 @@ struct AgentView: View {
                 }
                 // 截图验证用:塞一个样板聊天室(只落本地、不建共享),
                 // --demo-chat 打开房间,--demo-chat-list 停在聊天室列表。
-                if args.contains("--demo-chat") || args.contains("--demo-chat-list") {
+                // --demo-chat-seed 只塞数据停在 AI 页(看右上角聊天室按钮的未读红点)。
+                if args.contains("--demo-chat") || args.contains("--demo-chat-list")
+                    || args.contains("--demo-chat-seed") {
                     let room = seedDemoChatRoom()
-                    chatPath = args.contains("--demo-chat") ? [.rooms, .room(room)] : [.rooms]
+                    if args.contains("--demo-chat") {
+                        chatPath = [.rooms, .room(room)]
+                    } else if args.contains("--demo-chat-list") {
+                        chatPath = [.rooms]
+                    }
                 }
                 // 截图验证用:直接打开「引用」的某一类选择器(参数值是
                 // AgentReferenceCategory 的 rawValue,如 trip、assets)。
@@ -1381,7 +1382,8 @@ struct AgentView: View {
 
     #if DEBUG
     private func seedDemoChatRoom() -> UUID {
-        // 每次启动都塞,先清掉上一次塞的(只认这两个样板名字)。
+        // 每次启动都塞,先清掉上一次塞的(只认这两个样板名字)。别人那几条的时间
+        // 晚于已读位置,AI 页右上角会挂未读红点。
         let demoTitles = ["京都五人行", "家里"]
         for old in (try? context.fetch(FetchDescriptor<ChatRoom>())) ?? [] where demoTitles.contains(old.title) {
             let id = old.uuid

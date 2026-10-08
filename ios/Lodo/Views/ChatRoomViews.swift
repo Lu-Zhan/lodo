@@ -125,9 +125,17 @@ private struct ChatRoomRow: View {
                 .foregroundStyle(.tint)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 3) {
-                Text(room.title.isEmpty ? String(localized: "新聊天室", bundle: .appLanguage()) : room.title)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(room.title.isEmpty ? String(localized: "新聊天室", bundle: .appLanguage()) : room.title)
+                        .font(.body.weight(.medium))
+                        .lineLimit(1)
+                    if room.muted {
+                        Image(systemName: "bell.slash.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("免打扰")
+                    }
+                }
                 Text(preview)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -277,7 +285,11 @@ struct ChatRoomView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar { toolbar(room) }
+        .onDisappear {
+            if SharedTripSync.shared.visibleRoom == roomUUID { SharedTripSync.shared.visibleRoom = nil }
+        }
         .onAppear {
+            SharedTripSync.shared.visibleRoom = roomUUID
             markRead(room)
             #if DEBUG
             // 截图验证用:真发一次——打开 AI 开关、发一句话,看群聊模式下模型给什么。
@@ -348,6 +360,12 @@ struct ChatRoomView: View {
                     } label: {
                         Label("重命名", systemImage: "pencil")
                     }
+                }
+                Toggle(isOn: Binding(get: { room.muted }, set: {
+                    room.muted = $0
+                    try? context.save()
+                })) {
+                    Label("免打扰", systemImage: "bell.slash")
                 }
                 Divider()
                 Button(role: .destructive) {
@@ -1054,5 +1072,41 @@ private struct ChatProposalView: View {
         let me = SharedTripSync.myDisplayName
         let who = me.isEmpty ? String(localized: "一位成员", bundle: .appLanguage()) : me
         SharedTripSync.shared.send(sentence(who), kind: .system, in: room)
+    }
+}
+
+// MARK: - AI 页右上角的入口
+
+/// AI 助手页右上角的「聊天室」按钮:任何房间有别人发的未读消息时挂一个小红点。
+struct ChatRoomsToolbarButton: View {
+    let action: () -> Void
+
+    @Environment(\.modelContext) private var context
+    /// 房间的 lastMessageAt / lastReadAt 一变(收到新消息、读过),这里跟着重算。
+    @Query private var rooms: [ChatRoom]
+
+    private var hasUnread: Bool {
+        rooms.contains { room in
+            guard room.lastMessageAt > room.lastReadAt else { return false }
+            let id = room.uuid
+            let read = room.lastReadAt
+            return ((try? context.fetchCount(FetchDescriptor<ChatRoomMessage>(
+                predicate: #Predicate { $0.roomUUID == id && !$0.fromMe && $0.createdAt > read }))) ?? 0) > 0
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .overlay(alignment: .topTrailing) {
+                    if hasUnread {
+                        Circle()
+                            .fill(LodoColor.critical)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 3, y: -2)
+                    }
+                }
+        }
+        .accessibilityLabel(hasUnread ? "聊天室,有新消息" : "聊天室")
     }
 }

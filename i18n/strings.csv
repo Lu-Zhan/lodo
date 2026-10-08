@@ -1782,3 +1782,6 @@ ios_view.sharing_center_14,还没有共享任何内容,Nothing Shared Yet,ios_vi
 ios_view.sharing_center_15,退出共享,Leave Share,ios_view,
 ios_view.sharing_center_16,退出后这台设备上保留一份不再同步的副本。,"After leaving, this device keeps a copy that no longer syncs.",ios_view,
 ios_view.sharing_center_17,邀请或管理成员,Invite or Manage Members,ios_view,
+ios_view.chat_notify_0,免打扰,Mute,ios_view,
+ios_view.chat_notify_1,共 %lld 条新消息,%lld new messages,ios_view,
+ios_view.chat_notify_2,"聊天室,有新消息","Chat Rooms, new messages",ios_view,

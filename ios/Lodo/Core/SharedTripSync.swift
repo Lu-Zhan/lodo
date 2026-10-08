@@ -3,6 +3,12 @@ import SwiftData
 import CloudKit
 import Observation
 import OSLog
+import UserNotifications
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 import LodoCore
 
 /// 旅行共享(仅 iOS/macOS 主 app):把用户主动共享的旅行经 CKSyncEngine 同步给成员。
@@ -38,6 +44,8 @@ final class SharedTripSync {
     var openAssetsRequest = false
     /// 接受了聊天室邀请:要打开的房间(AI 助手页接走并置回 nil)。
     var openChatRequest: UUID?
+    /// 正在看的聊天室(ChatRoomView 进出时设置):app 在前台且正看着这个房间时不发新消息通知。
+    @ObservationIgnored var visibleRoom: UUID?
 
     /// 这台设备上的共享资产台账(没共享为 nil)。一台设备只有一本:自己分享出去的,
     /// 或者加入的别人那本。
@@ -94,6 +102,8 @@ final class SharedTripSync {
 
     /// 共享成员:userRecordID.recordName → 显示名,给「由 X 添加」用。按 zone 缓存。
     @ObservationIgnored private var participantNames: [String: [String: String]] = [:]
+    /// 这一批收到的、要提醒的别人的消息(按房间)。applyIncoming 收尾时发通知并清空。
+    @ObservationIgnored private var chatArrivals: [UUID: [ChatRoomMessage]] = [:]
 
     private init() {}
 
@@ -686,6 +696,43 @@ final class SharedTripSync {
         pendingCounts[roomUUID] = nil
     }
 
+    /// 每个房间一条通知(标识按房间,同一房间的新通知原地替换,不在通知中心里堆一串)。
+    /// 点通知 → NotificationManager 把 `chatRoom` 交给 `openChatRequest`,进到那个房间。
+    private func postChatNotifications(context: ModelContext) {
+        let arrivals = chatArrivals
+        chatArrivals = [:]
+        for (roomUUID, messages) in arrivals {
+            guard let room = fetchRoom(roomUUID, context: context) else { continue }
+            let lines = messages.sorted { $0.createdAt < $1.createdAt }.map { message in
+                let sender = message.kind == .ai
+                    ? String(localized: "\(message.senderName)的 AI", bundle: .appLanguage())
+                    : message.senderName
+                return ChatNotificationPlan.line(sender: sender, kind: message.kind, content: message.content)
+            }
+            guard let body = ChatNotificationPlan.body(lines: lines, moreFormat: { count in
+                String(localized: "共 \(count) 条新消息", bundle: .appLanguage())
+            }) else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = room.title
+            content.body = body
+            content.sound = .default
+            content.threadIdentifier = "chat-" + roomUUID.uuidString
+            content.userInfo = ["chatRoom": roomUUID.uuidString]
+            UNUserNotificationCenter.current().add(UNNotificationRequest(
+                identifier: "chat-" + roomUUID.uuidString, content: content, trigger: nil))
+        }
+    }
+
+    private static var appIsActive: Bool {
+        #if os(iOS)
+        UIApplication.shared.applicationState == .active
+        #elseif os(macOS)
+        NSApplication.shared.isActive
+        #else
+        true
+        #endif
+    }
+
     private func fetchRoom(_ uuid: UUID, context: ModelContext) -> ChatRoom? {
         try? context.fetch(FetchDescriptor<ChatRoom>(predicate: #Predicate { $0.uuid == uuid })).first
     }
@@ -1173,6 +1220,11 @@ final class SharedTripSync {
                         return placeholder
                     }()
                     if new.createdAt > room.lastMessageAt { room.lastMessageAt = new.createdAt }
+                    if ChatNotificationPlan.shouldNotify(
+                        fromMe: fromMe, createdAt: new.createdAt, now: Date(), muted: room.muted,
+                        viewingRoom: visibleRoom == room.uuid && Self.appIsActive) {
+                        chatArrivals[room.uuid, default: []].append(new)
+                    }
                 }
             case .packing:
                 let item = fetchPacking(uuid, context: context)
@@ -1195,6 +1247,7 @@ final class SharedTripSync {
         }
         saveZones(zones)
         try? context.save()
+        postChatNotifications(context: context)
         // 别人加的信用卡:这台设备也各自生成还款提醒(防重复标记不同步,见 SharedAssetMapping)。
         if financeChanged { FinanceReminders.sync(context: context) }
         if !reindex.isEmpty {

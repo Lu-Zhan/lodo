@@ -101,4 +101,25 @@ final class GroupChatAITests: XCTestCase {
         XCTAssertTrue(withGroup.contains(block))
         XCTAssertFalse(plain.contains("群聊模式"))
     }
+
+    func testNotificationOnlyForFreshMessagesFromOthers() {
+        func check(_ fromMe: Bool = false, ageMinutes: Double = 1, muted: Bool = false,
+                   viewing: Bool = false) -> Bool {
+            ChatNotificationPlan.shouldNotify(fromMe: fromMe, createdAt: at(-ageMinutes), now: now,
+                                              muted: muted, viewingRoom: viewing)
+        }
+        XCTAssertTrue(check())
+        XCTAssertFalse(check(true))
+        XCTAssertFalse(check(ageMinutes: 30), "刚加入时拉下来的历史消息不提醒")
+        XCTAssertFalse(check(muted: true))
+        XCTAssertFalse(check(viewing: true))
+    }
+
+    func testNotificationBody() {
+        XCTAssertEqual(ChatNotificationPlan.line(sender: "小林", kind: .text, content: "到了吗"), "小林: 到了吗")
+        XCTAssertEqual(ChatNotificationPlan.line(sender: "", kind: .system, content: "小林写入了行程"), "小林写入了行程")
+        XCTAssertEqual(ChatNotificationPlan.body(lines: ["a"], moreFormat: { "共 \($0) 条" }), "a")
+        XCTAssertEqual(ChatNotificationPlan.body(lines: ["a", "b"], moreFormat: { "共 \($0) 条" }), "b\n共 2 条")
+        XCTAssertNil(ChatNotificationPlan.body(lines: [], moreFormat: { "\($0)" }))
+    }
 }

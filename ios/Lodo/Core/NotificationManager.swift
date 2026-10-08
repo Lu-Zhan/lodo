@@ -358,6 +358,14 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     ) {
         let userInfo = response.notification.request.content.userInfo
         let actionID = response.actionIdentifier
+        // 聊天室新消息:进到那个房间(外壳切到 AI 页,AI 页 push 进去)。
+        if let room = (userInfo["chatRoom"] as? String).flatMap(UUID.init(uuidString:)) {
+            Task { @MainActor in
+                SharedTripSync.shared.openChatRequest = room
+                completionHandler()
+            }
+            return
+        }
         guard let uuidString = userInfo["uuid"] as? String,
               let uuid = UUID(uuidString: uuidString) else {
             completionHandler()
