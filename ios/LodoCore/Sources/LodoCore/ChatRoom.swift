@@ -47,6 +47,44 @@ public enum ChatMessageKind: String, Codable, Sendable {
     case ai
     /// 系统提示(「X 创建了聊天室」这类),不归属某个人。
     case system
+    /// 分享进来的 app 内容(旅行、资产…),`cardData` 存 `ChatCard`。
+    case card
+}
+
+/// 聊天里分享的一张内容卡片。`body` 是分享那一刻整理好的内容快照(和 AI 对话里「引用」
+/// 同一份文字,见 `AgentReferenceRenderer`):收到的人没有这份内容时能看,AI 处理
+/// 聊天上下文时也直接读它。`shareURL` 只在这份内容本身已经经 CloudKit 共享时才有
+/// (共享旅行、共享资产台账),收到的人点「加入共享」就是接受那份共享的邀请。
+public struct ChatCard: Codable, Equatable, Sendable {
+    public var reference: AgentReference
+    public var body: String
+    public var shareURL: String?
+
+    public init(reference: AgentReference, body: String, shareURL: String? = nil) {
+        self.reference = reference
+        self.body = body
+        self.shareURL = shareURL
+    }
+
+    /// 卡片上露的几行摘要(完整内容点「查看内容」看)。
+    public func preview(maxLines: Int = 3) -> String {
+        let lines = body.split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        let head = lines.prefix(maxLines).joined(separator: "\n")
+        return lines.count > maxLines ? head + "\n…" : head
+    }
+
+    /// 消息的 `content`(列表预览、AI 上下文的那一行):「旅行:北海道」。
+    public var summaryLine: String {
+        reference.kind.promptLabel + ":" + reference.title
+    }
+
+    public static func decode(_ data: Data?) -> ChatCard? {
+        data.flatMap { try? JSONDecoder().decode(ChatCard.self, from: $0) }
+    }
+
+    public var encoded: Data? { try? JSONEncoder().encode(self) }
 }
 
 /// 聊天室里的一条消息。**只追加、不修改**——没有两边同时改同一条的问题,
@@ -66,6 +104,8 @@ public final class ChatRoomMessage {
     /// 这条是不是自己(这个 iCloud 账号)发的。按记录创建者判断,不进 payload。
     public var fromMe: Bool = false
     public var createdAt: Date = Date.now
+    /// `card` 消息的内容卡片(JSON 编码的 `ChatCard`);其余 kind 为 nil。
+    public var cardData: Data? = nil
 
     public init(uuid: UUID = UUID(), roomUUID: UUID, kind: ChatMessageKind = .text,
                 content: String, senderName: String = "", senderHint: String = "",
@@ -81,6 +121,7 @@ public final class ChatRoomMessage {
     }
 
     public var kind: ChatMessageKind { ChatMessageKind(rawValue: kindRaw) ?? .text }
+    public var card: ChatCard? { ChatCard.decode(cardData) }
 }
 
 // MARK: - 同步映射
@@ -118,6 +159,7 @@ public enum SharedChatMapping {
         f["content"] = .string(message.content)
         f["createdAt"] = .date(message.createdAt)
         if !message.senderHint.isEmpty { f["senderHint"] = .string(message.senderHint) }
+        if let card = message.cardData { f["card"] = .data(card) }
         return SharedRecordSnapshot(type: .chatMessage, uuid: message.uuid, fields: f)
     }
 
@@ -126,6 +168,7 @@ public enum SharedChatMapping {
         message.content = f.string("content") ?? ""
         message.createdAt = f.date("createdAt") ?? message.createdAt
         message.senderHint = f.string("senderHint") ?? ""
+        message.cardData = f.data("card")
     }
 
     public static func senderHint(_ f: SharedFields) -> String? {

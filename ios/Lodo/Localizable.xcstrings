@@ -3695,6 +3695,22 @@
         }
       }
     },
+    "共享中" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享中"
+          }
+        }
+      }
+    },
     "共享哪些条目" : {
       "localizations" : {
         "en" : {
@@ -4143,6 +4159,38 @@
         }
       }
     },
+    "分享内容" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Content"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享内容"
+          }
+        }
+      }
+    },
+    "分享到聊天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share to Chat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享到聊天"
+          }
+        }
+      }
+    },
     "创建者销毁了聊天室,或者你已经退出。" : {
       "localizations" : {
         "en" : {
@@ -4187,6 +4235,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除记忆:%@(无法撤销)"
+          }
+        }
+      }
+    },
+    "加入共享" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入共享"
           }
         }
       }
@@ -4303,6 +4367,22 @@
         }
       }
     },
+    "打开" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开"
+          }
+        }
+      }
+    },
     "收入、支出与信用卡" : {
       "localizations" : {
         "en" : {
@@ -4315,6 +4395,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "收入、支出与信用卡"
+          }
+        }
+      }
+    },
+    "收支" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income & Expenses"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收支"
           }
         }
       }
@@ -12783,6 +12879,22 @@
         }
       }
     },
+    "查看内容" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Content"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看内容"
+          }
+        }
+      }
+    },
     "查看最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -13070,6 +13182,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "欧元"
+          }
+        }
+      }
+    },
+    "正在准备分享的内容…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing shared content…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备分享的内容…"
           }
         }
       }

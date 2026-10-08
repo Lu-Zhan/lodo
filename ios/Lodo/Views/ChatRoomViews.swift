@@ -179,6 +179,10 @@ struct ChatRoomView: View {
     @State private var renaming = false
     @State private var newTitle = ""
     @State private var pendingRemoval: ChatRoom?
+    /// 「+」里点了哪一类内容;非 nil 时弹出对应的选择器(和 AI 对话的「引用」同一个)。
+    @State private var sharePicker: AgentReferenceCategory?
+    /// 正在为几张卡片取共享链接(取到再发,期间底部挂一行提示)。
+    @State private var preparingCards = 0
     @FocusState private var inputFocused: Bool
 
     init(roomUUID: UUID) {
@@ -263,6 +267,27 @@ struct ChatRoomView: View {
             SharedTripSync.shared.destroyOrLeave(room)
             dismiss()
         }
+        .sheet(item: $sharePicker) { category in
+            AgentReferencePickerView(category: category, excluding: []) { picked in
+                shareCards(picked, in: room)
+            }
+        }
+    }
+
+    /// 分享几条内容进聊天:内容快照现在就取(用户看到的就是发出去的那一版),
+    /// 已经共享过的旅行/资产台账再取一下共享链接,取完按选择顺序发出。
+    private func shareCards(_ references: [AgentReference], in room: ChatRoom) {
+        let cards = references.map { reference in
+            ChatCard(reference: reference, body: AgentReferenceRenderer.body(for: reference, in: context))
+        }
+        preparingCards += 1
+        Task {
+            defer { preparingCards -= 1 }
+            for var card in cards {
+                card.shareURL = await SharedTripSync.shared.existingShareURL(for: card.reference)?.absoluteString
+                SharedTripSync.shared.send(card, in: room)
+            }
+        }
     }
 
     @ToolbarContentBuilder
@@ -319,7 +344,8 @@ struct ChatRoomView: View {
     @ViewBuilder
     private func statusBanner(_ room: ChatRoom) -> some View {
         if let message = errorText ?? (preparingShare
-            ? String(localized: "正在建立共享…", bundle: .appLanguage()) : nil) {
+            ? String(localized: "正在建立共享…", bundle: .appLanguage())
+            : preparingCards > 0 ? String(localized: "正在准备分享的内容…", bundle: .appLanguage()) : nil) {
             Text(message)
                 .font(.footnote)
                 .foregroundStyle(errorText == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(LodoColor.critical))
@@ -338,6 +364,44 @@ struct ChatRoomView: View {
     }
 
     private func inputBar(_ room: ChatRoom) -> some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            shareMenu
+            textCapsule(room)
+        }
+        .glassGroup()
+        .padding(.horizontal)
+        .padding(.bottom, 12)
+    }
+
+    /// 输入栏左边的「+」:把 app 里的内容(旅行、资产…)分享进聊天。和 AI 页输入栏的
+    /// 「+」同一个外观(玻璃圆,不用 `.glassButton()`,理由见 `AgentView.attachButton`)。
+    private var shareMenu: some View {
+        Menu {
+            Section("分享到聊天") {
+                ForEach(AgentReferenceCategory.allCases) { category in
+                    Button {
+                        sharePicker = category
+                    } label: {
+                        Label(category.title, systemImage: category.symbol)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: DesignMetrics.aiInputHeight, height: DesignMetrics.aiInputHeight)
+                .glassBackground(Circle())
+        }
+        #if os(macOS)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        #endif
+        .accessibilityLabel("分享内容")
+    }
+
+    private func textCapsule(_ room: ChatRoom) -> some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField("发消息", text: $text, axis: .vertical)
                 .lineLimit(1...5)
@@ -364,8 +428,6 @@ struct ChatRoomView: View {
         .padding(.vertical, 6)
         .frame(minHeight: DesignMetrics.aiInputHeight)
         .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
-        .padding(.horizontal)
-        .padding(.bottom, 12)
     }
 
     private var canSend: Bool {
@@ -441,14 +503,18 @@ private struct ChatMessageBubble: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
-        case .text, .ai:
+        case .text, .ai, .card:
             HStack(alignment: .bottom) {
                 if message.fromMe { Spacer(minLength: 48) }
                 VStack(alignment: message.fromMe ? .trailing : .leading, spacing: 3) {
                     if showsSender || (message.kind == .ai && !message.fromMe) {
                         senderLine
                     }
-                    bubble
+                    if message.kind == .card, let card = message.card {
+                        ChatCardView(card: card)
+                    } else {
+                        bubble
+                    }
                 }
                 if !message.fromMe { Spacer(minLength: 48) }
             }
@@ -514,6 +580,139 @@ private extension View {
             Text(isOwner
                  ? LocalizedStringKey("所有成员的这个聊天室和全部消息都会被删除,不可恢复。")
                  : "这台设备上的聊天记录会被删除,之后要有人重新邀请才能回来。")
+        }
+    }
+}
+
+// MARK: - 内容卡片
+
+/// 聊天里分享的内容卡片。按钮按"这台设备上有没有这份内容"分:
+/// 有 → 「打开」进到那一页;没有但它是一份共享(带链接)→ 「加入共享」;
+/// 都没有 → 只能「查看内容」看分享那一刻的快照。
+private struct ChatCardView: View {
+    let card: ChatCard
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.itemNavigator) private var navigator
+    @Environment(\.openURL) private var openURL
+    @State private var showsBody = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: card.reference.kind.symbol)
+                    .foregroundStyle(.tint)
+                Text(card.reference.kind.displayTitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if card.shareURL != nil {
+                    Label("共享中", systemImage: "person.2.fill")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+            Text(card.reference.title)
+                .font(.headline)
+                .lineLimit(2)
+            let preview = card.preview()
+            if !preview.isEmpty {
+                Text(preview)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(4)
+            }
+            HStack(spacing: 8) {
+                if let destination = localDestination {
+                    Button("打开") { navigator?.open(destination) }
+                        .buttonStyle(.borderedProminent)
+                } else if let raw = card.shareURL, let url = URL(string: raw) {
+                    Button("加入共享") { openURL(url) }
+                        .buttonStyle(.borderedProminent)
+                }
+                Button("查看内容") { showsBody = true }
+                    .buttonStyle(.bordered)
+            }
+            .font(.subheadline)
+            .controlSize(.small)
+            .padding(.top, 2)
+        }
+        .padding(12)
+        .frame(maxWidth: 320, alignment: .leading)
+        .background(.fill.tertiary,
+                    in: RoundedRectangle(cornerRadius: DesignMetrics.bubbleRadius, style: .continuous))
+        .sheet(isPresented: $showsBody) {
+            ChatCardBodySheet(card: card)
+        }
+    }
+
+    /// 这台设备上有这份内容时去哪儿打开它。只认能落到具体页面的几类;
+    /// 任务、人脉、菜单这些没有对应的跳转目标,只给「查看内容」。
+    private var localDestination: AppDestination? {
+        guard navigator != nil else { return nil }
+        let id = card.reference.id
+        switch card.reference.kind {
+        case .trip:
+            return exists(FetchDescriptor<TravelTrip>(predicate: #Predicate { $0.uuid == id })) ? .trip(id) : nil
+        case .asset:
+            return exists(FetchDescriptor<MemoryItem>(predicate: #Predicate { $0.uuid == id })) ? .assets : nil
+        case .finance:
+            return exists(FetchDescriptor<FinanceEntry>(predicate: #Predicate { $0.uuid == id })) ? .assets : nil
+        case .countdown:
+            return exists(FetchDescriptor<CountdownEvent>(predicate: #Predicate { $0.uuid == id })) ? .countdown : nil
+        case .news:
+            return exists(FetchDescriptor<NewsArticle>(predicate: #Predicate { $0.uuid == id })) ? .news : nil
+        case .task, .contact, .menu:
+            return nil
+        }
+    }
+
+    private func exists<T: PersistentModel>(_ descriptor: FetchDescriptor<T>) -> Bool {
+        ((try? context.fetchCount(descriptor)) ?? 0) > 0
+    }
+}
+
+/// 卡片的完整快照。
+private struct ChatCardBodySheet: View {
+    let card: ChatCard
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(card.body)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+            }
+            .navigationTitle(card.reference.title)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 420, minHeight: 480)
+        #endif
+    }
+}
+
+extension AgentReferenceKind {
+    /// 界面上的种类名(随应用语言)。`promptLabel` 是喂给模型的,别混用。
+    var displayTitle: LocalizedStringKey {
+        switch self {
+        case .task: return "任务"
+        case .countdown: return "倒数日"
+        case .trip: return "旅行"
+        case .asset: return "资产"
+        case .finance: return "收支"
+        case .contact: return "人脉"
+        case .menu: return "菜单"
+        case .news: return "新闻"
         }
     }
 }

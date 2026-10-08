@@ -1408,7 +1408,23 @@ struct AgentView: View {
                                            senderName: line.0, fromMe: line.2,
                                            createdAt: start.addingTimeInterval(Double(index) * 90)))
         }
-        room.lastMessageAt = start.addingTimeInterval(Double(lines.count) * 90)
+        let cards: [(String, Bool, ChatCard)] = [
+            ("小林", false, ChatCard(
+                reference: AgentReference(kind: .trip, id: UUID(), title: "京都五日"),
+                body: "旅行「京都五日」10月3日–10月7日\n第 1 天 10月3日:伏见稻荷大社、祇园\n第 2 天 10月4日:岚山竹林、天龙寺\n第 3 天 10月5日:奈良公园、东大寺",
+                shareURL: "https://www.icloud.com/share/demo")),
+            ("", true, ChatCard(
+                reference: AgentReference(kind: .countdown, id: UUID(), title: "出发去京都"),
+                body: "「出发去京都」2026-10-03,还有 25 天开始")),
+        ]
+        for (index, entry) in cards.enumerated() {
+            let message = ChatRoomMessage(roomUUID: room.uuid, kind: .card, content: entry.2.summaryLine,
+                                          senderName: entry.0, fromMe: entry.1,
+                                          createdAt: start.addingTimeInterval(Double(lines.count + index) * 90))
+            message.cardData = entry.2.encoded
+            context.insert(message)
+        }
+        room.lastMessageAt = start.addingTimeInterval(Double(lines.count + cards.count) * 90)
         room.lastReadAt = start.addingTimeInterval(200)
         context.insert(ChatRoom(title: "家里"))
         try? context.save()

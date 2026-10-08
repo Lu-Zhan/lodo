@@ -101,4 +101,30 @@ final class SharedChatSyncTests: XCTestCase {
                                                  myMessages: [sent], ledger: ledger)
         XCTAssertEqual(renamed.saves, [roomID])
     }
+
+    func testCardMessageRoundTrip() throws {
+        let tripID = UUID()
+        let card = ChatCard(reference: AgentReference(kind: .trip, id: tripID, title: "京都"),
+                            body: "第 1 天\n伏见稻荷\n\n祇园\n第 2 天\n岚山",
+                            shareURL: "https://www.icloud.com/share/abc")
+        let message = ChatRoomMessage(roomUUID: UUID(), kind: .card, content: card.summaryLine)
+        message.cardData = card.encoded
+        let snapshot = SharedChatMapping.snapshot(of: message)
+
+        let copy = ChatRoomMessage(roomUUID: message.roomUUID, content: "")
+        SharedChatMapping.apply(snapshot.fields, to: copy)
+        XCTAssertEqual(copy.kind, .card)
+        XCTAssertEqual(copy.card, card)
+        XCTAssertEqual(copy.content, "旅行:京都")
+        XCTAssertEqual(SharedChatMapping.snapshot(of: copy).fields, snapshot.fields)
+        XCTAssertEqual(ChatMessageKind.card.rawValue, "card")
+    }
+
+    func testCardPreviewSkipsBlankLinesAndTruncates() {
+        let card = ChatCard(reference: AgentReference(kind: .trip, id: UUID(), title: "x"),
+                            body: "a\n\n b \nc\nd")
+        XCTAssertEqual(card.preview(maxLines: 3), "a\nb\nc\n…")
+        XCTAssertEqual(card.preview(maxLines: 4), "a\nb\nc\nd")
+        XCTAssertNil(ChatCard.decode(Data("x".utf8)))
+    }
 }

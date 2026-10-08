@@ -579,15 +579,46 @@ final class SharedTripSync {
 
     /// 发一条消息:落本地,didSave → 对账推上去。
     func send(_ text: String, kind: ChatMessageKind = .text, in room: ChatRoom) {
+        insertMessage(text, kind: kind, card: nil, in: room)
+    }
+
+    /// 分享一张内容卡片。
+    func send(_ card: ChatCard, in room: ChatRoom) {
+        insertMessage(card.summaryLine, kind: .card, card: card, in: room)
+    }
+
+    private func insertMessage(_ text: String, kind: ChatMessageKind, card: ChatCard?, in room: ChatRoom) {
         guard let context else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let message = ChatRoomMessage(roomUUID: room.uuid, kind: kind, content: trimmed,
                                       senderHint: Self.myDisplayName, fromMe: true)
+        message.cardData = card?.encoded
         context.insert(message)
         room.lastMessageAt = message.createdAt
         room.lastReadAt = message.createdAt
         try? context.save()
+    }
+
+    /// 一份内容如果**已经**经 CloudKit 共享(共享旅行、共享资产台账里的条目),返回那份
+    /// 共享的链接,卡片上给收到的人「加入共享」。没共享的不替用户新建共享——分享进聊天
+    /// 的只是一份快照;要一起编辑,先在旅行/资产页里共享出去。取不到(离线、限流)也返回 nil。
+    func existingShareURL(for reference: AgentReference) async -> URL? {
+        guard let context, isAvailable else { return nil }
+        let id = reference.id
+        switch reference.kind {
+        case .trip:
+            guard let trip = fetchTrip(id, context: context), trip.isShared else { return nil }
+            return try? await fetchShare(for: trip)?.url
+        case .asset:
+            guard fetchEntry(id, context: context)?.assetLedgerUUID != nil else { return nil }
+            return try? await prepareAssetShare().url
+        case .finance:
+            guard fetchFinance(id, context: context)?.ledgerUUID != nil else { return nil }
+            return try? await prepareAssetShare().url
+        default:
+            return nil
+        }
     }
 
     /// 创建者销毁(删服务器上的 zone,所有成员的房间随之删除)/ 成员退出(删 shared
