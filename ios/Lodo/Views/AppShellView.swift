@@ -342,6 +342,11 @@ struct AppShellView: View {
             SharedTripSync.shared.openAssetsRequest = false
             routeFromOutside(.assets)
         }
+        // 接受了聊天室邀请:切到 AI 助手页,那一页自己 push 进房间(它负责把请求置回 nil)。
+        .onChange(of: SharedTripSync.shared.openChatRequest) { _, uuid in
+            guard uuid != nil else { return }
+            routeFromOutside(.agent)
+        }
         // 接受了共享邀请、数据拉下来之后,直接进到那一趟旅行。
         .onChange(of: SharedTripSync.shared.openTripRequest) { _, uuid in
             guard let uuid else { return }

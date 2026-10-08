@@ -32,28 +32,35 @@ public enum SharedRecordType: String, Codable, Sendable, CaseIterable {
     /// 和收入/支出/信用卡(`FinanceEntry`)。
     case asset = "Asset"
     case finance = "FinanceEntry"
+    /// 共享聊天室(`chat-<uuid>` zone):房间本身和消息。
+    case chatRoom = "ChatRoom"
+    case chatMessage = "ChatMessage"
 }
 
-/// 共享 zone 的种类,按 zone 名前缀认(`trip-` / `assets-`)。同一套引擎、账本、合并
+/// 共享 zone 的种类,按 zone 名前缀认(`trip-` / `assets-` / `chat-`)。同一套引擎、账本、合并
 /// 规则两种都用,只是"这个 zone 里装的是哪些记录"不一样。
 public enum SharedZoneKind: String, Codable, Sendable {
     case trip
     case assets
+    case chat
 
     public init?(zoneName: String) {
         if zoneName.hasPrefix(SharedTripMapping.zonePrefix) {
             self = .trip
         } else if zoneName.hasPrefix(SharedAssetMapping.zonePrefix) {
             self = .assets
+        } else if zoneName.hasPrefix(SharedChatMapping.zonePrefix) {
+            self = .chat
         } else {
             return nil
         }
     }
 
-    /// zone 名里带着的 uuid:旅行是 `TravelTrip.uuid`,资产台账是台账自己的 uuid
+    /// zone 名里带着的 uuid:旅行是 `TravelTrip.uuid`,聊天室是 `ChatRoom.uuid`,资产台账是台账自己的 uuid
     /// (`MemoryItem.assetLedgerUUID` / `FinanceEntry.ledgerUUID` 指向它)。
     public static func containerUUID(fromZoneName name: String) -> UUID? {
         SharedTripMapping.tripUUID(fromZoneName: name) ?? SharedAssetMapping.ledgerUUID(fromZoneName: name)
+            ?? SharedChatMapping.roomUUID(fromZoneName: name)
     }
 }
 

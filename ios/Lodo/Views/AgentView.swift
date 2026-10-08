@@ -95,6 +95,9 @@ struct AgentView: View {
     @State private var showMemoryPicker = false
     /// 「+」菜单「引用」那一组点了哪一类;非 nil 时弹出对应的条目选择器。
     @State private var referencePicker: AgentReferenceCategory?
+    /// 共享聊天室的导航(列表 → 某个房间),push 在这页自己的 NavigationStack 上。
+    @State private var chatPath: [ChatRoute] = []
+    @Environment(\.sidebarChrome) private var sidebarChrome
     @State private var showPhotoPicker = false
     @State private var photoSelection: [PhotosPickerItem] = []
     /// 点了输入卡片里的某张缩略图:非 nil 时全屏打开大图查看,值是起始那张的 id。
@@ -153,10 +156,20 @@ struct AgentView: View {
         // 那条 `AgentJumpLink` 小条直接把人送进那个条目所在的页面。
         chatStack
             .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
+            // 接受了聊天室邀请:直接进那个房间。只有侧栏里那一页的 AI 助手接,
+            // 「问问 AI」弹层里那份(带关闭按钮)不抢。
+            .onChange(of: SharedTripSync.shared.openChatRequest) { _, _ in consumeChatRequest() }
+            .onAppear { consumeChatRequest() }
+    }
+
+    private func consumeChatRequest() {
+        guard !showsCloseButton, let uuid = SharedTripSync.shared.openChatRequest else { return }
+        SharedTripSync.shared.openChatRequest = nil
+        chatPath = [.rooms, .room(uuid)]
     }
 
     private var chatStack: some View {
-        NavigationStack {
+        NavigationStack(path: $chatPath) {
             chatColumn
             // 这里曾经 .ignoresSafeArea(.container, edges: .bottom),让输入栏贴到
             // 屏幕物理底边、不给 home indicator 留白边。现在整页底色由 AppShellView
@@ -195,6 +208,16 @@ struct AgentView: View {
                                    capability: aiCapabilitySummary)
                 }
                 #endif
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            chatPath.append(.rooms)
+                        } label: {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                        }
+                        .accessibilityLabel("聊天室")
+                    }
+                }
                 if showsCloseButton {
                     ToolbarItem(placement: .primaryAction) {
                         Button { dismiss() } label: {
@@ -202,6 +225,12 @@ struct AgentView: View {
                         }
                         .accessibilityLabel("关闭")
                     }
+                }
+            }
+            .navigationDestination(for: ChatRoute.self) { route in
+                switch route {
+                case .rooms: ChatRoomListView(path: $chatPath)
+                case .room(let uuid): ChatRoomView(roomUUID: uuid)
                 }
             }
             .sidebarToolbarButton()
@@ -397,6 +426,12 @@ struct AgentView: View {
                 // 看输入卡片里的缩略图行;加 --demo-agent-photo-viewer 再打开大图查看页。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-photos") {
                     seedDemoPhotos()
+                }
+                // 截图验证用:塞一个样板聊天室(只落本地、不建共享),
+                // --demo-chat 打开房间,--demo-chat-list 停在聊天室列表。
+                if args.contains("--demo-chat") || args.contains("--demo-chat-list") {
+                    let room = seedDemoChatRoom()
+                    chatPath = args.contains("--demo-chat") ? [.rooms, .room(room)] : [.rooms]
                 }
                 // 截图验证用:直接打开「引用」的某一类选择器(参数值是
                 // AgentReferenceCategory 的 rawValue,如 trip、assets)。
@@ -1345,6 +1380,41 @@ struct AgentView: View {
     }
 
     #if DEBUG
+    private func seedDemoChatRoom() -> UUID {
+        // 每次启动都塞,先清掉上一次塞的(只认这两个样板名字)。
+        let demoTitles = ["京都五人行", "家里"]
+        for old in (try? context.fetch(FetchDescriptor<ChatRoom>())) ?? [] where demoTitles.contains(old.title) {
+            let id = old.uuid
+            for message in (try? context.fetch(FetchDescriptor<ChatRoomMessage>(
+                predicate: #Predicate { $0.roomUUID == id }))) ?? [] {
+                context.delete(message)
+            }
+            context.delete(old)
+        }
+        let room = ChatRoom(title: "京都五人行")
+        room.shareRoleRaw = SharedTripRole.owner.rawValue
+        context.insert(room)
+        let start = Date().addingTimeInterval(-3600)
+        let lines: [(String, String, Bool, ChatMessageKind)] = [
+            ("小林", "十一去京都的事定一下吧,我 3 号才能出发", false, .text),
+            ("", "可以,那 3 号到 7 号?", true, .text),
+            ("阿杰", "我都行,想去伏见稻荷和岚山", false, .text),
+            ("阿杰", "住的地方要不要选四条河原町附近,吃饭方便", false, .text),
+            ("小林", "我的 AI 帮忙排了个初稿:第一天伏见稻荷 + 祇园,第二天岚山,第三天奈良一日游。", false, .ai),
+            ("", "第三天奈良好,我想加个清水寺", true, .text),
+        ]
+        for (index, line) in lines.enumerated() {
+            context.insert(ChatRoomMessage(roomUUID: room.uuid, kind: line.3, content: line.1,
+                                           senderName: line.0, fromMe: line.2,
+                                           createdAt: start.addingTimeInterval(Double(index) * 90)))
+        }
+        room.lastMessageAt = start.addingTimeInterval(Double(lines.count) * 90)
+        room.lastReadAt = start.addingTimeInterval(200)
+        context.insert(ChatRoom(title: "家里"))
+        try? context.save()
+        return room.uuid
+    }
+
     private func seedDemoPhotos() {
         #if os(iOS)
         let colors: [UIColor] = [.systemOrange, .systemTeal, .systemPink]

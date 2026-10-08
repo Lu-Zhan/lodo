@@ -27,6 +27,7 @@ enum AppDatabase {
         AgentMessage.self, AIRoutine.self, AIRoutineRun.self,
         ContactRelationship.self, TravelTrip.self, MenuDish.self,
         NewsFeed.self, NewsArticle.self, CountdownEvent.self, PackingItem.self, FinanceEntry.self,
+        ChatRoom.self, ChatRoomMessage.self,
     ]
 
     /// 依次尝试 App Group 存储 → 默认存储 → 内存态兜底,避免存储损坏/迁移失败时直接崩溃。

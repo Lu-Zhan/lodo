@@ -33,6 +33,22 @@
         }
       }
     },
+    "%@的 AI" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@'s AI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@的 AI"
+          }
+        }
+      }
+    },
     "—" : {
       "localizations" : {
         "en" : {
@@ -4127,6 +4143,38 @@
         }
       }
     },
+    "创建者销毁了聊天室,或者你已经退出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The creator deleted it, or you left."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建者销毁了聊天室,或者你已经退出。"
+          }
+        }
+      }
+    },
+    "创建聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create Chat Room"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建聊天室"
+          }
+        }
+      }
+    },
     "删除记忆:%@(无法撤销)" : {
       "localizations" : {
         "en" : {
@@ -4139,6 +4187,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除记忆:%@(无法撤销)"
+          }
+        }
+      }
+    },
+    "发消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发消息"
           }
         }
       }
@@ -4159,6 +4223,22 @@
         }
       }
     },
+    "建一个聊天室,邀请朋友一起商量行程、敲定细节。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a chat room and invite friends to plan trips and settle the details together."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建一个聊天室,邀请朋友一起商量行程、敲定细节。"
+          }
+        }
+      }
+    },
     "引用任务、旅行、资产…" : {
       "localizations" : {
         "en" : {
@@ -4175,6 +4255,54 @@
         }
       }
     },
+    "成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Member"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成员"
+          }
+        }
+      }
+    },
+    "我的 AI" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My AI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我的 AI"
+          }
+        }
+      }
+    },
+    "所有成员的这个聊天室和全部消息都会被删除,不可恢复。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The room and all its messages will be deleted for every member. This can't be undone."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有成员的这个聊天室和全部消息都会被删除,不可恢复。"
+          }
+        }
+      }
+    },
     "收入、支出与信用卡" : {
       "localizations" : {
         "en" : {
@@ -4187,6 +4315,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "收入、支出与信用卡"
+          }
+        }
+      }
+    },
+    "新聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Chat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新聊天室"
           }
         }
       }
@@ -15162,6 +15306,38 @@
         }
       }
     },
+    "聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat Rooms"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聊天室"
+          }
+        }
+      }
+    },
+    "聊天室名字" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Room Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聊天室名字"
+          }
+        }
+      }
+    },
     "视图" : {
       "localizations" : {
         "en" : {
@@ -18484,6 +18660,38 @@
         }
       }
     },
+    "还没有消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No messages yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有消息"
+          }
+        }
+      }
+    },
+    "还没有聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Chat Rooms Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有聊天室"
+          }
+        }
+      }
+    },
     "还没有菜单" : {
       "localizations" : {
         "en" : {
@@ -18677,6 +18885,38 @@
         }
       }
     },
+    "还没连上 iCloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not connected to iCloud yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没连上 iCloud"
+          }
+        }
+      }
+    },
+    "还没连上 iCloud,消息暂时只在这台设备上" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not connected to iCloud—messages stay on this device for now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没连上 iCloud,消息暂时只在这台设备上"
+          }
+        }
+      }
+    },
     "这个来源下还没有文章。" : {
       "localizations" : {
         "en" : {
@@ -18705,6 +18945,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这个筛选下还没有收藏"
+          }
+        }
+      }
+    },
+    "这个聊天室已经不在了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Chat Room Is Gone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个聊天室已经不在了"
           }
         }
       }
@@ -18785,6 +19041,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这句话会显示在旅行列表的卡片上。"
+          }
+        }
+      }
+    },
+    "这台设备上的聊天记录会被删除,之后要有人重新邀请才能回来。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The chat history on this device will be deleted. Someone will need to invite you again to rejoin."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台设备上的聊天记录会被删除,之后要有人重新邀请才能回来。"
           }
         }
       }
@@ -19141,6 +19413,38 @@
         }
       }
     },
+    "退出聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave Chat Room"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出聊天室"
+          }
+        }
+      }
+    },
+    "退出这个聊天室?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave this chat room?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出这个聊天室?"
+          }
+        }
+      }
+    },
     "退房" : {
       "localizations" : {
         "en" : {
@@ -19414,6 +19718,38 @@
         }
       }
     },
+    "邀请成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite Members"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "邀请成员"
+          }
+        }
+      }
+    },
+    "邀请朋友加入,开始聊天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite friends to start chatting"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "邀请朋友加入,开始聊天"
+          }
+        }
+      }
+    },
     "邮箱" : {
       "localizations" : {
         "en" : {
@@ -19570,6 +19906,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重命名标签"
+          }
+        }
+      }
+    },
+    "重命名聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Chat Room"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重命名聊天室"
           }
         }
       }
@@ -19891,6 +20243,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "链接"
+          }
+        }
+      }
+    },
+    "销毁" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "销毁"
+          }
+        }
+      }
+    },
+    "销毁聊天室" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Chat Room"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "销毁聊天室"
+          }
+        }
+      }
+    },
+    "销毁这个聊天室?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this chat room?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "销毁这个聊天室?"
           }
         }
       }

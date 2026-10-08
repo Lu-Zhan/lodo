@@ -36,6 +36,8 @@ final class SharedTripSync {
     var openTripRequest: UUID?
     /// 接受了资产台账的邀请:打开资产页(`AppShellView` 接走并置回 false)。
     var openAssetsRequest = false
+    /// 接受了聊天室邀请:要打开的房间(AI 助手页接走并置回 nil)。
+    var openChatRequest: UUID?
 
     /// 这台设备上的共享资产台账(没共享为 nil)。一台设备只有一本:自己分享出去的,
     /// 或者加入的别人那本。
@@ -473,6 +475,7 @@ final class SharedTripSync {
             switch kind {
             case .trip: openTripRequest = containerUUID
             case .assets: openAssetsRequest = true
+            case .chat: openChatRequest = containerUUID
             }
         }
         // 自己点开自己分享出去的链接:什么都不用接,直接打开。
@@ -499,6 +502,157 @@ final class SharedTripSync {
         open()
     }
 
+    // MARK: - 共享聊天室
+
+    /// 自己在共享成员表里的名字(取到过一次就记在本机)。发消息时写进 payload 兜底:
+    /// 收到的一端成员表还没取到时也有个名字可显示。
+    static var myDisplayName: String {
+        get { UserDefaults.standard.string(forKey: "chatMyDisplayName") ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: "chatMyDisplayName") }
+    }
+
+    /// 新建一个聊天室:先落本地,再在 iCloud 上建 zone + share(建不起来——没登录、
+    /// 限流——房间照样在,第一次点「邀请」时再建)。
+    @discardableResult
+    func createRoom(title: String) -> ChatRoom? {
+        guard let context else { return nil }
+        let room = ChatRoom(title: title)
+        context.insert(room)
+        try? context.save()
+        Task { _ = try? await prepareChatShare(for: room) }
+        return room
+    }
+
+    /// 发起邀请(已共享时取回现有的 share),给系统共享界面用。
+    func prepareChatShare(for room: ChatRoom) async throws -> CKShare {
+        if let minutes = throttleMinutesLeft { throw ShareError.throttled(minutes: minutes) }
+        do {
+            return try await createOrFetchChatShare(for: room)
+        } catch {
+            noteThrottle(error)
+            if let minutes = throttleMinutesLeft { throw ShareError.throttled(minutes: minutes) }
+            throw error
+        }
+    }
+
+    private func createOrFetchChatShare(for room: ChatRoom) async throws -> CKShare {
+        if !isAvailable { await start() }
+        guard isAvailable, let ckContainer else { throw ShareError.unavailable }
+        if let role = room.shareRole {
+            let database = role == .owner ? ckContainer.privateCloudDatabase : ckContainer.sharedCloudDatabase
+            let zoneID = CKRecordZone.ID(zoneName: SharedChatMapping.zoneName(for: room.uuid),
+                                         ownerName: room.shareZoneOwner.isEmpty
+                                            ? CKCurrentUserDefaultName : room.shareZoneOwner)
+            let id = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)
+            do {
+                if let existing = try await database.record(for: id) as? CKShare {
+                    await loadParticipants(existing)
+                    return existing
+                }
+            } catch where Self.isMissing(error) {
+                // 成员这边服务器上已经没有了:房间已被销毁,本地跟着删掉。
+                if role == .participant {
+                    dropChatZone(room.uuid, deleteOnServer: false)
+                    throw ShareError.gone
+                }
+                Self.log.notice("chat \(room.uuid, privacy: .public) marked shared but zone/share missing; recreating")
+            }
+        }
+        let zoneID = CKRecordZone.ID(zoneName: SharedChatMapping.zoneName(for: room.uuid),
+                                     ownerName: CKCurrentUserDefaultName)
+        let saved = try await saveZoneAndShare(zoneID, title: room.title, container: ckContainer)
+        await loadParticipants(saved)
+        applying = true
+        room.shareRoleRaw = SharedTripRole.owner.rawValue
+        room.shareZoneOwner = CKCurrentUserDefaultName
+        try? context?.save()
+        applying = false
+
+        var zones = SharedTripLedger.zones
+        let ledger = SharedZoneLedger(zoneName: zoneID.zoneName, ownerName: zoneID.ownerName,
+                                      role: .owner, tripUUID: room.uuid)
+        if zones[ledger.key] == nil { zones[ledger.key] = ledger }
+        saveZones(zones)
+        reconcile()
+        return saved
+    }
+
+    /// 发一条消息:落本地,didSave → 对账推上去。
+    func send(_ text: String, kind: ChatMessageKind = .text, in room: ChatRoom) {
+        guard let context else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let message = ChatRoomMessage(roomUUID: room.uuid, kind: kind, content: trimmed,
+                                      senderHint: Self.myDisplayName, fromMe: true)
+        context.insert(message)
+        room.lastMessageAt = message.createdAt
+        room.lastReadAt = message.createdAt
+        try? context.save()
+    }
+
+    /// 创建者销毁(删服务器上的 zone,所有成员的房间随之删除)/ 成员退出(删 shared
+    /// database 里的 zone = 退出)。两种情况本地这一份都删掉。
+    func destroyOrLeave(_ room: ChatRoom) {
+        dropChatZone(room.uuid, deleteOnServer: true)
+    }
+
+    /// 系统共享界面里停止共享 / 把自己移除之后:同销毁/退出。聊天室没有共享就没有意义。
+    func didStopSharing(_ room: ChatRoom) {
+        dropChatZone(room.uuid, deleteOnServer: true)
+    }
+
+    private func dropChatZone(_ roomUUID: UUID, deleteOnServer: Bool) {
+        var zones = SharedTripLedger.zones
+        for entry in zones.values where entry.kind == .chat && entry.containerUUID == roomUUID {
+            if deleteOnServer {
+                let zoneID = CKRecordZone.ID(zoneName: entry.zoneName, ownerName: entry.ownerName)
+                engine(for: entry.role)?.state.add(pendingDatabaseChanges: [.deleteZone(zoneID)])
+            }
+            zones[entry.key] = nil
+        }
+        saveZones(zones)
+        deleteLocalRoom(roomUUID)
+    }
+
+    private func deleteLocalRoom(_ roomUUID: UUID) {
+        guard let context else { return }
+        applying = true
+        defer { applying = false }
+        let rooms = (try? context.fetch(FetchDescriptor<ChatRoom>(
+            predicate: #Predicate { $0.uuid == roomUUID }))) ?? []
+        rooms.forEach(context.delete)
+        chatMessages(in: roomUUID, context: context).forEach(context.delete)
+        try? context.save()
+        pendingCounts[roomUUID] = nil
+    }
+
+    private func fetchRoom(_ uuid: UUID, context: ModelContext) -> ChatRoom? {
+        try? context.fetch(FetchDescriptor<ChatRoom>(predicate: #Predicate { $0.uuid == uuid })).first
+    }
+
+    private func fetchChatMessage(_ uuid: UUID, context: ModelContext) -> ChatRoomMessage? {
+        try? context.fetch(FetchDescriptor<ChatRoomMessage>(predicate: #Predicate { $0.uuid == uuid })).first
+    }
+
+    private func chatMessages(in roomUUID: UUID, context: ModelContext) -> [ChatRoomMessage] {
+        (try? context.fetch(FetchDescriptor<ChatRoomMessage>(
+            predicate: #Predicate { $0.roomUUID == roomUUID }))) ?? []
+    }
+
+    /// 同一个 uuid 两行(私有库镜像 + 共享库各落一行):留一行。
+    private func removeChatDuplicates(_ roomUUID: UUID, context: ModelContext) {
+        let rooms = (try? context.fetch(FetchDescriptor<ChatRoom>(
+            predicate: #Predicate { $0.uuid == roomUUID }))) ?? []
+        let extraMessages = SharedTripPlanner.duplicates(chatMessages(in: roomUUID, context: context), uuid: \.uuid)
+        let extraRooms = Array(rooms.dropFirst())
+        guard !(extraMessages.isEmpty && extraRooms.isEmpty) else { return }
+        applying = true
+        defer { applying = false }
+        extraRooms.forEach(context.delete)
+        extraMessages.forEach(context.delete)
+        try? context.save()
+    }
+
     // MARK: - 对账(本地 → 服务器)
 
     func scheduleReconcile() {
@@ -521,6 +675,28 @@ final class SharedTripSync {
         for (key, zone) in zones {
             let engine = zone.role == .owner ? privateEngine : sharedEngine
             let zoneID = CKRecordZone.ID(zoneName: zone.zoneName, ownerName: zone.ownerName)
+            if zone.kind == .chat {
+                guard let room = fetchRoom(zone.containerUUID, context: context) else {
+                    // 本地没有这个房间了:只有账本里**见过**房间记录才算是被删掉的(在自己另一台
+                    // 设备上销毁/退出,经私有库镜像同步过来)。刚登记、记录还没拉下来的 zone
+                    // 本地自然也没有,那时删 zone 就把刚加入的房间退掉了。
+                    if zone.records[zone.containerUUID] != nil {
+                        engine.state.add(pendingDatabaseChanges: [.deleteZone(zoneID)])
+                        zones[key] = nil
+                    }
+                    continue
+                }
+                removeChatDuplicates(zone.containerUUID, context: context)
+                let plan = SharedChatPlanner.pushPlan(
+                    room: SharedChatMapping.snapshot(of: room),
+                    myMessages: chatMessages(in: zone.containerUUID, context: context)
+                        .filter(\.fromMe).map(SharedChatMapping.snapshot(of:)),
+                    ledger: zone.records)
+                guard !plan.isEmpty else { continue }
+                engine.state.add(pendingRecordZoneChanges:
+                    plan.saves.map { .saveRecord(CKRecord.ID(recordName: $0.uuidString, zoneID: zoneID)) })
+                continue
+            }
             if zone.kind == .assets {
                 removeAssetDuplicates(zone.containerUUID, context: context)
                 let plan = SharedTripPlanner.pushPlan(
@@ -668,7 +844,16 @@ final class SharedTripSync {
               let uuid = UUID(uuidString: recordID.recordName) else { return nil }
         let snapshot: SharedRecordSnapshot
         var fileItem: MemoryItem?
-        if zone.kind == .assets {
+        if zone.kind == .chat {
+            if uuid == zone.containerUUID, let room = fetchRoom(uuid, context: context) {
+                snapshot = SharedChatMapping.snapshot(of: room)
+            } else if let message = fetchChatMessage(uuid, context: context),
+                      message.roomUUID == zone.containerUUID {
+                snapshot = SharedChatMapping.snapshot(of: message)
+            } else {
+                return nil
+            }
+        } else if zone.kind == .assets {
             if let item = fetchEntry(uuid, context: context), item.assetLedgerUUID == zone.containerUUID {
                 snapshot = SharedAssetMapping.snapshot(ofAsset: item)
                 fileItem = item
@@ -771,7 +956,10 @@ final class SharedTripSync {
         guard let entry = zones[key] else { return }
         zones[key] = nil
         saveZones(zones)
-        if entry.kind == .assets {
+        if entry.kind == .chat {
+            // 聊天室没有"留一份副本":销毁就是全删(创建者销毁、自己退出、被移出都一样)。
+            deleteLocalRoom(entry.containerUUID)
+        } else if entry.kind == .assets {
             clearAssetMarkers(entry.containerUUID)
         } else if let context, let trip = fetchTrip(entry.tripUUID, context: context) {
             markUnshared(trip)
@@ -895,6 +1083,37 @@ final class SharedTripSync {
                     break
                 }
                 financeChanged = true
+            case .chatRoom:
+                let room = fetchRoom(uuid, context: context) ?? {
+                    let new = ChatRoom(uuid: uuid)
+                    context.insert(new)
+                    return new
+                }()
+                SharedChatMapping.apply(server, to: room)
+                room.shareRoleRaw = zone.role.rawValue
+                room.shareZoneOwner = zone.ownerName
+            case .chatMessage:
+                // 消息只追加:本地已经有了(自己发的,或经私有库镜像先到了)就不动。
+                if fetchChatMessage(uuid, context: context) == nil {
+                    let fromMe = record.creatorUserRecordID.map { $0.recordName == CKCurrentUserDefaultName } ?? false
+                    let new = ChatRoomMessage(uuid: uuid, roomUUID: zone.containerUUID, content: "", fromMe: fromMe)
+                    SharedChatMapping.apply(server, to: new)
+                    if !fromMe {
+                        new.senderName = addedBy ?? (new.senderHint.isEmpty
+                            ? String(localized: "成员", bundle: .appLanguage()) : new.senderHint)
+                    }
+                    context.insert(new)
+                    // 消息可能比房间记录先到(同一批里顺序不保证):先建个占位房间,
+                    // 房间记录到了再写名字。
+                    let room = fetchRoom(zone.containerUUID, context: context) ?? {
+                        let placeholder = ChatRoom(uuid: zone.containerUUID)
+                        placeholder.shareRoleRaw = zone.role.rawValue
+                        placeholder.shareZoneOwner = zone.ownerName
+                        context.insert(placeholder)
+                        return placeholder
+                    }()
+                    if new.createdAt > room.lastMessageAt { room.lastMessageAt = new.createdAt }
+                }
             case .packing:
                 let item = fetchPacking(uuid, context: context)
                 switch SharedTripPlanner.incoming(server: server, base: base,
@@ -956,8 +1175,10 @@ final class SharedTripSync {
                         entry.ledgerUUID = nil
                     }
                 }
-            case .trip, nil:
-                break  // 旅行本身的删除走 zone 删除(zoneRemoved)
+            case .chatMessage:
+                if let message = fetchChatMessage(uuid, context: context) { context.delete(message) }
+            case .trip, .chatRoom, nil:
+                break  // 旅行/聊天室本身的删除走 zone 删除(zoneRemoved)
             }
             zone.records[uuid] = nil
             zones[key] = zone
@@ -990,7 +1211,11 @@ final class SharedTripSync {
             let name = components.map {
                 PersonNameComponentsFormatter.localizedString(from: $0, style: .default)
             } ?? participant.userIdentity.lookupInfo?.emailAddress
-            if let name, !name.isEmpty { names[id] = name }
+            if let name, !name.isEmpty {
+                names[id] = name
+                // 自己在成员表里的名字:聊天室里发消息时写进 payload 兜底(见 senderHint)。
+                if participant == share.currentUserParticipant { Self.myDisplayName = name }
+            }
         }
         participantNames[key] = names
     }
@@ -1130,7 +1355,13 @@ final class SharedTripSync {
     private func resetAfterAccountChange() {
         guard let context else { return }
         for zone in SharedTripLedger.zones.values {
-            if zone.kind == .assets {
+            if zone.kind == .chat {
+                // 换了账号就不再是那个房间的成员了;本地留着也发不出去,改回"未共享"。
+                if let room = fetchRoom(zone.containerUUID, context: context) {
+                    room.shareRoleRaw = ""
+                    room.shareZoneOwner = ""
+                }
+            } else if zone.kind == .assets {
                 clearAssetMarkers(zone.containerUUID)
             } else if let trip = fetchTrip(zone.tripUUID, context: context) {
                 markUnshared(trip)

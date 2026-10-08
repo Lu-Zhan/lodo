@@ -4,7 +4,7 @@ import UIKit
 import CloudKit
 import LodoCore
 
-/// 旅行 / 资产台账共享的系统界面。两种:
+/// 旅行 / 资产台账 / 聊天室共享的系统界面。两种:
 /// - **还没邀请过人**(owner、share 上只有自己):系统分享面板
 ///   (`UIActivityViewController` + `NSItemProvider.registerCKShare`)——iOS 17 起苹果
 ///   推荐的发邀请方式,信息/邮件/拷贝链接都在里面。实测用 `UICloudSharingController`
@@ -22,6 +22,13 @@ enum CloudSharingPresenter {
     static func present(share: CKShare, trip: TravelTrip) {
         present(share: share, title: trip.title, isOwner: trip.shareRole == .owner) {
             SharedTripSync.shared.didStopSharing(trip)
+        }
+    }
+
+    /// 聊天室邀请 / 成员管理。创建者在系统界面里停止共享 = 销毁,成员移除自己 = 退出。
+    static func present(share: CKShare, room: ChatRoom) {
+        present(share: share, title: room.title, isOwner: room.isOwner) {
+            SharedTripSync.shared.didStopSharing(room)
         }
     }
 
@@ -163,6 +170,13 @@ enum CloudSharingPresenter {
     static func present(share: CKShare, trip: TravelTrip) {
         present(share: share, title: trip.title, isOwner: trip.shareRole == .owner) {
             SharedTripSync.shared.didStopSharing(trip)
+        }
+    }
+
+    /// 聊天室邀请 / 成员管理。创建者在系统界面里停止共享 = 销毁,成员移除自己 = 退出。
+    static func present(share: CKShare, room: ChatRoom) {
+        present(share: share, title: room.title, isOwner: room.isOwner) {
+            SharedTripSync.shared.didStopSharing(room)
         }
     }
 
