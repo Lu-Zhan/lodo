@@ -3775,6 +3775,22 @@
         }
       }
     },
+    "共享与权限" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sharing & Permissions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享与权限"
+          }
+        }
+      }
+    },
     "共享中" : {
       "localizations" : {
         "en" : {
@@ -3899,6 +3915,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共享没有成功"
+          }
+        }
+      }
+    },
+    "共享的旅行、资产台账和聊天室都会列在这里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared trips, your asset ledger, and chat rooms appear here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享的旅行、资产台账和聊天室都会列在这里。"
           }
         }
       }
@@ -4207,6 +4239,22 @@
         }
       }
     },
+    "其他成员不能再看到和编辑,他们那边会留一份不再同步的副本;你这边的内容不变。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other members will no longer see or edit it; they keep a copy that no longer syncs. Your content stays the same."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他成员不能再看到和编辑,他们那边会留一份不再同步的副本;你这边的内容不变。"
+          }
+        }
+      }
+    },
     "其他旅行" : {
       "localizations" : {
         "en" : {
@@ -4283,6 +4331,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分享到聊天"
+          }
+        }
+      }
+    },
+    "创建者" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owner"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建者"
           }
         }
       }
@@ -4415,6 +4479,54 @@
         }
       }
     },
+    "取不到成员信息(离线或 iCloud 暂时不可用)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can't load members (offline or iCloud unavailable)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取不到成员信息(离线或 iCloud 暂时不可用)"
+          }
+        }
+      }
+    },
+    "只读" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read only"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只读"
+          }
+        }
+      }
+    },
+    "可编辑" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can edit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可编辑"
+          }
+        }
+      }
+    },
     "已写入" : {
       "localizations" : {
         "en" : {
@@ -4443,6 +4555,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已归档"
+          }
+        }
+      }
+    },
+    "已邀请,还没接受" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invited, not accepted yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已邀请,还没接受"
           }
         }
       }
@@ -4555,6 +4683,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "成员"
+          }
+        }
+      }
+    },
+    "成员都可以查看和编辑。要邀请新成员或移除某位成员,点下面的「邀请或管理成员」。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All members can view and edit. To invite someone or remove a member, tap “Invite or Manage Members” below."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成员都可以查看和编辑。要邀请新成员或移除某位成员,点下面的「邀请或管理成员」。"
+          }
+        }
+      }
+    },
+    "我" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Me"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我"
+          }
+        }
+      }
+    },
+    "我创建的" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created by me"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我创建的"
+          }
+        }
+      }
+    },
+    "我加入的" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joined"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我加入的"
           }
         }
       }
@@ -13846,6 +14038,22 @@
         }
       }
     },
+    "正在读取成员…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading members…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取成员…"
+          }
+        }
+      }
+    },
     "正数日" : {
       "localizations" : {
         "en" : {
@@ -18095,6 +18303,22 @@
         }
       }
     },
+    "资产台账" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asset Ledger"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "资产台账"
+          }
+        }
+      }
+    },
     "资产已更新" : {
       "localizations" : {
         "en" : {
@@ -18928,6 +19152,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有健康记录。体检报告、用药、饮食这些跟底下那条「问问 AI」说一句就能记下来,AI 分析时会一并参考。"
+          }
+        }
+      }
+    },
+    "还没有共享任何内容" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing Shared Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有共享任何内容"
           }
         }
       }
@@ -19877,6 +20117,22 @@
         }
       }
     },
+    "退出共享" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave Share"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出共享"
+          }
+        }
+      }
+    },
     "退出共享台账?" : {
       "localizations" : {
         "en" : {
@@ -19889,6 +20145,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "退出共享台账?"
+          }
+        }
+      }
+    },
+    "退出后这台设备上保留一份不再同步的副本。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After leaving, this device keeps a copy that no longer syncs."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出后这台设备上保留一份不再同步的副本。"
           }
         }
       }
@@ -20210,6 +20482,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "邀请成员"
+          }
+        }
+      }
+    },
+    "邀请或管理成员" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite or Manage Members"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "邀请或管理成员"
           }
         }
       }

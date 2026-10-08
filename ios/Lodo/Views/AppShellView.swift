@@ -176,6 +176,7 @@ struct AppShellView: View {
     /// ——总览页一挂载就会发起 AI 请求,不能因为它排在第一个就在启动时先跑一遍。
     @State private var visited: Set<AppSection>
     @State private var showSettings = false
+    @State private var showSharing = false
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     #endif
@@ -315,6 +316,12 @@ struct AppShellView: View {
         #else
         .sheet(isPresented: $showSettings) { SettingsView() }
         #endif
+        .sheet(isPresented: $showSharing) {
+            // sheet 是独立呈现宿主,强调色要再下发一份(同 SettingsView)。
+            SharingCenterView()
+                .tint(accentPalette.accent)
+                .environment(\.lodoAccent, accentPalette)
+        }
         .focusedSceneValue(\.shellCommands,
                            ShellCommandActions(go: { routeFromOutside($0) },
                                                askAI: { openAgent(prefill: "") }))
@@ -446,6 +453,7 @@ struct AppShellView: View {
             section: section,
             headerHeight: usesRegularLayout ? nil : DesignMetrics.minimumHitTarget,
             onOpenSettings: { showSettings = true },
+            onOpenSharing: { openSharing() },
             onSelect: { target in
                 // 目标页先在抽屉背后建立,页面切换不参加接下来的收起弹簧。
                 var transaction = Transaction(animation: nil)
@@ -486,6 +494,12 @@ struct AppShellView: View {
     /// 从 app 外面进来的跳转(快捷指令/Siri、深链、小组件、通知、共享邀请):切页的同时
     /// 把抽屉直接收掉、不播动画——人是从别处点进来的,落地就该是那一页本身,不是
     /// "抽屉还开着、页面被推在右边"。
+    /// 抽屉里点的:先收起抽屉再弹(sheet 压在展开的抽屉上方很怪)。
+    private func openSharing() {
+        if showSidebar { closeSidebar() }
+        showSharing = true
+    }
+
     private func routeFromOutside(_ target: AppSection) {
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
@@ -735,7 +749,8 @@ struct AppShellView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SystemSidebarList(
                 selection: Binding(get: { section }, set: { if let target = $0 { go(target) } }),
-                onOpenSettings: { showSettings = true })
+                onOpenSettings: { showSettings = true },
+                onOpenSharing: { openSharing() })
             #if os(macOS)
             // 系统默认的侧栏偏窄(放大一档控件后「AI 助手」这几行挤在一起,用户要求加宽)。
             .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 320)
@@ -829,6 +844,10 @@ struct AppShellView: View {
         }
         if args.contains("--demo-sidebar") || args.contains("--demo-agent-sidebar") {
             showSidebar = true
+        }
+        // 「共享与权限」页(配 --demo-agent --demo-chat-list 先塞一个样板聊天室)。
+        if args.contains("--demo-sharing") {
+            showSharing = true
         }
         if args.contains("--demo-convert-to-todo") {
             convertToTodo("测试:从记忆转来的标题", TaskAttachment(

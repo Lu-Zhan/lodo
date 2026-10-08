@@ -346,17 +346,38 @@ final class SharedTripSync {
         })
     }
 
-    /// 共享成员(确认页上「当前状态」那一段用)。
-    struct AssetShareMember: Identifiable, Equatable {
+    /// 共享成员(资产确认页「当前状态」、「共享与权限」页用)。
+    struct ShareMember: Identifiable, Equatable {
         let id: String
         let name: String
         let isOwner: Bool
         let isMe: Bool
         let accepted: Bool
+        /// 能不能编辑(CKShare 的 participant permission;目前只发「可编辑」的邀请)。
+        let canEdit: Bool
+    }
+    typealias AssetShareMember = ShareMember
+
+    func assetShareMembers() async -> [ShareMember] {
+        guard let entry = assetZoneEntry() else { return [] }
+        return await members(of: entry)
     }
 
-    func assetShareMembers() async -> [AssetShareMember] {
-        guard let ckContainer, let entry = assetZoneEntry() else { return [] }
+    /// 某一份共享(旅行 / 聊天室 / 资产台账)的成员。取不到(离线、限流、已经没了)返回空。
+    func members(kind: SharedZoneKind, containerUUID: UUID) async -> [ShareMember] {
+        guard let entry = SharedTripLedger.zones.values.first(where: {
+            $0.kind == kind && $0.containerUUID == containerUUID
+        }) else { return [] }
+        return await members(of: entry)
+    }
+
+    /// 这台设备上所有的共享(「共享与权限」页的清单),按种类分。
+    func sharedZones() -> [SharedZoneLedger] {
+        SharedTripLedger.zones.values.sorted { $0.zoneName < $1.zoneName }
+    }
+
+    private func members(of entry: SharedZoneLedger) async -> [ShareMember] {
+        guard let ckContainer else { return [] }
         let zoneID = CKRecordZone.ID(zoneName: entry.zoneName, ownerName: entry.ownerName)
         let database = entry.role == .owner ? ckContainer.privateCloudDatabase : ckContainer.sharedCloudDatabase
         let id = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)
@@ -371,12 +392,13 @@ final class SharedTripSync {
                 ?? identity.lookupInfo?.emailAddress
                 ?? identity.lookupInfo?.phoneNumber
                 ?? String(localized: "未知成员", bundle: .appLanguage())
-            return AssetShareMember(
+            return ShareMember(
                 id: identity.userRecordID?.recordName ?? "\(index)",
                 name: name,
                 isOwner: participant.role == .owner,
                 isMe: participant == me,
-                accepted: participant.acceptanceStatus == .accepted)
+                accepted: participant.acceptanceStatus == .accepted,
+                canEdit: participant.role == .owner || participant.permission == .readWrite)
         }
     }
 

@@ -17,6 +17,8 @@ struct AppSidebarView: View {
     /// 宽屏常驻列没有 ☰ 可对,传 nil 按内边距排。
     var headerHeight: CGFloat? = nil
     let onOpenSettings: () -> Void
+    /// 「共享与权限」页(设置旁边那颗)。
+    var onOpenSharing: () -> Void = {}
     /// 外层先切到目标页面,再收起窄屏抽屉。
     let onSelect: (AppSection) -> Void
 
@@ -160,6 +162,11 @@ struct AppSidebarView: View {
             circleButton(systemImage: "gearshape", label: "设置", selected: false) {
                 onOpenSettings()
             }
+            // 共享与权限:旅行、资产台账、聊天室的共享汇在一页。和设置同级的工具入口,
+            // 所以挨着设置摆在底栏,不进上面的页面列表。
+            circleButton(systemImage: "person.2", label: "共享与权限", selected: false) {
+                onOpenSharing()
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Self.bottomBarInset)
@@ -203,6 +210,8 @@ struct AppSidebarView: View {
 struct SystemSidebarList: View {
     @Binding var selection: AppSection?
     let onOpenSettings: () -> Void
+    /// 「共享与权限」页(设置旁边那颗)。
+    var onOpenSharing: () -> Void = {}
 
     var body: some View {
         List(selection: $selection) {
@@ -213,6 +222,17 @@ struct SystemSidebarList: View {
             }
         }
         .listStyle(.sidebar)
+        // 侧栏最下面的「共享与权限」(窄屏抽屉里它挨着设置圆钮,见 AppSidebarView.bottomBar)。
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Button(action: onOpenSharing) {
+                Label("共享与权限", systemImage: "person.2")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
         .navigationTitle("Lodo")
         #if !os(macOS)
         // macOS 的设置在应用菜单「设置…」(⌘,),是独立窗口,侧栏不再放齿轮。
