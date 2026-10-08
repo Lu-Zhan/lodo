@@ -1692,3 +1692,20 @@ contact.export_confirm_message,会在通讯录里新建这位联系人;手机号
 contact.export_duplicate,"通讯录里已经有这位联系人(手机号或邮箱相同),没有重复导出。","This contact is already in Contacts (same phone number or email), so it wasn't exported again.",ios_view,人脉详情导出结果(macOS)
 contact.export_failed,"导出失败,请稍后再试。",Export failed. Try again later.,ios_view,人脉详情导出结果(macOS)
 menu.go,前往,Go,ios_view,macOS 菜单栏「前往」菜单(同访达)
+ios_view.agent_ref_0,选择任务,Choose Tasks,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_1,选择倒数日,Choose Countdowns,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_2,选择旅行,Choose Trips,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_3,选择资产,Choose Assets,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_4,选择人脉,Choose Contacts,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_5,选择菜单,Choose Menus,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_6,选择新闻,Choose Articles,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_7,还没有任务,No Tasks Yet,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_8,还没有资产,No Assets Yet,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_9,还没有新闻,No Articles Yet,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_10,没有匹配的内容,No Matches,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_11,未完成,Not Done,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_12,已归档,Archived,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_13,资产与负债,Assets & Liabilities,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_14,收入、支出与信用卡,"Income, Expenses & Credit Cards",ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_15,最近,Recent,ios_view,AI 对话引用 app 内条目
+ios_view.agent_ref_16,引用任务、旅行、资产…,"Reference Tasks, Trips, Assets…",ios_view,AI 对话引用 app 内条目

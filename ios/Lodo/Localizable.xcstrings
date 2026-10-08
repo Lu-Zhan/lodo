@@ -4143,6 +4143,54 @@
         }
       }
     },
+    "已归档" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archived"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已归档"
+          }
+        }
+      }
+    },
+    "引用任务、旅行、资产…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reference Tasks, Trips, Assets…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引用任务、旅行、资产…"
+          }
+        }
+      }
+    },
+    "收入、支出与信用卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income, Expenses & Credit Cards"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收入、支出与信用卡"
+          }
+        }
+      }
+    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -4155,6 +4203,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最终 Prompt"
+          }
+        }
+      }
+    },
+    "最近" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近"
           }
         }
       }
@@ -12155,6 +12219,22 @@
         }
       }
     },
+    "未完成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Done"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未完成"
+          }
+        }
+      }
+    },
     "未排期" : {
       "localizations" : {
         "en" : {
@@ -13686,6 +13766,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有加载过"
+          }
+        }
+      }
+    },
+    "没有匹配的内容" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Matches"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有匹配的内容"
           }
         }
       }
@@ -17359,6 +17455,22 @@
         }
       }
     },
+    "资产与负债" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assets & Liabilities"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "资产与负债"
+          }
+        }
+      }
+    },
     "资产已更新" : {
       "localizations" : {
         "en" : {
@@ -18148,6 +18260,22 @@
         }
       }
     },
+    "还没有任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Tasks Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有任务"
+          }
+        }
+      }
+    },
     "还没有倒数日" : {
       "localizations" : {
         "en" : {
@@ -18304,6 +18432,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有收藏的文章。左滑文章可以收藏。"
+          }
+        }
+      }
+    },
+    "还没有新闻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Articles Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有新闻"
           }
         }
       }
@@ -18481,6 +18625,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有记过资产"
+          }
+        }
+      }
+    },
+    "还没有资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Assets Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有资产"
           }
         }
       }
@@ -18997,6 +19157,54 @@
         }
       }
     },
+    "选择人脉" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Contacts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择人脉"
+          }
+        }
+      }
+    },
+    "选择任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择任务"
+          }
+        }
+      }
+    },
+    "选择倒数日" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Countdowns"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择倒数日"
+          }
+        }
+      }
+    },
     "选择地点" : {
       "localizations" : {
         "en" : {
@@ -19029,6 +19237,54 @@
         }
       }
     },
+    "选择新闻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Articles"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择新闻"
+          }
+        }
+      }
+    },
+    "选择旅行" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Trips"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择旅行"
+          }
+        }
+      }
+    },
+    "选择菜单" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Menus"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择菜单"
+          }
+        }
+      }
+    },
     "选择记忆" : {
       "localizations" : {
         "en" : {
@@ -19041,6 +19297,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择记忆"
+          }
+        }
+      }
+    },
+    "选择资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Assets"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择资产"
           }
         }
       }

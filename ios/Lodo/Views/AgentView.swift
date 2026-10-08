@@ -93,6 +93,8 @@ struct AgentView: View {
     @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showFileImporter = false
     @State private var showMemoryPicker = false
+    /// 「+」菜单「引用」那一组点了哪一类;非 nil 时弹出对应的条目选择器。
+    @State private var referencePicker: AgentReferenceCategory?
     @State private var showPhotoPicker = false
     @State private var photoSelection: [PhotosPickerItem] = []
     /// 点了输入卡片里的某张缩略图:非 nil 时全屏打开大图查看,值是起始那张的 id。
@@ -267,6 +269,19 @@ struct AgentView: View {
                     }
                 }
             }
+            .sheet(item: $referencePicker) { category in
+                AgentReferencePickerView(
+                    category: category,
+                    excluding: Set(pendingAttachments.compactMap(\.reference?.id))
+                ) { picked in
+                    for reference in picked {
+                        pendingAttachments.append(PendingAttachment(
+                            displayName: reference.title,
+                            extractedText: AgentReferenceRenderer.body(for: reference, in: context),
+                            symbol: reference.kind.symbol, reference: reference))
+                    }
+                }
+            }
             // macOS 没有 fullScreenCover(API 本身就不可用),用窗口 sheet 代替。
             #if os(iOS)
             .fullScreenCover(isPresented: $showEasterEgg) {
@@ -382,6 +397,11 @@ struct AgentView: View {
                 // 看输入卡片里的缩略图行;加 --demo-agent-photo-viewer 再打开大图查看页。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-photos") {
                     seedDemoPhotos()
+                }
+                // 截图验证用:直接打开「引用」的某一类选择器(参数值是
+                // AgentReferenceCategory 的 rawValue,如 trip、assets)。
+                if let index = args.firstIndex(of: "--demo-agent-reference"), index + 1 < args.count {
+                    referencePicker = AgentReferenceCategory(rawValue: args[index + 1])
                 }
                 // 截图验证用:不发网络,自己逐片喂 streamingAnswer,截流式中态。
                 if ProcessInfo.processInfo.arguments.contains("--demo-agent-stream") {
@@ -655,6 +675,18 @@ struct AgentView: View {
                 showMemoryPicker = true
             } label: {
                 Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
+            }
+            // app 里已有的条目:不新建记忆,只把它现在的内容随这条消息发出去。
+            Menu {
+                ForEach(AgentReferenceCategory.allCases) { category in
+                    Button {
+                        referencePicker = category
+                    } label: {
+                        Label(category.title, systemImage: category.symbol)
+                    }
+                }
+            } label: {
+                Label("引用任务、旅行、资产…", systemImage: "link")
             }
         } label: {
             Image(systemName: "plus")
@@ -1405,7 +1437,8 @@ struct AgentView: View {
             let message = AgentMessage(
                 role: .user, content: trimmed,
                 attachmentMemoryUUIDs: attachments.compactMap(\.memoryUUID),
-                quotedContent: quoted?.content)
+                quotedContent: quoted?.content,
+                references: attachments.compactMap(\.reference))
             context.insert(message)
             userMessage = message
         }
@@ -1417,6 +1450,10 @@ struct AgentView: View {
             outgoing = "引用消息:「\(quoted.content)」\n\n" + outgoing
         }
         for attachment in attachments {
+            if let reference = attachment.reference {
+                outgoing += "\n\n" + reference.promptBlock(body: attachment.extractedText)
+                continue
+            }
             // 照片是在端上 OCR 成文字发出去的,图片本身不上传。一个字都没认出来时
             // 说明白(而不是留个空附件),模型才好据此回话,不至于以为自己看得见图。
             let body = attachment.extractedText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1737,6 +1774,9 @@ private struct PendingAttachment: Identifiable {
     var imageData: Data? = nil
     /// 照片还在端上 OCR,识别完才能发送。
     var isExtracting: Bool = false
+    /// 引用的 app 内条目(任务/旅行/资产…);extractedText 是选中时整理好的内容。
+    /// 不是记忆条目,memoryUUID 为 nil,移除 chip 也不删任何东西。
+    var reference: AgentReference? = nil
 
     var previewImage: Image? {
         guard let imageData else { return nil }

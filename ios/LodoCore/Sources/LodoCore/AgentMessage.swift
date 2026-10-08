@@ -76,6 +76,9 @@ public final class AgentMessage {
     /// 发送这条消息时用户引用的另一条消息的文本快照;没有引用为 nil。存快照而不是
     /// UUID 引用——"修改"会删除历史消息,UUID 引用可能悬空,快照更稳。
     public var quotedContent: String? = nil
+    /// 这条消息引用的 app 内条目(任务/旅行/资产…,JSON 编码的 `[AgentReference]`);
+    /// 没引用为 nil。和 attachmentMemoryUUIDs 分开:那些是记忆条目,这些不是。
+    public var referencesData: Data? = nil
     /// tripPlan 消息的规划快照(JSON 编码的 TripPlanProposal);其余 kind 恒为 nil。
     public var tripPlanSnapshotData: Data? = nil
     /// tripEdit 消息的改动记录(JSON 编码的 TripEditRecord);其余 kind 恒为 nil。
@@ -100,7 +103,8 @@ public final class AgentMessage {
         resultMemoryUUID: UUID? = nil, quotedContent: String? = nil,
         tripPlanSnapshotData: Data? = nil, tripEditSnapshotData: Data? = nil,
         countdownSnapshotData: Data? = nil,
-        librarySnapshotData: Data? = nil
+        librarySnapshotData: Data? = nil,
+        references: [AgentReference] = []
     ) {
         self.uuid = UUID()
         self.roleRaw = role.rawValue
@@ -116,10 +120,12 @@ public final class AgentMessage {
         self.tripEditSnapshotData = tripEditSnapshotData
         self.countdownSnapshotData = countdownSnapshotData
         self.librarySnapshotData = librarySnapshotData
+        self.referencesData = AgentReference.encode(references)
         self.createdAt = Date()
         self.formatVersion = 1
     }
 
     public var role: AgentMessageRole { AgentMessageRole(rawValue: roleRaw) ?? .user }
     public var kind: AgentMessageKind { AgentMessageKind(rawValue: kindRaw) ?? .text }
+    public var references: [AgentReference] { AgentReference.decode(referencesData) }
 }

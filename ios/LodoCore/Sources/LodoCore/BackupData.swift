@@ -633,11 +633,14 @@ public struct BackupAgentMessage: Codable {
     public var content: String
     public var relatedTitles: [String]
     public var attachmentMemoryUUIDs: [UUID]
+    /// 引用的 app 内条目(`AgentReference`);老备份没有这个 key,按空处理。
+    public var references: [AgentReference] = []
     public var createdAt: Date
 
     public init(
         uuid: UUID, roleRaw: String, kindRaw: String, content: String,
         relatedTitles: [String], attachmentMemoryUUIDs: [UUID],
+        references: [AgentReference] = [],
         createdAt: Date
     ) {
         self.uuid = uuid
@@ -646,6 +649,7 @@ public struct BackupAgentMessage: Codable {
         self.content = content
         self.relatedTitles = relatedTitles
         self.attachmentMemoryUUIDs = attachmentMemoryUUIDs
+        self.references = references
         self.createdAt = createdAt
     }
 }
@@ -664,6 +668,7 @@ extension BackupAgentMessage {
         content = try c.decode(String.self, forKey: .content)
         relatedTitles = try c.decode([String].self, forKey: .relatedTitles)
         attachmentMemoryUUIDs = try c.decode([UUID].self, forKey: .attachmentMemoryUUIDs)
+        references = (try? c.decodeIfPresent([AgentReference].self, forKey: .references)) ?? []
         createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
@@ -673,7 +678,8 @@ extension AgentMessage {
         BackupAgentMessage(
             uuid: uuid, roleRaw: roleRaw, kindRaw: kindRaw,
             content: content, relatedTitles: relatedTitles,
-            attachmentMemoryUUIDs: attachmentMemoryUUIDs, createdAt: createdAt)
+            attachmentMemoryUUIDs: attachmentMemoryUUIDs, references: references,
+            createdAt: createdAt)
     }
 }
 
@@ -685,6 +691,7 @@ extension BackupAgentMessage {
         message.content = content
         message.relatedTitles = relatedTitles
         message.attachmentMemoryUUIDs = attachmentMemoryUUIDs
+        message.referencesData = AgentReference.encode(references)
         message.createdAt = createdAt
         // 显式写 1:恢复出来的消息若留在默认的 0,下次启动会被
         // `AgentHistoryMigration` 当成待清理的老分段对话删光。

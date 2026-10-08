@@ -1027,6 +1027,13 @@ enum TravelStore {
         name: String, includeIDs: Bool = false, in context: ModelContext
     ) -> String? {
         guard let trip = pickTrip(name: name, in: context) else { return nil }
+        return promptSummary(for: trip, includeIDs: includeIDs, in: context)
+    }
+
+    /// 指定一次旅行的摘要(AI 对话里直接「引用」某次旅行时用)。
+    static func promptSummary(
+        for trip: TravelTrip, includeIDs: Bool = false, in context: ModelContext
+    ) -> String {
         let summary = TravelPlan.promptSummary(
             tripTitle: trip.title, days: trip.days,
             entries: entries(for: trip.uuid, in: context), includeIDs: includeIDs)

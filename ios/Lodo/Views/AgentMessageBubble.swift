@@ -123,6 +123,11 @@ struct AgentMessageBubble: View {
                             .lineLimit(1)
                     }
                 }
+                ForEach(Array(message.references.enumerated()), id: \.offset) { _, reference in
+                    Label(reference.title, systemImage: reference.kind.symbol)
+                        .font(.footnote)
+                        .lineLimit(1)
+                }
                 if let quoted = message.quotedContent, !quoted.isEmpty {
                     Label(quoted, systemImage: "quote.bubble")
                         .font(.footnote)
