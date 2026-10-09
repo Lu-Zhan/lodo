@@ -1165,6 +1165,25 @@ public enum DeepSeekClient {
         return try parseNewsDigest(await payload(system: system, user: headlines, timeout: 60))
     }
 
+    /// 将同一批文章按内容而非订阅源分组，每组都保留参考文章编号。
+    public static func newsCategoryDigests(headlines: String,
+                                           language: String = "中文") async throws -> [NewsCategoryDigest] {
+        let system = """
+        你是新闻编辑。根据用户订阅的最近文章，按内容归纳成 2 到 6 个主题，例如应用生活、AI、国际新闻；
+        主题名称要简短，主题必须由实际文章决定，不要为了凑类别编造内容。
+        只返回 JSON:{"categories":[{"name":"主题名","overview":"本类的一句话概览",
+        "items":[{"title":"具体事件","detail":"关键事实和影响","refs":[文章编号]}]}]}。
+        每类列出 1 到 5 件事；refs 只能引用输入清单中的编号，同一件事的报道可以合并。
+        只根据给出的标题和摘要写，用\(language)，不要补充未提供的事实。\(personaBlock)
+        """
+        let result = try await payload(system: system, user: headlines, timeout: 60)
+        return (result["categories"] as? [[String: Any]] ?? []).compactMap { raw in
+            guard let name = (raw["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty, let digest = try? parseNewsDigest(raw) else { return nil }
+            return NewsCategoryDigest(name: name, digest: digest)
+        }
+    }
+
     /// 简报的解析(单测入口)。缺标题的条目丢掉,一条都没有时报错。
     /// `source` 已不再要求模型输出(简报只讲事,不讲来源),字段留着兼容旧缓存,UI 不显示。
     static func parseNewsDigest(_ payload: [String: Any]) throws -> NewsDigest {

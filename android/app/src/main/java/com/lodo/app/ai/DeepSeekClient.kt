@@ -872,6 +872,34 @@ object DeepSeekClient {
 
     data class NewsDigestItem(val title: String, val detail: String, val refs: List<Int>)
     data class NewsDigest(val overview: String, val items: List<NewsDigestItem>)
+    data class NewsCategoryDigest(val name: String, val digest: NewsDigest)
+
+    suspend fun newsCategoryDigests(config: AIConfig, headlines: String,
+                                    language: String = languageName()): List<NewsCategoryDigest> {
+        val system = """
+            你是新闻编辑。根据用户订阅的最近文章，按内容归纳成 2 到 6 个主题，例如应用生活、AI、国际新闻；
+            主题名称要简短，主题必须由实际文章决定，不要为了凑类别编造内容。
+            只返回 JSON:{"categories":[{"name":"主题名","overview":"本类的一句话概览",
+            "items":[{"title":"具体事件","detail":"关键事实和影响","refs":[文章编号]}]}]}。
+            每类列出 1 到 5 件事；refs 只能引用输入清单中的编号，同一件事的报道可以合并。
+            只根据给出的标题和摘要写，用${language}，不要补充未提供的事实。${personaBlock(config)}
+        """.trimIndent()
+        val payload = complete(config, system, headlines, timeoutSeconds = 60)
+        val array = payload.optJSONArray("categories") ?: JSONArray()
+        return (0 until array.length()).mapNotNull { i ->
+            val raw = array.optJSONObject(i) ?: return@mapNotNull null
+            val name = raw.optString("name").trim().takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            val items = raw.optJSONArray("items") ?: JSONArray()
+            val parsed = (0 until items.length()).mapNotNull { j ->
+                val item = items.optJSONObject(j) ?: return@mapNotNull null
+                val title = item.optString("title").trim().takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                val refsArray = item.optJSONArray("refs") ?: JSONArray()
+                NewsDigestItem(title, item.optString("detail").trim(),
+                    (0 until refsArray.length()).mapNotNull { n -> refsArray.opt(n).toString().trim('[', ']', ' ').toIntOrNull() })
+            }
+            NewsCategoryDigest(name, NewsDigest(raw.optString("overview"), parsed))
+        }
+    }
 
     suspend fun newsDigest(config: AIConfig, headlines: String, language: String = languageName()): NewsDigest {
         val system = "你是新闻编辑。下面是用户订阅的新闻和博客里最近的文章清单(每行开头是编号," +

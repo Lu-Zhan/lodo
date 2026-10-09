@@ -217,18 +217,21 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
         return summary
     }
 
-    suspend fun lines(enabledOnly: Boolean): List<NewsPlan.Line> {
+    suspend fun lines(enabledOnly: Boolean, feedUuid: String? = null): List<NewsPlan.Line> {
         val feeds = dao.feeds().associateBy { it.uuid }
-        return dao.articles().filter { a -> feeds[a.feedUuid]?.let { !enabledOnly || it.enabled } ?: true }.map {
+        return dao.articles().filter { a ->
+            (feedUuid == null || a.feedUuid == feedUuid) &&
+                (feeds[a.feedUuid]?.let { !enabledOnly || it.enabled } ?: true)
+        }.map {
             NewsPlan.Line(it.uuid, feeds[it.feedUuid]?.title ?: "", it.title, it.publishedMillis.toLocalDateTime(), it.summary, it.link)
         }
     }
 
     /** 最近 24 小时的文章(未读优先,只取启用中的订阅),给「今日」总结和定时推送用。 */
-    suspend fun digestCandidates(limit: Int = 40): List<NewsPlan.Line> {
+    suspend fun digestCandidates(limit: Int = 40, feedUuid: String? = null): List<NewsPlan.Line> {
         val since = LocalDateTime.now().minusHours(24)
         val unread = dao.articles().filter { !it.read }.map { it.uuid }.toSet()
-        return lines(enabledOnly = true).filter { it.published.isAfter(since) }
+        return lines(enabledOnly = true, feedUuid = feedUuid).filter { it.published.isAfter(since) }
             .sortedWith(compareByDescending<NewsPlan.Line> { it.id in unread }.thenByDescending { it.published })
             .take(limit)
     }
@@ -236,8 +239,9 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
     /** 「今日」总结:按天缓存在 SharedPreferences(纯展示派生数据,不进库不备份)。 */
     data class DigestCache(val day: String, val generatedAt: Long, val digest: DeepSeekClient.NewsDigest, val refs: List<List<String>>)
 
-    fun cachedDigest(): DigestCache? {
-        val json = context.getSharedPreferences("news", 0).getString("digest", null) ?: return null
+    fun cachedDigest(feedUuid: String? = null): DigestCache? {
+        val key = feedUuid?.let { "digest.$it" } ?: "digest"
+        val json = context.getSharedPreferences("news", 0).getString(key, null) ?: return null
         return runCatching {
             val o = JSONObject(json)
             if (o.getString("day") != LocalDate.now().toString()) return null
@@ -251,9 +255,9 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
         }.getOrNull()
     }
 
-    suspend fun generateDigest(config: AIConfig): DigestCache {
+    suspend fun generateDigest(config: AIConfig, feedUuid: String? = null): DigestCache {
         refresh()
-        val candidates = digestCandidates()
+        val candidates = digestCandidates(feedUuid = feedUuid)
         if (candidates.isEmpty()) throw IllegalStateException(com.lodo.app.ui.L("最近 24 小时订阅里没有新文章", "No new articles in the last 24 hours"))
         val digest = DeepSeekClient.newsDigest(config, NewsPlan.promptLines(candidates, numbered = true), summaryLanguage())
         val refs = digest.items.map { item -> item.refs.mapNotNull { candidates.getOrNull(it - 1)?.id }.distinct() }
@@ -263,9 +267,73 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
             items.put(JSONObject().put("title", item.title).put("detail", item.detail).put("articles", JSONArray(refs[i])))
         }
         context.getSharedPreferences("news", 0).edit().putString(
-            "digest", JSONObject().put("day", cache.day).put("at", cache.generatedAt)
+            (feedUuid?.let { "digest.$it" } ?: "digest"), JSONObject().put("day", cache.day).put("at", cache.generatedAt)
                 .put("overview", digest.overview).put("items", items).toString(),
         ).apply()
         return cache
+    }
+
+    data class CategoryCache(val generatedAt: Long, val categories: List<Pair<String, DigestCache>>)
+
+    fun cachedCategories(): CategoryCache? {
+        val json = context.getSharedPreferences("news", 0).getString("categories", null) ?: return null
+        return runCatching {
+            val root = JSONObject(json)
+            if (root.getString("day") != LocalDate.now().toString()) return null
+            val array = root.getJSONArray("categories")
+            val categories = (0 until array.length()).map { i ->
+                val raw = array.getJSONObject(i)
+                val items = raw.getJSONArray("items")
+                val parsed = (0 until items.length()).map { j ->
+                    val item = items.getJSONObject(j)
+                    DeepSeekClient.NewsDigestItem(item.getString("title"), item.optString("detail"), emptyList()) to
+                        (item.optJSONArray("articles")?.let { refs -> (0 until refs.length()).map { k -> refs.getString(k) } } ?: emptyList())
+                }
+                raw.getString("name") to DigestCache(root.getString("day"), root.getLong("at"),
+                    DeepSeekClient.NewsDigest(raw.optString("overview"), parsed.map { it.first }), parsed.map { it.second })
+            }
+            CategoryCache(root.getLong("at"), categories)
+        }.getOrNull()
+    }
+
+    suspend fun generateCategories(config: AIConfig): CategoryCache {
+        refresh()
+        val candidates = digestCandidates()
+        if (candidates.isEmpty()) throw IllegalStateException("最近 24 小时订阅里没有新文章")
+        val aliases = context.getSharedPreferences("news", 0).getString("categoryNames", "{}")?.let(::JSONObject) ?: JSONObject()
+        val generated = DeepSeekClient.newsCategoryDigests(config, NewsPlan.promptLines(candidates, numbered = true), summaryLanguage())
+        if (generated.isEmpty()) throw IllegalStateException("暂时无法按内容分类,可以重新生成。")
+        val at = System.currentTimeMillis()
+        val jsonCategories = JSONArray()
+        val categories = generated.map { category ->
+            val name = aliases.optString(category.name, category.name)
+            val refs = category.digest.items.map { item -> item.refs.mapNotNull { candidates.getOrNull(it - 1)?.id }.distinct() }
+            val items = JSONArray()
+            category.digest.items.forEachIndexed { i, item ->
+                items.put(JSONObject().put("title", item.title).put("detail", item.detail).put("articles", JSONArray(refs[i])))
+            }
+            jsonCategories.put(JSONObject().put("name", name).put("overview", category.digest.overview).put("items", items))
+            name to DigestCache(LocalDate.now().toString(), at, category.digest, refs)
+        }
+        context.getSharedPreferences("news", 0).edit().putString("categories", JSONObject()
+            .put("day", LocalDate.now().toString()).put("at", at).put("categories", jsonCategories).toString()).apply()
+        return CategoryCache(at, categories)
+    }
+
+    fun renameCategory(old: String, new: String) {
+        val name = new.trim()
+        if (name.isEmpty()) return
+        val preferences = context.getSharedPreferences("news", 0)
+        val aliases = JSONObject(preferences.getString("categoryNames", "{}") ?: "{}")
+        val keys = aliases.keys().asSequence().filter { aliases.optString(it) == old }.toList()
+        if (keys.isEmpty()) aliases.put(old, name) else keys.forEach { aliases.put(it, name) }
+        preferences.edit().putString("categoryNames", aliases.toString()).apply()
+        val cache = preferences.getString("categories", null)?.let(::JSONObject) ?: return
+        val categories = cache.optJSONArray("categories") ?: return
+        for (i in 0 until categories.length()) {
+            val item = categories.getJSONObject(i)
+            if (item.optString("name") == old) item.put("name", name)
+        }
+        preferences.edit().putString("categories", cache.toString()).apply()
     }
 }

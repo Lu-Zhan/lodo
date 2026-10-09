@@ -164,3 +164,15 @@ public struct NewsDigest: Codable, Equatable, Sendable {
         self.items = items
     }
 }
+
+/// 按内容主题整理的简报。类别由模型根据当天文章生成，名称供顶部筛选使用。
+public struct NewsCategoryDigest: Codable, Equatable, Sendable, Identifiable {
+    public var name: String
+    public var digest: NewsDigest
+    public var id: String { name }
+
+    public init(name: String, digest: NewsDigest) {
+        self.name = name
+        self.digest = digest
+    }
+}

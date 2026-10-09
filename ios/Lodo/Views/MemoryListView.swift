@@ -94,6 +94,28 @@ struct MemoryListView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                if !allTags.isEmpty {
+                    Section {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                memoryTag("全部", selected: activeFilterCount == 0) {
+                                    clearFilters()
+                                }
+                                ForEach(allTags, id: \.self) { tag in
+                                    memoryTag(shortTag(tag), selected: selectedTags.contains(tag)) {
+                                        showAssets = false
+                                        selectedTags = selectedTags == [tag] ? [] : [tag]
+                                    }
+                                    .accessibilityLabel(tag)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
+                }
                 if let overview = assetOverview, !filtered.isEmpty {
                     // 单独一个 Section,和下面的条目列表分开——不然共用同一个隐式
                     // 分组时,条目那块顶部拿不到系统给的圆角(两块会贴在一起、
@@ -187,6 +209,9 @@ struct MemoryListView: View {
                 #endif
             }
             .onChange(of: tagFilter) { _, tag in consumeTagFilter(tag) }
+            .onChange(of: allTags) { _, tags in
+                selectedTags = selectedTags.intersection(Set(tags))
+            }
             .navigationDestination(for: MemoryItem.self) { item in
                 MemoryDetailView(item: item)
             }
@@ -222,6 +247,22 @@ struct MemoryListView: View {
                 }
             }
         }
+    }
+
+    private func memoryTag(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(selected ? .semibold : .regular))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+        }
+        .buttonStyle(.bordered)
+        .tint(selected ? Color.accentColor : .secondary)
+    }
+
+    private func shortTag(_ title: String) -> String {
+        title.count > 12 ? String(title.prefix(11)) + "…" : title
     }
 
     #if DEBUG

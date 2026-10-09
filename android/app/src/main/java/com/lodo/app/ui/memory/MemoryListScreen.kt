@@ -111,8 +111,13 @@ fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewMo
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
+                    item {
+                        FilterChip(selected = vm.selectedTag == null, onClick = { vm.selectedTag?.let(vm::toggleTag) },
+                            label = { Text(com.lodo.app.ui.L("全部", "All")) })
+                    }
                     items(tags) { tag ->
-                        FilterChip(selected = vm.selectedTag == tag, onClick = { vm.toggleTag(tag) }, label = { Text(tag) })
+                        FilterChip(selected = vm.selectedTag == tag, onClick = { vm.toggleTag(tag) },
+                            label = { Text(if (tag.length > 12) tag.take(11) + "…" else tag) })
                     }
                 }
             }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -117,6 +119,10 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var digest by mutableStateOf<NewsRepository.DigestCache?>(app.news.cachedDigest())
         private set
+    var feedDigest by mutableStateOf<NewsRepository.DigestCache?>(null)
+        private set
+    var categories by mutableStateOf(app.news.cachedCategories())
+        private set
     var digesting by mutableStateOf(false)
         private set
     var message by mutableStateOf<String?>(null)
@@ -131,6 +137,24 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
         digesting = true; message = null
         runCatching { app.news.generateDigest(app.settings.aiConfig()) }.onSuccess { digest = it }.onFailure { message = it.message }
         digesting = false
+    }
+
+    fun loadFeedDigest(uuid: String?) { feedDigest = uuid?.let(app.news::cachedDigest) }
+    fun generateFeedDigest(uuid: String) = viewModelScope.launch {
+        digesting = true; message = null
+        runCatching { app.news.generateDigest(app.settings.aiConfig(), uuid) }
+            .onSuccess { feedDigest = it }.onFailure { message = it.message }
+        digesting = false
+    }
+    fun generateCategories() = viewModelScope.launch {
+        digesting = true; message = null
+        runCatching { app.news.generateCategories(app.settings.aiConfig()) }
+            .onSuccess { categories = it }.onFailure { message = it.message }
+        digesting = false
+    }
+    fun renameCategory(old: String, new: String) {
+        app.news.renameCategory(old, new)
+        categories = app.news.cachedCategories()
     }
 
     fun subscribe(url: String?, name: String?, kind: String, done: () -> Unit) = viewModelScope.launch {
@@ -189,6 +213,7 @@ fun NewsScreen(vm: NewsViewModel = viewModel()) {
     var manage by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var reading by remember { mutableStateOf(false) }
+    var selectedFeed by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(feeds.size) { if (feeds.isNotEmpty()) vm.refresh(false) }
     val feedById = feeds.associateBy { it.uuid }
     openUuid?.let { uuid ->
@@ -224,12 +249,23 @@ fun NewsScreen(vm: NewsViewModel = viewModel()) {
                 Button(onClick = { adding = true }) { Text(L("添加订阅", "Add feed")) }
             }
         } else Column(Modifier.fillMaxSize().padding(padding)) {
-            SegmentedTabs(listOf(L("今日", "Today"), L("全部", "All"), L("未读", "Unread"), L("已收藏", "Starred")), tab, { tab = it })
+            SegmentedTabs(listOf(L("总结", "Summary"), L("全部", "All"), L("未读", "Unread"), L("已收藏", "Starred")), tab, { tab = it })
+            if (tab == 1 || tab == 2) LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+            ) {
+                item { FilterChip(selected = selectedFeed == null, onClick = { selectedFeed = null }, label = { Text(L("全部", "All")) }) }
+                items(feeds, key = { it.uuid }) { feed ->
+                    FilterChip(selected = selectedFeed == feed.uuid, onClick = { selectedFeed = feed.uuid },
+                        label = { Text(shortNewsTag(feed.title)) })
+                }
+            }
             PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = { vm.refresh(true) }, modifier = Modifier.weight(1f)) {
                 if (tab == 0) DigestView(vm, articles, feedById) { openUuid = it }
                 else {
                     val list = articles.filter { feedById[it.feedUuid]?.enabled != false || it.starred }.filter {
-                        when (tab) { 2 -> !it.read; 3 -> it.starred; else -> true }
+                        (selectedFeed == null || tab == 3 || it.feedUuid == selectedFeed) &&
+                            when (tab) { 2 -> !it.read; 3 -> it.starred; else -> true }
                     }
                     val groups = list.groupBy { it.publishedMillis.toLocalDateTime().toLocalDate() }.toSortedMap(compareByDescending { it }).toList()
                     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -279,36 +315,86 @@ private fun ArticleRow(a: NewsArticleEntity, source: String, vm: NewsViewModel, 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DigestView(vm: NewsViewModel, articles: List<NewsArticleEntity>, feeds: Map<String, NewsFeedEntity>, open: (String) -> Unit) {
-    val d = vm.digest
     val settings = LocalSettings.current
     val byId = articles.associateBy { it.uuid }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = marginFor(settings.newsMargin), vertical = 12.dp)) {
+    var selectedFeed by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    var rename by remember { mutableStateOf(false) }
+    var renameText by remember { mutableStateOf("") }
+    LaunchedEffect(feeds.keys) {
+        if (selectedFeed !in feeds.keys) selectedFeed = feeds.values.firstOrNull { it.enabled }?.uuid
+        vm.loadFeedDigest(selectedFeed)
+    }
+    val categories = vm.categories?.categories.orEmpty()
+    val category = categories.firstOrNull { it.first == selectedCategory } ?: categories.firstOrNull()
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = marginFor(settings.newsMargin), vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { DigestBlock(L("一览", "Overview"), vm.digest, vm.digesting, vm::generateDigest, byId, feeds, open) }
+        item { HorizontalDivider() }
+        item { Text(L("分 RSS", "By RSS"), style = MaterialTheme.typography.titleMedium) }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(feeds.values.filter { it.enabled }.toList(), key = { it.uuid }) { feed ->
+                    FilterChip(selected = selectedFeed == feed.uuid, onClick = { selectedFeed = feed.uuid; vm.loadFeedDigest(feed.uuid) },
+                        label = { Text(shortNewsTag(feed.title)) })
+                }
+            }
+        }
+        item {
+            DigestBlock(selectedFeed?.let(feeds::get)?.title ?: L("选择来源", "Choose a feed"), vm.feedDigest, vm.digesting,
+                { selectedFeed?.let(vm::generateFeedDigest) }, byId, feeds, open)
+        }
+        item { HorizontalDivider() }
+        item { Text(L("按内容", "By topic"), style = MaterialTheme.typography.titleMedium) }
+        if (categories.isNotEmpty()) item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories, key = { it.first }) { entry ->
+                    FilterChip(selected = category?.first == entry.first, onClick = { selectedCategory = entry.first },
+                        label = { Text(shortNewsTag(entry.first)) })
+                }
+            }
+        }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(L("今日总结", "Today's brief") + (d?.let { " · " + java.time.Instant.ofEpochMilli(it.generatedAt).atZone(java.time.ZoneId.systemDefault()).format(com.lodo.app.ui.appFormatter("HH:mm")) + L(" 整理", "") } ?: ""),
-                    style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                if (vm.digesting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                else TextButton(onClick = vm::generateDigest) { Text(if (d == null) L("生成", "Generate") else L("重新生成", "Regenerate")) }
+                Text(category?.first ?: L("分类总结", "Topic summary"), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                if (category != null) TextButton(onClick = { renameText = category.first; rename = true }) { Text(L("改名", "Rename")) }
             }
-            vm.message?.let { Text(it, color = LodoColor.critical, style = MaterialTheme.typography.bodySmall) }
+            DigestBlock("", category?.second, vm.digesting, vm::generateCategories, byId, feeds, open)
         }
-        if (d == null) item {
-            Text(L("让 AI 从最近 24 小时的订阅里挑出最重要的几件事。", "Let AI pick the most important stories from the last 24 hours."),
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
-        } else {
-            if (d.digest.overview.isNotBlank()) item { Text(d.digest.overview, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(vertical = 10.dp)) }
-            d.digest.items.forEachIndexed { i, item ->
-                item("d$i") {
-                    Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("${i + 1}. " + item.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                        if (item.detail.isNotBlank()) Text(item.detail, style = MaterialTheme.typography.bodyMedium)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            d.refs.getOrNull(i).orEmpty().mapNotNull { byId[it] }.forEach { a ->
-                                AssistChip(onClick = { open(a.uuid) }, label = { Text(L("来自", "From ") + (feeds[a.feedUuid]?.title ?: "") + " ›", maxLines = 1) })
-                            }
-                        }
+        vm.message?.let { item { Text(it, color = LodoColor.critical, style = MaterialTheme.typography.bodySmall) } }
+    }
+    if (rename) AlertDialog(onDismissRequest = { rename = false }, title = { Text(L("重命名分类", "Rename topic")) },
+        text = { OutlinedTextField(renameText, { renameText = it }, label = { Text(L("分类名称", "Topic name")) }) },
+        confirmButton = { TextButton(onClick = { category?.let { vm.renameCategory(it.first, renameText) }; selectedCategory = renameText.trim(); rename = false }) { Text(L("保存", "Save")) } },
+        dismissButton = { TextButton(onClick = { rename = false }) { Text(L("取消", "Cancel")) } })
+}
+
+private fun shortNewsTag(name: String): String = name.trim().removeSuffix("的 RSS 订阅").removeSuffix(" RSS")
+    .let { if (it.length > 12) it.take(11) + "…" else it }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DigestBlock(title: String, cache: NewsRepository.DigestCache?, busy: Boolean, generate: () -> Unit,
+                        byId: Map<String, NewsArticleEntity>, feeds: Map<String, NewsFeedEntity>, open: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f))
+            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            else TextButton(onClick = generate) { Text(if (cache == null) L("生成", "Generate") else L("重新生成", "Regenerate")) }
+        }
+        if (cache == null) Text(L("根据最近 24 小时的文章整理。", "Summarize the last 24 hours."),
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else {
+            if (cache.digest.overview.isNotBlank()) Text(cache.digest.overview, style = MaterialTheme.typography.titleMedium)
+            cache.digest.items.forEachIndexed { i, item ->
+                Text("${i + 1}. ${item.title}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                if (item.detail.isNotBlank()) Text(item.detail, style = MaterialTheme.typography.bodyMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    cache.refs.getOrNull(i).orEmpty().mapNotNull { byId[it] }.forEach { article ->
+                        AssistChip(onClick = { open(article.uuid) }, label = {
+                            Text(L("来自", "From ") + (feeds[article.feedUuid]?.title ?: "") + " ›", maxLines = 1)
+                        })
                     }
                 }
             }

@@ -408,6 +408,8 @@ enum NewsStore {
     /// 按天缓存一份(同总览页 AI 段落的口径):当天再打开直接显示,想要新的点刷新。
     /// 纯展示用的派生数据,存本机 UserDefaults,不进数据库也不备份。
     private static let digestKey = "news.digest.cache"
+    private static let categoryDigestKey = "news.digest.categories"
+    private static let categoryNamesKey = "news.digest.categoryNames"
 
     private struct DigestCache: Codable {
         var day: Date
@@ -415,8 +417,9 @@ enum NewsStore {
         var digest: NewsDigest
     }
 
-    static func cachedDigest() -> (digest: NewsDigest, generatedAt: Date)? {
-        guard let data = UserDefaults.standard.data(forKey: digestKey),
+    static func cachedDigest(feedUUID: UUID? = nil) -> (digest: NewsDigest, generatedAt: Date)? {
+        let key = feedUUID.map { digestKey + "." + $0.uuidString } ?? digestKey
+        guard let data = UserDefaults.standard.data(forKey: key),
               let cache = try? JSONDecoder().decode(DigestCache.self, from: data),
               Calendar.current.isDateInToday(cache.day) else { return nil }
         return (cache.digest, cache.generatedAt)
@@ -424,15 +427,16 @@ enum NewsStore {
 
     /// 「今日」的素材文章(同 `digestContext` 的挑法,只是返回文章本身):清单按编号
     /// 发给模型,模型回的编号靠这份换算成文章,每条下面才挂得出参考新闻链接。
-    static func digestCandidates(context: ModelContext) -> [NewsEntry] {
+    static func digestCandidates(context: ModelContext, feedUUID: UUID? = nil) -> [NewsEntry] {
         let enabled = Set(feeds(in: context).filter(\.enabled).map(\.uuid))
         return NewsPlan.digestCandidates(
-            articles(in: context).filter { enabled.contains($0.feedUUID) }.map(\.entry))
+            articles(in: context).filter { enabled.contains($0.feedUUID)
+                && (feedUUID == nil || $0.feedUUID == feedUUID) }.map(\.entry))
     }
 
     static func generateDigest(language: AppLanguage,
-                               context: ModelContext) async throws -> NewsDigest? {
-        let candidates = digestCandidates(context: context)
+                               context: ModelContext, feedUUID: UUID? = nil) async throws -> NewsDigest? {
+        let candidates = digestCandidates(context: context, feedUUID: feedUUID)
         guard !candidates.isEmpty else { return nil }
         let headlines = NewsPlan.promptLines(candidates, summaryLength: 80, numbered: true)
         let digest = try await DeepSeekClient.newsDigest(
@@ -441,8 +445,58 @@ enum NewsStore {
         let now = Date()
         let cache = DigestCache(day: Calendar.current.startOfDay(for: now), generatedAt: now, digest: digest)
         if let data = try? JSONEncoder().encode(cache) {
-            UserDefaults.standard.set(data, forKey: digestKey)
+            let key = feedUUID.map { digestKey + "." + $0.uuidString } ?? digestKey
+            UserDefaults.standard.set(data, forKey: key)
         }
         return digest
+    }
+
+    private struct CategoryCache: Codable {
+        var day: Date
+        var generatedAt: Date
+        var categories: [NewsCategoryDigest]
+    }
+
+    static func cachedCategoryDigests() -> (categories: [NewsCategoryDigest], generatedAt: Date)? {
+        guard let data = UserDefaults.standard.data(forKey: categoryDigestKey),
+              let cache = try? JSONDecoder().decode(CategoryCache.self, from: data),
+              Calendar.current.isDateInToday(cache.day) else { return nil }
+        return (cache.categories, cache.generatedAt)
+    }
+
+    static func renameCategory(_ old: String, to new: String) {
+        let name = new.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, let data = UserDefaults.standard.data(forKey: categoryDigestKey),
+              var cache = try? JSONDecoder().decode(CategoryCache.self, from: data),
+              !cache.categories.contains(where: { $0.name == name }) else { return }
+        guard let index = cache.categories.firstIndex(where: { $0.name == old }) else { return }
+        cache.categories[index].name = name
+        var names = UserDefaults.standard.dictionary(forKey: categoryNamesKey) as? [String: String] ?? [:]
+        let originals = names.filter { $0.value == old }.map(\.key)
+        if originals.isEmpty { names[old] = name }
+        for original in originals { names[original] = name }
+        UserDefaults.standard.set(names, forKey: categoryNamesKey)
+        if let updated = try? JSONEncoder().encode(cache) {
+            UserDefaults.standard.set(updated, forKey: categoryDigestKey)
+        }
+    }
+
+    static func generateCategoryDigests(language: AppLanguage,
+                                        context: ModelContext) async throws -> [NewsCategoryDigest]? {
+        let candidates = digestCandidates(context: context)
+        guard !candidates.isEmpty else { return nil }
+        let headlines = NewsPlan.promptLines(candidates, summaryLength: 80, numbered: true)
+        let names = UserDefaults.standard.dictionary(forKey: categoryNamesKey) as? [String: String] ?? [:]
+        let categories = try await DeepSeekClient.newsCategoryDigests(
+            headlines: headlines, language: summaryLanguageName(language))
+            .map { NewsCategoryDigest(name: names[$0.name] ?? $0.name,
+                                      digest: $0.digest.resolvingReferences(candidates)) }
+        let now = Date()
+        let cache = CategoryCache(day: Calendar.current.startOfDay(for: now),
+                                  generatedAt: now, categories: categories)
+        if let data = try? JSONEncoder().encode(cache) {
+            UserDefaults.standard.set(data, forKey: categoryDigestKey)
+        }
+        return categories
     }
 }
