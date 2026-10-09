@@ -340,11 +340,25 @@ fun parseTripPlan(raw: JSONObject, now: LocalDateTime = LocalDateTime.now()): Tr
 data class TripEditUpdate(
     val id: String, val title: String? = null, val note: String? = null,
     val start: LocalDateTime? = null, val end: LocalDateTime? = null, val placeName: String? = null,
-    /** 费用:给已经记下的行程项补/改花了多少钱(同 iOS TripEditUpdate.price/currency)。 */
+    /** 费用:这一项的**总价**,给已经记下的行程项补/改花了多少钱(同 iOS TripEditUpdate.price/currency)。 */
     val price: Double? = null, val currency: String? = null,
+    /** 住宿每晚的价格:app 按入住晚数乘成总价(resolvedPrice),不让模型自己乘(同 iOS)。 */
+    val pricePerNight: Double? = null,
 ) {
     val isEmpty get() = title == null && note == null && start == null && end == null && placeName == null &&
-        price == null && currency == null
+        price == null && currency == null && pricePerNight == null
+
+    /** 写进这一项的总价:给了总价用总价;只给每晚价格时住宿按入住晚数乘(没退房时间/不到一晚按一晚),别的类型当总价。 */
+    fun resolvedPrice(isLodging: Boolean, startMillis: Long?, endMillis: Long?): Double? {
+        price?.let { return it }
+        val perNight = pricePerNight ?: return null
+        if (!isLodging || startMillis == null || endMillis == null) return perNight
+        val zone = java.time.ZoneId.systemDefault()
+        val nights = java.time.temporal.ChronoUnit.DAYS.between(
+            java.time.Instant.ofEpochMilli(startMillis).atZone(zone).toLocalDate(),
+            java.time.Instant.ofEpochMilli(endMillis).atZone(zone).toLocalDate())
+        return perNight * maxOf(nights, 1L)
+    }
 
     /** 只补/改费用和备注。航班允许这一种改法:时刻座位来自订单,但"机票花了 3200"该记得上。 */
     val touchesOnlyCostOrNote get() = title == null && start == null && end == null && placeName == null
@@ -381,7 +395,8 @@ fun parseTripEdit(raw: JSONObject): TripEdit {
         var end = parsePlanDate(o.text("end"))
         if (start != null && end != null && end.isBefore(start)) end = null
         TripEditUpdate(id, o.text("title"), o.text("note"), start, end, o.text("place"),
-            o.number("price")?.takeIf { it >= 0 }, o.text("currency")?.uppercase()).takeIf { !it.isEmpty }
+            o.number("price")?.takeIf { it >= 0 }, o.text("currency")?.uppercase(),
+            o.number("price_per_night")?.takeIf { it >= 0 }).takeIf { !it.isEmpty }
     }.filter { it.id !in removeIds }
     if (removeIds.isEmpty() && additions.isEmpty() && updates.isEmpty()) throw parseError("返回格式异常:行程调整没有任何改动")
     return TripEdit(raw.text("trip") ?: "", raw.text("summary") ?: "", removeIds, additions, updates)

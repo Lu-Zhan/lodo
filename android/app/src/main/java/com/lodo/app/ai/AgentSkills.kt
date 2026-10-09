@@ -321,7 +321,7 @@ object AgentSkillStore {
     private val TRAVEL = """
 额外支持的操作:
 - 先读行程再回答:{"thought": "为什么需要读", "tool": "read_trip", "name": "旅行名称"}(用户问自己某次旅行的安排时用:航班几点、住在哪、第几天去哪、一共花了多少。name 填用户说的那次旅行的名字;用户没指名、只说"我这趟"/"下次旅行"时把 name 留空,由 app 挑正在进行或最近的一次。每次交流最多用一次,拿到行程后必须在下一轮给出真正的最终答案,不能连续再读)
-- 调整已记下的行程:{"action": "edit_trip", "trip": "旅行名称", "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明", "price": 数字, "currency": "ISO 4217 币种码如 JPY"}]}(安排的写法:{"kind": "place / lodging / flight / train / coach", "title", "start", "end", "place", "note", "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
+- 调整已记下的行程:{"action": "edit_trip", "trip": "旅行名称", "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明", "price": 数字, "price_per_night": 数字, "currency": "ISO 4217 币种码如 JPY"}]}(安排的写法:{"kind": "place / lodging / flight / train / coach", "title", "start", "end", "place", "note", "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
 
 额外判断规则:
 - 只有涉及用户**自己记过的**行程时才用 read_trip(如"我去东京的航班几点起飞""这趟住在哪""行程一共花了多少")。泛泛的旅行问题(如"东京有什么好玩的""十月去北海道冷不冷")属于一般性问题,该联网搜就搜,不要读行程。
@@ -329,7 +329,7 @@ object AgentSkillStore {
 - 没有任何行程时如实告诉用户还没记过旅行,不要猜。
 - 用户要调整**已经记下**的某次旅行(如"第二天重新安排,改去奈良""把清水寺删了""第三天加个锦市场""把天龙寺挪到下午")→ edit_trip。必须先 read_trip 拿到行程:读到的每一项末尾 [id:…] 就是它的 id,remove/update 里的 id 只能原样抄过来,不要自己编;trip 填读到的旅行名。此时整个 actions 只放这一条。
 - 两者的外壳不要写串:read_trip 是工具,按上面的写法单独作为顶层对象返回({"thought": …, "tool": "read_trip", …}),不要塞进 actions 数组;edit_trip 是操作,必须包在 {"actions": [{"action": "edit_trip", …}]} 里,不要直接摊在最外层。
-- 给**已经记下**的行程项记费用(如"清水寺门票 500 日元""这家酒店一晚 1200""机票花了 3200")→ edit_trip 的 update 里给这一项写 price 和 currency(用户没说币种时按这趟旅行目的地的当地货币,拿不准就用人民币 CNY),其他字段不写;同样必须先 read_trip 拿 id。航班只能这样补费用和备注,时刻、座位这些不能改。
+- 给**已经记下**的行程项记费用(如"清水寺门票 500 日元""xx 酒店 2 天一共花了 2000 元""机票花了 3200")→ edit_trip 的 update 里给这一项写费用和 currency,其他字段不写;同样必须先 read_trip 拿 id。航班只能这样补费用和备注,时刻、座位这些不能改。price 是**这一项的总价**;用户报的是住宿**每晚**的价格("一晚 800")时改写 price_per_night,不要自己乘,app 会按记下的入住晚数算总价。用户说的天数/晚数和记下的入住退房对不上时(说"2 天一共 2000",记的是住 3 晚),照样只记钱,**不要**改入住/退房时间——要改时间用户会明说。币种:"元""块""人民币"是 CNY,"日元""円"是 JPY,"美元""刀"是 USD;只有完全没说货币单位时才按这趟旅行目的地的当地货币,拿不准就用 CNY。
 - "某天重新安排"= 删掉那天要换掉的、加上新的;那天用户没说要换的保持不动。新加的安排按地理位置就近串起来,避开同一天其他项(尤其航班、住宿入住)的时间,start 必填,日期落在要调整的那一天。
 - 调整会直接生效(卡片上可以撤销),所以只改用户说要改的那部分,不要顺手重排别的天,也不要把没提到的项删了再原样加回来。
 - 用户把班次和时刻说清楚了(如"加一班 CA167,28号早上九点起飞""第三天高铁 G7 回上海"),add 里可以放 flight/train/coach,车次/航班号填进 code;**说不清就不要编**车次和时刻。

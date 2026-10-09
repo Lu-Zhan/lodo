@@ -243,15 +243,16 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
                 travelStartMillis = start, travelEndMillis = end, travelPlaceName = u.placeName ?: m.travelPlaceName,
                 travelLatitude = if (placeChanged) null else m.travelLatitude,
                 travelLongitude = if (placeChanged) null else m.travelLongitude,
-                travelPrice = u.price ?: m.travelPrice,
+                // 总价;只给了每晚价格时按(改完之后的)入住晚数乘出来。
+                travelPrice = u.resolvedPrice(m.travelKind == TravelItemKind.LODGING.raw, start, end) ?: m.travelPrice,
                 // 给了价格没给币种:沿用原来的币种。
                 travelCurrency = u.currency ?: m.travelCurrency,
             )
             mem.upsert(updated)
             before += m
             // 改了费用时结果卡片上把金额写出来,不然"改了 X"看不出改的是什么。
-            updatedTitles += if (u.price != null) {
-                "${updated.title} · ${formatPrice(u.price, updated.travelCurrency)}"
+            updatedTitles += if (u.price != null || u.pricePerNight != null) {
+                "${updated.title} · ${formatPrice(updated.travelPrice ?: 0.0, updated.travelCurrency)}"
             } else {
                 updated.title
             }

@@ -423,6 +423,36 @@ final class AgentLiveEvalTests: XCTestCase {
         XCTAssertTrue(edit.additions.isEmpty, "不该另加一项:\(edit.additions)")
     }
 
+    /// 用户原话:「xx 行程中 xx 酒店 2 天花了一共 2000 元」。只记总价,**不许**因为"2 天"
+    /// 和记下的住宿天数(3 晚)对不上就去改入住/退房时间。
+    func testHotelTotalCostDoesNotTouchDates() async throws {
+        let r = try await run("东京四日行程中新宿王子酒店2天花了一共2000元", caps: Caps(travel: true))
+        guard case .editTrip(let edit)? = r.actions.first else { return XCTFail("\(r.result)") }
+        guard let update = edit.updates.first(where: { $0.id == hotelID }) else {
+            return XCTFail("应该 update 酒店:\(edit)")
+        }
+        XCTAssertEqual(update.price, 2000)
+        XCTAssertEqual(update.currency, "CNY")
+        XCTAssertNil(update.start, "不该改入住时间:\(update)")
+        XCTAssertNil(update.end, "不该改退房时间:\(update)")
+        XCTAssertTrue(edit.additions.isEmpty && edit.removeIDs.isEmpty, "\(edit)")
+    }
+
+    /// 按晚报价:模型给 price_per_night(或者自己乘对了的总价),app 按记下的 3 晚算总价 2400;
+    /// 「元」是人民币,不能因为旅行在日本就当成日元。
+    func testHotelPerNightPriceStoresTotal() async throws {
+        let r = try await run("东京四日的新宿王子酒店一晚 800 元,帮我记上房费", caps: Caps(travel: true))
+        guard case .editTrip(let edit)? = r.actions.first else { return XCTFail("\(r.result)") }
+        guard let update = edit.updates.first(where: { $0.id == hotelID }) else {
+            return XCTFail("应该 update 酒店:\(edit)")
+        }
+        XCTAssertEqual(update.resolvedPrice(kind: .lodging, start: day(10, 15), end: day(13, 11)), 2400,
+                       "总价应为 800×3:\(update)")
+        XCTAssertEqual(update.currency, "CNY")
+        XCTAssertNil(update.start)
+        XCTAssertNil(update.end)
+    }
+
     /// 航班可以补费用(时刻不动)。
     func testEditTripAddsPriceToFlight() async throws {
         let r = try await run("东京四日的去程机票花了 3200 块,帮我记上", caps: Caps(travel: true))

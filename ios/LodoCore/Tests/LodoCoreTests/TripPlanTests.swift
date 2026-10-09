@@ -357,4 +357,21 @@ final class TripPlanTests: XCTestCase {
         XCTAssertNil(DeepSeekClient.planPrice(-5))
         XCTAssertNil(DeepSeekClient.planPrice("免费"))
     }
+
+    /// 每晚价格按入住晚数乘成总价;给了总价就用总价;不是住宿的当总价。
+    func testResolvedPricePerNight() throws {
+        let id = UUID()
+        let checkIn = date(day: 10, hour: 15), checkOut = date(day: 13, hour: 11)
+        let perNight = TripEditUpdate(id: id, pricePerNight: 800)
+        XCTAssertEqual(perNight.resolvedPrice(kind: .lodging, start: checkIn, end: checkOut), 2400)
+        XCTAssertEqual(perNight.resolvedPrice(kind: .lodging, start: checkIn, end: nil), 800, "没记退房按一晚")
+        XCTAssertEqual(perNight.resolvedPrice(kind: .place, start: checkIn, end: checkOut), 800)
+        XCTAssertEqual(TripEditUpdate(id: id, price: 2000, pricePerNight: 800)
+            .resolvedPrice(kind: .lodging, start: checkIn, end: checkOut), 2000)
+        XCTAssertNil(TripEditUpdate(id: id, note: "x").resolvedPrice(kind: .lodging, start: checkIn, end: checkOut))
+        let edit = try DeepSeekClient.parseTripEdit([
+            "trip": "东京", "update": [["id": id.uuidString, "price_per_night": "800", "currency": "CNY"]]])
+        XCTAssertEqual(edit.updates.first?.pricePerNight, 800)
+        XCTAssertTrue(edit.updates.first?.touchesOnlyCostOrNote ?? false)
+    }
 }

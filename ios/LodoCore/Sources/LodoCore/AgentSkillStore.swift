@@ -595,7 +595,7 @@ public enum AgentSkillStore {
     "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], \
     "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", \
     "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明", \
-    "price": 数字, "currency": "ISO 4217 币种码如 JPY"}]}\
+    "price": 数字, "price_per_night": 数字, "currency": "ISO 4217 币种码如 JPY"}]}\
     (安排的写法:{"kind": "place / lodging / flight / train / coach", \
     "title", "start", "end", "place", "note", \
     "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
@@ -615,10 +615,14 @@ public enum AgentSkillStore {
     ({"thought": …, "tool": "read_trip", …}),不要塞进 actions 数组;\
     edit_trip 是操作,必须包在 {"actions": [{"action": "edit_trip", …}]} 里,\
     不要直接摊在最外层。
-    - 给**已经记下**的行程项记费用(如"清水寺门票 500 日元""这家酒店一晚 1200""机票花了 3200")\
-    → edit_trip 的 update 里给这一项写 price 和 currency(用户没说币种时按这趟旅行目的地的\
-    当地货币,拿不准就用人民币 CNY),其他字段不写;同样必须先 read_trip 拿 id。\
-    航班只能这样补费用和备注,时刻、座位这些不能改。
+    - 给**已经记下**的行程项记费用(如"清水寺门票 500 日元""xx 酒店 2 天一共花了 2000 元"\
+    "机票花了 3200")→ edit_trip 的 update 里给这一项写费用和 currency,其他字段不写;\
+    同样必须先 read_trip 拿 id。航班只能这样补费用和备注,时刻、座位这些不能改。\
+    price 是**这一项的总价**;用户报的是住宿**每晚**的价格("一晚 800")时改写 price_per_night,\
+    不要自己乘,app 会按记下的入住晚数算总价。用户说的天数/晚数和记下的入住退房对不上时\
+    (说"2 天一共 2000",记的是住 3 晚),照样只记钱,**不要**改入住/退房时间——要改时间用户会明说。\
+    币种:"元""块""人民币"是 CNY,"日元""円"是 JPY,"美元""刀"是 USD;只有完全没说货币单位\
+    时才按这趟旅行目的地的当地货币,拿不准就用 CNY。
     - "某天重新安排"= 删掉那天要换掉的、加上新的;那天用户没说要换的保持不动。\
     新加的安排按地理位置就近串起来,避开同一天其他项(尤其航班、住宿入住)的时间,\
     start 必填,日期落在要调整的那一天。

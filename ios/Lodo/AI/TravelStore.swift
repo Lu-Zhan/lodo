@@ -972,7 +972,9 @@ enum TravelStore {
                 item, kind: item.travelKind ?? .place, title: change.title ?? item.title,
                 note: change.note ?? item.summary, code: item.travelCode,
                 start: newStart, end: newEnd,
-                price: change.price ?? item.travelPrice,
+                // 总价;只给了每晚价格时按(改完之后的)入住晚数乘出来。
+                price: change.resolvedPrice(kind: item.travelKind ?? .place, start: newStart, end: newEnd)
+                    ?? item.travelPrice,
                 // 给了价格没给币种:沿用原来的币种(原来也没有就留空,界面按默认币种显示)。
                 currency: change.currency ?? item.travelCurrency,
                 placeName: change.placeName ?? item.travelPlaceName,

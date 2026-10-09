@@ -33,13 +33,17 @@ public struct TripEditUpdate: Codable, Equatable, Sendable {
     public var start: Date?
     public var end: Date?
     public var placeName: String?
-    /// 费用(门票、房费、机票价……)。给已经记下的行程项补/改花了多少钱走这两个字段。
+    /// 费用(门票、房费、机票价……),**这一项的总价**(消费页按总价加)。给已经记下的
+    /// 行程项补/改花了多少钱走这两个字段。
     public var price: Double?
     public var currency: String?
+    /// 用户报的是每晚的价格(「一晚 800」):app 按记下的入住晚数乘成总价(`resolvedPrice`),
+    /// 不让模型自己乘——它会把单价直接当总价存(实测 3/3)。
+    public var pricePerNight: Double?
 
     public init(id: UUID, title: String? = nil, note: String? = nil, start: Date? = nil,
                 end: Date? = nil, placeName: String? = nil, price: Double? = nil,
-                currency: String? = nil) {
+                currency: String? = nil, pricePerNight: Double? = nil) {
         self.id = id
         self.title = title
         self.note = note
@@ -48,11 +52,25 @@ public struct TripEditUpdate: Codable, Equatable, Sendable {
         self.placeName = placeName
         self.price = price
         self.currency = currency
+        self.pricePerNight = pricePerNight
     }
 
     public var isEmpty: Bool {
         title == nil && note == nil && start == nil && end == nil && placeName == nil
-            && price == nil && currency == nil
+            && price == nil && currency == nil && pricePerNight == nil
+    }
+
+    /// 写进这一项的总价。给了总价就用总价;只给了每晚价格时按入住晚数乘(住宿才有"晚",
+    /// 别的类型当成总价;没记退房时间、或者算出来不到一晚按一晚)。都没给返回 nil(价格不动)。
+    /// start/end 用**改完之后**的入住/退房时间。
+    public func resolvedPrice(kind: TravelItemKind, start: Date?, end: Date?,
+                              calendar: Calendar = .current) -> Double? {
+        if let price { return price }
+        guard let pricePerNight else { return nil }
+        guard kind == .lodging, let start, let end else { return pricePerNight }
+        let nights = calendar.dateComponents([.day], from: calendar.startOfDay(for: start),
+                                             to: calendar.startOfDay(for: end)).day ?? 0
+        return pricePerNight * Double(max(nights, 1))
     }
 
     /// 只补/改费用和备注,不动时间、地点、名称。航班允许这一种改法:时刻和座位来自订单不让 AI

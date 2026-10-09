@@ -898,7 +898,8 @@ public enum DeepSeekClient {
             let update = TripEditUpdate(
                 id: id, title: text(entry, "title"), note: text(entry, "note"),
                 start: start, end: end, placeName: text(entry, "place"),
-                price: planPrice(entry["price"]), currency: text(entry, "currency")?.uppercased())
+                price: planPrice(entry["price"]), currency: text(entry, "currency")?.uppercased(),
+                pricePerNight: planPrice(entry["price_per_night"]))
             return update.isEmpty ? nil : update
         }
         // 同一项既删又改:以删为准,改那条丢掉。

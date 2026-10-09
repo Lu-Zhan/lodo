@@ -151,6 +151,22 @@ class AgentProtocolTest {
         assertEquals(3200.0, edit.updates[1].price!!, 0.0)
     }
 
+    /** 每晚价格按入住晚数乘成总价(同 iOS testResolvedPricePerNight)。 */
+    @Test
+    fun tripEditPricePerNightResolvesToTotal() {
+        val edit = parseTripEdit(JSONObject().put("trip", "东京").put("update", JSONArray()
+            .put(JSONObject().put("id", "h").put("price_per_night", "800").put("currency", "CNY"))))
+        val u = edit.updates.single()
+        val zone = java.time.ZoneId.systemDefault()
+        val checkIn = java.time.LocalDateTime.of(2026, 7, 10, 15, 0).atZone(zone).toInstant().toEpochMilli()
+        val checkOut = java.time.LocalDateTime.of(2026, 7, 13, 11, 0).atZone(zone).toInstant().toEpochMilli()
+        assertEquals(2400.0, u.resolvedPrice(true, checkIn, checkOut)!!, 0.0)
+        assertEquals(800.0, u.resolvedPrice(true, checkIn, null)!!, 0.0)
+        assertEquals(800.0, u.resolvedPrice(false, checkIn, checkOut)!!, 0.0)
+        assertEquals(2000.0, u.copy(price = 2000.0).resolvedPrice(true, checkIn, checkOut)!!, 0.0)
+        assertTrue(u.touchesOnlyCostOrNote)
+    }
+
     @Test
     fun planTripMixedWithCreateIsDropped() {
         val payload = actions(
