@@ -16,6 +16,9 @@ class RoutineCheckWorker(context: Context, params: WorkerParameters) : Coroutine
         val app = applicationContext as LodoApp
         return try {
             app.routineRepository.runDue()
+            runCatching {
+                app.news.runScheduledDigests(app.settings.aiConfig(), app.settings.snapshot().newsDigestTime)
+            }
             Result.success()
         } catch (e: Exception) {
             Result.retry()

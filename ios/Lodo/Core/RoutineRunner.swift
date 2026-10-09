@@ -112,6 +112,7 @@ enum RoutineRunner {
                 break
             }
         }
+        try? await NewsStore.runScheduledDigests(language: AppSettings.language, context: context)
         refreshSchedule(context: context)
     }
 
@@ -326,16 +327,22 @@ enum RoutineRunner {
     /// 上面那条到点提醒兜底。
     private static func scheduleBackgroundRefresh(context: ModelContext) {
         #if os(iOS)
-        let next = allRoutines(context).filter(\.enabled)
+        let routineNext = allRoutines(context).filter(\.enabled)
             .compactMap { $0.nextRun() }.min()
+        let newsNext: Date? = !NewsStore.feeds(in: context).isEmpty && DeepSeekClient.isConfigured
+            ? NewsStore.nextScheduledRun() : nil
+        let next = [routineNext, newsNext].compactMap { $0 }.min()
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: backgroundTaskID)
         guard let next else { return }
         let request = BGAppRefreshTaskRequest(identifier: backgroundTaskID)
         request.earliestBeginDate = next
         try? BGTaskScheduler.shared.submit(request)
         #elseif os(macOS)
-        let next = allRoutines(context).filter(\.enabled)
+        let routineNext = allRoutines(context).filter(\.enabled)
             .compactMap { $0.nextRun() }.min()
+        let newsNext: Date? = !NewsStore.feeds(in: context).isEmpty && DeepSeekClient.isConfigured
+            ? NewsStore.nextScheduledRun() : nil
+        let next = [routineNext, newsNext].compactMap { $0 }.min()
         if !macTimerFiring { macTimer?.cancel() }
         guard let next else { return }
         macTimer = Task { @MainActor in

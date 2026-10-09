@@ -410,6 +410,76 @@ enum NewsStore {
     private static let digestKey = "news.digest.cache"
     private static let categoryDigestKey = "news.digest.categories"
     private static let categoryNamesKey = "news.digest.categoryNames"
+    private static let scheduledDayKey = "news.digest.scheduledDay"
+    private static var scheduledRunInProgress = false
+
+    static var scheduledTime: String {
+        let value = UserDefaults.standard.string(forKey: AppSettings.newsDigestTimeKey) ?? "09:00"
+        return value.range(of: #"^([01]\d|2[0-3]):[0-5]\d$"#, options: .regularExpression) == nil
+            ? "09:00" : value
+    }
+
+    private static func todayRunDate(now: Date = .now) -> Date {
+        let pieces = scheduledTime.split(separator: ":").compactMap { Int($0) }
+        return Calendar.current.date(bySettingHour: pieces[0], minute: pieces[1], second: 0,
+                                     of: now) ?? now
+    }
+
+    /// 后台刷新调度用。错过时间且今天尚未生成时立即补做。
+    static func nextScheduledRun(now: Date = .now) -> Date {
+        let due = todayRunDate(now: now)
+        let done = UserDefaults.standard.object(forKey: scheduledDayKey) as? Date
+        if let done, Calendar.current.isDate(done, inSameDayAs: now) {
+            return Calendar.current.date(byAdding: .day, value: 1, to: due) ?? due.addingTimeInterval(86400)
+        }
+        return due > now ? due : now
+    }
+
+    /// 每天同一时间批量整理一次一览、所有活跃 RSS 和内容分类；失败时保留已完成的缓存供下次补做。
+    static func runScheduledDigests(language: AppLanguage, context: ModelContext,
+                                    force: Bool = false) async throws {
+        guard !scheduledRunInProgress else { return }
+        let now = Date()
+        let done = UserDefaults.standard.object(forKey: scheduledDayKey) as? Date
+        if !force {
+            guard now >= todayRunDate(now: now),
+                  done.map({ !Calendar.current.isDate($0, inSameDayAs: now) }) ?? true else { return }
+        }
+        guard DeepSeekClient.isConfigured else { return }
+        scheduledRunInProgress = true
+        defer { scheduledRunInProgress = false }
+        await refreshAll(context: context, force: false)
+        let candidates = digestCandidates(context: context)
+        guard !candidates.isEmpty else {
+            if !force || now >= todayRunDate(now: now) {
+                UserDefaults.standard.set(Date(), forKey: scheduledDayKey)
+            }
+            return
+        }
+        let dueTime = todayRunDate(now: now)
+        if force || (cachedDigest()?.generatedAt ?? .distantPast) < dueTime {
+            _ = try await generateDigest(language: language, context: context)
+        }
+        for feed in feeds(in: context).filter(\.enabled) {
+            try Task.checkCancellation()
+            guard !digestCandidates(context: context, feedUUID: feed.uuid).isEmpty else { continue }
+            if force || (cachedDigest(feedUUID: feed.uuid)?.generatedAt ?? .distantPast) < dueTime {
+                _ = try await generateDigest(language: language, context: context, feedUUID: feed.uuid)
+            }
+        }
+        if force || (cachedCategoryDigests()?.generatedAt ?? .distantPast) < dueTime {
+            guard let categories = try await generateCategoryDigests(language: language,
+                                                                      context: context),
+                  !categories.isEmpty else {
+                throw NSError(domain: "NewsStore", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: "暂时无法按内容分类,稍后会重试。"])
+            }
+        }
+        if !force || now >= todayRunDate(now: now) {
+            UserDefaults.standard.set(Date(), forKey: scheduledDayKey)
+        }
+        NotificationCenter.default.post(name: .newsDigestsUpdated, object: nil)
+    }
 
     private struct DigestCache: Codable {
         var day: Date
@@ -499,4 +569,8 @@ enum NewsStore {
         }
         return categories
     }
+}
+
+extension Notification.Name {
+    static let newsDigestsUpdated = Notification.Name("newsDigestsUpdated")
 }

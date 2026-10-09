@@ -49,6 +49,7 @@ public enum AppSettings {
     /// 新闻「阅读设置」(`NewsReadingSettings`):AI 总结用什么语言、正文字号、左右边距。
     /// 纯展示/本机偏好,不进备份。
     public static let newsSummaryLanguageKey = "newsSummaryLanguage"
+    public static let newsDigestTimeKey = "newsDigestTime"
     public static let newsFontSizeKey = "newsFontSize"
     public static let newsMarginKey = "newsMargin"
 

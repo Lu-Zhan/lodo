@@ -35,6 +35,7 @@ struct NewsListView: View {
     @Environment(\.sidebarChrome) private var sidebarChrome
     @Environment(\.sectionIsActive) private var sectionIsActive
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
+    @AppStorage(AppSettings.newsDigestTimeKey) private var digestTimeRaw = "09:00"
     @AppStorage(AppSettings.accentPaletteKey) private var accentPaletteRaw =
         AccentPalette.terracotta.rawValue
 
@@ -73,18 +74,6 @@ struct NewsListView: View {
     @State private var editingFeed: NewsFeed?
     @State private var renamingCategory: String?
     @State private var categoryRenameText = ""
-
-    private enum SummarySection: String, CaseIterable, Identifiable {
-        case overview, byFeed, byCategory
-        var id: String { rawValue }
-        var title: String {
-            switch self {
-            case .overview: return "一览"
-            case .byFeed: return "分 RSS"
-            case .byCategory: return "按内容"
-            }
-        }
-    }
 
     private struct RoutineSheet: Identifiable {
         let routine: AIRoutine
@@ -166,11 +155,21 @@ struct NewsListView: View {
                     emptyState
                 } else {
                     Section {
-                        Picker("筛选", selection: $readFilter) {
-                            ForEach(ReadFilter.allCases) { Text($0.title).tag($0) }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(ReadFilter.allCases) { filter in
+                                    Button { readFilter = filter } label: {
+                                        Text(filter.title)
+                                            .font(.subheadline.weight(readFilter == filter ? .semibold : .regular))
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 7)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(readFilter == filter ? accentPalette.accent : .secondary)
+                                }
+                            }
+                            .padding(.horizontal, 20)
                         }
-                        .segmentedPickerStyle()
-                        .standaloneSwitchLayout()
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                         .listRowSeparator(.hidden)
@@ -235,24 +234,30 @@ struct NewsListView: View {
                     .tint(accentPalette.accent)
                     .environment(\.lodoAccent, accentPalette)
             }
-            .task(id: sectionIsActive) {
+            .task(id: "\(sectionIsActive)-\(digestTimeRaw)") {
                 // 页面每次切回来时按需刷一次(抓过不到半小时的源会被跳过)。
                 guard sectionIsActive else { return }
                 await refresh(force: false)
+                try? await NewsStore.runScheduledDigests(language: language, context: context)
+                while !Task.isCancelled {
+                    let remaining = NewsStore.nextScheduledRun().timeIntervalSinceNow
+                    let seconds = remaining > 0 ? remaining : 300
+                    try? await Task.sleep(for: .seconds(seconds))
+                    if Task.isCancelled { break }
+                    try? await NewsStore.runScheduledDigests(language: language, context: context)
+                }
             }
             .onAppear {
-                if digest == nil, let cached = NewsStore.cachedDigest() {
-                    digest = cached.digest
-                    digestGeneratedAt = cached.generatedAt
-                }
-                if let cached = NewsStore.cachedCategoryDigests() {
-                    categories = cached.categories
-                    categoriesGeneratedAt = cached.generatedAt
-                    if selectedCategory == nil { selectedCategory = cached.categories.first?.name }
-                }
+                reloadDigestCaches()
                 #if DEBUG
                 applyDemoArgumentsIfNeeded()
                 #endif
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .newsDigestsUpdated)) { _ in
+                reloadDigestCaches()
+            }
+            .onChange(of: feeds.map { "\($0.uuid):\($0.enabled)" }) { _, _ in
+                RoutineRunner.refreshSchedule(context: context)
             }
         }
         #if os(macOS)
@@ -396,8 +401,17 @@ struct NewsListView: View {
                 .listRowSeparator(.hidden)
         } else {
             VStack(alignment: .leading, spacing: 18) {
-                summaryContent(digest, title: "一览", generatedAt: digestGeneratedAt,
-                               section: .overview)
+                HStack {
+                    Button("每日 \(digestTimeRaw) 统一总结") {
+                        showReadingSettings = true
+                    }
+                    .font(.footnote)
+                    Spacer()
+                    Button("立即更新全部") { generateDigest() }
+                        .font(.subheadline)
+                        .disabled(digestTask != nil)
+                }
+                summaryContent(digest, title: "一览", generatedAt: digestGeneratedAt)
                 Divider()
                 Text("分 RSS").font(.headline)
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -413,7 +427,7 @@ struct NewsListView: View {
                     }
                 }
                 summaryContent(feedDigest, title: feeds.first { $0.uuid == summaryFeed }?.title ?? "选择来源",
-                               generatedAt: feedDigestGeneratedAt, section: .byFeed)
+                               generatedAt: feedDigestGeneratedAt)
                 Divider()
                 HStack {
                     Text("按内容").font(.headline)
@@ -445,7 +459,7 @@ struct NewsListView: View {
                 }
                 let category = categories.first { $0.name == selectedCategory } ?? categories.first
                 summaryContent(category?.digest, title: category?.name ?? "分类总结",
-                               generatedAt: categoriesGeneratedAt, section: .byCategory)
+                               generatedAt: categoriesGeneratedAt)
                 if digestTask != nil {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
@@ -478,8 +492,7 @@ struct NewsListView: View {
     }
 
     @ViewBuilder
-    private func summaryContent(_ value: NewsDigest?, title: String, generatedAt: Date?,
-                                section: SummarySection) -> some View {
+    private func summaryContent(_ value: NewsDigest?, title: String, generatedAt: Date?) -> some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
@@ -489,12 +502,6 @@ struct NewsListView: View {
                 }
             }
             Spacer()
-            if value != nil && digestTask == nil {
-                Button { generateDigest(section) } label: {
-                    Label("重新生成", systemImage: "arrow.clockwise").labelStyle(.iconOnly)
-                }
-                .pressable()
-            }
         }
         if let value {
             if !value.overview.isEmpty {
@@ -505,11 +512,8 @@ struct NewsListView: View {
                 todayParagraph(index: index, item: item)
             }
         } else if digestTask == nil {
-            Button { generateDigest(section) } label: {
-                Label("生成总结", systemImage: "sparkles").font(.body.weight(.semibold))
-            }
-            .pressable()
-            .disabled(articles.isEmpty)
+            Text("到每日总结时间后自动生成。")
+                .font(.subheadline).foregroundStyle(.secondary)
         }
     }
 
@@ -556,43 +560,33 @@ struct NewsListView: View {
         (item.articleIDs ?? []).compactMap { id in articles.first { $0.uuid == id } }
     }
 
-    private func generateDigest(_ section: SummarySection) {
+    private func generateDigest() {
         digestError = nil
         digestTask = Task {
             do {
-                switch section {
-                case .overview:
-                    if let result = try await NewsStore.generateDigest(language: language, context: context) {
-                        digest = result
-                        digestGeneratedAt = Date()
-                    } else { digestError = "最近 24 小时没有文章。" }
-                case .byFeed:
-                    guard let feedID = summaryFeed else {
-                        digestError = "还没有启用的订阅。"
-                        break
-                    }
-                    if let result = try await NewsStore.generateDigest(language: language,
-                                                                        context: context, feedUUID: feedID) {
-                        feedDigest = result
-                        feedDigestGeneratedAt = Date()
-                    } else { digestError = "这个来源最近 24 小时没有文章。" }
-                case .byCategory:
-                    if let result = try await NewsStore.generateCategoryDigests(language: language,
-                                                                                  context: context) {
-                        categories = result
-                        categoriesGeneratedAt = Date()
-                        if result.isEmpty { digestError = "暂时无法按内容分类,可以重新生成。" }
-                        if !result.contains(where: { $0.name == selectedCategory }) {
-                            selectedCategory = result.first?.name
-                        }
-                    } else { digestError = "最近 24 小时没有文章。" }
-                }
+                try await NewsStore.runScheduledDigests(language: language, context: context, force: true)
+                reloadDigestCaches()
+                if digest == nil { digestError = "最近 24 小时没有文章。" }
             } catch is CancellationError {
             } catch {
                 digestError = error.localizedDescription
             }
             digestTask = nil
         }
+    }
+
+    private func reloadDigestCaches() {
+        let overview = NewsStore.cachedDigest()
+        digest = overview?.digest
+        digestGeneratedAt = overview?.generatedAt
+        let grouped = NewsStore.cachedCategoryDigests()
+        categories = grouped?.categories ?? []
+        categoriesGeneratedAt = grouped?.generatedAt
+        if !categories.contains(where: { $0.name == selectedCategory }) {
+            selectedCategory = categories.first?.name
+        }
+        if summaryFeed == nil { summaryFeed = feeds.first(where: \.enabled)?.uuid }
+        loadFeedDigest()
     }
 
     private func loadFeedDigest() {
@@ -630,7 +624,7 @@ struct NewsListView: View {
             Button {
                 showReadingSettings = true
             } label: {
-                Label("阅读设置", systemImage: "textformat.size")
+                Label("新闻设置", systemImage: "textformat.size")
             }
             Button {
                 path = [.feeds]

@@ -125,6 +125,7 @@ data class Settings(
     val calendarViewMode: String = "agenda",
     /** 新闻阅读:总结语言(app/zh/en/ja/ko/source)、字号档(0..4)、边距档(0..2)。 */
     val newsSummaryLanguage: String = "",
+    val newsDigestTime: String = "09:00",
     val newsFontSize: Int = 2,
     val newsMargin: Int = 1,
     /** 当前服务商有内置 key 时直接用它,默认开(同 iOS useBuiltInKey)。 */
@@ -168,6 +169,7 @@ class SettingsRepository(private val context: Context) {
         val NEWS_FONT_SIZE = intPreferencesKey("newsFontSize")
         val NEWS_MARGIN = intPreferencesKey("newsMargin")
         val NEWS_SUMMARY_LANGUAGE = stringPreferencesKey("newsSummaryLanguage")
+        val NEWS_DIGEST_TIME = stringPreferencesKey("newsDigestTime")
         val USE_BUILT_IN_KEY = booleanPreferencesKey("useBuiltInKey")
         /** 旧版单一 DeepSeek key,读取时兼容。 */
         val API_KEY_ENCRYPTED = stringPreferencesKey("apiKeyEncrypted")
@@ -215,6 +217,7 @@ class SettingsRepository(private val context: Context) {
             overviewLayout = p[Keys.OVERVIEW_LAYOUT] ?: "",
             calendarViewMode = p[Keys.CALENDAR_VIEW_MODE] ?: "agenda",
             newsSummaryLanguage = (p[Keys.NEWS_SUMMARY_LANGUAGE] ?: "").let { if (it == "app") "" else it },
+            newsDigestTime = p[Keys.NEWS_DIGEST_TIME] ?: "09:00",
             newsFontSize = p[Keys.NEWS_FONT_SIZE] ?: 2,
             newsMargin = p[Keys.NEWS_MARGIN] ?: 1,
             useBuiltInKey = p[Keys.USE_BUILT_IN_KEY] ?: true,
@@ -328,6 +331,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setCalendarViewMode(v: String) { context.dataStore.edit { it[Keys.CALENDAR_VIEW_MODE] = v } }
     suspend fun setNewsFontSize(v: Int) { context.dataStore.edit { it[Keys.NEWS_FONT_SIZE] = v.coerceIn(0, 4) } }
     suspend fun setNewsSummaryLanguage(v: String) { context.dataStore.edit { it[Keys.NEWS_SUMMARY_LANGUAGE] = v } }
+    suspend fun setNewsDigestTime(v: String) { context.dataStore.edit { it[Keys.NEWS_DIGEST_TIME] = v } }
     suspend fun setNewsMargin(v: Int) { context.dataStore.edit { it[Keys.NEWS_MARGIN] = v.coerceIn(0, 2) } }
 
     suspend fun setNotificationPermissionDenied(denied: Boolean) {

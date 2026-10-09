@@ -12,6 +12,7 @@ import com.lodo.app.core.dedupeKey
 import com.lodo.app.data.toEpochMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -19,6 +20,7 @@ import org.json.JSONObject
 import java.nio.charset.Charset
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -28,6 +30,7 @@ import java.util.concurrent.TimeUnit
  */
 class NewsRepository(private val context: Context, private val db: LodoDatabase) {
     private val dao get() = db.newsDao()
+    private val scheduledMutex = Mutex()
 
     data class Preset(val title: String, val url: String, val kind: String)
 
@@ -335,5 +338,39 @@ class NewsRepository(private val context: Context, private val db: LodoDatabase)
             if (item.optString("name") == old) item.put("name", name)
         }
         preferences.edit().putString("categories", cache.toString()).apply()
+    }
+
+    /** 同一个时间槽统一生成一览、各来源和内容分类；失败后保留已完成缓存供下次补做。 */
+    fun scheduledDoneToday(): Boolean = context.getSharedPreferences("news", 0)
+        .getString("scheduledDay", null) == LocalDate.now().toString()
+
+    suspend fun runScheduledDigests(config: AIConfig, time: String, force: Boolean = false) {
+        val due = runCatching { LocalTime.parse(time) }.getOrDefault(LocalTime.of(9, 0))
+        val day = LocalDate.now().toString()
+        val dueMillis = LocalDate.now().atTime(due).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val preferences = context.getSharedPreferences("news", 0)
+        if (!force && (LocalTime.now().isBefore(due) || preferences.getString("scheduledDay", null) == day)) return
+        scheduledMutex.lock()
+        try {
+            if (!force && preferences.getString("scheduledDay", null) == day) return
+            refresh()
+            if (digestCandidates().isEmpty()) {
+                if (!force || !LocalTime.now().isBefore(due)) {
+                    preferences.edit().putString("scheduledDay", day).apply()
+                }
+                return
+            }
+            if (force || (cachedDigest()?.generatedAt ?: 0L) < dueMillis) generateDigest(config)
+            feeds().filter { it.enabled }.forEach { feed ->
+                if (digestCandidates(feedUuid = feed.uuid).isNotEmpty() &&
+                    (force || (cachedDigest(feed.uuid)?.generatedAt ?: 0L) < dueMillis)) generateDigest(config, feed.uuid)
+            }
+            if (force || (cachedCategories()?.generatedAt ?: 0L) < dueMillis) generateCategories(config)
+            if (!force || !LocalTime.now().isBefore(due)) {
+                preferences.edit().putString("scheduledDay", day).apply()
+            }
+        } finally {
+            scheduledMutex.unlock()
+        }
     }
 }

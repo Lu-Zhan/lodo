@@ -726,7 +726,7 @@ struct TravelDetailView: View {
                         .foregroundStyle(.secondary)
                         .travelPanelRow(group: "transport")
                 } else {
-                    ForEach(transport) { entry in entryRow(entry, group: "transport") }
+                    ForEach(transport) { entry in transportOverviewRow(entry) }
                 }
             } header: {
                 Label("交通", systemImage: "airplane")
@@ -1746,6 +1746,130 @@ struct TravelDetailView: View {
     }
 
     // MARK: - 行
+
+    /// 总览交通卡:先看航线与两端当地时间,再看航站楼/登机口等已有信息。
+    private func transportOverviewRow(_ entry: TravelEntry) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Button { select(entry) } label: {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 7) {
+                        Image(systemName: entry.symbolName).foregroundStyle(.tint)
+                        Text(entry.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        if let code = entry.code, !code.isEmpty {
+                            Text(code).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if let status = entry.flight?.status, showsStatus(entry) {
+                            FlightStatusBadge(status: status)
+                        }
+                    }
+                    HStack(alignment: .top, spacing: 6) {
+                        transportEndpoint(entry, departure: true)
+                        Spacer(minLength: 0)
+                        Image(systemName: entry.symbolName)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .padding(.top, 6)
+                        Spacer(minLength: 0)
+                        transportEndpoint(entry, departure: false)
+                    }
+                    if let metadata = transportMetadata(entry) {
+                        Text(metadata)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pressableCard()
+            Button { open(entry) } label: {
+                Image(systemName: "info.circle").font(.body).foregroundStyle(.tint)
+            }
+            .pressable()
+            .accessibilityLabel("详情")
+        }
+        .travelPanelRow(group: "transport", selected: isSelected(entry))
+        .swipeActions(edge: .trailing) {
+            if let item = item(for: entry) {
+                Button(role: .destructive) { TravelStore.remove(item, context: context) } label: {
+                    Label("删除", systemImage: "trash")
+                }
+                Button { TravelStore.remove(item, keepMemory: true, context: context) } label: {
+                    Label("移出行程", systemImage: "tray.and.arrow.up")
+                }
+                .tint(LodoColor.neutralAction)
+            }
+        }
+    }
+
+    private func transportEndpoint(_ entry: TravelEntry, departure: Bool) -> some View {
+        let code = departure ? entry.flight?.departureCode : entry.flight?.arrivalCode
+        let place = departure ? entry.originName : entry.placeName
+        let date = departure ? entry.start : entry.end
+        let zone = departure ? entry.startTimeZone : entry.endTimeZone
+        let primary = [code, place].compactMap { $0 }.first(where: { !$0.isEmpty }) ?? "—"
+        return VStack(alignment: departure ? .leading : .trailing, spacing: 3) {
+            Text(primary)
+                .font(.title3.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            if let place, !place.isEmpty, place != primary {
+                Text(place).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Text(transportLocalDate(date, zone: zone))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(transportLocalTime(date, zone: zone))
+                .font(.title3.weight(.semibold).monospacedDigit())
+            Text(LocalizedStringKey(departure
+                 ? (entry.kind == .flight ? "起飞" : "出发")
+                 : (entry.kind == .flight ? "落地" : "到达")))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: departure ? .leading : .trailing)
+    }
+
+    private func transportLocalTime(_ date: Date?, zone: TimeZone?) -> String {
+        guard let date else { return "—" }
+        let formatter = DateFormatter()
+        formatter.timeZone = zone ?? .current
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+
+    private func transportLocalDate(_ date: Date?, zone: TimeZone?) -> String {
+        guard let date else { return "时间待定" }
+        let formatter = DateFormatter()
+        formatter.locale = language.locale
+        formatter.timeZone = zone ?? .current
+        formatter.setLocalizedDateFormatFromTemplate("MMMd")
+        return formatter.string(from: date)
+    }
+
+    private func transportMetadata(_ entry: TravelEntry) -> String? {
+        guard let info = entry.flight else { return nil }
+        let values: [String?]
+        switch entry.kind {
+        case .flight:
+            values = [info.departureTerminal.map { "出发航站楼 \($0)" },
+                      info.gate.map { "登机口 \($0)" },
+                      info.arrivalTerminal.map { "到达航站楼 \($0)" },
+                      info.seat.map { "座位 \($0)" }]
+        case .train:
+            values = [info.platform.map { "站台 \($0)" }, info.gate.map { "检票口 \($0)" },
+                      info.carriage.map { "车厢 \($0)" }, info.seat.map { "座位 \($0)" }]
+        case .coach:
+            values = [info.platform.map { "上车点 \($0)" }, info.gate.map { "检票口 \($0)" },
+                      info.seat.map { "座位 \($0)" }]
+        default: values = []
+        }
+        let text = values.compactMap { $0 }.joined(separator: " · ")
+        return text.isEmpty ? nil : text
+    }
 
     /// `night` 只有按天视图里的住宿才传:那一晚是入住当晚 / 最后一晚时各挂一枚标签。
     /// `group` 标出这一行属于哪一组(哪一天、交通、待安排……),同组的行在列表背后

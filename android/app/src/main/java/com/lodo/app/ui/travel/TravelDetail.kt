@@ -351,10 +351,7 @@ private fun OverviewTab(entries: List<TravelEntry>, open: (TravelEntry) -> Unit,
             GroupCard(title = L("交通", "Transport")) {
                 transports.forEachIndexed { i, e ->
                     if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp))
-                    LodoRow(e.title + (e.code?.let { " · $it" } ?: ""), icon = kindIcon(e.kind), onClick = { open(e) },
-                        subtitle = listOfNotNull(e.start?.format(dayFmt), if (e.originName != null || e.placeName != null) "${e.originName ?: "?"} → ${e.placeName ?: "?"}" else null,
-                            e.transport?.let { t -> listOfNotNull(t.gate?.let { L("登机口/检票口 $it", "Gate $it") }, t.seat?.let { L("座位 $it", "Seat $it") }).joinToString(" ") }?.takeIf { it.isNotBlank() }
-                        ).joinToString(" · "))
+                    TransportOverviewRow(e, onClick = { open(e) }, onInfo = { info(e) })
                 }
             }
         }
@@ -373,6 +370,70 @@ private fun OverviewTab(entries: List<TravelEntry>, open: (TravelEntry) -> Unit,
                 pending.forEachIndexed { i, e -> if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp)); EntryRow(e, { open(e) }, onInfo = { info(e) }) }
             }
         }
+    }
+}
+
+/** 总览里的交通行:航线与两端当地时刻优先,可用的航站楼/站台信息放在下方。 */
+@Composable
+private fun TransportOverviewRow(e: TravelEntry, onClick: () -> Unit, onInfo: () -> Unit) {
+    val details = e.transport
+    val departure = details?.departureCode?.takeIf { it.isNotBlank() } ?: e.originName ?: "—"
+    val arrival = details?.arrivalCode?.takeIf { it.isNotBlank() } ?: e.placeName ?: "—"
+    val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
+    val dayFormat = com.lodo.app.ui.appFormatter(L("M月d日", "MMM d"))
+    val isFlight = e.kind == TravelItemKind.FLIGHT
+    val metadata = when (e.kind) {
+        TravelItemKind.FLIGHT -> listOfNotNull(details?.departureTerminal?.let { L("出发航站楼 $it", "Departure terminal $it") },
+            details?.gate?.let { L("登机口 $it", "Gate $it") },
+            details?.arrivalTerminal?.let { L("到达航站楼 $it", "Arrival terminal $it") },
+            details?.seat?.let { L("座位 $it", "Seat $it") })
+        TravelItemKind.TRAIN -> listOfNotNull(details?.platform?.let { L("站台 $it", "Platform $it") },
+            details?.gate?.let { L("检票口 $it", "Gate $it") }, details?.carriage?.let { L("车厢 $it", "Car $it") },
+            details?.seat?.let { L("座位 $it", "Seat $it") })
+        TravelItemKind.COACH -> listOfNotNull(details?.platform?.let { L("上车点 $it", "Boarding point $it") },
+            details?.gate?.let { L("检票口 $it", "Gate $it") }, details?.seat?.let { L("座位 $it", "Seat $it") })
+        else -> emptyList()
+    }
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(kindIcon(e.kind), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(e.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, modifier = Modifier.weight(1f))
+            e.code?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onInfo, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Outlined.Info, L("详情", "Details"), modifier = Modifier.size(18.dp))
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            TransportEndpoint(departure, e.originName, e.start, isDeparture = true, isFlight = isFlight,
+                timeFormat = timeFormat, dayFormat = dayFormat, modifier = Modifier.weight(1f))
+            Icon(kindIcon(e.kind), null, tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(top = 9.dp).size(17.dp))
+            TransportEndpoint(arrival, e.placeName, e.end, isDeparture = false, isFlight = isFlight,
+                timeFormat = timeFormat, dayFormat = dayFormat, modifier = Modifier.weight(1f))
+        }
+        if (metadata.isNotEmpty()) Text(metadata.joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+    }
+}
+
+@Composable
+private fun TransportEndpoint(primary: String, place: String?, at: LocalDateTime?, isDeparture: Boolean,
+                              isFlight: Boolean, timeFormat: DateTimeFormatter, dayFormat: DateTimeFormatter,
+                              modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = if (isDeparture) Alignment.Start else Alignment.End) {
+        Text(primary, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+        if (!place.isNullOrBlank() && place != primary) Text(place, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(at?.format(dayFormat) ?: L("时间待定", "Time TBD"), style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(at?.format(timeFormat) ?: "—", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(if (isDeparture) { if (isFlight) L("起飞", "Takeoff") else L("出发", "Departure") }
+             else { if (isFlight) L("落地", "Landing") else L("到达", "Arrival") },
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -886,4 +947,3 @@ fun TripEditSheet(existing: TripEntity?, vm: TravelViewModel, onSaved: (String) 
         }
     }
 }
-

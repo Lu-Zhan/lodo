@@ -1,11 +1,14 @@
 import SwiftUI
+import SwiftData
 import LodoCore
 
 /// 新闻的「阅读设置」:AI 总结用什么语言、正文字号、左右边距。新闻页右上角菜单和
 /// 文章页右上角的「Aa」都打开它;改动即时生效(文章页开着时直接看到变化)。
 struct NewsReadingSettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @AppStorage(AppSettings.newsSummaryLanguageKey) private var summaryLanguageRaw = ""
+    @AppStorage(AppSettings.newsDigestTimeKey) private var digestTime = "09:00"
     @AppStorage(AppSettings.newsFontSizeKey) private var fontSizeRaw = NewsFontSize.standard.rawValue
     @AppStorage(AppSettings.newsMarginKey) private var marginRaw = NewsMargin.standard.rawValue
 
@@ -22,7 +25,24 @@ struct NewsReadingSettingsView: View {
                         }
                     }
                 } footer: {
-                    Text("文章的 AI 总结和「今日」总结都用这种语言写。已经总结过的文章不会自动重写,可以在文章里的 AI 总结下点「重新总结」。")
+                    Text("文章和新闻页的总结都用这种语言写。已经总结过的文章不会自动重写,可以在文章里点「重新总结」。")
+                }
+
+                Section {
+                    DatePicker("每日总结时间", selection: Binding(
+                        get: {
+                            let parts = digestTime.split(separator: ":").compactMap { Int($0) }
+                            return Calendar.current.date(bySettingHour: parts.count == 2 ? parts[0] : 9,
+                                                         minute: parts.count == 2 ? parts[1] : 0,
+                                                         second: 0, of: Date()) ?? Date()
+                        },
+                        set: { date in
+                            let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                            digestTime = String(format: "%02d:%02d", parts.hour ?? 9, parts.minute ?? 0)
+                            RoutineRunner.refreshSchedule(context: context)
+                        }), displayedComponents: .hourAndMinute)
+                } footer: {
+                    Text("每天到这个时间统一整理一览、各 RSS 来源和内容分类。系统若延迟后台运行,下次打开应用会补做。")
                 }
 
                 Section("字号") {
@@ -76,7 +96,7 @@ struct NewsReadingSettingsView: View {
                     .animation(.lodoAware(.snappy), value: marginRaw)
                 }
             }
-            .pageTitle("阅读设置")
+            .pageTitle("新闻设置")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
