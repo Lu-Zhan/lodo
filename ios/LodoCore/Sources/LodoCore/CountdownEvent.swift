@@ -384,3 +384,81 @@ public enum CountdownPlan {
         return (parts[0], parts[1])
     }
 }
+
+/// 倒数日的计数方式:页面上点一下日期就换一种——「120 天」→「3 个月 28 天」→
+/// 「1 年 3 个月 28 天」。纯展示偏好,rawValue 存在本机(按条目记),别改。
+public enum CountdownUnit: String, CaseIterable, Sendable {
+    case days
+    case months
+    case years
+}
+
+/// 一段间隔按年/月/日拆开(`unit` 为 `.months` 时 years 恒为 0、月数可以超过 12;
+/// 为 `.days` 时只有 days)。
+public struct CountdownBreakdown: Equatable, Sendable {
+    public let years: Int
+    public let months: Int
+    public let days: Int
+
+    public init(years: Int = 0, months: Int = 0, days: Int) {
+        self.years = years
+        self.months = months
+        self.days = days
+    }
+}
+
+extension CountdownPlan {
+    /// 这一段离的是哪一天:开始类节点看开始那天,结束类看结束那天(同 `spans` 的 dayOf)。
+    private static func anchorDay(_ span: CountdownSpan, _ entry: CountdownEntry) -> Date {
+        switch span.milestone {
+        case .untilStart, .sinceStart: return entry.start
+        case .untilEnd, .sinceEnd: return entry.end ?? entry.start
+        }
+    }
+
+    /// 把 `span` 按日历拆成年/月/日——按真实日历算(1 月 31 日到 2 月 28 日是 28 天,
+    /// 不是"1 个月"),天数总和与 `span.days` 一致。
+    public static func breakdown(_ span: CountdownSpan, entry: CountdownEntry, unit: CountdownUnit,
+                                 now: Date, calendar: Calendar = .current) -> CountdownBreakdown {
+        guard unit != .days, span.days > 0 else { return CountdownBreakdown(days: span.days) }
+        let today = calendar.startOfDay(for: now)
+        let day = calendar.startOfDay(for: anchorDay(span, entry))
+        let (from, to) = day < today ? (day, today) : (today, day)
+        let parts: Set<Calendar.Component> = unit == .years ? [.year, .month, .day] : [.month, .day]
+        let components = calendar.dateComponents(parts, from: from, to: to)
+        return CountdownBreakdown(years: components.year ?? 0, months: components.month ?? 0,
+                                  days: components.day ?? 0)
+    }
+
+    /// 这一段能换出几种**看得出区别**的计数方式:不满一个月只有「天」,不满一年
+    /// 没有「年月日」(否则点一下什么都不变)。
+    public static func units(_ span: CountdownSpan, entry: CountdownEntry, now: Date,
+                             calendar: Calendar = .current) -> [CountdownUnit] {
+        let full = breakdown(span, entry: entry, unit: .years, now: now, calendar: calendar)
+        var units: [CountdownUnit] = [.days]
+        if full.years > 0 || full.months > 0 { units.append(.months) }
+        if full.years > 0 { units.append(.years) }
+        return units
+    }
+
+    /// 实际用哪一种:选的那种这一段用不上(比如选了「年月日」但不满一年)时,
+    /// 退到能用的里面最接近的一种。
+    public static func effectiveUnit(_ chosen: CountdownUnit, span: CountdownSpan,
+                                     entry: CountdownEntry, now: Date,
+                                     calendar: Calendar = .current) -> CountdownUnit {
+        let available = units(span, entry: entry, now: now, calendar: calendar)
+        let order = CountdownUnit.allCases
+        let chosenIndex = order.firstIndex(of: chosen) ?? 0
+        return available.last { (order.firstIndex(of: $0) ?? 0) <= chosenIndex } ?? .days
+    }
+
+    /// 点一下之后换成哪一种:在这一段能用的几种里轮换。
+    public static func nextUnit(after chosen: CountdownUnit, span: CountdownSpan,
+                                entry: CountdownEntry, now: Date,
+                                calendar: Calendar = .current) -> CountdownUnit {
+        let available = units(span, entry: entry, now: now, calendar: calendar)
+        let current = effectiveUnit(chosen, span: span, entry: entry, now: now, calendar: calendar)
+        guard let index = available.firstIndex(of: current) else { return .days }
+        return available[(index + 1) % available.count]
+    }
+}

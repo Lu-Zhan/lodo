@@ -162,3 +162,60 @@ final class CountdownPlanTests: XCTestCase {
         XCTAssertNil(result[2].next)
     }
 }
+
+/// 点日期换计数方式:天 → 月日 → 年月日。
+final class CountdownUnitTests: XCTestCase {
+    let calendar = Calendar.current
+
+    private func date(year: Int = 2026, month: Int = 7, day: Int, hour: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour))!
+    }
+
+    private var now: Date { date(day: 8, hour: 9) }
+
+    func testUpcomingBreaksIntoMonthsAndDays() {
+        let trip = CountdownEntry(title: "旅行", start: date(month: 9, day: 20))
+        let span = CountdownPlan.primary(trip, now: now)
+        XCTAssertEqual(span.days, 74)
+        XCTAssertEqual(CountdownPlan.breakdown(span, entry: trip, unit: .months, now: now),
+                       CountdownBreakdown(months: 2, days: 12))
+        XCTAssertEqual(CountdownPlan.units(span, entry: trip, now: now), [.days, .months])
+    }
+
+    func testPastBreaksIntoYearsMonthsDays() {
+        let together = CountdownEntry(title: "在一起", start: date(year: 2024, month: 5, day: 1))
+        let span = CountdownPlan.primary(together, now: now)
+        XCTAssertEqual(CountdownPlan.breakdown(span, entry: together, unit: .years, now: now),
+                       CountdownBreakdown(years: 2, months: 2, days: 7))
+        XCTAssertEqual(CountdownPlan.breakdown(span, entry: together, unit: .months, now: now),
+                       CountdownBreakdown(months: 26, days: 7))
+        XCTAssertEqual(CountdownPlan.units(span, entry: together, now: now), [.days, .months, .years])
+    }
+
+    func testShortSpanOnlyHasDays() {
+        let exam = CountdownEntry(title: "考试", start: date(day: 20))
+        let span = CountdownPlan.primary(exam, now: now)
+        XCTAssertEqual(CountdownPlan.units(span, entry: exam, now: now), [.days])
+        XCTAssertEqual(CountdownPlan.nextUnit(after: .days, span: span, entry: exam, now: now), .days)
+        XCTAssertEqual(CountdownPlan.effectiveUnit(.years, span: span, entry: exam, now: now), .days)
+    }
+
+    func testCyclingWrapsAroundAndFallsBack() {
+        let trip = CountdownEntry(title: "旅行", start: date(month: 9, day: 20))
+        let span = CountdownPlan.primary(trip, now: now)
+        XCTAssertEqual(CountdownPlan.nextUnit(after: .days, span: span, entry: trip, now: now), .months)
+        XCTAssertEqual(CountdownPlan.nextUnit(after: .months, span: span, entry: trip, now: now), .days)
+        // 选的是「年月日」但不满一年:按「月日」显示,再点回到「天」。
+        XCTAssertEqual(CountdownPlan.effectiveUnit(.years, span: span, entry: trip, now: now), .months)
+        XCTAssertEqual(CountdownPlan.nextUnit(after: .years, span: span, entry: trip, now: now), .days)
+    }
+
+    func testEndMilestoneUsesEndDate() {
+        let holiday = CountdownEntry(title: "长假", start: date(month: 7, day: 1),
+                                     end: date(month: 8, day: 10))
+        let span = CountdownPlan.primary(holiday, now: now)
+        XCTAssertEqual(span.milestone, .untilEnd)
+        XCTAssertEqual(CountdownPlan.breakdown(span, entry: holiday, unit: .months, now: now),
+                       CountdownBreakdown(months: 1, days: 2))
+    }
+}

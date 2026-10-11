@@ -1523,6 +1523,12 @@ ios_view.countdown_archive_3,已归档 · %lld,Archived · %lld,ios_view,倒数�
 ios_view.countdown_archive_4,归档,Archive,ios_view,倒数日:正数日/归档
 ios_view.countdown_archive_5,取消归档,Unarchive,ios_view,倒数日:正数日/归档
 ios_view.countdown_archive_6,"归档后不再显示在列表、小组件和总览里,也不再提醒;在列表最下面「已归档」里可以找回来。","Archived dates leave the list, widgets and Overview and stop reminding you. Find them under Archived at the bottom of the list.",ios_view,倒数日:正数日/归档
+ios_view.countdown_unit_1,已经 %@,%@ since,ios_view,倒数日:点日期切换计数方式
+ios_view.countdown_unit_2,已开始 %@,Started %@ ago,ios_view,倒数日:点日期切换计数方式
+ios_view.countdown_unit_3,已结束 %@,Ended %@ ago,ios_view,倒数日:点日期切换计数方式
+ios_view.countdown_unit_4,%lld 年,%lld yr,ios_view,倒数日:点日期切换计数方式
+ios_view.countdown_unit_5,%lld 个月,%lld mo,ios_view,倒数日:点日期切换计数方式
+ios_view.countdown_unit_6,切换计数方式,Switches how the time is counted,ios_view,倒数日:点日期切换计数方式
 ios_view.agent_library_1,资产已更新,Assets updated,ios_view,AI 结果回复/资产与订阅
 ios_view.agent_library_2,订阅已更新,Subscriptions updated,ios_view,AI 结果回复/资产与订阅
 ios_view.agent_library_3,已添加,Added,ios_view,AI 结果回复/资产与订阅

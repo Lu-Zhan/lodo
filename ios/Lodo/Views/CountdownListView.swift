@@ -3,7 +3,8 @@ import SwiftData
 import LodoCore
 
 /// 「倒数日」页:平级页面(侧栏「日历」下面)。每行一件事:标题、起讫时间,
-/// 右边是离开始/结束还有多久(或已经过去多久)。点一行进编辑,右上角「+」新建——
+/// 右边是离开始/结束还有多久(或已经过去多久)。点一行换一种计数方式(天 → 月日 →
+/// 年月日,按条目记在本机),编辑在左滑按钮里;右上角「+」新建——
 /// AI 接不了倒数日这一棒(`command` 协议里没有这个动作),所以和旅行详情的
 /// 「手动添加」一样,入口必须留着。
 ///
@@ -23,6 +24,9 @@ struct CountdownListView: View {
     @State private var insight: String?
     private static let insightKeyKey = "countdownInsightKey"
     private static let insightTextKey = "countdownInsightText"
+    /// 每条倒数日选的计数方式(uuid → `CountdownUnit.rawValue` 的 JSON):纯展示偏好,
+    /// 只存本机、不进库不备份。
+    @AppStorage("countdownDisplayUnits") private var unitsRaw = ""
     /// 一分钟刷新一次"还有几小时几分"。
     @State private var now = Date()
 
@@ -155,8 +159,15 @@ struct CountdownListView: View {
         // 倒数日用强调色,正数日用另一种颜色,归档的一律灰。
         let accent: Color = event.archived ? .secondary
             : isPast ? LodoColor.positive : lodoAccent.accent
+        let chosen = unit(for: event)
+        func label(_ span: CountdownSpan, hasEnd: Bool) -> String {
+            let effective = CountdownPlan.effectiveUnit(chosen, span: span, entry: entry, now: now)
+            return CountdownText.text(span, hasEnd: hasEnd, breakdown: CountdownPlan.breakdown(
+                span, entry: entry, unit: effective, now: now))
+        }
         return Button {
-            editing = event
+            let next = CountdownPlan.nextUnit(after: chosen, span: spans[0], entry: entry, now: now)
+            withAnimation(.lodoAware(.snappy)) { setUnit(next, for: event) }
         } label: {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -187,13 +198,15 @@ struct CountdownListView: View {
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(CountdownText.text(spans[0], hasEnd: entry.end != nil))
+                    Text(label(spans[0], hasEnd: entry.end != nil))
                         .font(.headline.monospacedDigit())
+                        .contentTransition(.numericText())
                         .foregroundStyle(accent)
                         .multilineTextAlignment(.trailing)
                     if spans.count > 1 {
-                        Text(CountdownText.text(spans[1], hasEnd: true))
+                        Text(label(spans[1], hasEnd: true))
                             .font(.footnote.monospacedDigit())
+                            .contentTransition(.numericText())
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -202,6 +215,7 @@ struct CountdownListView: View {
             .contentShape(Rectangle())
         }
         .pressableCard()
+        .accessibilityHint(Text("切换计数方式"))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 context.delete(event)
@@ -219,8 +233,19 @@ struct CountdownListView: View {
                       systemImage: event.archived ? "tray.and.arrow.up" : "archivebox")
             }
             .tint(LodoColor.neutralAction)
+            Button {
+                editing = event
+            } label: {
+                Label("编辑", systemImage: "pencil")
+            }
+            .tint(.accentColor)
         }
         .contextMenu {
+            Button {
+                editing = event
+            } label: {
+                Label("编辑", systemImage: "pencil")
+            }
             Button {
                 withAnimation(.lodoAware(.snappy)) {
                     event.archived.toggle()
@@ -230,6 +255,25 @@ struct CountdownListView: View {
                 Label(event.archived ? "取消归档" : "归档",
                       systemImage: event.archived ? "tray.and.arrow.up" : "archivebox")
             }
+        }
+    }
+
+    private var units: [String: String] {
+        (try? JSONDecoder().decode([String: String].self, from: Data(unitsRaw.utf8))) ?? [:]
+    }
+
+    private func unit(for event: CountdownEvent) -> CountdownUnit {
+        units[event.uuid.uuidString].flatMap(CountdownUnit.init(rawValue:)) ?? .days
+    }
+
+    private func setUnit(_ unit: CountdownUnit, for event: CountdownEvent) {
+        var all = units
+        // 默认就是「天」,不占地方;顺手清掉已经删掉的条目。
+        let alive = Set(events.map(\.uuid.uuidString))
+        all = all.filter { alive.contains($0.key) }
+        all[event.uuid.uuidString] = unit == .days ? nil : unit.rawValue
+        if let data = try? JSONEncoder().encode(all), let text = String(data: data, encoding: .utf8) {
+            unitsRaw = text
         }
     }
 

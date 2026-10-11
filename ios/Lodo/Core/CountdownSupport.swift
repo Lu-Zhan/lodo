@@ -54,6 +54,43 @@ enum CountdownText {
         }
     }
 
+    /// 换了计数方式的主文案:"还有 2 个月 12 天""已经 2 年 2 个月 7 天"。`breakdown`
+    /// 是天数时、或今天之内(报小时分钟)仍走 `text(_:hasEnd:precise:)`。
+    static func text(_ span: CountdownSpan, hasEnd: Bool, breakdown: CountdownBreakdown,
+                     precise: Bool = true) -> String {
+        guard span.days > 0, breakdown.years > 0 || breakdown.months > 0 else {
+            return text(span, hasEnd: hasEnd, precise: precise)
+        }
+        let duration = breakdownText(breakdown)
+        switch span.milestone {
+        case .untilStart:
+            return hasEnd ? String(localized: "还有 \(duration)开始", bundle: .appLanguage(), locale: locale)
+                : String(localized: "还有 \(duration)", bundle: .appLanguage(), locale: locale)
+        case .sinceStart:
+            return hasEnd ? String(localized: "已开始 \(duration)", bundle: .appLanguage(), locale: locale)
+                : String(localized: "已经 \(duration)", bundle: .appLanguage(), locale: locale)
+        case .untilEnd:
+            return String(localized: "还有 \(duration)结束", bundle: .appLanguage(), locale: locale)
+        case .sinceEnd:
+            return String(localized: "已结束 \(duration)", bundle: .appLanguage(), locale: locale)
+        }
+    }
+
+    /// "1 年 2 个月 3 天";是 0 的那一档不写("1 年 3 天""2 个月")。
+    static func breakdownText(_ breakdown: CountdownBreakdown) -> String {
+        var parts: [String] = []
+        if breakdown.years > 0 {
+            parts.append(String(localized: "\(breakdown.years) 年", bundle: .appLanguage(), locale: locale))
+        }
+        if breakdown.months > 0 {
+            parts.append(String(localized: "\(breakdown.months) 个月", bundle: .appLanguage(), locale: locale))
+        }
+        if breakdown.days > 0 || parts.isEmpty {
+            parts.append(String(localized: "\(breakdown.days) 天", bundle: .appLanguage(), locale: locale))
+        }
+        return parts.joined(separator: " ")
+    }
+
     /// "3 小时 20 分钟" / "45 分钟" / "2 小时"。
     static func durationText(_ minutes: Int) -> String {
         let hours = minutes / 60
