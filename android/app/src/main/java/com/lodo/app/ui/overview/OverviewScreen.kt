@@ -87,6 +87,7 @@ import com.lodo.app.ui.countdown.countdownSpanText
 import com.lodo.app.ui.theme.LodoColor
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import androidx.compose.material.icons.outlined.Newspaper
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
@@ -109,6 +110,7 @@ enum class OverviewKind(val raw: String, val small: Boolean, val icon: ImageVect
     ROUTINES("routines", false, Icons.Outlined.AlarmOn),
     SUGGESTION("suggestion", false, Icons.Filled.AutoAwesome),
     MEMORIES("memories", false, Icons.Outlined.Bookmarks),
+    NEWS("news", false, Icons.Outlined.Newspaper),
     HEALTH("health", false, Icons.Outlined.FavoriteBorder),
     ACTIVITY_RING("activityRing", true, Icons.Outlined.DonutLarge, resizable = true),
     TODAY_PROGRESS("todayProgress", true, Icons.Outlined.TaskAlt, resizable = true),
@@ -126,6 +128,7 @@ enum class OverviewKind(val raw: String, val small: Boolean, val icon: ImageVect
         COUNT_UP -> L("正数日", "Counting up")
         SUGGESTION -> L("处理建议", "Suggestion")
         MEMORIES -> L("今天的记忆", "Today's memories")
+        NEWS -> L("三条要闻", "Top three stories")
         HEALTH -> L("健康", "Health")
         ACTIVITY_RING -> L("活动圆环", "Activity rings")
         TODAY_PROGRESS -> L("今日进度", "Today's progress")
@@ -171,6 +174,47 @@ class OverviewViewModel(application: Application) : AndroidViewModel(application
     /** 圆环/步数趋势用的健康数据;健康开关关着时一次都不读(同 iOS healthEnabled 门控)。 */
     var healthReport by mutableStateOf<com.lodo.app.core.HealthReport?>(null)
         private set
+
+    var newsItems by mutableStateOf<List<DeepSeekClient.NewsDigestItem>>(emptyList())
+        private set
+    var newsPlaceholder by mutableStateOf("正在整理订阅要闻…")
+        private set
+    private var newsLoading = false
+
+    fun loadNews() = viewModelScope.launch {
+        if (newsLoading) return@launch
+        newsLoading = true
+        try {
+            if (app.news.feeds().none { it.enabled }) {
+                newsItems = emptyList()
+                newsPlaceholder = "订阅 RSS 后显示三条要闻"
+                return@launch
+            }
+            val cached = app.news.cachedDigest()
+            newsItems = cached?.digest?.items.orEmpty().take(3)
+            newsPlaceholder = "最近 24 小时暂无可整理的要闻"
+            if (cached != null) return@launch
+            val config = app.settings.aiConfig()
+            if (config.apiKey.isNullOrBlank()) {
+                newsPlaceholder = "配置 AI 后显示三条要闻"
+                return@launch
+            }
+            newsPlaceholder = "正在整理订阅要闻…"
+            app.news.refresh()
+            if (app.news.digestCandidates().isEmpty()) {
+                newsPlaceholder = "最近 24 小时暂无可整理的要闻"
+                return@launch
+            }
+            newsItems = app.news.generateDigest(config).digest.items.take(3)
+            newsPlaceholder = "最近 24 小时暂无可整理的要闻"
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            newsPlaceholder = "暂时无法整理要闻,请到新闻页重试"
+        } finally {
+            newsLoading = false
+        }
+    }
 
     fun loadHealth() = viewModelScope.launch {
         healthReport = if (app.settings.snapshot().healthEnabled && app.health.isAvailable) runCatching { app.health.report(7) }.getOrNull() else null
@@ -238,6 +282,16 @@ fun OverviewScreen(vm: OverviewViewModel = viewModel()) {
     val memories by vm.memories.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
     val layout = remember(settings.overviewLayout) { OverviewKind.decode(settings.overviewLayout) }
+    val newsVisible = layout.any { it.kind == OverviewKind.NEWS && it.visible }
+    LaunchedEffect(newsVisible) { if (newsVisible) vm.loadNews() }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, newsVisible) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (newsVisible && event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.loadNews()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val now = remember { LocalDateTime.now() }
     val today = now.toLocalDate()
     val due = pending.filter { it.toData().isDue(now) }
@@ -377,6 +431,18 @@ fun OverviewScreen(vm: OverviewViewModel = viewModel()) {
                         }
                     }
                     OverviewKind.SUGGESTION -> Widget(kind) { Text(vm.suggestion ?: "", style = MaterialTheme.typography.bodyLarge) }
+                    OverviewKind.NEWS -> Widget(kind, onClick = { shell.go(AppSection.NEWS) }) {
+                        if (vm.newsItems.isEmpty()) {
+                            Text(vm.newsPlaceholder, style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else vm.newsItems.take(3).forEachIndexed { index, item ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("${index + 1}", style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(item.title, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
                     OverviewKind.MEMORIES -> Widget(kind, onClick = { shell.go(AppSection.MEMORY) }) { Text(vm.memorySummary ?: "", style = MaterialTheme.typography.bodyLarge) }
                     OverviewKind.HEALTH -> Widget(kind, onClick = { shell.go(AppSection.HEALTH) }) {
                         Text(vm.health ?: L("打开健康页看看最近的数据", "Open Health to see your recent data"), style = MaterialTheme.typography.bodyLarge)

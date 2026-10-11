@@ -297,7 +297,6 @@ struct ChatRoomView: View {
 
     private func inputBar(_ room: ChatRoom) -> some View {
         HStack(alignment: .bottom, spacing: 8) {
-            aiToggle(room)
             shareMenu
             textCapsule(room)
         }
@@ -306,7 +305,7 @@ struct ChatRoomView: View {
         .padding(.bottom, 12)
     }
 
-    /// 输入栏最左边的「AI」:默认灰色(关),点亮后这台设备每发一条消息都请 AI 看一遍
+    /// 输入框内最左边的「AI」:关闭时淡显,点亮后这台设备每发一条消息都请 AI 看一遍
     /// 聊天记录再回话。开关是每人各自的(`ChatRoom.aiEnabled` 不进共享)。
     private func aiToggle(_ room: ChatRoom) -> some View {
         Button {
@@ -320,17 +319,13 @@ struct ChatRoomView: View {
         } label: {
             Text(verbatim: "AI")
                 .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(room.aiEnabled ? AnyShapeStyle(lodoAccent.onFill) : AnyShapeStyle(.secondary))
-                .frame(width: DesignMetrics.aiInputHeight, height: DesignMetrics.aiInputHeight)
-                .background {
-                    if room.aiEnabled {
-                        Circle().fill(lodoAccent.fill)
-                    } else {
-                        Color.clear.glassBackground(Circle())
-                    }
-                }
+                .foregroundStyle(lodoAccent.onFill)
+                .frame(width: 36, height: 36)
+                .background(lodoAccent.fill, in: Circle())
+                .opacity(room.aiEnabled ? 1 : 0.4)
         }
         .pressable()
+        .hitTarget(visualSize: 36)
         .accessibilityLabel(room.aiEnabled ? "关闭 AI" : "开启 AI")
     }
 
@@ -381,6 +376,7 @@ struct ChatRoomView: View {
 
     private func textCapsule(_ room: ChatRoom) -> some View {
         HStack(alignment: .bottom, spacing: 8) {
+            aiToggle(room)
             TextField("发消息", text: $text, axis: .vertical)
                 .lineLimit(1...5)
                 .focused($inputFocused)
@@ -401,8 +397,7 @@ struct ChatRoomView: View {
             .hitTarget(visualSize: 36)
             .accessibilityLabel("发送")
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 6)
+        .padding(.horizontal, 6)
         .padding(.vertical, 6)
         .frame(minHeight: DesignMetrics.aiInputHeight)
         .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))

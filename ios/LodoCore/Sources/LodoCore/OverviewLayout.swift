@@ -36,6 +36,8 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     case stepsTrend
     /// 正数日:「倒数日」页里已经过去的日子(在一起、入职……)往上数,带下一个周年/整百天。
     case countUp
+    /// RSS 简报中按重要程度排序的前三条,固定整宽。
+    case news
 
     public var title: String {
         switch self {
@@ -54,6 +56,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .weeklyDone: return "本周完成"
         case .stepsTrend: return "步数趋势"
         case .countUp: return "正数日"
+        case .news: return "三条要闻"
         }
     }
 
@@ -74,6 +77,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .weeklyDone: return "chart.bar"
         case .stepsTrend: return "figure.walk"
         case .countUp: return "calendar.badge.checkmark"
+        case .news: return "newspaper"
         }
     }
 
@@ -84,7 +88,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .clock: return [.small]
         case .nextUp, .today, .agenda, .countdown, .countUp,
              .activityRings, .taskProgress, .weeklyDone, .stepsTrend: return [.small, .large]
-        case .due, .routines, .suggestion, .memories, .health: return [.large]
+        case .due, .routines, .suggestion, .memories, .health, .news: return [.large]
         }
     }
 
@@ -135,7 +139,7 @@ public struct OverviewLayout: Equatable, Sendable {
         .init(kind: .weeklyDone), .init(kind: .activityRings),
         .init(kind: .routines, size: .large),
         .init(kind: .suggestion), .init(kind: .memories),
-        .init(kind: .stepsTrend), .init(kind: .health),
+        .init(kind: .stepsTrend), .init(kind: .health), .init(kind: .news),
     ])
 
     /// 从存储的 JSON 恢复。容错:解不开 → 默认布局;重复的种类只留第一个;

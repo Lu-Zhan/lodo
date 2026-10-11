@@ -49,6 +49,9 @@ struct OverviewView: View {
     @State private var editingTask: TaskItem?
     @State private var suggestion: String?
     @State private var memorySummary: String?
+    @State private var newsItems: [NewsDigest.Item] = []
+    @State private var newsPlaceholder = "正在整理订阅要闻…"
+    @State private var newsLoading = false
     @State private var healthTip: String?
     /// 圆环/步数图用的最近 7 天健康汇总;nil = 健康开关关着(那时一次 HealthKit 都不读)。
     @State private var healthReport: HealthReport?
@@ -181,7 +184,7 @@ struct OverviewView: View {
                 guard phase == .active else { return }
                 now = Date()
                 reloadEvents()
-                Task { await loadHealthReport() }
+                Task { await loadHealthReport(); await loadNews() }
             }
             #if os(iOS)
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
@@ -201,6 +204,12 @@ struct OverviewView: View {
                 applyDemoArguments()
                 #endif
             }
+            .task(id: "\(Self.dayFormatter.string(from: now))-\(layout.items.contains { $0.kind == .news && $0.isVisible })") {
+                await loadNews()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .newsDigestsUpdated)) { _ in
+                Task { await loadNews() }
+            }
             .task {
                 now = Date()
                 await loadHealthReport()
@@ -218,6 +227,7 @@ struct OverviewView: View {
             .refreshable {
                 now = Date()
                 reloadEvents()
+                await loadNews(force: true)
                 await loadHealthReport()
                 await loadSuggestion(force: true)
                 await loadMemorySummary(force: true)
@@ -300,6 +310,25 @@ struct OverviewView: View {
     @ViewBuilder
     private func widget(_ item: OverviewWidgetItem) -> some View {
         switch item.kind {
+        case .news:
+            OverviewWidgetCard(kind: .news, trailing: "AI · RSS", action: { chrome?.go(.news) }) {
+                if newsItems.isEmpty {
+                    OverviewEmptyText(text: LocalizedStringKey(newsPlaceholder))
+                } else {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(Array(newsItems.prefix(3).enumerated()), id: \.offset) { index, item in
+                            HStack(alignment: .top, spacing: 10) {
+                                Text("\(index + 1)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Text(item.title)
+                                    .font(.subheadline)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+            }
         case .clock:
             OverviewClockWidget()
         case .nextUp:
@@ -361,6 +390,38 @@ struct OverviewView: View {
                 }) {
                 chrome?.go(.health)
             }
+        }
+    }
+
+    /// 与新闻页共用当天的 AI 简报,前三条已按重要程度排序、合并同一事件。
+    private func loadNews(force: Bool = false) async {
+        guard layout.items.contains(where: { $0.kind == .news && $0.isVisible }),
+              !newsLoading else { return }
+        guard NewsStore.feeds(in: context).contains(where: \.enabled) else {
+            newsItems = []
+            newsPlaceholder = "订阅 RSS 后显示三条要闻"
+            return
+        }
+        let cached = NewsStore.cachedDigest()
+        newsItems = Array((cached?.digest.items ?? []).prefix(3))
+        newsPlaceholder = "最近 24 小时暂无可整理的要闻"
+        if !force, cached != nil { return }
+        guard DeepSeekClient.isConfigured else {
+            newsPlaceholder = "配置 AI 后显示三条要闻"
+            return
+        }
+        newsLoading = true
+        newsPlaceholder = "正在整理订阅要闻…"
+        defer { newsLoading = false }
+        await NewsStore.refreshAll(context: context, force: force)
+        guard !Task.isCancelled else { return }
+        do {
+            let digest = try await NewsStore.generateDigest(language: AppSettings.language, context: context)
+            try Task.checkCancellation()
+            newsItems = Array((digest?.items ?? []).prefix(3))
+            newsPlaceholder = "最近 24 小时暂无可整理的要闻"
+        } catch {
+            newsPlaceholder = "暂时无法整理要闻,请到新闻页重试"
         }
     }
 
