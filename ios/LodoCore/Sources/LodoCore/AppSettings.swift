@@ -220,10 +220,13 @@ public enum AppSettings {
             : UserDefaults.standard.bool(forKey: useBuiltInSTTKeyKey)
     }
 
-    /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 DeepSeek;
-    /// "自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
+    /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 RunAPI 的
+    /// GPT-6 Luna;"自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
     public static let aiProviders: [(name: String, endpoint: String, model: String)] = [
-        // 排第一个 = 默认服务商(见 defaultAIProvider)。两条走同一个接口、
+        // 排第一个 = 默认服务商(见 defaultAIProvider),也是 aiEndpoint 认不出
+        // 服务商名时的兜底。
+        ("GPT-6 Luna", "https://runapi.host/v1/chat/completions", "gpt-6-luna"),
+        // 下面两条 DeepSeek 走同一个接口、
         // 同一把 key,区别只在 model 字段。名字直接跟着模型走:DeepSeek 的
         // /models 目前只给这两个,别再填别的代号——`deepseek-v4.1-flash` 已经
         // 下线(直接 400),`deepseek-v4-flash-vision-exp` 服务端静默映射成
@@ -243,7 +246,7 @@ public enum AppSettings {
 
     /// 没选过服务商时用哪个。改这个值会让"从没进过设置页"的老用户也一起换过去
     /// ——他们本来就没做过选择,跟着默认走是预期行为。
-    public static let defaultAIProvider = "DeepSeek Flash"
+    public static let defaultAIProvider = "GPT-6 Luna"
 
     /// 老版本存下来的服务商名 → 现在的名字。两个 DeepSeek 预设原来按当时的模型
     /// 代号命名,那两个模型都已经不在 API 上了(见 aiProviders 的注释),改名成
@@ -273,7 +276,7 @@ public enum AppSettings {
     }
 
     /// "使用内置 API Key"开关(设置页,仅当前服务商在 BuiltInAPIKey.key(for:)
-    /// 里真的有内置值时才出现,目前是 DeepSeek、GPT-5.6 Luna);实际是否
+    /// 里真的有内置值时才出现,目前是 DeepSeek 和 RunAPI 那几档);实际是否
     /// 生效由 KeychainHelper.effectiveAPIKey 兜底判断。默认开——没内置 key 的构建
     /// (BuiltInAPIKey.swift.example 全是 nil)这个默认值不会有任何效果,
     /// 仍然安全退回钥匙串。

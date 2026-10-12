@@ -19,7 +19,7 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 data class AIProviderPreset(val name: String, val endpoint: String, val model: String)
 
 /** 没选过服务商时用哪个（与 iOS AppSettings.defaultAIProvider 一致）。 */
-const val DEFAULT_AI_PROVIDER = "DeepSeek Flash"
+const val DEFAULT_AI_PROVIDER = "GPT-6 Luna"
 
 /**
  * 老版本存下来的服务商名 → 现在的名字(与 iOS AppSettings.renamedAIProviders 一致)。
@@ -43,8 +43,10 @@ val apiKeyAliases = mapOf(
 )
 
 val aiProviderPresets = listOf(
+    // 排第一个 = 默认服务商,也是认不出服务商名时的兜底(同 iOS)。
+    AIProviderPreset(DEFAULT_AI_PROVIDER, "https://runapi.host/v1/chat/completions", "gpt-6-luna"),
     // 名字直接跟着模型走:DeepSeek 的 /models 目前只给这两个,别再填别的代号。
-    AIProviderPreset(DEFAULT_AI_PROVIDER, "https://api.deepseek.com/chat/completions",
+    AIProviderPreset("DeepSeek Flash", "https://api.deepseek.com/chat/completions",
         "deepseek-flash"),
     AIProviderPreset("DeepSeek V4 Pro", "https://api.deepseek.com/chat/completions",
         "deepseek-v4-pro"),

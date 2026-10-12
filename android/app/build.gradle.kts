@@ -29,6 +29,7 @@ android {
         versionName = "2.0"
         // 端上 OCR 的原生库只打 64 位(现在的手机都是 arm64,x86_64 给模拟器),APK 小一半。
         buildConfigField("String", "BUILT_IN_DEEPSEEK_KEY", "\"${localProp("lodo.deepseekKey")}\"")
+        buildConfigField("String", "BUILT_IN_RUNAPI_KEY", "\"${localProp("lodo.runapiKey")}\"")
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
