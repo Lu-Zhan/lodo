@@ -225,6 +225,8 @@ struct LodoWidgetBundle: WidgetBundle {
         TodayLockWidget()
         PinnedLockWidget()
         CountdownLockWidget()
+        // 空气质量:桌面小/中 + 锁屏圆形/长条/一行字。
+        AirQualityWidget()
     }
 }
 

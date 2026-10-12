@@ -1903,6 +1903,22 @@
         }
       }
     },
+    "不健康" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unhealthy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不健康"
+          }
+        }
+      }
+    },
     "不填" : {
       "localizations" : {
         "en" : {
@@ -2077,6 +2093,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "中"
+          }
+        }
+      }
+    },
+    "主要污染物 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Main pollutant: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主要污染物 %@"
           }
         }
       }
@@ -2402,6 +2434,22 @@
         }
       }
     },
+    "今天最高 %lld,约 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's peak %lld, around %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天最高 %lld,约 %@"
+          }
+        }
+      }
+    },
     "今天有什么安排" : {
       "localizations" : {
         "en" : {
@@ -2655,6 +2703,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今天还没有新收藏"
+          }
+        }
+      }
+    },
+    "今天逐小时空气质量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's hourly air quality"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天逐小时空气质量"
           }
         }
       }
@@ -3014,6 +3078,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "任务完成"
+          }
+        }
+      }
+    },
+    "优" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优"
           }
         }
       }
@@ -3581,6 +3661,22 @@
         }
       }
     },
+    "健康页、总览和小组件都不再显示空气质量,也不再使用位置。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Health, Overview and widgets will stop showing air quality, and your location won't be used."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "健康页、总览和小组件都不再显示空气质量,也不再使用位置。"
+          }
+        }
+      }
+    },
     "像一位干练的行政秘书:简洁、专业、直接,不说废话。" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3611,6 +3707,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "像自律教练:直接有推动力,催促按时完成,语气可以严厉但保持尊重。"
+          }
+        }
+      }
+    },
+    "儿童、老人和有呼吸道疾病的人减少户外剧烈运动。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Children, older adults and people with lung disease should reduce outdoor exertion."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儿童、老人和有呼吸道疾病的人减少户外剧烈运动。"
           }
         }
       }
@@ -4336,6 +4448,38 @@
         }
       }
     },
+    "关闭空气质量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off Air Quality"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭空气质量"
+          }
+        }
+      }
+    },
+    "关闭空气质量?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off air quality?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭空气质量?"
+          }
+        }
+      }
+    },
     "其中 %lld 个由 AI 从候选里挑选。" : {
       "localizations" : {
         "en" : {
@@ -4700,6 +4844,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "准时"
+          }
+        }
+      }
+    },
+    "减少户外活动,外出建议戴口罩。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cut back on outdoor activity; consider a mask outside."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "减少户外活动,外出建议戴口罩。"
           }
         }
       }
@@ -5610,6 +5770,22 @@
         }
       }
     },
+    "刷新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新"
+          }
+        }
+      }
+    },
     "刷新位置" : {
       "localizations" : {
         "en" : {
@@ -5880,6 +6056,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "卡片名称(可选),如 经典白"
+          }
+        }
+      }
+    },
+    "危险" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hazardous"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "危险"
           }
         }
       }
@@ -7049,6 +7241,22 @@
         }
       }
     },
+    "在 lodo 健康页开启空气质量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on air quality in lodo's Health page"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 lodo 健康页开启空气质量"
+          }
+        }
+      }
+    },
     "在「倒数」里选要显示的" : {
       "localizations" : {
         "en" : {
@@ -7077,6 +7285,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在「日历」中打开"
+          }
+        }
+      }
+    },
+    "在健康页开启空气质量后显示" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on air quality in Health"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在健康页开启空气质量后显示"
           }
         }
       }
@@ -7270,6 +7494,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在系统「设置 → 通用 → 键盘 → 键盘 → 添加新键盘」中启用 lodo,再打开「允许完全访问」即可在键盘里使用 AI。键盘新增的待办与记忆会在打开 lodo 或系统后台刷新后生效。"
+          }
+        }
+      }
+    },
+    "在系统设置里允许 lodo 使用位置后重试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow lodo to use your location in Settings, then try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在系统设置里允许 lodo 使用位置后重试。"
           }
         }
       }
@@ -7991,6 +8231,22 @@
         }
       }
     },
+    "对敏感人群不健康" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unhealthy for Sensitive Groups"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对敏感人群不健康"
+          }
+        }
+      }
+    },
     "对话记录" : {
       "localizations" : {
         "en" : {
@@ -8325,6 +8581,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "就是现在"
+          }
+        }
+      }
+    },
+    "尽量待在室内,关好门窗。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stay indoors and keep windows closed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尽量待在室内,关好门窗。"
           }
         }
       }
@@ -10278,6 +10550,22 @@
         }
       }
     },
+    "微克每立方米" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "micrograms per cubic meter"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "微克每立方米"
+          }
+        }
+      }
+    },
     "忽略" : {
       "localizations" : {
         "en" : {
@@ -10776,6 +11064,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "房贷车贷这类会还完的,过了截止日期就不再算进每月支出。"
+          }
+        }
+      }
+    },
+    "所在地今天的空气质量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's air quality where you are"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所在地今天的空气质量"
           }
         }
       }
@@ -11296,6 +11600,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按目的地、季节和行程,让 AI 先列一份,再挑着加进来。"
+          }
+        }
+      }
+    },
+    "按美国 EPA 标准显示 AQI。会把约 1 公里精度的位置发给 Open-Meteo 查询,不涉及健康数据。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the AQI on the US EPA scale. Your location, rounded to about 1 km, is sent to Open-Meteo. No health data is involved."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按美国 EPA 标准显示 AQI。会把约 1 公里精度的位置发给 Open-Meteo 查询,不涉及健康数据。"
           }
         }
       }
@@ -12450,6 +12770,22 @@
         }
       }
     },
+    "无法获取位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location Unavailable"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法获取位置"
+          }
+        }
+      }
+    },
     "无法访问通讯录" : {
       "localizations" : {
         "en" : {
@@ -12834,6 +13170,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "显示直线"
+          }
+        }
+      }
+    },
+    "显示空气质量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Air Quality"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示空气质量"
           }
         }
       }
@@ -14031,6 +14383,22 @@
         }
       }
     },
+    "检查网络后下拉刷新重试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your connection, then pull to refresh."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查网络后下拉刷新重试。"
+          }
+        }
+      }
+    },
     "检票口" : {
       "localizations" : {
         "en" : {
@@ -14452,6 +14820,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在获取改期建议…"
+          }
+        }
+      }
+    },
+    "正在获取空气质量…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading air quality…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在获取空气质量…"
           }
         }
       }
@@ -15950,6 +16334,22 @@
         }
       }
     },
+    "现在" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在"
+          }
+        }
+      }
+    },
     "现在值多少" : {
       "localizations" : {
         "en" : {
@@ -16664,6 +17064,86 @@
         }
       }
     },
+    "空气尚可,极少数敏感的人减少长时间户外剧烈运动。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acceptable. Unusually sensitive people should limit prolonged outdoor exertion."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空气尚可,极少数敏感的人减少长时间户外剧烈运动。"
+          }
+        }
+      }
+    },
+    "空气很好,适合户外活动。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Air quality is great — enjoy the outdoors."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空气很好,适合户外活动。"
+          }
+        }
+      }
+    },
+    "空气质量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Air Quality"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空气质量"
+          }
+        }
+      }
+    },
+    "空气质量获取失败" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Load Air Quality"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空气质量获取失败"
+          }
+        }
+      }
+    },
+    "空气质量选项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Air quality options"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空气质量选项"
+          }
+        }
+      }
+    },
     "窄" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -17368,6 +17848,22 @@
         }
       }
     },
+    "美标 AQI · 数据来自 Open-Meteo(CAMS 模型),更新于 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "US AQI · Data from Open-Meteo (CAMS model), updated %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美标 AQI · 数据来自 Open-Meteo(CAMS 模型),更新于 %@"
+          }
+        }
+      }
+    },
     "考试、搬家、演唱会、放假……点右上角的「+」记下日子,这里会一直告诉你还有几天。" : {
       "localizations" : {
         "en" : {
@@ -17605,6 +18101,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "舱位,如 经济舱"
+          }
+        }
+      }
+    },
+    "良" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moderate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "良"
           }
         }
       }
@@ -21086,6 +21598,22 @@
         }
       }
     },
+    "避免外出,开启空气净化。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avoid going out; run an air purifier."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "避免外出,开启空气净化。"
+          }
+        }
+      }
+    },
     "邀请 / 管理成员" : {
       "localizations" : {
         "en" : {
@@ -21902,6 +22430,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "靛蓝"
+          }
+        }
+      }
+    },
+    "非常不健康" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very Unhealthy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非常不健康"
           }
         }
       }

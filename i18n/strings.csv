@@ -1819,3 +1819,37 @@ ios_view.chat_more_21,还没有下载到这台设备,Not downloaded to this devi
 ios_view.chat_more_22,问题:%@,Question: %@,ios_view,
 ios_view.chat_loading_0,"刚加入的聊天室要从 iCloud 拉下来,网络不好时会慢一些。",A newly joined chat room is downloaded from iCloud. It may take a while on a slow connection.,ios_view,
 ios_view.chat_loading_1,正在加载聊天室…,Loading Chat Room…,ios_view,
+ios_view.air_quality_1,空气质量,Air Quality,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_2,正在获取空气质量…,Loading air quality…,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_3,刷新,Refresh,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_4,关闭空气质量,Turn Off Air Quality,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_5,空气质量选项,Air quality options,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_6,"美标 AQI · 数据来自 Open-Meteo(CAMS 模型),更新于 %@","US AQI · Data from Open-Meteo (CAMS model), updated %@",ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_7,关闭空气质量?,Turn off air quality?,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_8,"健康页、总览和小组件都不再显示空气质量,也不再使用位置。","Health, Overview and widgets will stop showing air quality, and your location won't be used.",ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_9,所在地今天的空气质量,Today's air quality where you are,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_10,"按美国 EPA 标准显示 AQI。会把约 1 公里精度的位置发给 Open-Meteo 查询,不涉及健康数据。","Shows the AQI on the US EPA scale. Your location, rounded to about 1 km, is sent to Open-Meteo. No health data is involved.",ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_11,显示空气质量,Show Air Quality,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_12,无法获取位置,Location Unavailable,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_13,空气质量获取失败,Couldn't Load Air Quality,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_14,在系统设置里允许 lodo 使用位置后重试。,"Allow lodo to use your location in Settings, then try again.",ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_15,检查网络后下拉刷新重试。,"Check your connection, then pull to refresh.",ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_16,主要污染物 %@,Main pollutant: %@,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_17,"今天最高 %lld,约 %@","Today's peak %lld, around %@",ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_18,微克每立方米,micrograms per cubic meter,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_19,今天逐小时空气质量,Today's hourly air quality,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_20,现在,Now,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_21,在健康页开启空气质量后显示,Turn on air quality in Health,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_22,在 lodo 健康页开启空气质量,Turn on air quality in lodo's Health page,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_23,优,Good,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_24,良,Moderate,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_25,对敏感人群不健康,Unhealthy for Sensitive Groups,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_26,不健康,Unhealthy,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_27,非常不健康,Very Unhealthy,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_28,危险,Hazardous,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_29,"空气很好,适合户外活动。",Air quality is great — enjoy the outdoors.,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_30,"空气尚可,极少数敏感的人减少长时间户外剧烈运动。",Acceptable. Unusually sensitive people should limit prolonged outdoor exertion.,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_31,儿童、老人和有呼吸道疾病的人减少户外剧烈运动。,"Children, older adults and people with lung disease should reduce outdoor exertion.",ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_32,"减少户外活动,外出建议戴口罩。",Cut back on outdoor activity; consider a mask outside.,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_33,"尽量待在室内,关好门窗。",Stay indoors and keep windows closed.,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_34,"避免外出,开启空气净化。",Avoid going out; run an air purifier.,ios_view,健康页/总览/小组件:空气质量

@@ -37,6 +37,9 @@ public enum AppSettings {
     public static let openAgentOnLaunchKey = "openAgentOnLaunch"
     public static let healthEnabledKey = "healthEnabled"
     public static let healthRangeDaysKey = "healthRangeDays"
+    /// 空气质量(健康页/总览/小组件)。**默认关**:要用定位,开了会把约 1 公里精度的
+    /// 坐标发给 Open-Meteo——和健康开关分开,它不碰健康数据。
+    public static let airQualityEnabledKey = "airQualityEnabled"
     public static let calendarEnabledKey = "calendarEnabled"
     public static let calendarWriteEnabledKey = "calendarWriteEnabled"
     /// lodo 自己那本日历的标识符(EKCalendar.calendarIdentifier)。只在写开关
@@ -58,6 +61,10 @@ public enum AppSettings {
     /// 图表,一个网络请求都不发。
     public static var healthEnabled: Bool {
         UserDefaults.standard.bool(forKey: healthEnabledKey)
+    }
+
+    public static var airQualityEnabled: Bool {
+        UserDefaults.standard.bool(forKey: airQualityEnabledKey)
     }
 
     /// 系统日历总开关(读)。**默认关**:读日历要系统授权,不该替用户默认打开。

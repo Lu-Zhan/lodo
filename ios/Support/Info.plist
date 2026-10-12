@@ -22,7 +22,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>用于拍下菜单,在本机识别上面的文字后交给 AI 整理成菜品清单。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>用于定时任务里查询当地天气等信息。</string>
+	<string>用于查询所在地的空气质量(只取约 1 公里精度的位置),以及定时任务里查询当地天气等信息。</string>
 	<!-- 只读健康数据(从不写入,所以不声明 NSHealthUpdateUsageDescription)。
 	     开关默认关,见 AppSettings.healthEnabled。 -->
 	<key>NSHealthShareUsageDescription</key>

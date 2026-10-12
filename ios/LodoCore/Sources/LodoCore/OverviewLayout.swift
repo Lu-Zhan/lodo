@@ -38,6 +38,8 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     case countUp
     /// RSS 简报中按重要程度排序的前三条,固定整宽。
     case news
+    /// 空气质量:所在地此刻的美标 AQI(健康页开了空气质量才有,见 `AirQuality`)。
+    case airQuality
 
     public var title: String {
         switch self {
@@ -57,6 +59,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .stepsTrend: return "步数趋势"
         case .countUp: return "正数日"
         case .news: return "三条要闻"
+        case .airQuality: return "空气质量"
         }
     }
 
@@ -78,6 +81,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .stepsTrend: return "figure.walk"
         case .countUp: return "calendar.badge.checkmark"
         case .news: return "newspaper"
+        case .airQuality: return "aqi.medium"
         }
     }
 
@@ -87,7 +91,8 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         switch self {
         case .clock: return [.small]
         case .nextUp, .today, .agenda, .countdown, .countUp,
-             .activityRings, .taskProgress, .weeklyDone, .stepsTrend: return [.small, .large]
+             .activityRings, .taskProgress, .weeklyDone, .stepsTrend,
+             .airQuality: return [.small, .large]
         case .due, .routines, .suggestion, .memories, .health, .news: return [.large]
         }
     }
@@ -95,7 +100,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     public var defaultSize: OverviewWidgetSize {
         switch self {
         case .clock, .nextUp, .countdown, .countUp,
-             .activityRings, .taskProgress, .weeklyDone, .stepsTrend: return .small
+             .activityRings, .taskProgress, .weeklyDone, .stepsTrend, .airQuality: return .small
         default: return .large
         }
     }
@@ -139,7 +144,7 @@ public struct OverviewLayout: Equatable, Sendable {
         .init(kind: .weeklyDone), .init(kind: .activityRings),
         .init(kind: .routines, size: .large),
         .init(kind: .suggestion), .init(kind: .memories),
-        .init(kind: .stepsTrend), .init(kind: .health), .init(kind: .news),
+        .init(kind: .stepsTrend), .init(kind: .airQuality), .init(kind: .health), .init(kind: .news),
     ])
 
     /// 从存储的 JSON 恢复。容错:解不开 → 默认布局;重复的种类只留第一个;

@@ -55,6 +55,9 @@ struct OverviewView: View {
     @State private var healthTip: String?
     /// 圆环/步数图用的最近 7 天健康汇总;nil = 健康开关关着(那时一次 HealthKit 都不读)。
     @State private var healthReport: HealthReport?
+    /// 空气质量模块的数据;没开或没取到时为 nil。
+    @State private var airReport: AirQualityReport? = AirQualityStore.cached()
+    @AppStorage(AppSettings.airQualityEnabledKey) private var airQualityEnabled = false
     /// 通知"改期"按钮交接的改期候选(横幅展示,与 TaskRowView 内部滑动触发的
     /// 改期各自独立——见 OverviewView+Reschedule.swift 顶部注释)。
     @State var notificationReschedule: (task: TaskItem, candidates: [(label: String, date: Date)])?
@@ -206,6 +209,10 @@ struct OverviewView: View {
             }
             .task(id: "\(Self.dayFormatter.string(from: now))-\(layout.items.contains { $0.kind == .news && $0.isVisible })") {
                 await loadNews()
+            }
+            // 空气质量:每半小时一档(缓存本身 30 分钟内不重复请求),模块不显示时不取。
+            .task(id: "\(Int(now.timeIntervalSince1970 / 1800))-\(airQualityEnabled)-\(layout.items.contains { $0.kind == .airQuality && $0.isVisible })") {
+                await loadAirQuality()
             }
             .onReceive(NotificationCenter.default.publisher(for: .newsDigestsUpdated)) { _ in
                 Task { await loadNews() }
@@ -380,6 +387,9 @@ struct OverviewView: View {
                 days: OverviewCharts.weeklyDone(doneDates: doneTasks.compactMap(\.doneAt), now: now)) {
                 chrome?.go(.todo)
             }
+        case .airQuality:
+            OverviewAirQualityWidget(size: item.size, report: airReport,
+                                     enabled: airQualityEnabled) { chrome?.go(.health) }
         case .stepsTrend:
             OverviewStepsTrendWidget(
                 size: item.size,
@@ -426,6 +436,15 @@ struct OverviewView: View {
     }
 
     /// 健康开关关着时不读 HealthKit(同 loadHealthTip 的隐私口径),圆环/步数图显示引导。
+    private func loadAirQuality() async {
+        guard airQualityEnabled else {
+            airReport = nil
+            return
+        }
+        guard layout.items.contains(where: { $0.kind == .airQuality && $0.isVisible }) else { return }
+        if case .success(let report) = await AirQualityStore.refresh() { airReport = report }
+    }
+
     private func loadHealthReport() async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--demo-overview-widgets") {

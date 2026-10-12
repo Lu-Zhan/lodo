@@ -394,6 +394,9 @@ struct AppShellView: View {
                 routeFromOutside(.todo)
             case "countdown":
                 routeFromOutside(.countdown)
+            // 空气质量小组件进健康页。
+            case "health":
+                routeFromOutside(.health)
             default:
                 break
             }

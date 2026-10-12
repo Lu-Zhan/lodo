@@ -25,6 +25,8 @@ struct HealthView: View {
     @State private var loadingReport = false
     @State private var loadingAnalysis = false
     @State private var chartKind: HealthMetricKind?
+    /// 下拉刷新时 +1,空气质量那一组跟着强制重新请求。
+    @State private var airRefreshToken = 0
     #if DEBUG
     /// --demo-health 的临时放行。用 @State 而不是把 healthEnabled 写成 true:
     /// 那是 @AppStorage,会落进 UserDefaults 影响之后不带参数的启动。
@@ -63,6 +65,8 @@ struct HealthView: View {
     var body: some View {
         NavigationStack {
             List {
+                // 空气质量排最上面:和健康开关、健康库都无关(Mac 上也能看),自己有开关。
+                AirQualitySection(refreshToken: airRefreshToken)
                 if !HealthKitBridge.isAvailable {
                     unavailableSection
                 } else if !showsData {
@@ -98,7 +102,10 @@ struct HealthView: View {
                 applyDemoArgumentsIfNeeded()
                 #endif
             }
-            .refreshable { await reload(force: true) }
+            .refreshable {
+                airRefreshToken += 1
+                await reload(force: true)
+            }
         }
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
