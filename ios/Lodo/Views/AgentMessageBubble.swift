@@ -70,12 +70,42 @@ struct AgentMessageBubble: View {
     @State private var showsReasoning = false
 
     var body: some View {
-        switch message.role {
-        case .user:
-            userBubble
-        case .assistant:
-            assistantBubble
+        if message.kind == .compaction {
+            compactionDivider
+        } else {
+            switch message.role {
+            case .user:
+                userBubble
+            case .assistant:
+                assistantBubble
+            }
         }
+    }
+
+    /// 「已压缩更早的 N 条对话」:居中一行小字夹在两道细线中间,不是气泡、不打扰
+    /// (用户要求压缩完在对话里看得见,但不弹提醒)。
+    private var compactionDivider: some View {
+        let count = Int(message.content.filter(\.isNumber)) ?? 0
+        return HStack(spacing: 8) {
+            line
+            Label {
+                Text(String(localized: "已压缩更早的 \(count) 条对话",
+                            bundle: .appLanguage(), locale: AppSettings.language.locale))
+            } icon: {
+                Image(systemName: "archivebox")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+            line
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var line: some View {
+        Rectangle().fill(.separator).frame(height: 0.5)
     }
 
     /// 按 attachmentMemoryUUIDs 原有顺序查出条目;条目已被删除的 uuid 直接跳过
@@ -270,6 +300,8 @@ struct AgentMessageBubble: View {
             AgentCountdownCard(message: message)
         case .libraryEdit:
             AgentLibraryCard(message: message)
+        case .compaction:
+            compactionDivider
         }
     }
 

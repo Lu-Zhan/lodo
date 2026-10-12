@@ -49,6 +49,11 @@ public enum AgentMessageKind: String {
     /// AI 新增/修改资产、订阅新闻源的执行结果;librarySnapshotData 存改动记录
     /// (LibraryEditRecord)。撤销同 countdownEdit,不限最新一条。
     case libraryEdit
+    /// 更早的对话被压缩成摘要的分隔标记(`AgentConversationSummary`)。时间戳落在被压缩
+    /// 那一段的末尾,所以显示在它们和之后的消息之间,也不会抢走"最新一条"。content 是
+    /// 中文原句(「已压缩更早的 N 条对话」,旧版本 app 当纯文字显示),气泡按数字重新本地化。
+    /// 不进对话历史、不参与下一次压缩。
+    case compaction
 }
 
 /// 对话里的一条消息。AI 助手是**单一持续对话**——全表按 createdAt 排序就是

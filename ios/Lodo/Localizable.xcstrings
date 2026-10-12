@@ -4512,6 +4512,22 @@
         }
       }
     },
+    "已压缩更早的 %lld 条对话" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compressed %lld earlier messages"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已压缩更早的 %lld 条对话"
+          }
+        }
+      }
+    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {

@@ -706,12 +706,6 @@ struct AgentView: View {
 
     /// 处理中的默认提示。不显示推理原文,用一组简短的词轮换。
     static let defaultThinking = "处理中…"
-    static let thinkingKeys: [LK] = [
-        .ios_core_processing, .ios_core_thinking_busy, .ios_core_thinking_reviewing,
-        .ios_core_thinking_slacking, .ios_core_thinking_overtime, .ios_core_thinking_reasoning,
-        .ios_core_thinking_reflecting, .ios_core_thinking_pondering, .ios_core_thinking_guessing,
-        .ios_core_thinking_planning, .ios_core_thinking_working_hard, .ios_core_thinking_meeting,
-    ]
 
     // MARK: - 输入栏
 
@@ -1240,7 +1234,7 @@ struct AgentView: View {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
         descriptor.fetchLimit = AgentConversationSummary.recentWindow + 1
         let recent = ((try? context.fetch(descriptor)) ?? []).reversed()
-        return recent.filter { $0.uuid != excludeUUID }
+        return recent.filter { $0.uuid != excludeUUID && $0.kind != .compaction }
             .suffix(AgentConversationSummary.recentWindow)
             .map { (role: $0.roleRaw, content: $0.content) }
     }
@@ -1275,8 +1269,14 @@ struct AgentView: View {
             },
             sortBy: [SortDescriptor(\.createdAt)])
         pendingDescriptor.fetchLimit = Self.maxCompressBatch
-        let pending = (try? context.fetch(pendingDescriptor)) ?? []
-        guard pending.count >= AgentConversationSummary.compressBatch else { return }
+        // 上一次压缩留下的分隔标记不算对话内容。
+        let pending = ((try? context.fetch(pendingDescriptor)) ?? []).filter { $0.kind != .compaction }
+        // 攒够一批条数就压;条数没够、但这几条本身很长(贴了长文、AI 回了大段)也压——
+        // 对话"过长"看的是喂给模型的分量,不只是条数。
+        let characters = pending.reduce(0) { $0 + $1.content.count }
+        guard pending.count >= AgentConversationSummary.compressBatch
+                || (pending.count >= Self.minCompressByLength
+                    && characters >= Self.compressCharacterThreshold) else { return }
 
         // ModelContext 不跨线程:先在主线程把要压的内容取成纯值,再进后台任务。
         let transcript = pending
@@ -1293,8 +1293,19 @@ struct AgentView: View {
                 previous: previous, transcript: MemorySearch.truncate(transcript, limit: 8000))
             else { return }
             AgentConversationSummary.save(summary, coveredUntil: until, coveredCount: total)
+            // 在对话里留一道分隔线(不弹提醒)。时间戳贴着被压缩那段的末尾:
+            // 显示在它们后面,又不会变成"最新一条"把撤销/确认按钮挤成不可点。
+            let marker = AgentMessage(role: .assistant, kind: .compaction,
+                                      content: "已压缩更早的 \(pending.count) 条对话")
+            marker.createdAt = until.addingTimeInterval(0.001)
+            context.insert(marker)
+            try? context.save()
         }
     }
+
+    /// 窗口外的消息不够一批时,至少几条、总字数到多少也压缩。
+    static let minCompressByLength = 4
+    static let compressCharacterThreshold = 6000
 
     @discardableResult
     private func appendAssistant(
@@ -1782,7 +1793,7 @@ struct AgentView: View {
         reasoningLog.text = ""
         let turnStart = Date()
         if AppSettings.thinkingLevel != "off" {
-            thinkingSeed = Int.random(in: 0..<Self.thinkingKeys.count)
+            thinkingSeed = Int.random(in: 0..<10_000)
             thinkingStart = Date()
             thinkingText = Self.defaultThinking
         }
@@ -1803,7 +1814,7 @@ struct AgentView: View {
                         // 亮起「处理中」那行(工具调用要等好几秒)。
                         reasoningLog.appendStep(thought)
                         if thinkingText == nil {
-                            thinkingSeed = Int.random(in: 0..<Self.thinkingKeys.count)
+                            thinkingSeed = Int.random(in: 0..<10_000)
                             thinkingStart = Date()
                             thinkingText = Self.defaultThinking
                         }
@@ -2555,19 +2566,19 @@ final class AgentReasoningLog {
     }
 }
 
-/// 思考中:消息列表末尾、和 AI 气泡左边缘对齐的一行光效小字,每 2.5 秒换一个
-/// 简短词("处理中""摸鱼中"……)。不显示推理原文——全文在回复落库后点「已完成 ›」看。
+/// 思考中:消息列表末尾、和 AI 气泡左边缘对齐的一行光效小字,单个词 5 秒一换,
+/// 夹着几组连续剧(倒计时、米虫吃猫粮……,见 `AgentThinkingPhrases`)。不显示推理
+/// 原文——全文在回复落库后点「已完成 ›」看。
 struct AgentThinkingIndicator: View {
     let seed: Int
     let start: Date
 
     var body: some View {
-        TimelineView(.periodic(from: start, by: 2.5)) { context in
-            let tick = Int(context.date.timeIntervalSince(start) / 2.5)
-            let words = AgentView.thinkingKeys.map {
-                LocalizedStrings.text($0, language: AppSettings.language)
-            }
-            ShimmerText(text: words[(seed + tick) % words.count])
+        // 每半秒取一次:连续剧里最快的一帧是 1 秒(倒计时),单个词照样 5 秒才换。
+        TimelineView(.periodic(from: start, by: 0.5)) { context in
+            ShimmerText(text: AgentThinkingPhrases.text(
+                elapsed: context.date.timeIntervalSince(start), seed: seed,
+                language: AppSettings.language))
         }
     }
 }
