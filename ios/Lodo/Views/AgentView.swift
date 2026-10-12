@@ -1898,14 +1898,14 @@ struct AgentView: View {
     private func attachReasoning(since start: Date) {
         let log = reasoningLog.text.trimmingCharacters(in: .whitespacesAndNewlines)
         reasoningLog.text = ""
-        guard !log.isEmpty else { return }
         let assistant = AgentMessageRole.assistant.rawValue
         var descriptor = FetchDescriptor<AgentMessage>(
             predicate: #Predicate { $0.createdAt >= start && $0.roleRaw == assistant },
             sortBy: [SortDescriptor(\.createdAt)])
         descriptor.fetchLimit = 1
         guard let first = try? context.fetch(descriptor).first else { return }
-        first.reasoning = log
+        // 模型没吐思考原文也挂一个标记:思考中那行轮换词收起之后,统一留下「已完成 ›」。
+        first.reasoning = log.isEmpty ? AgentMessage.noReasoningMarker : log
         try? context.save()
     }
 
@@ -2347,6 +2347,14 @@ private struct AgentMessageListView: View {
     @State private var contentHeight: CGFloat = 0
     private var isInline: Bool { since != nil }
     static let inlineMaxHeight: CGFloat = 420
+    @Environment(\.agentInlineRoom) private var inlineRoom
+    /// 默认封顶 420;页面上方装不下时按页面剩的地方来(减掉把手那一截),但至少留 120。
+    private var inlineMaxHeight: CGFloat {
+        guard let inlineRoom else { return Self.inlineMaxHeight }
+        return max(120, min(Self.inlineMaxHeight, inlineRoom - Self.inlineHandleHeight))
+    }
+    /// 悬浮内容顶上那根把手(5 + 上下各 8)再留一点空。
+    static let inlineHandleHeight: CGFloat = 29
 
     init(historyWindow: Int, since: Date? = nil, streamingAnswer: String?, thinking: (seed: Int, start: Date)?,
          onLoadEarlier: @escaping () -> Void,
@@ -2465,7 +2473,7 @@ private struct AgentMessageListView: View {
                 .frame(maxHeight: isInline ? nil : .infinity, alignment: .bottom)
             }
             // 内联模式:高度随内容,封顶之后才滚;内容不满一屏时也不弹跳。
-            .frame(height: isInline ? min(contentHeight, Self.inlineMaxHeight) : nil)
+            .frame(height: isInline ? min(contentHeight, inlineMaxHeight) : nil)
             .scrollBounceBehavior(.basedOnSize)
             // 一打开就停在最后一条(不是从头开始往下找)。onAppear 里那句
             // scrollTo 是兜底:LazyVStack 首帧还没把最后一条建出来时,单靠
@@ -2474,8 +2482,14 @@ private struct AgentMessageListView: View {
             // sheet 是独立呈现宿主,根上那次 softTopScrollEdgeTransition 不一定传得进来,
             // 这里自己挂一次:消息滚进导航栏时同样是柔和渐隐。
             .softTopScrollEdgeTransition()
-            .onChange(of: messages.count) { _, _ in
-                if let last = messages.first {
+            .onChange(of: messages.count) { old, new in
+                // 内联模式地方小(旅行面板半高时只剩一百多点):回复落库后停在这次新增的
+                // 第一条 AI 回复的**顶上**,「已完成 ›」和回复开头先露出来,往下滚看全文。
+                // (内联列表不含用户消息,`messages` 新的在前,新增的就是前 new-old 条。)
+                if isInline, new > old, messages.indices.contains(new - old - 1) {
+                    let first = messages[new - old - 1]
+                    withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(first.uuid, anchor: .top) }
+                } else if let last = messages.first {
                     withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }
                 }
             }

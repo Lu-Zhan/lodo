@@ -16,12 +16,23 @@ private struct AskBarModifier: ViewModifier {
 
     /// 内联模式不用预填(深链/Siri 交接都进侧栏里的 AI 页),给一个恒为 nil 的绑定。
     @State private var prefill: String?
+    /// 页面在输入栏上方还剩多高,悬浮内容按它封顶(见 `agentInlineRoom`)。
+    @State private var room: CGFloat?
 
     func body(content: Content) -> some View {
         content
+            .background {
+                GeometryReader { geo in
+                    let height = geo.size.height - geo.safeAreaInsets.bottom
+                    Color.clear
+                        .onAppear { room = height }
+                        .onChange(of: height) { _, new in room = new }
+                }
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if isVisible {
                     composer
+                        .environment(\.agentInlineRoom, room)
                 }
             }
     }

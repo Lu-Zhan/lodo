@@ -1403,22 +1403,6 @@
         }
       }
     },
-    "AQI %lld · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AQI %lld · %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AQI %lld · %@"
-          }
-        }
-      }
-    },
     "App Group,仅本机" : {
       "localizations" : {
         "en" : {
@@ -1447,6 +1431,25 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App 图标"
+          }
+        }
+      }
+    },
+    "AQI" : {
+
+    },
+    "AQI %lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AQI %lld · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AQI %lld · %@"
           }
         }
       }
@@ -1920,6 +1923,7 @@
       }
     },
     "不健康" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2016,6 +2020,7 @@
       }
     },
     "不要晨跑" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2402,6 +2407,22 @@
         }
       }
     },
+    "今天最高 %lld,约 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's peak %lld, around %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天最高 %lld,约 %@"
+          }
+        }
+      }
+    },
     "今天已过" : {
       "localizations" : {
         "en" : {
@@ -2462,22 +2483,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今天暂无任务"
-          }
-        }
-      }
-    },
-    "今天最高 %lld,约 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Today's peak %lld, around %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今天最高 %lld,约 %@"
           }
         }
       }
@@ -3115,6 +3120,7 @@
       }
     },
     "优" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3744,6 +3750,7 @@
       }
     },
     "儿童、老人和有呼吸道疾病的人减少户外剧烈运动。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4337,6 +4344,7 @@
       }
     },
     "关好门窗" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4704,22 +4712,6 @@
         }
       }
     },
-    "已压缩更早的 %lld 条对话" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compressed %lld earlier messages"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已压缩更早的 %lld 条对话"
-          }
-        }
-      }
-    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -4897,6 +4889,7 @@
       }
     },
     "减少户外活动,外出建议戴口罩。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4913,6 +4906,7 @@
       }
     },
     "减少户外运动" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5010,6 +5004,7 @@
       }
     },
     "出门戴口罩" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6141,6 +6136,7 @@
       }
     },
     "危险" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6656,6 +6652,7 @@
       }
     },
     "可以开窗通风" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7336,6 +7333,22 @@
         }
       }
     },
+    "在 lodo 健康页开启空气质量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on air quality in lodo's Health page"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 lodo 健康页开启空气质量"
+          }
+        }
+      }
+    },
     "在 OpenStreetMap 中搜索「%@」" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7349,22 +7362,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 OpenStreetMap 中搜索「%@」"
-          }
-        }
-      }
-    },
-    "在 lodo 健康页开启空气质量" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turn on air quality in lodo's Health page"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在 lodo 健康页开启空气质量"
           }
         }
       }
@@ -8344,6 +8341,7 @@
       }
     },
     "对敏感人群不健康" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8698,6 +8696,7 @@
       }
     },
     "尽量别出门" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8714,6 +8713,7 @@
       }
     },
     "尽量待在室内,关好门窗。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -9032,6 +9032,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已加入"
+          }
+        }
+      }
+    },
+    "已压缩更早的 %lld 条对话" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compressed %lld earlier messages"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已压缩更早的 %lld 条对话"
           }
         }
       }
@@ -10502,6 +10518,7 @@
       }
     },
     "开空气净化器" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11374,6 +11391,7 @@
       }
     },
     "打开 AI 助手" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12522,6 +12540,7 @@
       }
     },
     "敏感人群出门戴口罩" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12538,6 +12557,7 @@
       }
     },
     "敏感人群留意身体" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -17337,6 +17357,7 @@
       }
     },
     "空气尚可,极少数敏感的人减少长时间户外剧烈运动。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -17353,6 +17374,7 @@
       }
     },
     "空气很好,适合户外活动。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -18410,6 +18432,7 @@
       }
     },
     "良" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21069,6 +21092,22 @@
         }
       }
     },
+    "这一轮模型没有返回思考过程。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The model didn't return its thinking for this turn."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一轮模型没有返回思考过程。"
+          }
+        }
+      }
+    },
     "这个来源下还没有文章。" : {
       "localizations" : {
         "en" : {
@@ -21662,6 +21701,7 @@
       }
     },
     "适合户外活动" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21678,6 +21718,7 @@
       }
     },
     "适合晨跑" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21935,6 +21976,7 @@
       }
     },
     "避免外出,开启空气净化。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -22771,6 +22813,7 @@
       }
     },
     "非常不健康" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

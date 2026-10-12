@@ -205,7 +205,7 @@ struct AgentMessageBubble: View {
         Button {
             showsReasoning = true
         } label: {
-            HStack(spacing: 3) {
+            let label = HStack(spacing: 3) {
                 Text("已完成")
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
@@ -213,14 +213,17 @@ struct AgentMessageBubble: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             // 「问问 AI」上方悬浮时背后直接是页面内容,垫一颗玻璃胶囊才看得清。
-            .padding(.horizontal, floatsOverPage ? 12 : 0)
-            .padding(.vertical, floatsOverPage ? 6 : 0)
-            .background {
-                if floatsOverPage {
-                    Color.clear.glassBackground(Capsule())
-                }
+            // 玻璃挂在文字本身上(glassEffect 把内容画在玻璃上面);做成单独的
+            // background 视图时,在消息列的 GlassEffectContainer 里玻璃会盖住文字。
+            if floatsOverPage {
+                label
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .glassBackground(Capsule())
+                    .contentShape(Capsule())
+            } else {
+                label.contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
         }
         .pressable()
         .accessibilityLabel(Text("查看思考过程"))
@@ -662,7 +665,13 @@ struct AgentReasoningSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(text)
+                Group {
+                    if text == AgentMessage.noReasoningMarker {
+                        Text("这一轮模型没有返回思考过程。")
+                    } else {
+                        Text(text)
+                    }
+                }
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
@@ -687,6 +696,20 @@ struct AgentReasoningSheet: View {
 
 private struct AgentFloatsOverPageKey: EnvironmentKey {
     static let defaultValue = false
+}
+
+private struct AgentInlineRoomKey: EnvironmentKey {
+    static let defaultValue: CGFloat? = nil
+}
+
+extension EnvironmentValues {
+    /// 「问问 AI」悬浮内容在所在页面上最多能占多高(页面在输入栏上方还剩多少地方)。
+    /// 旅行详情面板这种矮页面装不下默认的封顶高度,超出的部分会被面板裁掉——
+    /// 被裁的正好是最上面的「已完成 ›」。nil = 不知道,按默认封顶。
+    var agentInlineRoom: CGFloat? {
+        get { self[AgentInlineRoomKey.self] }
+        set { self[AgentInlineRoomKey.self] = newValue }
+    }
 }
 
 extension EnvironmentValues {

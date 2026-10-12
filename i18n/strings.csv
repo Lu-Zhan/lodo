@@ -1530,6 +1530,7 @@ ios_view.countdown_unit_4,%lld 年,%lld yr,ios_view,倒数日:点日期切换计
 ios_view.countdown_unit_5,%lld 个月,%lld mo,ios_view,倒数日:点日期切换计数方式
 ios_view.countdown_unit_6,切换计数方式,Switches how the time is counted,ios_view,倒数日:点日期切换计数方式
 ios_view.agent_reasoning_1,查看思考过程,View thinking process,ios_view,AI 助手:思考过程
+ios_view.agent_reasoning_3,这一轮模型没有返回思考过程。,"The model didn't return its thinking for this turn.",ios_view,AI 助手:思考过程
 ios_view.agent_reasoning_2,思考过程,Thinking Process,ios_view,AI 助手:思考过程
 ios_view.agent_compaction_1,已压缩更早的 %lld 条对话,Compressed %lld earlier messages,ios_view,AI 助手:上下文压缩分隔线
 ios_view.agent_library_1,资产已更新,Assets updated,ios_view,AI 结果回复/资产与订阅

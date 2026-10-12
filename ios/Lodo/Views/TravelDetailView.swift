@@ -445,6 +445,8 @@ struct TravelDetailView: View {
             // 列表照样铺到条子背后,滚动时行程从胶囊四周透出来(用户要求背景透明)。
             // focus 带上**这次旅行的名字**,含糊的"第二天改去奈良""这趟一共多少钱"
             // 默认就问/改这一次旅行,不用每句话都报名字。
+            // 条子背后不要系统那层底部滚动边缘效果(会把行程糊成一块白底)。
+            .hidesBottomScrollEdgeEffect()
             .askBar(focus: .travel(trip: trip.title))
             .frame(maxHeight: .infinity)
             .clipped()
@@ -2178,9 +2180,11 @@ private struct TravelPanelGroupGlass: View {
         // 必须裁在列表自己的范围里:玻璃按行的锚点位置画,列表往上滚时,滚出顶部那几行
         // 的玻璃会画到列表外面去。
         // 底部的「问问 AI」条是 safeAreaInset:列表铺到条子背后,玻璃也要跟着画过去,
-        // 不然条子后面只露出行文字、没有行底。
-        .ignoresSafeArea(.container, edges: .bottom)
+        // 不然条子后面只露出行文字、没有行底(看上去条子垫了一块白底)。所以先裁、
+        // 再忽略底部安全区——反过来写的话,clipped 裁的是不含条子那截的外框,
+        // 往下延伸出去的玻璃又被裁掉了。
         .clipped()
+        .ignoresSafeArea(.container, edges: .bottom)
         // 列表顶上若钉着别的栏(安全区顶部 inset > 0),行从它底下滚过去时系统的 .soft
         // 滚动边缘效果够不着画在列表背后的这层玻璃,所以自己跟着淡掉:栏底边往上
         // `fadeHeight` 之内渐隐,再往上完全不画。旅行详情面板现在把切换条放在列表

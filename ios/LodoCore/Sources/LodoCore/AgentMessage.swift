@@ -94,9 +94,12 @@ public final class AgentMessage {
     public var librarySnapshotData: Data? = nil
     /// 这一轮 AI 的思考过程(推理模型吐出的 reasoning 原文 + ReAct 每一步的想法),
     /// 挂在这一轮**第一条** AI 回复上;气泡上方显示「已完成 ›」,点开看全文。
-    /// 没有思考过程(关了思考、非推理模型、用户消息)为空串。不进备份:这是派生的
-    /// 过程记录,不是对话内容本身。
+    /// 用户消息为空串;AI 想过一轮但模型没吐出思考原文(关了思考、非推理模型)时是
+    /// `noReasoningMarker`——「已完成 ›」照样显示,点开说明没有可看的过程。不进备份:
+    /// 这是派生的过程记录,不是对话内容本身。
     public var reasoning: String = ""
+    /// 见 `reasoning`。不是给人看的文案,显示时换成本地化的说明。
+    public static let noReasoningMarker = "[no-reasoning]"
     public var createdAt: Date = Date.now
     /// 多对话改单一持续对话那次迁移的墓碑:新代码插入的消息恒为 1,而轻量迁移
     /// 给老库存量行填的是这里声明的默认值 0——**默认值必须留 0**,写 1 就再也
