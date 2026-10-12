@@ -17,24 +17,36 @@ struct AgentJumpLink: View {
     let destination: AppDestination
 
     @Environment(\.itemNavigator) private var navigator
+    @Environment(\.agentFloatsOverPage) private var floatsOverPage
 
     var body: some View {
         if let navigator {
             Button {
                 navigator.open(destination)
             } label: {
-                HStack(spacing: 3) {
+                let label = HStack(spacing: 3) {
                     text
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                // 文字之外那截空白也要能点(整行才是一个链接),但**不铺底色**:
-                // 卡片有底、这条没有,层级差别就靠这个。
-                .padding(.vertical, 4)
-                .padding(.horizontal, 2)
-                .contentShape(Rectangle())
+                // 「问问 AI」悬浮在别的页面上时背后直接是页面内容,垫一颗玻璃胶囊
+                // 才看得清(同气泡上方的「已完成 ›」;玻璃挂在文字本身上)。
+                if floatsOverPage {
+                    label
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .glassBackground(Capsule())
+                        .contentShape(Capsule())
+                } else {
+                    // 文字之外那截空白也要能点(整行才是一个链接),但**不铺底色**:
+                    // 卡片有底、这条没有,层级差别就靠这个。
+                    label
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 2)
+                        .contentShape(Rectangle())
+                }
             }
             .pressable()
             .accessibilityHint("打开这个条目")

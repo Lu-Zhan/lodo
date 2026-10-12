@@ -72,6 +72,17 @@ extension View {
         }
     }
 
+    /// 去掉上下两头的滚动边缘效果:「问问 AI」悬浮的回复列表背后有自己那层渐隐底,
+    /// 系统再在列表上下沿各糊一道,看上去就是两条硬边的色带。
+    @ViewBuilder
+    func hidesScrollEdgeEffects(_ hidden: Bool) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            scrollEdgeEffectHidden(hidden, for: .all)
+        } else {
+            self
+        }
+    }
+
     /// 去掉底部的滚动边缘效果:底下垫着透明背景的「问问 AI」条时,系统会在条子背后
     /// 把列表糊成一层底色,条子看上去就带了背景(旅行详情面板,用户要求去掉)。
     @ViewBuilder
@@ -148,8 +159,8 @@ extension View {
     /// 实际间距大,相邻两块就黏成一坨了。默认值刻意取小:只要共享采样,不要融合。
     /// 旧系统没有这个容器,原样透传,调用处不必重复 `#available`。
     @ViewBuilder
-    func glassGroup(spacing: CGFloat = 4) -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
+    func glassGroup(spacing: CGFloat = 4, enabled: Bool = true) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *), enabled {
             GlassEffectContainer(spacing: spacing) { self }
         } else {
             self

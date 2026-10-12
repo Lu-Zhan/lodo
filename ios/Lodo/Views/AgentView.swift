@@ -102,6 +102,9 @@ struct AgentView: View {
     static let historyPageSize = 60
     #if DEBUG
     @MainActor static var demoAskBarSent = false
+    /// 同一页的输入栏可能被建出两份:最后建出来的那份才是屏幕上那份,由它来发。
+    @MainActor static var demoAskBarOwner: UUID?
+    @State private var demoInstanceID = UUID()
     #endif
     /// 一次最多压缩多少条。够覆盖正常节奏下攒出来的量,又不至于让长期离线后的
     /// 第一次压缩把几千条一股脑塞进 prompt。
@@ -131,6 +134,13 @@ struct AgentView: View {
     @State private var inlineSessionStart: Date?
     /// 往下划关闭时悬浮内容跟着手指往下走的距离。
     @State private var inlineDrag: CGFloat = 0
+    /// 内联输入栏和悬浮内容的高度,给背后那层渐隐底定高。
+    @State private var inlineBarHeight: CGFloat = 0
+    @State private var inlineFloatingHeight: CGFloat = 0
+    /// 悬浮列表是否停在最顶上(没得往上滚了),此时往下划才是收起。
+    @State private var inlineListAtTop = true
+    @State private var inlineDragAllowed: Bool?
+    @Environment(\.agentInlineRoom) private var inlineRoom
 
     /// @State 属性都是 private,合成的 memberwise init 会跟着降级成 private、
     /// 别的文件用不了,所以显式写一个。
@@ -411,10 +421,18 @@ struct AgentView: View {
                 // 只给当前显示的那一页:页面叠在 ZStack 里,不筛的话隐藏页面那几条也各响应一次。
                 // 等一下再判断:demo 参数切页面是启动之后才切过去的。
                 // 页面若已经换走(列表 push 进详情,列表那条随之拆掉),task 会被取消。
+                if sectionIsActive { Self.demoAskBarOwner = demoInstanceID }
                 try? await Task.sleep(for: .seconds(3))
-                guard sectionIsActive, !Task.isCancelled else { return }
+                guard sectionIsActive, !Task.isCancelled,
+                      Self.demoAskBarOwner == demoInstanceID else { return }
                 if ProcessInfo.processInfo.arguments.contains("--demo-ask-bar") {
                     isInputFocused = true
+                }
+                // 看悬浮回复的样子:把最近 10 分钟的对话当成这一轮(先用 AI 页的
+                // 截图参数塞几条样板消息,再带这个参数打开别的页面)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-ask-bar-recent"),
+                   Self.demoAskBarOwner == demoInstanceID {
+                    inlineSessionStart = Date().addingTimeInterval(-600)
                 }
                 let args = ProcessInfo.processInfo.arguments
                 // 同一页的 safeAreaInset 内容可能被建出两份,只发一次。
@@ -611,7 +629,22 @@ struct AgentView: View {
         }
         .frame(maxWidth: DesignMetrics.readableChatWidth)
         .frame(maxWidth: .infinity)
-        .simultaneousGesture(inlineDismissGesture)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { inlineBarHeight = $0 }
+        // 对话条启用(这一轮开着或正在打字)时,从底往上垫一层渐隐的底,
+        // 悬浮的回复和输入栏不和页面内容糊在一起;上沿完全透明,不切出一条硬边。
+        // 渐变从输入栏底边(屏幕底部)就开始,再往下(home indicator/键盘那截)是实底。
+        .background(alignment: .top) {
+            if inlineSessionStart != nil || isInputFocused {
+                // 拉起来之后差不多铺满整页(页面在输入栏上方剩多高就铺多高),
+                // 不知道页面高度时退回按悬浮内容的高度。
+                let fade = inlineBarHeight + (inlineRoom ?? inlineFloatingHeight + 56)
+                inlineScrim(fadeHeight: fade)
+                    .offset(y: -(fade - inlineBarHeight))
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.lodoAware(.easeInOut(duration: 0.2)), value: isInputFocused)
         // 输入栏顶边上放一条零高度的锚,悬浮内容底边对齐它、往上长。
         .overlay(alignment: .top) {
             Color.clear
@@ -620,27 +653,24 @@ struct AgentView: View {
                     if let since = inlineSessionStart {
                         inlineFloating(since: since)
                             .fixedSize(horizontal: false, vertical: true)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                                inlineFloatingHeight = $0
+                            }
                             .offset(y: max(inlineDrag, 0))
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
         }
+        // 挂在悬浮内容之后:输入栏和悬浮的回复上往下划都能收起
+        // (悬浮列表滚动着时除外,见 inlineDismissGesture)。
+        .simultaneousGesture(inlineDismissGesture)
         .animation(.lodoAware(.snappy(duration: 0.25)), value: inlineSessionStart)
     }
 
     private func inlineFloating(since: Date) -> some View {
         VStack(spacing: 0) {
-            // 往下划的把手:列表能滚的时候,在它上面往下拖是滚列表,从这里拖才是关闭。
-            Capsule()
-                .fill(.secondary.opacity(0.5))
-                .frame(width: 36, height: 5)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-                .gesture(inlineDismissGesture)
-                .accessibilityLabel("收起")
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { dismissInline() }
+            // 顶上不再放把手(2026-10,用户要求):往下划收起挂在输入栏上,
+            // 读屏用户经下面列表上的 accessibilityAction 收起。
             AgentMessageListView(
                 historyWindow: Self.inlineWindow,
                 since: since,
@@ -661,12 +691,38 @@ struct AgentView: View {
                 onCopy: copyMessageContent,
                 onQuote: quoteMessage,
                 onEdit: requestEdit,
-                onPendingAskChange: { _ in })
+                onPendingAskChange: { _ in },
+                onInlineAtTopChange: { inlineListAtTop = $0 })
                 .id(since)
                 .environment(\.agentFloatsOverPage, true)
+                .padding(.top, 8)
         }
+        .accessibilityAction(named: Text("收起")) { dismissInline() }
         .frame(maxWidth: DesignMetrics.readableChatWidth)
         .frame(maxWidth: .infinity)
+    }
+
+    /// 内联对话条背后那层渐隐底:底部是页面底色、往上渐渐透明。
+    /// 页面底色按渐变遮罩;底下 0.3 以内接近实色,输入栏和回复压得住页面内容。
+    private func inlineScrim(fadeHeight: CGFloat) -> some View {
+        let mask = LinearGradient(stops: [
+            .init(color: .black, location: 0),
+            .init(color: .black.opacity(0.75), location: 0.3),
+            .init(color: .black.opacity(0.3), location: 0.7),
+            .init(color: .clear, location: 1),
+        ], startPoint: .bottom, endPoint: .top)
+        // 不用模糊材质:悬浮列表(UIScrollView)范围里材质会被再合成一遍,在列表
+        // 上下沿各切出一道硬边(实测)。用页面底色的渐变,减弱透明度时也一样合格。
+        #if os(iOS)
+        let fill = AnyShapeStyle(Color(uiColor: .systemGroupedBackground))
+        #else
+        let fill = AnyShapeStyle(.background)
+        #endif
+        return VStack(spacing: 0) {
+            Rectangle().fill(fill).mask(mask).frame(height: fadeHeight)
+            // 输入栏底边以下:屏幕底部/键盘背后,实底,溢出屏幕的部分不显示。
+            Rectangle().fill(fill).frame(height: 400)
+        }
     }
 
     /// 内联模式下悬浮列表最多取多少条(只看这一轮,用不着翻页)。
@@ -677,12 +733,21 @@ struct AgentView: View {
     private var inlineDismissGesture: some Gesture {
         DragGesture(minimumDistance: 12)
             .onChanged { value in
-                guard presentation == .inline, inlineSessionStart != nil,
+                guard presentation == .inline else { return }
+                // 起手落在悬浮列表上(锚在输入栏顶边,y < 0)且列表没滚到顶时,
+                // 这一下是在滚列表,不算关闭。按起手那一刻判断,整次拖动不变。
+                if inlineDragAllowed == nil {
+                    inlineDragAllowed = value.startLocation.y >= 0 || inlineListAtTop
+                }
+                guard inlineDragAllowed == true, inlineSessionStart != nil,
                       value.translation.height > abs(value.translation.width) else { return }
                 inlineDrag = value.translation.height
             }
             .onEnded { value in
                 guard presentation == .inline else { return }
+                let allowed = inlineDragAllowed ?? (value.startLocation.y >= 0 || inlineListAtTop)
+                inlineDragAllowed = nil
+                guard allowed else { return }
                 let vertical = value.translation.height > abs(value.translation.width)
                 if vertical, value.translation.height > 60 || value.predictedEndTranslation.height > 160 {
                     dismissInline()
@@ -700,6 +765,7 @@ struct AgentView: View {
             inlineSessionStart = nil
         }
         inlineDrag = 0
+        inlineFloatingHeight = 0
     }
 
     // MARK: - ReAct 中间步骤的轻量提示
@@ -1168,9 +1234,11 @@ struct AgentView: View {
             typedPrefix = text
             speech.toggle()
         } label: {
+            // 显式取主题强调色:`Color.accentColor` 走 tint,按钮 disabled(busy)
+            // 时会被系统染成灰色,和旁边的发送键对不上。
             Image(systemName: "mic.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(lodoAccent.accent)
                 .frame(width: Self.composerInlineControlSize, height: Self.composerInlineControlSize)
                 .hitTarget(visualSize: Self.composerInlineControlSize)
         }
@@ -2326,6 +2394,8 @@ private struct AgentMessageListView: View {
     /// 最后一条是不是还没答的询问卡。消息列表在这儿(@Query 在这个 struct 上),
     /// 由它报给外层决定输入区收不收起来。
     let onPendingAskChange: (Bool) -> Void
+    /// 内联模式:列表是否停在最顶上(外面据此决定往下划是滚列表还是收起)。
+    let onInlineAtTopChange: ((Bool) -> Void)?
 
     @Query private var messages: [AgentMessage]
 
@@ -2353,8 +2423,8 @@ private struct AgentMessageListView: View {
         guard let inlineRoom else { return Self.inlineMaxHeight }
         return max(120, min(Self.inlineMaxHeight, inlineRoom - Self.inlineHandleHeight))
     }
-    /// 悬浮内容顶上那根把手(5 + 上下各 8)再留一点空。
-    static let inlineHandleHeight: CGFloat = 29
+    /// 悬浮内容顶上留的那点空(原来是把手,已去掉)。
+    static let inlineHandleHeight: CGFloat = 8
 
     init(historyWindow: Int, since: Date? = nil, streamingAnswer: String?, thinking: (seed: Int, start: Date)?,
          onLoadEarlier: @escaping () -> Void,
@@ -2371,7 +2441,8 @@ private struct AgentMessageListView: View {
          onCopy: @escaping (AgentMessage) -> Void,
          onQuote: @escaping (AgentMessage) -> Void,
          onEdit: @escaping (AgentMessage) -> Void,
-         onPendingAskChange: @escaping (Bool) -> Void) {
+         onPendingAskChange: @escaping (Bool) -> Void,
+         onInlineAtTopChange: ((Bool) -> Void)? = nil) {
         self.historyWindow = historyWindow
         self.since = since
         self.streamingAnswer = streamingAnswer
@@ -2392,6 +2463,7 @@ private struct AgentMessageListView: View {
         self.onQuote = onQuote
         self.onEdit = onEdit
         self.onPendingAskChange = onPendingAskChange
+        self.onInlineAtTopChange = onInlineAtTopChange
         var descriptor = FetchDescriptor<AgentMessage>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
         if let since {
@@ -2454,9 +2526,14 @@ private struct AgentMessageListView: View {
                 .padding(.bottom, isInline ? 4 : 16)
                 .background {
                     GeometryReader { geo in
+                        let atTop = geo.frame(in: .named(Self.scrollSpace)).minY >= -2
                         Color.clear
-                            .onAppear { contentHeight = geo.size.height }
+                            .onAppear {
+                                contentHeight = geo.size.height
+                                onInlineAtTopChange?(atTop)
+                            }
                             .onChange(of: geo.size.height) { _, height in contentHeight = height }
+                            .onChange(of: atTop) { _, value in onInlineAtTopChange?(value) }
                     }
                 }
                 // 宽窗口里收成居中的一栏(见 readableChatWidth)。
@@ -2467,11 +2544,14 @@ private struct AgentMessageListView: View {
                 // 整列合进一个容器共享采样,既让这些玻璃看起来是同一层材质,也
                 // 免得每块各建一个 CABackdropLayer(滚动时是实打实的开销)。
                 // 容器不影响布局,下面的 frame/animation 照旧。
-                .glassGroup()
+                // 内联(悬浮在页面上)时不合进容器:容器按整列的范围采样背后,背后那层
+                // 渐隐底是模糊材质,采样出来在列表上下沿各切出一道硬边(实测)。
+                .glassGroup(enabled: !isInline)
                 // 内容比屏幕短时也把这一坨顶到底部,最后一条消息紧挨着输入栏
                 // ——短对话原来是从顶上开始排,和输入栏之间空出一大片。
                 .frame(maxHeight: isInline ? nil : .infinity, alignment: .bottom)
             }
+            .coordinateSpace(name: Self.scrollSpace)
             // 内联模式:高度随内容,封顶之后才滚;内容不满一屏时也不弹跳。
             .frame(height: isInline ? min(contentHeight, inlineMaxHeight) : nil)
             .scrollBounceBehavior(.basedOnSize)
@@ -2482,6 +2562,7 @@ private struct AgentMessageListView: View {
             // sheet 是独立呈现宿主,根上那次 softTopScrollEdgeTransition 不一定传得进来,
             // 这里自己挂一次:消息滚进导航栏时同样是柔和渐隐。
             .softTopScrollEdgeTransition()
+            .hidesScrollEdgeEffects(isInline)
             .onChange(of: messages.count) { old, new in
                 // 内联模式地方小(旅行面板半高时只剩一百多点):回复落库后停在这次新增的
                 // 第一条 AI 回复的**顶上**,「已完成 ›」和回复开头先露出来,往下滚看全文。
@@ -2541,6 +2622,7 @@ private struct AgentMessageListView: View {
     /// 流式预览气泡的滚动锚点(它不落库,没有 uuid 可用)。
     private static let streamingID = "streaming-preview"
     private static let thinkingID = "thinking-indicator"
+    private static let scrollSpace = "agent-message-scroll"
 
     private static let examplePrompts = [
         "明天下午3点开会", "我之前存的 wifi 密码是多少", "帮我整理一下今天的安排",
