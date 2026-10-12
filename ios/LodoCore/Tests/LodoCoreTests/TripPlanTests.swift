@@ -339,6 +339,26 @@ final class TripPlanTests: XCTestCase {
     }
 
     /// 给已经记下的行程项补费用:update 里的 price/currency 要解析出来(原来整个被丢掉)。
+    /// 修正提取错的航班:origin/place/code/correct 要解析出来,且不算"只改费用备注"。
+    func testParseTripEditCorrectionCarriesRoute() throws {
+        let id = UUID()
+        let edit = try DeepSeekClient.parseTripEdit([
+            "action": "edit_trip", "trip": "东京",
+            "update": [["id": id.uuidString, "origin": "上海", "place": "东京",
+                        "title": "上海 → 东京", "code": "MU523", "correct": true]],
+        ])
+        let update = try XCTUnwrap(edit.updates.first)
+        XCTAssertEqual(update.originName, "上海")
+        XCTAssertEqual(update.placeName, "东京")
+        XCTAssertEqual(update.code, "MU523")
+        XCTAssertTrue(update.correction)
+        XCTAssertFalse(update.touchesOnlyCostOrNote)
+        // 只给 correct、什么都没改的不算一条修改。
+        XCTAssertThrowsError(try DeepSeekClient.parseTripEdit([
+            "trip": "东京", "update": [["id": id.uuidString, "correct": true]],
+        ]))
+    }
+
     func testParseTripEditUpdateCarriesPrice() throws {
         let id = UUID()
         let edit = try DeepSeekClient.parseTripEdit([

@@ -224,8 +224,9 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
         for (u in edit.updates) {
             val m = items[com.lodo.app.ai.canonicalId(u.id, items.keys) ?: ""]
             if (m == null) { skipped += L("找不到要改的那一项", "An item to update wasn't found"); continue }
-            // 航班的时刻座位来自订单不让改,但可以补费用和备注("机票花了 3200")。
-            if (m.travelKind == TravelItemKind.FLIGHT.raw && !u.touchesOnlyCostOrNote) {
+            // 航班的时刻座位来自订单不让改,但可以补费用和备注("机票花了 3200"),
+            // 用户明说提取错了要修正(correct)时也可以改。
+            if (m.travelKind == TravelItemKind.FLIGHT.raw && !u.touchesOnlyCostOrNote && !u.correction) {
                 skipped += L("航班「${m.title}」不能在这里改", "Flight \"${m.title}\" can't be edited here"); continue
             }
             var start = m.travelStartMillis
@@ -243,6 +244,8 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
                 travelStartMillis = start, travelEndMillis = end, travelPlaceName = u.placeName ?: m.travelPlaceName,
                 travelLatitude = if (placeChanged) null else m.travelLatitude,
                 travelLongitude = if (placeChanged) null else m.travelLongitude,
+                travelOriginName = u.originName ?: m.travelOriginName,
+                travelCode = u.code ?: m.travelCode,
                 // 总价;只给了每晚价格时按(改完之后的)入住晚数乘出来。
                 travelPrice = u.resolvedPrice(m.travelKind == TravelItemKind.LODGING.raw, start, end) ?: m.travelPrice,
                 // 给了价格没给币种:沿用原来的币种。

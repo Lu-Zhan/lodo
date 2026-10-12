@@ -321,7 +321,7 @@ object AgentSkillStore {
     private val TRAVEL = """
 额外支持的操作:
 - 先读行程再回答:{"thought": "为什么需要读", "tool": "read_trip", "name": "旅行名称"}(用户问自己某次旅行的安排时用:航班几点、住在哪、第几天去哪、一共花了多少。name 填用户说的那次旅行的名字;用户没指名、只说"我这趟"/"下次旅行"时把 name 留空,由 app 挑正在进行或最近的一次。每次交流最多用一次,拿到行程后必须在下一轮给出真正的最终答案,不能连续再读)
-- 调整已记下的行程:{"action": "edit_trip", "trip": "旅行名称", "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", "place": "新地点", "note": "新说明", "price": 数字, "price_per_night": 数字, "currency": "ISO 4217 币种码如 JPY"}]}(安排的写法:{"kind": "place / lodging / flight / train / coach", "title", "start", "end", "place", "note", "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
+- 调整已记下的行程:{"action": "edit_trip", "trip": "旅行名称", "summary": "一句话说明怎么调整的", "remove": ["要删掉的行程项 id"], "add": [安排, ...], "update": [{"id": "行程项 id", "title": "新名称", "start": "YYYY-MM-DD HH:MM", "end": "YYYY-MM-DD HH:MM", "place": "新地点(交通类是到达地)", "origin": "交通类的出发地", "code": "航班号/车次", "note": "新说明", "price": 数字, "price_per_night": 数字, "currency": "ISO 4217 币种码如 JPY", "correct": true 或 false}]}(安排的写法:{"kind": "place / lodging / flight / train / coach", "title", "start", "end", "place", "note", "price", "currency"};update 里只写要改的字段,remove/add/update 用不到的给空数组)
 
 额外判断规则:
 - 只有涉及用户**自己记过的**行程时才用 read_trip(如"我去东京的航班几点起飞""这趟住在哪""行程一共花了多少")。泛泛的旅行问题(如"东京有什么好玩的""十月去北海道冷不冷")属于一般性问题,该联网搜就搜,不要读行程。
@@ -333,7 +333,7 @@ object AgentSkillStore {
 - "某天重新安排"= 删掉那天要换掉的、加上新的;那天用户没说要换的保持不动。新加的安排按地理位置就近串起来,避开同一天其他项(尤其航班、住宿入住)的时间,start 必填,日期落在要调整的那一天。
 - 调整会直接生效(卡片上可以撤销),所以只改用户说要改的那部分,不要顺手重排别的天,也不要把没提到的项删了再原样加回来。
 - 用户把班次和时刻说清楚了(如"加一班 CA167,28号早上九点起飞""第三天高铁 G7 回上海"),add 里可以放 flight/train/coach,车次/航班号填进 code;**说不清就不要编**车次和时刻。
-- **已经记下的航班不能通过 edit_trip 删改**(多半是从订单/截图导入的,时刻座位都是真的),只能补费用和备注(见上面记费用那一条);用户要改航班,如实说明去「旅行」页里改。带附件(订单确认单)的行程项 app 也不会删,会在结果里如实列出来。
+- **已经记下的航班不能通过 edit_trip 删改**(多半是从订单/截图导入的,时刻座位都是真的),只能补费用和备注(见上面记费用那一条);用户要改航班,如实说明去「旅行」页里改。**例外是修正提取错误**:用户明说记下的航班信息不对、要改正(如"修复当前的航班信息为上海到东京""这班航班的起飞地识别错了,应该是北京"),先 read_trip 找到那一班,update 里带上 "correct": true,只写错了的字段——出发地写 origin、到达地写 place、名称写 title(航班的名称写成"出发地 → 到达地")、航班号写 code、时刻写 start/end;用户没说的字段不要动。删除航班仍然不行。带附件(订单确认单)的行程项 app 也不会删,会在结果里如实列出来。
 - 用户要你**新增/修改行程项**时,不要用 actions 里的待办操作去凑(待办和行程是两回事)。还没有这次旅行、要从头规划的,按「规划行程」的规则给 plan_trip;用户要**记录**自己已经定好的一段行程(说了日期和去哪)的,也给 plan_trip 并带上 "record": true(见「规划行程」);这次旅行已经记过的,用 edit_trip 往里加。
 """.trim()
 

@@ -899,7 +899,9 @@ public enum DeepSeekClient {
                 id: id, title: text(entry, "title"), note: text(entry, "note"),
                 start: start, end: end, placeName: text(entry, "place"),
                 price: planPrice(entry["price"]), currency: text(entry, "currency")?.uppercased(),
-                pricePerNight: planPrice(entry["price_per_night"]))
+                pricePerNight: planPrice(entry["price_per_night"]),
+                originName: text(entry, "origin"), code: text(entry, "code"),
+                correction: entry["correct"] as? Bool ?? false)
             return update.isEmpty ? nil : update
         }
         // 同一项既删又改:以删为准,改那条丢掉。

@@ -441,6 +441,11 @@ struct TravelDetailView: View {
                 case .files: filesList
                 }
             }
+            // 「问问 AI」挂在列表这一截上而不是整个面板上:safeAreaInset 只加安全区,
+            // 列表照样铺到条子背后,滚动时行程从胶囊四周透出来(用户要求背景透明)。
+            // focus 带上**这次旅行的名字**,含糊的"第二天改去奈良""这趟一共多少钱"
+            // 默认就问/改这一次旅行,不用每句话都报名字。
+            .askBar(focus: .travel(trip: trip.title))
             .frame(maxHeight: .infinity)
             .clipped()
         }
@@ -453,9 +458,6 @@ struct TravelDetailView: View {
                     .onChange(of: geo.frame(in: .global)) { _, frame in panelFrame = frame }
             }
         }
-        // 这一页也给一条「问问 AI」:focus 带上**这次旅行的名字**,含糊的
-        // "第二天改去奈良""这趟一共多少钱"默认就问/改这一次旅行,不用每句话都报名字。
-        .askBar(focus: .travel(trip: trip.title))
     }
 
     /// 面板里各个入口弹出的表单。挂在面板上(窄屏时面板本身就是 sheet,同一个视图
@@ -2175,6 +2177,9 @@ private struct TravelPanelGroupGlass: View {
         }
         // 必须裁在列表自己的范围里:玻璃按行的锚点位置画,列表往上滚时,滚出顶部那几行
         // 的玻璃会画到列表外面去。
+        // 底部的「问问 AI」条是 safeAreaInset:列表铺到条子背后,玻璃也要跟着画过去,
+        // 不然条子后面只露出行文字、没有行底。
+        .ignoresSafeArea(.container, edges: .bottom)
         .clipped()
         // 列表顶上若钉着别的栏(安全区顶部 inset > 0),行从它底下滚过去时系统的 .soft
         // 滚动边缘效果够不着画在列表背后的这层玻璃,所以自己跟着淡掉:栏底边往上

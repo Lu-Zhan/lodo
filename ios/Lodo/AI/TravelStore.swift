@@ -915,7 +915,8 @@ enum TravelStore {
     /// 旅行的 id 一律不动**。
     ///
     /// 两类行程项不删不改,记进 skipped 如实报回去:① 航班——航班号时刻不是 AI 能
-    /// 决定的;② 带附件的(订单确认单等)——删除会连文件一起清掉,撤销恢复不了文件。
+    /// 决定的(只能补费用备注;用户明说提取错了、update 带 `correct` 时可以改正名称、
+    /// 起讫地、航班号和时刻,删仍然不行);② 带附件的(订单确认单等)——删除会连文件一起清掉,撤销恢复不了文件。
     static func applyEdit(_ edit: TripEdit, context: ModelContext) -> TripEditRecord? {
         let allTravel = ((try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []).filter(\.isTravel)
         let referencedTrip = edit.referencedIDs.lazy
@@ -954,13 +955,14 @@ enum TravelStore {
                 continue
             }
             // 带附件的可以改时间/名称(不碰文件);航班的时刻座位来自订单不让改,
-            // 但可以补费用和备注("机票花了 3200")。
-            if item.travelKind == .flight, !change.touchesOnlyCostOrNote {
+            // 但可以补费用和备注("机票花了 3200"),用户明说提取错了要修正时也可以改。
+            if item.travelKind == .flight, !change.touchesOnlyCostOrNote, !change.correction {
                 record.skipped.append("\(item.title)(航班)")
                 continue
             }
             record.updatedBefore.append(item.backup)
             let placeChanged = change.placeName != nil && change.placeName != item.travelPlaceName
+            let originChanged = change.originName != nil && change.originName != item.travelOriginName
             let newStart = change.start ?? item.travelStart
             // 只挪了开始时间没给结束时间:保持原来的时长,不然会出现"结束早于开始"。
             var newEnd = change.end ?? item.travelEnd
@@ -970,7 +972,7 @@ enum TravelStore {
             }
             update(
                 item, kind: item.travelKind ?? .place, title: change.title ?? item.title,
-                note: change.note ?? item.summary, code: item.travelCode,
+                note: change.note ?? item.summary, code: change.code ?? item.travelCode,
                 start: newStart, end: newEnd,
                 // 总价;只给了每晚价格时按(改完之后的)入住晚数乘出来。
                 price: change.resolvedPrice(kind: item.travelKind ?? .place, start: newStart, end: newEnd)
@@ -981,10 +983,11 @@ enum TravelStore {
                 // 地点换了,原来的坐标就不对了——宁可不上地图也不能画错位置。
                 latitude: placeChanged ? nil : item.travelLatitude,
                 longitude: placeChanged ? nil : item.travelLongitude,
-                originName: item.travelOriginName, originLatitude: item.travelOriginLatitude,
+                originName: change.originName ?? item.travelOriginName,
+                originLatitude: originChanged ? nil : item.travelOriginLatitude,
                 // 交通类(航班/火车/客车)的航站楼、站台、车厢、座位要原样留着——原来这里传 nil,
                 // AI 改一下火车的时间就把这些全清空了。
-                originLongitude: item.travelOriginLongitude,
+                originLongitude: originChanged ? nil : item.travelOriginLongitude,
                 flight: FlightDetails.decode(item.travelFlightData), context: context)
             record.updatedAfter.append(TripEditLine(
                 id: item.uuid, kind: item.travelKind ?? .place, title: item.title,

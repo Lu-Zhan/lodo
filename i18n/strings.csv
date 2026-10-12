@@ -1529,6 +1529,8 @@ ios_view.countdown_unit_3,已结束 %@,Ended %@ ago,ios_view,倒数日:点日期
 ios_view.countdown_unit_4,%lld 年,%lld yr,ios_view,倒数日:点日期切换计数方式
 ios_view.countdown_unit_5,%lld 个月,%lld mo,ios_view,倒数日:点日期切换计数方式
 ios_view.countdown_unit_6,切换计数方式,Switches how the time is counted,ios_view,倒数日:点日期切换计数方式
+ios_view.agent_reasoning_1,查看思考过程,View thinking process,ios_view,AI 助手:思考过程
+ios_view.agent_reasoning_2,思考过程,Thinking Process,ios_view,AI 助手:思考过程
 ios_view.agent_library_1,资产已更新,Assets updated,ios_view,AI 结果回复/资产与订阅
 ios_view.agent_library_2,订阅已更新,Subscriptions updated,ios_view,AI 结果回复/资产与订阅
 ios_view.agent_library_3,已添加,Added,ios_view,AI 结果回复/资产与订阅

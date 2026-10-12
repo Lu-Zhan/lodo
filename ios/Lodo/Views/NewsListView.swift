@@ -168,7 +168,8 @@ struct NewsListView: View {
                                     .tint(readFilter == filter ? accentPalette.accent : .secondary)
                                 }
                             }
-                            .padding(.horizontal, 20)
+                            // 不再额外内缩:List 仍给这一行留着分区的左边距,再加 20 就比
+                            // 下面的文章卡片往里缩了一截(用户要求左对齐)。
                         }
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
@@ -361,7 +362,7 @@ struct NewsListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            // 同上面的切换条:和下面的文章卡片左边对齐,不再额外内缩。
         }
         .listRowInsets(EdgeInsets())
         .listRowBackground(Color.clear)

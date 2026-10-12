@@ -33,38 +33,6 @@
         }
       }
     },
-    "%lld 个月" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld mo"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 个月"
-          }
-        }
-      }
-    },
-    "%lld 年" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld yr"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 年"
-          }
-        }
-      }
-    },
     "—" : {
       "localizations" : {
         "en" : {
@@ -658,6 +626,22 @@
         }
       }
     },
+    "%lld 个月" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld mo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个月"
+          }
+        }
+      }
+    },
     "%lld 个月前更新" : {
       "localizations" : {
         "en" : {
@@ -830,6 +814,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 小时 %lld 分钟"
+          }
+        }
+      }
+    },
+    "%lld 年" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld yr"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 年"
           }
         }
       }
@@ -4512,70 +4512,6 @@
         }
       }
     },
-    "切换计数方式" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Switches how the time is counted"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "切换计数方式"
-          }
-        }
-      }
-    },
-    "已开始 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Started %@ ago"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已开始 %@"
-          }
-        }
-      }
-    },
-    "已经 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ since"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已经 %@"
-          }
-        }
-      }
-    },
-    "已结束 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ended %@ ago"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已结束 %@"
-          }
-        }
-      }
-    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -4979,6 +4915,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "切换视图"
+          }
+        }
+      }
+    },
+    "切换计数方式" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switches how the time is counted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换计数方式"
           }
         }
       }
@@ -5542,6 +5494,9 @@
           }
         }
       }
+    },
+    "到每日总结时间后自动生成。" : {
+
     },
     "到设定时间自动执行,结果推送给你。系统会挑合适的时机在后台完成,如果没赶上,到点会先提醒你打开 app,打开后立刻补跑。" : {
       "localizations" : {
@@ -8826,6 +8781,22 @@
         }
       }
     },
+    "已开始 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started %@ ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已开始 %@"
+          }
+        }
+      }
+    },
     "已开始 %lld 天" : {
       "localizations" : {
         "en" : {
@@ -9132,6 +9103,22 @@
         }
       }
     },
+    "已经 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ since"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经 %@"
+          }
+        }
+      }
+    },
     "已经 %lld 天" : {
       "localizations" : {
         "en" : {
@@ -9226,6 +9213,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已结束 · %lld"
+          }
+        }
+      }
+    },
+    "已结束 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended %@ ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已结束 %@"
           }
         }
       }
@@ -10303,6 +10306,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "思考强度越高,回答通常越准确但等待更久;只有支持推理的服务商/模型才会真正生效,其余会忽略这个设置,不影响正常使用。"
+          }
+        }
+      }
+    },
+    "思考过程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thinking Process"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "思考过程"
           }
         }
       }
@@ -12086,7 +12105,11 @@
         }
       }
     },
+    "文章和新闻页的总结都用这种语言写。已经总结过的文章不会自动重写,可以在文章里点「重新总结」。" : {
+
+    },
     "文章的 AI 总结和「今日」总结都用这种语言写。已经总结过的文章不会自动重写,可以在文章里的 AI 总结下点「重新总结」。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12294,6 +12317,9 @@
           }
         }
       }
+    },
+    "新闻设置" : {
+
     },
     "旅行" : {
       "localizations" : {
@@ -13828,6 +13854,22 @@
         }
       }
     },
+    "查看思考过程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View thinking process"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看思考过程"
+          }
+        }
+      }
+    },
     "查看成员" : {
       "localizations" : {
         "en" : {
@@ -14657,6 +14699,9 @@
         }
       }
     },
+    "每天到这个时间统一整理一览、各 RSS 来源和内容分类。系统若延迟后台运行,下次打开应用会补做。" : {
+
+    },
     "每季度" : {
       "localizations" : {
         "en" : {
@@ -14689,6 +14734,9 @@
         }
       }
     },
+    "每日 %@ 统一总结" : {
+
+    },
     "每日任务汇总" : {
       "localizations" : {
         "en" : {
@@ -14704,6 +14752,9 @@
           }
         }
       }
+    },
+    "每日总结时间" : {
+
     },
     "每月" : {
       "localizations" : {
@@ -15998,9 +16049,6 @@
         }
       }
     },
-    "生成总结" : {
-
-    },
     "生日" : {
       "localizations" : {
         "en" : {
@@ -16617,6 +16665,9 @@
         }
       }
     },
+    "立即更新全部" : {
+
+    },
     "立即运行" : {
       "localizations" : {
         "en" : {
@@ -16714,6 +16765,7 @@
       }
     },
     "筛选" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

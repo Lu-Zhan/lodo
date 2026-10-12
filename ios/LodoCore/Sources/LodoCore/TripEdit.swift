@@ -40,10 +40,18 @@ public struct TripEditUpdate: Codable, Equatable, Sendable {
     /// 用户报的是每晚的价格(「一晚 800」):app 按记下的入住晚数乘成总价(`resolvedPrice`),
     /// 不让模型自己乘——它会把单价直接当总价存(实测 3/3)。
     public var pricePerNight: Double?
+    /// 交通类的出发地(到达地是 `placeName`)与航班号/车次。
+    public var originName: String?
+    public var code: String?
+    /// 用户明说记下的信息**提取错了**、要改正(「把这班航班修正成上海到东京」)。
+    /// 只有带着它,已经记下的航班才允许改名称/起讫地/航班号/时刻——平时航班的这些
+    /// 字段来自订单,不让 AI 随手动;导入时认错了,用户却得有办法让 AI 改回来。
+    public var correction: Bool
 
     public init(id: UUID, title: String? = nil, note: String? = nil, start: Date? = nil,
                 end: Date? = nil, placeName: String? = nil, price: Double? = nil,
-                currency: String? = nil, pricePerNight: Double? = nil) {
+                currency: String? = nil, pricePerNight: Double? = nil,
+                originName: String? = nil, code: String? = nil, correction: Bool = false) {
         self.id = id
         self.title = title
         self.note = note
@@ -53,11 +61,36 @@ public struct TripEditUpdate: Codable, Equatable, Sendable {
         self.price = price
         self.currency = currency
         self.pricePerNight = pricePerNight
+        self.originName = originName
+        self.code = code
+        self.correction = correction
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, note, start, end, placeName, price, currency, pricePerNight
+        case originName, code, correction
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        note = try c.decodeIfPresent(String.self, forKey: .note)
+        start = try c.decodeIfPresent(Date.self, forKey: .start)
+        end = try c.decodeIfPresent(Date.self, forKey: .end)
+        placeName = try c.decodeIfPresent(String.self, forKey: .placeName)
+        price = try c.decodeIfPresent(Double.self, forKey: .price)
+        currency = try c.decodeIfPresent(String.self, forKey: .currency)
+        pricePerNight = try c.decodeIfPresent(Double.self, forKey: .pricePerNight)
+        originName = try c.decodeIfPresent(String.self, forKey: .originName)
+        code = try c.decodeIfPresent(String.self, forKey: .code)
+        correction = try c.decodeIfPresent(Bool.self, forKey: .correction) ?? false
     }
 
     public var isEmpty: Bool {
         title == nil && note == nil && start == nil && end == nil && placeName == nil
             && price == nil && currency == nil && pricePerNight == nil
+            && originName == nil && code == nil
     }
 
     /// 写进这一项的总价。给了总价就用总价;只给了每晚价格时按入住晚数乘(住宿才有"晚",
@@ -77,6 +110,7 @@ public struct TripEditUpdate: Codable, Equatable, Sendable {
     /// 动,但"机票花了 3200"是用户自己说的事实,该记得上。
     public var touchesOnlyCostOrNote: Bool {
         title == nil && start == nil && end == nil && placeName == nil
+            && originName == nil && code == nil
     }
 }
 

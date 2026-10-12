@@ -37,11 +37,17 @@ struct AgentHostView: View {
 
     /// 从哪一页(以及那一页上的哪个对象)的「问问 AI」条唤出;侧栏里的 AI 页为 nil。见 `AgentFocus`。
     let pageFocus: AgentFocus?
+    /// 整页 AI 助手,还是各页底部的内联「问问 AI」。
+    let presentation: AgentPresentation
+    let placeholder: LocalizedStringKey?
 
     init(agentRequest: Binding<String?>, showsCloseButton: Bool = false,
-         pageFocus: AgentFocus? = nil) {
+         pageFocus: AgentFocus? = nil, presentation: AgentPresentation = .page,
+         placeholder: LocalizedStringKey? = nil) {
         self._agentRequest = agentRequest
         self.pageFocus = pageFocus
+        self.presentation = presentation
+        self.placeholder = placeholder
         self.showsCloseButton = showsCloseButton
     }
 
@@ -49,6 +55,8 @@ struct AgentHostView: View {
         AgentView(
             pendingPrefill: $agentRequest,
             showsCloseButton: showsCloseButton,
+            presentation: presentation,
+            placeholder: placeholder,
             submit: { text, history, onThought, onStream, onReasoning in
                 try await route(text, history: history, onThought: onThought,
                                 onStream: onStream, onReasoning: onReasoning)

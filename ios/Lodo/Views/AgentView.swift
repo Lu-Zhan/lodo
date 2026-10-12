@@ -6,6 +6,14 @@ import LodoCore
 import UIKit
 #endif
 
+/// AgentView 的两种呈现。
+enum AgentPresentation {
+    /// 侧栏里的 AI 页:整页对话 + 导航栏。
+    case page
+    /// 各页底部的「问问 AI」:只有输入栏,这一轮 AI 回的内容悬浮在它上方。
+    case inline
+}
+
 /// AI 对话页(抽屉里的平级页面之一):**单一持续对话**——一条永不结束的时间线,
 /// 没有"新建对话"这回事,每轮请求带上最近几轮历史(更早的压成摘要,见
 /// `AgentConversationSummary`);右下角语音、左侧 + 号传照片/文件。
@@ -22,6 +30,10 @@ struct AgentView: View {
     @Binding var pendingPrefill: String?
     /// 展示页弹出的 sheet 需要右上角关闭入口；常驻 AI 页面保持原导航结构。
     let showsCloseButton: Bool
+    /// 侧栏里的 AI 页,还是各页底部那条「问问 AI」(内联,见 `inlineColumn`)。
+    let presentation: AgentPresentation
+    /// 内联模式输入框里的提示语(按页换的口语短句);nil 用 AI 页那句。
+    let placeholder: LocalizedStringKey?
     /// 解析并路由输入文本 + 最近对话历史;onThought 在 ReAct 循环中间步骤时被调用
     /// (如"正在查记忆…"),驱动 thinkingText 那条轻量提示。返回本页要展示的回应形态。
     /// onStream 收到的是"到目前为止的全文"(不是增量),直接赋给预览气泡即可;
@@ -55,8 +67,10 @@ struct AgentView: View {
     @State private var busy = false
     /// 发送中的请求;busy 时发送按钮变成取消,点了就 cancel 这个 Task。
     @State private var sendTask: Task<Void, Never>?
-    /// 推理模型吐出的思考过程的尾巴,喂给"思考中…"那行;每轮请求结束清空。
-    @State private var reasoningTail = ""
+    /// 这一轮的思考过程(推理原文 + ReAct 每步的想法),回复落库时挂到这一轮第一条
+    /// AI 消息上(「已完成 ›」点开看)。引用类型、不是 @State 的值:推理增量每个
+    /// token 来一次,写进 @State 会让整个 AgentView.body 跟着重建。
+    @State private var reasoningLog = AgentReasoningLog()
     /// 每轮请求换一个起始词、从这一刻起计时轮换,免得每次都从「处理中」开始。
     @State private var thinkingSeed = 0
     @State private var thinkingStart = Date()
@@ -86,6 +100,9 @@ struct AgentView: View {
     /// 后台压缩正在跑;防重入(连发两条消息时不重复压同一批)。
     @State private var isCompacting = false
     static let historyPageSize = 60
+    #if DEBUG
+    @MainActor static var demoAskBarSent = false
+    #endif
     /// 一次最多压缩多少条。够覆盖正常节奏下攒出来的量,又不至于让长期离线后的
     /// 第一次压缩把几千条一股脑塞进 prompt。
     static let maxCompressBatch = 200
@@ -98,6 +115,7 @@ struct AgentView: View {
     /// 共享聊天室的导航(列表 → 某个房间),push 在这页自己的 NavigationStack 上。
     @State private var chatPath: [ChatRoute] = []
     @Environment(\.sidebarChrome) private var sidebarChrome
+    @Environment(\.sectionIsActive) private var sectionIsActive
     @State private var showPhotoPicker = false
     @State private var photoSelection: [PhotosPickerItem] = []
     /// 点了输入卡片里的某张缩略图:非 nil 时全屏打开大图查看,值是起始那张的 id。
@@ -107,11 +125,19 @@ struct AgentView: View {
     /// 爱心)时弹一个全屏动画,见下面的 .onChange(of: text) 和 EasterEggView。
     @State private var showEasterEgg = false
     @State private var easterEggOccasion: EasterEggView.Occasion = .birthday
+    /// 内联模式:这一轮「问问 AI」从什么时候开始。非 nil 时输入栏上方悬浮着这之后
+    /// AI 回的消息(思考中、回答、操作结果、提问卡……);往下一划清掉、回到只剩输入栏。
+    /// 对话本身照旧落进 AI 页那条单一持续对话,这里只是只看这一截。
+    @State private var inlineSessionStart: Date?
+    /// 往下划关闭时悬浮内容跟着手指往下走的距离。
+    @State private var inlineDrag: CGFloat = 0
 
     /// @State 属性都是 private,合成的 memberwise init 会跟着降级成 private、
     /// 别的文件用不了,所以显式写一个。
     init(pendingPrefill: Binding<String?>,
          showsCloseButton: Bool = false,
+         presentation: AgentPresentation = .page,
+         placeholder: LocalizedStringKey? = nil,
          submit: @escaping (
             String, [(role: String, content: String)], @escaping (String) -> Void,
             @escaping (String) -> Void, @escaping (String) -> Void
@@ -122,6 +148,8 @@ struct AgentView: View {
          toggleCreatedTask: @escaping (UUID?, ParsedTask) -> UUID?) {
         self._pendingPrefill = pendingPrefill
         self.showsCloseButton = showsCloseButton
+        self.presentation = presentation
+        self.placeholder = placeholder
         self.submit = submit
         self.onConfirm = onConfirm
         self.onUndo = onUndo
@@ -154,7 +182,13 @@ struct AgentView: View {
     var body: some View {
         // 对话里产出的内容(规划/调整后的行程)不在旁边开一栏展示:结果卡片下面
         // 那条 `AgentJumpLink` 小条直接把人送进那个条目所在的页面。
-        chatStack
+        Group {
+            if presentation == .inline {
+                interactions(inlineColumn)
+            } else {
+                chatStack
+            }
+        }
             .onChange(of: pendingPrefill) { _, _ in consumePrefill() }
             // 接受了聊天室邀请:直接进那个房间。只有侧栏里那一页的 AI 助手接,
             // 「问问 AI」弹层里那份(带关闭按钮)不抢。
@@ -163,314 +197,347 @@ struct AgentView: View {
     }
 
     private func consumeChatRequest() {
-        guard !showsCloseButton, let uuid = SharedTripSync.shared.openChatRequest else { return }
+        guard presentation == .page, !showsCloseButton,
+              let uuid = SharedTripSync.shared.openChatRequest else { return }
         SharedTripSync.shared.openChatRequest = nil
         chatPath = [.rooms, .room(uuid)]
     }
 
     private var chatStack: some View {
         NavigationStack(path: $chatPath) {
-            chatColumn
-            // 这里曾经 .ignoresSafeArea(.container, edges: .bottom),让输入栏贴到
-            // 屏幕物理底边、不给 home indicator 留白边。现在整页底色由 AppShellView
-            // 统一铺到物理边缘了,那条"死白边"本来就不存在;继续贴底反而有害:抽屉
-            // 推开时页面被裁成 44pt 圆角,输入栏自己 26pt 的玻璃圆角正好落进那个圆角
-            // 里,两道弧线套在一起。让输入栏收回安全区之上即可(消息仍然从它背后滚
-            // 过去,底部那截不是死区)。
-            // 标题是品牌名(用户要求,2026-09),中英文界面一样,不进字符串目录。
-            .navigationTitle(Text(verbatim: Self.pageTitle))
-            #if os(macOS)
-            // Mac 的窗口标题栏本身就是"标题 + 副标题"两行(同邮件/备忘录),不再在工具栏
-            // 正中另摆一份:那样标题出现两遍,正中那颗玻璃胶囊还会把副标题截断。
-            .background {
-                AgentWindowSubtitle(mode: aiModeSummary, capability: aiCapabilitySummary)
+            interactions(pageColumn)
+        }
+    }
+
+    /// 侧栏里 AI 页那一套导航栏/工具栏/聊天室路由。「问问 AI」条里的内联模式不要这些。
+    private var pageColumn: some View {
+        chatColumn
+        // 这里曾经 .ignoresSafeArea(.container, edges: .bottom),让输入栏贴到
+        // 屏幕物理底边、不给 home indicator 留白边。现在整页底色由 AppShellView
+        // 统一铺到物理边缘了,那条"死白边"本来就不存在;继续贴底反而有害:抽屉
+        // 推开时页面被裁成 44pt 圆角,输入栏自己 26pt 的玻璃圆角正好落进那个圆角
+        // 里,两道弧线套在一起。让输入栏收回安全区之上即可(消息仍然从它背后滚
+        // 过去,底部那截不是死区)。
+        // 标题是品牌名(用户要求,2026-09),中英文界面一样,不进字符串目录。
+        .navigationTitle(Text(verbatim: Self.pageTitle))
+        #if os(macOS)
+        // Mac 的窗口标题栏本身就是"标题 + 副标题"两行(同邮件/备忘录),不再在工具栏
+        // 正中另摆一份:那样标题出现两遍,正中那颗玻璃胶囊还会把副标题截断。
+        .background {
+            AgentWindowSubtitle(mode: aiModeSummary, capability: aiCapabilitySummary)
+        }
+        #endif
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            // 自定义 principal:标题恒为「Lodo☀️～」(单一持续对话,没有
+            // 每段对话各自的标题了);标题下加一行
+            // 当前 AI 模式(服务商/思考强度/联网搜索),不然用户在对话里完全
+            // 看不出现在到底是哪个服务商、思考开没开、能不能联网搜索——
+            // 这些都要跳回设置页才看得到。
+            // principal 项恒定渲染(只淡出内容),抽屉展开/拖拽时导航栏高度
+            // 才不会跟着两行标题的消失/出现联动跳变,chatColumn 紧贴在导航栏
+            // 下方布局,导航栏一变高聊天区就会跟着窜一下——这是纯文字 VStack,
+            // 没有 Liquid Glass 背景,可以放心用 opacity(☰ 那颗不行,它带
+            // 系统画的 Liquid Glass 底,见 sidebarToolbarButton 的注释)。
+            // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
+            // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
+            #if !os(macOS)
+            ToolbarItem(placement: .principal) {
+                AgentTitleView(title: Self.pageTitle, mode: aiModeSummary,
+                               capability: aiCapabilitySummary)
             }
             #endif
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                // 自定义 principal:标题恒为「Lodo☀️～」(单一持续对话,没有
-                // 每段对话各自的标题了);标题下加一行
-                // 当前 AI 模式(服务商/思考强度/联网搜索),不然用户在对话里完全
-                // 看不出现在到底是哪个服务商、思考开没开、能不能联网搜索——
-                // 这些都要跳回设置页才看得到。
-                // principal 项恒定渲染(只淡出内容),抽屉展开/拖拽时导航栏高度
-                // 才不会跟着两行标题的消失/出现联动跳变,chatColumn 紧贴在导航栏
-                // 下方布局,导航栏一变高聊天区就会跟着窜一下——这是纯文字 VStack,
-                // 没有 Liquid Glass 背景,可以放心用 opacity(☰ 那颗不行,它带
-                // 系统画的 Liquid Glass 底,见 sidebarToolbarButton 的注释)。
-                // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
-                // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
-                #if !os(macOS)
-                ToolbarItem(placement: .principal) {
-                    AgentTitleView(title: Self.pageTitle, mode: aiModeSummary,
-                                   capability: aiCapabilitySummary)
+            if !(sidebarChrome?.hidesChrome ?? false) {
+                ToolbarItem(placement: .primaryAction) {
+                    ChatRoomsToolbarButton { chatPath.append(.rooms) }
                 }
-                #endif
-                if !(sidebarChrome?.hidesChrome ?? false) {
-                    ToolbarItem(placement: .primaryAction) {
-                        ChatRoomsToolbarButton { chatPath.append(.rooms) }
+            }
+            if showsCloseButton {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
                     }
-                }
-                if showsCloseButton {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { dismiss() } label: {
-                            Image(systemName: "xmark")
-                        }
-                        .accessibilityLabel("关闭")
-                    }
+                    .accessibilityLabel("关闭")
                 }
             }
-            .navigationDestination(for: ChatRoute.self) { route in
-                switch route {
-                case .rooms: ChatRoomListView(path: $chatPath)
-                case .room(let uuid): ChatRoomView(roomUUID: uuid)
+        }
+        .navigationDestination(for: ChatRoute.self) { route in
+            switch route {
+            case .rooms: ChatRoomListView(path: $chatPath)
+            case .room(let uuid): ChatRoomView(roomUUID: uuid)
+            }
+        }
+        .sidebarToolbarButton()
+    }
+
+    /// 两种呈现共用的交互:表单、附件选择、语音、彩蛋、启动参数……
+    private func interactions(_ content: some View) -> some View {
+        content
+        .sheet(item: $formTarget) { target in
+            TaskEditView(existing: target.existing, parsed: target.parsed,
+                         attachment: target.existing?.attachment) { savedParsed in
+                saveTask(target.existing, savedParsed)
+                appendTaskResult(existingUUID: target.existing?.uuid, parsed: savedParsed)
+            }
+        }
+        .confirmationDialog(
+            "修改这条消息?", isPresented: Binding(
+                get: { pendingEdit != nil }, set: { if !$0 { pendingEdit = nil } }
+            ), titleVisibility: .visible
+        ) {
+            Button("修改", role: .destructive) {
+                if let message = pendingEdit { performEdit(message) }
+                pendingEdit = nil
+            }
+        } message: {
+            Text("之后的对话记录会一并删除,不可恢复。")
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.pdf, .image, .plainText, .presentation, .data],
+            allowsMultipleSelection: true
+        ) { result in
+            for url in (try? result.get()) ?? [] { handlePickedFile(url) }
+        }
+        // PhotosPicker 不能直接放进 Menu:菜单一收起,挂在菜单项上的相册
+        // 弹窗跟着一起没了,点「照片」什么都不发生。菜单里只放按钮,
+        // 相册弹窗挂在页面上。
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoSelection,
+                      maxSelectionCount: max(1, remainingPhotoSlots),
+                      selectionBehavior: .ordered, matching: .images)
+        .onChange(of: photoSelection) { _, items in
+            guard !items.isEmpty else { return }
+            // PhotosPicker 的选择是全量的,读完就清空,下次再点是"再加几张"。
+            // 按选择顺序逐张读,缩略图顺序和用户点选的顺序一致。
+            photoSelection = []
+            Task {
+                for item in items {
+                    guard remainingPhotoSlots > 0,
+                          let data = try? await item.loadTransferable(type: Data.self)
+                    else { continue }
+                    handlePickedImage(data)
                 }
             }
-            .sidebarToolbarButton()
-            .sheet(item: $formTarget) { target in
-                TaskEditView(existing: target.existing, parsed: target.parsed,
-                             attachment: target.existing?.attachment) { savedParsed in
-                    saveTask(target.existing, savedParsed)
-                    appendTaskResult(existingUUID: target.existing?.uuid, parsed: savedParsed)
+        }
+        #if os(iOS)
+        .fullScreenCover(item: $viewingImage) { target in
+            AgentImageViewer(images: pendingImages, initialID: target.id)
+        }
+        #else
+        .sheet(item: $viewingImage) { target in
+            AgentImageViewer(images: pendingImages, initialID: target.id)
+        }
+        #endif
+        .sheet(isPresented: $showMemoryPicker) {
+            MemoryPickerView(excluding: Set(pendingAttachments.compactMap(\.memoryUUID))) { picked in
+                for item in picked {
+                    pendingAttachments.append(PendingAttachment(
+                        displayName: item.title.isEmpty ? (item.originalFileName ?? "记忆条目") : item.title,
+                        extractedText: item.sourceText, memoryUUID: item.uuid, symbol: item.kind.symbol))
                 }
             }
-            .confirmationDialog(
-                "修改这条消息?", isPresented: Binding(
-                    get: { pendingEdit != nil }, set: { if !$0 { pendingEdit = nil } }
-                ), titleVisibility: .visible
-            ) {
-                Button("修改", role: .destructive) {
-                    if let message = pendingEdit { performEdit(message) }
-                    pendingEdit = nil
+        }
+        .sheet(item: $referencePicker) { category in
+            AgentReferencePickerView(
+                category: category,
+                excluding: Set(pendingAttachments.compactMap(\.reference?.id))
+            ) { picked in
+                for reference in picked {
+                    pendingAttachments.append(PendingAttachment(
+                        displayName: reference.title,
+                        extractedText: AgentReferenceRenderer.body(for: reference, in: context),
+                        symbol: reference.kind.symbol, reference: reference))
                 }
-            } message: {
-                Text("之后的对话记录会一并删除,不可恢复。")
             }
-            .fileImporter(
-                isPresented: $showFileImporter,
-                allowedContentTypes: [.pdf, .image, .plainText, .presentation, .data],
-                allowsMultipleSelection: true
-            ) { result in
-                for url in (try? result.get()) ?? [] { handlePickedFile(url) }
+        }
+        // macOS 没有 fullScreenCover(API 本身就不可用),用窗口 sheet 代替。
+        #if os(iOS)
+        .fullScreenCover(isPresented: $showEasterEgg) {
+            EasterEggView(occasion: easterEggOccasion)
+        }
+        #else
+        .sheet(isPresented: $showEasterEgg) {
+            EasterEggView(occasion: easterEggOccasion)
+        }
+        #endif
+        .onChange(of: text) { _, newValue in
+            switch newValue.trimmingCharacters(in: .whitespacesAndNewlines) {
+            case "0707":
+                text = ""
+                easterEggOccasion = .birthday
+                showEasterEgg = true
+            case "0829":
+                text = ""
+                easterEggOccasion = .anniversary
+                showEasterEgg = true
+            default:
+                break
             }
-            // PhotosPicker 不能直接放进 Menu:菜单一收起,挂在菜单项上的相册
-            // 弹窗跟着一起没了,点「照片」什么都不发生。菜单里只放按钮,
-            // 相册弹窗挂在页面上。
-            .photosPicker(isPresented: $showPhotoPicker, selection: $photoSelection,
-                          maxSelectionCount: max(1, remainingPhotoSlots),
-                          selectionBehavior: .ordered, matching: .images)
-            .onChange(of: photoSelection) { _, items in
-                guard !items.isEmpty else { return }
-                // PhotosPicker 的选择是全量的,读完就清空,下次再点是"再加几张"。
-                // 按选择顺序逐张读,缩略图顺序和用户点选的顺序一致。
-                photoSelection = []
+        }
+        .onChange(of: speech.transcript) { _, transcript in
+            if !transcript.isEmpty { text = typedPrefix + transcript }
+        }
+        .onChange(of: speech.isRecording) { was, isRecording in
+            // 讲完话(录音停止)稍等最终转写落定后自动提交。云端引擎不用这条:
+            // 停止录音那一刻转写还没开始,text 仍是空的,真正该发送的时机是
+            // 下面 isProcessing 变回 false 那一刻(转写结果已经落进 text)——
+            // 这两条严格分工,不能都对云端引擎生效,否则空 text 会先把
+            // 附件(如果有)提前发出去,漏掉随后才到的语音文字。
+            guard AppSettings.sttEngine != "qwenASR" else { return }
+            if was && !isRecording && !busy && errorText == nil {
                 Task {
-                    for item in items {
-                        guard remainingPhotoSlots > 0,
-                              let data = try? await item.loadTransferable(type: Data.self)
-                        else { continue }
-                        handlePickedImage(data)
-                    }
-                }
-            }
-            #if os(iOS)
-            .fullScreenCover(item: $viewingImage) { target in
-                AgentImageViewer(images: pendingImages, initialID: target.id)
-            }
-            #else
-            .sheet(item: $viewingImage) { target in
-                AgentImageViewer(images: pendingImages, initialID: target.id)
-            }
-            #endif
-            .sheet(isPresented: $showMemoryPicker) {
-                MemoryPickerView(excluding: Set(pendingAttachments.compactMap(\.memoryUUID))) { picked in
-                    for item in picked {
-                        pendingAttachments.append(PendingAttachment(
-                            displayName: item.title.isEmpty ? (item.originalFileName ?? "记忆条目") : item.title,
-                            extractedText: item.sourceText, memoryUUID: item.uuid, symbol: item.kind.symbol))
-                    }
-                }
-            }
-            .sheet(item: $referencePicker) { category in
-                AgentReferencePickerView(
-                    category: category,
-                    excluding: Set(pendingAttachments.compactMap(\.reference?.id))
-                ) { picked in
-                    for reference in picked {
-                        pendingAttachments.append(PendingAttachment(
-                            displayName: reference.title,
-                            extractedText: AgentReferenceRenderer.body(for: reference, in: context),
-                            symbol: reference.kind.symbol, reference: reference))
-                    }
-                }
-            }
-            // macOS 没有 fullScreenCover(API 本身就不可用),用窗口 sheet 代替。
-            #if os(iOS)
-            .fullScreenCover(isPresented: $showEasterEgg) {
-                EasterEggView(occasion: easterEggOccasion)
-            }
-            #else
-            .sheet(isPresented: $showEasterEgg) {
-                EasterEggView(occasion: easterEggOccasion)
-            }
-            #endif
-            .onChange(of: text) { _, newValue in
-                switch newValue.trimmingCharacters(in: .whitespacesAndNewlines) {
-                case "0707":
-                    text = ""
-                    easterEggOccasion = .birthday
-                    showEasterEgg = true
-                case "0829":
-                    text = ""
-                    easterEggOccasion = .anniversary
-                    showEasterEgg = true
-                default:
-                    break
-                }
-            }
-            .onChange(of: speech.transcript) { _, transcript in
-                if !transcript.isEmpty { text = typedPrefix + transcript }
-            }
-            .onChange(of: speech.isRecording) { was, isRecording in
-                // 讲完话(录音停止)稍等最终转写落定后自动提交。云端引擎不用这条:
-                // 停止录音那一刻转写还没开始,text 仍是空的,真正该发送的时机是
-                // 下面 isProcessing 变回 false 那一刻(转写结果已经落进 text)——
-                // 这两条严格分工,不能都对云端引擎生效,否则空 text 会先把
-                // 附件(如果有)提前发出去,漏掉随后才到的语音文字。
-                guard AppSettings.sttEngine != "qwenASR" else { return }
-                if was && !isRecording && !busy && errorText == nil {
-                    Task {
-                        try? await Task.sleep(nanoseconds: 600_000_000)
-                        send()
-                    }
-                }
-            }
-            .onChange(of: speech.isProcessing) { was, isProcessing in
-                // 云端引擎专用:转写请求刚结束(录音早已停止),没出错就自动提交。
-                if was && !isProcessing && !speech.isRecording && !busy && errorText == nil {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
                     send()
                 }
             }
-            .onDisappear {
-                speech.stop()
-                discardUnsentAttachments()
+        }
+        .onChange(of: speech.isProcessing) { was, isProcessing in
+            // 云端引擎专用:转写请求刚结束(录音早已停止),没出错就自动提交。
+            if was && !isProcessing && !speech.isRecording && !busy && errorText == nil {
+                send()
             }
-            .task {
-                isInputFocused = true
-                consumePrefill()
+        }
+        .onDisappear {
+            speech.stop()
+            discardUnsentAttachments()
+        }
+        .task {
+            // 内联模式(各页底部的「问问 AI」)平时只是一条输入栏,不抢焦点;
+            // 下面那些截图参数也只给侧栏里的 AI 页用——不然每个打开过的页面各发一遍。
+            guard presentation == .page else {
                 #if DEBUG
-                seedDemoMessagesIfNeeded()
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-hascontent") {
-                    text = "明天3点开会"
+                // 只给当前显示的那一页:页面叠在 ZStack 里,不筛的话隐藏页面那几条也各响应一次。
+                // 等一下再判断:demo 参数切页面是启动之后才切过去的。
+                // 页面若已经换走(列表 push 进详情,列表那条随之拆掉),task 会被取消。
+                try? await Task.sleep(for: .seconds(3))
+                guard sectionIsActive, !Task.isCancelled else { return }
+                if ProcessInfo.processInfo.arguments.contains("--demo-ask-bar") {
+                    isInputFocused = true
                 }
-                // 连通性验证用:启动即真发一次请求,看当前服务商/模型调不调得通
-                // (换模型/换服务商之后拿它探一下,不用手打字)。**会真的产生一次
-                // 网络请求和一条对话记录**,只在 DEBUG 且显式带这个参数时才跑。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-live") {
-                    send(overrideText: "只回复两个字:可用")
-                }
-                // 截图验证用:真发一次请求,内容是参数后面那一句(验证新动作端到端)。
                 let args = ProcessInfo.processInfo.arguments
-                if let index = args.firstIndex(of: "--demo-agent-send"), index + 1 < args.count {
+                // 同一页的 safeAreaInset 内容可能被建出两份,只发一次。
+                if let index = args.firstIndex(of: "--demo-ask-bar-send"), index + 1 < args.count,
+                   !Self.demoAskBarSent {
+                    Self.demoAskBarSent = true
                     send(overrideText: args[index + 1])
                 }
-                // 截图验证用:模拟请求进行中,发送按钮应该变成取消。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-busy") {
-                    busy = true
-                    thinkingText = Self.defaultThinking
-                }
-                // 截图验证用:直接把 isRecording 摆成 true,不真的起录音——
-                // simctl 没有麦克风可触发,用来看麦克风按钮的呼吸动效。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-recording") {
-                    speech.isRecording = true
-                }
-                // 截图验证用:直接弹彩蛋全屏页(simctl 没法打字触发 0707/0829)。
-                if ProcessInfo.processInfo.arguments.contains("--demo-easter-egg") {
-                    easterEggOccasion = .birthday
-                    showEasterEgg = true
-                }
-                if ProcessInfo.processInfo.arguments.contains("--demo-easter-egg-anniversary") {
-                    easterEggOccasion = .anniversary
-                    showEasterEgg = true
-                }
-                // 截图验证用:推开抽屉看侧栏那步由 AppShellView 的
-                // --demo-agent-sidebar/--demo-sidebar 负责,这里只把键盘收掉,
-                // 免得抽屉被键盘挤掉一截。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-sidebar") {
-                    isInputFocused = false
-                }
-                // 截图验证用:键盘收起态。进页面默认就聚焦,而 simctl 点不了空白处
-                // 收键盘,没有这个参数就截不到"键盘没弹起来"的那一版页面。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-unfocused") {
-                    isInputFocused = false
-                }
-                // 截图验证用:模拟长按气泡选了"引用"——simctl 没法长按弹
-                // contextMenu,直接把状态摆出来看输入框上方的预览行(超长文本
-                // 单行省略号截断)。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-quote-preview") {
-                    let quoted = AgentMessage(
-                        role: .assistant,
-                        content: "你收藏的 wifi 密码是 8888,这是一段特意写得很长很长用来测试单行省略号截断效果的引用预览文本。")
-                    context.insert(quoted)
-                    try? context.save()
-                    quotedMessage = quoted
-                }
-                // 截图验证用:simctl 没法操作相册,直接塞几张合成图当作选好的照片,
-                // 看输入卡片里的缩略图行;加 --demo-agent-photo-viewer 再打开大图查看页。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-photos") {
-                    seedDemoPhotos()
-                }
-                // 截图验证用:塞一个样板聊天室(只落本地、不建共享),
-                // --demo-chat 打开房间,--demo-chat-list 停在聊天室列表。
-                // --demo-chat-seed 只塞数据停在 AI 页(看右上角聊天室按钮的未读红点)。
-                if args.contains("--demo-chat") || args.contains("--demo-chat-list")
-                    || args.contains("--demo-chat-seed") {
-                    let room = seedDemoChatRoom()
-                    if args.contains("--demo-chat") {
-                        chatPath = [.rooms, .room(room)]
-                    } else if args.contains("--demo-chat-list") {
-                        chatPath = [.rooms]
-                    }
-                }
-                // 截图验证用:直接打开「引用」的某一类选择器(参数值是
-                // AgentReferenceCategory 的 rawValue,如 trip、assets)。
-                if let index = args.firstIndex(of: "--demo-agent-reference"), index + 1 < args.count {
-                    referencePicker = AgentReferenceCategory(rawValue: args[index + 1])
-                }
-                // 截图验证用:不发网络,自己逐片喂 streamingAnswer,截流式中态。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-stream") {
-                    busy = true
-                    Task { @MainActor in
-                        let full = "杭州明天多云转小雨,白天 24 度、夜里 19 度,傍晚那阵雨下得急。"
-                        var shown = ""
-                        for character in full {
-                            try? await Task.sleep(nanoseconds: 60_000_000)
-                            shown.append(character)
-                            streamingAnswer = shown
-                        }
-                    }
-                }
-                // 截图验证用:不走网络,直接往用量观察点里摆一轮完成态的数字,
-                // 看标题第二行那截「↑… ↓… · NN tok/s」的排版和截断。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-usage") {
-                    AIUsageMonitor.shared.seed(
-                        AIUsage(inputTokens: 1120, outputTokens: 320, isEstimated: false,
-                                generatingSeconds: 10, requests: 1))
-                }
-                // 截图验证用:模拟长按气泡选了"修改"——直接弹出截断确认弹窗
-                // (simctl 没法长按+点菜单项)。
-                if ProcessInfo.processInfo.arguments.contains("--demo-agent-edit-confirm") {
-                    let target = AgentMessage(role: .user, content: "明天下午3点开会")
-                    context.insert(target)
-                    context.insert(AgentMessage(role: .assistant, kind: .text,
-                                                content: "好的,已经帮你记下明天下午3点开会。"))
-                    try? context.save()
-                    pendingEdit = target
-                }
                 #endif
+                return
             }
+            isInputFocused = true
+            consumePrefill()
+            #if DEBUG
+            seedDemoMessagesIfNeeded()
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-hascontent") {
+                text = "明天3点开会"
+            }
+            // 连通性验证用:启动即真发一次请求,看当前服务商/模型调不调得通
+            // (换模型/换服务商之后拿它探一下,不用手打字)。**会真的产生一次
+            // 网络请求和一条对话记录**,只在 DEBUG 且显式带这个参数时才跑。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-live") {
+                send(overrideText: "只回复两个字:可用")
+            }
+            // 截图验证用:真发一次请求,内容是参数后面那一句(验证新动作端到端)。
+            let args = ProcessInfo.processInfo.arguments
+            if let index = args.firstIndex(of: "--demo-agent-send"), index + 1 < args.count {
+                send(overrideText: args[index + 1])
+            }
+            // 截图验证用:模拟请求进行中,发送按钮应该变成取消。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-busy") {
+                busy = true
+                thinkingText = Self.defaultThinking
+            }
+            // 截图验证用:直接把 isRecording 摆成 true,不真的起录音——
+            // simctl 没有麦克风可触发,用来看麦克风按钮的呼吸动效。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-recording") {
+                speech.isRecording = true
+            }
+            // 截图验证用:直接弹彩蛋全屏页(simctl 没法打字触发 0707/0829)。
+            if ProcessInfo.processInfo.arguments.contains("--demo-easter-egg") {
+                easterEggOccasion = .birthday
+                showEasterEgg = true
+            }
+            if ProcessInfo.processInfo.arguments.contains("--demo-easter-egg-anniversary") {
+                easterEggOccasion = .anniversary
+                showEasterEgg = true
+            }
+            // 截图验证用:推开抽屉看侧栏那步由 AppShellView 的
+            // --demo-agent-sidebar/--demo-sidebar 负责,这里只把键盘收掉,
+            // 免得抽屉被键盘挤掉一截。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-sidebar") {
+                isInputFocused = false
+            }
+            // 截图验证用:键盘收起态。进页面默认就聚焦,而 simctl 点不了空白处
+            // 收键盘,没有这个参数就截不到"键盘没弹起来"的那一版页面。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-unfocused") {
+                isInputFocused = false
+            }
+            // 截图验证用:模拟长按气泡选了"引用"——simctl 没法长按弹
+            // contextMenu,直接把状态摆出来看输入框上方的预览行(超长文本
+            // 单行省略号截断)。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-quote-preview") {
+                let quoted = AgentMessage(
+                    role: .assistant,
+                    content: "你收藏的 wifi 密码是 8888,这是一段特意写得很长很长用来测试单行省略号截断效果的引用预览文本。")
+                context.insert(quoted)
+                try? context.save()
+                quotedMessage = quoted
+            }
+            // 截图验证用:simctl 没法操作相册,直接塞几张合成图当作选好的照片,
+            // 看输入卡片里的缩略图行;加 --demo-agent-photo-viewer 再打开大图查看页。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-photos") {
+                seedDemoPhotos()
+            }
+            // 截图验证用:塞一个样板聊天室(只落本地、不建共享),
+            // --demo-chat 打开房间,--demo-chat-list 停在聊天室列表。
+            // --demo-chat-seed 只塞数据停在 AI 页(看右上角聊天室按钮的未读红点)。
+            if args.contains("--demo-chat") || args.contains("--demo-chat-list")
+                || args.contains("--demo-chat-seed") {
+                let room = seedDemoChatRoom()
+                if args.contains("--demo-chat") {
+                    chatPath = [.rooms, .room(room)]
+                } else if args.contains("--demo-chat-list") {
+                    chatPath = [.rooms]
+                }
+            }
+            // 截图验证用:直接打开「引用」的某一类选择器(参数值是
+            // AgentReferenceCategory 的 rawValue,如 trip、assets)。
+            if let index = args.firstIndex(of: "--demo-agent-reference"), index + 1 < args.count {
+                referencePicker = AgentReferenceCategory(rawValue: args[index + 1])
+            }
+            // 截图验证用:不发网络,自己逐片喂 streamingAnswer,截流式中态。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-stream") {
+                busy = true
+                Task { @MainActor in
+                    let full = "杭州明天多云转小雨,白天 24 度、夜里 19 度,傍晚那阵雨下得急。"
+                    var shown = ""
+                    for character in full {
+                        try? await Task.sleep(nanoseconds: 60_000_000)
+                        shown.append(character)
+                        streamingAnswer = shown
+                    }
+                }
+            }
+            // 截图验证用:不走网络,直接往用量观察点里摆一轮完成态的数字,
+            // 看标题第二行那截「↑… ↓… · NN tok/s」的排版和截断。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-usage") {
+                AIUsageMonitor.shared.seed(
+                    AIUsage(inputTokens: 1120, outputTokens: 320, isEstimated: false,
+                            generatingSeconds: 10, requests: 1))
+            }
+            // 截图验证用:模拟长按气泡选了"修改"——直接弹出截断确认弹窗
+            // (simctl 没法长按+点菜单项)。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-edit-confirm") {
+                let target = AgentMessage(role: .user, content: "明天下午3点开会")
+                context.insert(target)
+                context.insert(AgentMessage(role: .assistant, kind: .text,
+                                            content: "好的,已经帮你记下明天下午3点开会。"))
+                try? context.save()
+                pendingEdit = target
+            }
+            #endif
         }
     }
 
@@ -487,6 +554,7 @@ struct AgentView: View {
         AgentMessageListView(
             historyWindow: historyWindow,
             streamingAnswer: streamingAnswer,
+            thinking: thinkingText == nil ? nil : (seed: thinkingSeed, start: thinkingStart),
             onLoadEarlier: { historyWindow += Self.historyPageSize },
             onConfirmAction: handleConfirmAction,
             onUndo: handleUndo,
@@ -508,7 +576,6 @@ struct AgentView: View {
             .id(historyWindow)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    thinkingRow
                     if !hasPendingAsk {
                         attachmentChipsRow
                         quotedPreviewRow
@@ -525,6 +592,116 @@ struct AgentView: View {
             }
     }
 
+    // MARK: - 内联模式(各页底部的「问问 AI」)
+
+    /// 各页底部的「问问 AI」:和 AI 页**同一条输入栏**(+ | 文本框 + 语音),点一下就地
+    /// 弹键盘、输入栏跟着抬高,不再拉起整页 AI 助手。发出去之后,思考中的轮换词、
+    /// 回答和操作/提问卡片悬浮在输入栏上方(背景透明,页面内容照常露出来);
+    /// 往下一划收起。悬浮内容画在 overlay 里、不参与布局——输入栏挂在页面的
+    /// safeAreaInset 上,它一长高整页内容都要跟着往上挤。
+    private var inlineColumn: some View {
+        VStack(spacing: 0) {
+            attachmentChipsRow
+            quotedPreviewRow
+            if let error = errorText ?? speech.errorText {
+                Text(error).font(.subheadline).foregroundStyle(LodoColor.critical)
+                    .padding(.horizontal)
+            }
+            inputBar
+        }
+        .frame(maxWidth: DesignMetrics.readableChatWidth)
+        .frame(maxWidth: .infinity)
+        .simultaneousGesture(inlineDismissGesture)
+        // 输入栏顶边上放一条零高度的锚,悬浮内容底边对齐它、往上长。
+        .overlay(alignment: .top) {
+            Color.clear
+                .frame(height: 0)
+                .overlay(alignment: .bottom) {
+                    if let since = inlineSessionStart {
+                        inlineFloating(since: since)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .offset(y: max(inlineDrag, 0))
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+        }
+        .animation(.lodoAware(.snappy(duration: 0.25)), value: inlineSessionStart)
+    }
+
+    private func inlineFloating(since: Date) -> some View {
+        VStack(spacing: 0) {
+            // 往下划的把手:列表能滚的时候,在它上面往下拖是滚列表,从这里拖才是关闭。
+            Capsule()
+                .fill(.secondary.opacity(0.5))
+                .frame(width: 36, height: 5)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .gesture(inlineDismissGesture)
+                .accessibilityLabel("收起")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { dismissInline() }
+            AgentMessageListView(
+                historyWindow: Self.inlineWindow,
+                since: since,
+                streamingAnswer: streamingAnswer,
+                thinking: thinkingText == nil ? nil : (seed: thinkingSeed, start: thinkingStart),
+                onLoadEarlier: {},
+                onConfirmAction: handleConfirmAction,
+                onUndo: handleUndo,
+                onMemorizeSuggestion: handleMemorizeSuggestion,
+                onCancelMemoryResult: handleCancelMemoryResult,
+                onToggleCreatedTask: handleToggleCreatedTask,
+                onTaskProposalConfirm: handleTaskProposalConfirm,
+                onTaskProposalCancel: handleTaskProposalCancel,
+                onTaskProposalTap: handleTaskProposalTap,
+                onAskSubmit: handleAskSubmit,
+                onAskCancel: handleAskCancel,
+                onExamplePrompt: { send(overrideText: $0) },
+                onCopy: copyMessageContent,
+                onQuote: quoteMessage,
+                onEdit: requestEdit,
+                onPendingAskChange: { _ in })
+                .id(since)
+                .environment(\.agentFloatsOverPage, true)
+        }
+        .frame(maxWidth: DesignMetrics.readableChatWidth)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 内联模式下悬浮列表最多取多少条(只看这一轮,用不着翻页)。
+    private static let inlineWindow = 30
+
+    /// 往下划收起这一轮:超过一段距离(或甩得够快)就收,不够就弹回去。
+    /// 挂在输入栏和把手上;同时也收键盘——这和系统"往下划收键盘"是同一个手势。
+    private var inlineDismissGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                guard presentation == .inline, inlineSessionStart != nil,
+                      value.translation.height > abs(value.translation.width) else { return }
+                inlineDrag = value.translation.height
+            }
+            .onEnded { value in
+                guard presentation == .inline else { return }
+                let vertical = value.translation.height > abs(value.translation.width)
+                if vertical, value.translation.height > 60 || value.predictedEndTranslation.height > 160 {
+                    dismissInline()
+                } else {
+                    withAnimation(.lodoAware(.snappy(duration: 0.2))) { inlineDrag = 0 }
+                }
+            }
+    }
+
+    /// 收起这一轮:悬浮内容清掉、键盘收起。还在进行的请求不取消——回复照样落进
+    /// AI 页那条对话,去那里能看到。
+    private func dismissInline() {
+        isInputFocused = false
+        withAnimation(.lodoAware(.snappy(duration: 0.25))) {
+            inlineSessionStart = nil
+        }
+        inlineDrag = 0
+    }
+
     // MARK: - ReAct 中间步骤的轻量提示
 
     /// 处理中的默认提示。不显示推理原文,用一组简短的词轮换。
@@ -535,30 +712,6 @@ struct AgentView: View {
         .ios_core_thinking_reflecting, .ios_core_thinking_pondering, .ios_core_thinking_guessing,
         .ios_core_thinking_planning, .ios_core_thinking_working_hard, .ios_core_thinking_meeting,
     ]
-
-    @ViewBuilder
-    private var thinkingRow: some View {
-        if let thinkingText {
-            Group {
-                if thinkingText == Self.defaultThinking {
-                    // 默认态:每 2.5 秒换一个词。ReAct 的具体提示("正在查记忆…")
-                    // 不是默认态,原样显示。
-                    TimelineView(.periodic(from: thinkingStart, by: 2.5)) { context in
-                        let tick = Int(context.date.timeIntervalSince(thinkingStart) / 2.5)
-                        let words = Self.thinkingKeys.map {
-                            LocalizedStrings.text($0, language: language)
-                        }
-                        ShimmerText(text: words[(thinkingSeed + tick) % words.count])
-                    }
-                } else {
-                    ShimmerText(text: thinkingText)
-                }
-            }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .transition(.opacity)
-        }
-    }
 
     // MARK: - 输入栏
 
@@ -664,7 +817,8 @@ struct AgentView: View {
         .glassGroup()
         .padding(.horizontal)
         .padding(.top, 8)
-        .padding(.bottom, 18)
+        // 各页底部那条和原来「问问 AI」胶囊的位置一致,不把页面内容多顶上去一截。
+        .padding(.bottom, presentation == .inline ? 8 : 18)
     }
 
     /// 输入栏控件行的固定高度，与展示页底部「问问 AI」胶囊一致。
@@ -766,7 +920,7 @@ struct AgentView: View {
     private var textColumn: some View {
         VStack(alignment: .leading, spacing: 6) {
             photoPreviewRow
-            TextField("试试加入一个任务/记忆…", text: $text, axis: .vertical)
+            TextField(placeholder ?? "试试加入一个任务/记忆…", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($isInputFocused)
@@ -1576,6 +1730,10 @@ struct AgentView: View {
               !pendingAttachments.contains(where: \.isExtracting) else { return }
         speech.stop()
         busy = true
+        // 内联模式:第一句发出去就开始一轮,之后 AI 回的都悬浮在输入栏上方。
+        if presentation == .inline, inlineSessionStart == nil {
+            inlineSessionStart = Date()
+        }
         // 上一次的报错不该跨过这次发送继续挂在输入栏上面。语音那条尤其要在这里清:
         // SpeechInput 自己只在重新开始录音时清 errorText,不再开麦就一直留着。
         errorText = nil
@@ -1621,6 +1779,8 @@ struct AgentView: View {
 
         // 请求一发出就显示"思考中…";ReAct 工具调用会用更具体的提示
         // (如"正在查记忆…")覆盖它,交换结束后统一在 defer 里清空。
+        reasoningLog.text = ""
+        let turnStart = Date()
         if AppSettings.thinkingLevel != "off" {
             thinkingSeed = Int.random(in: 0..<Self.thinkingKeys.count)
             thinkingStart = Date()
@@ -1631,7 +1791,6 @@ struct AgentView: View {
                 busy = false
                 thinkingText = nil
                 streamingAnswer = nil
-                reasoningTail = ""
                 sendTask = nil
             }
             do {
@@ -1639,15 +1798,25 @@ struct AgentView: View {
                 // (多重尾随闭包要求被调用方在类型里声明标签)。
                 let reply = try await submit(
                     outgoing, history,
-                    { thought in thinkingText = thought },
+                    { thought in
+                        // 具体想法不露出来,只记进思考过程;关了思考强度的也在这时
+                        // 亮起「处理中」那行(工具调用要等好几秒)。
+                        reasoningLog.appendStep(thought)
+                        if thinkingText == nil {
+                            thinkingSeed = Int.random(in: 0..<Self.thinkingKeys.count)
+                            thinkingStart = Date()
+                            thinkingText = Self.defaultThinking
+                        }
+                    },
                     { text in
                         // 空串 = 流式失败要回退,把已经显示的半句收掉。
                         streamingAnswer = text.isEmpty ? nil : text
                         if streamingAnswer != nil { thinkingText = nil }
                     },
-                    { _ in
-                        // 推理过程不再露出来:那段原文又长又碎,读不读得懂都没有信息量。
-                        // 空窗期靠 thinkingRow 里轮换的简短词("摸鱼中""996中")撑着。
+                    { delta in
+                        // 推理原文不在思考中那行露出来(又长又碎),空窗期靠轮换的简短词
+                        // ("摸鱼中""996中")撑着;全文攒起来,完成后点「已完成 ›」看。
+                        reasoningLog.text += delta
                     })
                 // 拿到结果时可能已经被用户取消——不再落库/弹表单,避免取消瞬间
                 // 又把回应加回来。
@@ -1692,6 +1861,7 @@ struct AgentView: View {
                     appendAssistant(kind: .libraryEdit, content: record.transcript,
                                     librarySnapshotData: try? JSONEncoder().encode(record))
                 }
+                attachReasoning(since: turnStart)
                 compactHistoryIfNeeded()
             } catch {
                 // 用户主动取消不算错误,不弹提示;DeepSeekClient 的 URLSession
@@ -1709,7 +1879,23 @@ struct AgentView: View {
         busy = false
         thinkingText = nil
         streamingAnswer = nil
-        reasoningTail = ""
+        reasoningLog.text = ""
+    }
+
+    /// 把这一轮的思考过程挂到这一轮第一条 AI 回复上(倒数日/资产这类结果卡可能在
+    /// route() 里先插了一条,所以按时间取而不是取最后落库的那条)。
+    private func attachReasoning(since start: Date) {
+        let log = reasoningLog.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        reasoningLog.text = ""
+        guard !log.isEmpty else { return }
+        let assistant = AgentMessageRole.assistant.rawValue
+        var descriptor = FetchDescriptor<AgentMessage>(
+            predicate: #Predicate { $0.createdAt >= start && $0.roleRaw == assistant },
+            sortBy: [SortDescriptor(\.createdAt)])
+        descriptor.fetchLimit = 1
+        guard let first = try? context.fetch(descriptor).first else { return }
+        first.reasoning = log
+        try? context.save()
     }
 
     #if DEBUG
@@ -2103,8 +2289,13 @@ private struct FormTarget: Identifiable {
 /// @Query 时 `.id(thread.uuid)` 那一套写法。
 private struct AgentMessageListView: View {
     let historyWindow: Int
+    /// 非 nil = 内联模式(「问问 AI」条上方悬浮的那一截):只取这之后 AI 回的消息,
+    /// 不带空态、不翻页,高度随内容、封顶 `inlineMaxHeight`。
+    let since: Date?
     /// 流式回复的临时预览;非 nil 时渲染在列表末尾(不落库)。
     let streamingAnswer: String?
+    /// 正在思考:非 nil 时列表末尾(流式预览之前)左对齐显示轮换的简短词。
+    let thinking: (seed: Int, start: Date)?
     /// 顶上那颗「载入更早的对话」:父视图把窗口加一页。
     let onLoadEarlier: () -> Void
     let onConfirmAction: (AgentMessage, Bool) -> Void
@@ -2141,8 +2332,13 @@ private struct AgentMessageListView: View {
     /// 换页(.id(historyWindow))时会连带 @State 一起重建、把它推到"点载入更早
     /// 那一刻",但载进来的都是更老的消息,照样不播,所以不用额外重置逻辑。
     @State private var typingBaseline = Date()
+    /// 内联模式量出来的内容高度(ScrollView 自己不随内容收缩)。
+    @State private var contentHeight: CGFloat = 0
+    private var isInline: Bool { since != nil }
+    static let inlineMaxHeight: CGFloat = 420
 
-    init(historyWindow: Int, streamingAnswer: String?, onLoadEarlier: @escaping () -> Void,
+    init(historyWindow: Int, since: Date? = nil, streamingAnswer: String?, thinking: (seed: Int, start: Date)?,
+         onLoadEarlier: @escaping () -> Void,
          onConfirmAction: @escaping (AgentMessage, Bool) -> Void,
          onUndo: @escaping () -> Void, onMemorizeSuggestion: @escaping (AgentMessage) -> Void,
          onCancelMemoryResult: @escaping (AgentMessage) -> Void,
@@ -2158,7 +2354,9 @@ private struct AgentMessageListView: View {
          onEdit: @escaping (AgentMessage) -> Void,
          onPendingAskChange: @escaping (Bool) -> Void) {
         self.historyWindow = historyWindow
+        self.since = since
         self.streamingAnswer = streamingAnswer
+        self.thinking = thinking
         self.onLoadEarlier = onLoadEarlier
         self.onConfirmAction = onConfirmAction
         self.onUndo = onUndo
@@ -2177,6 +2375,10 @@ private struct AgentMessageListView: View {
         self.onPendingAskChange = onPendingAskChange
         var descriptor = FetchDescriptor<AgentMessage>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        if let since {
+            let user = AgentMessageRole.user.rawValue
+            descriptor.predicate = #Predicate { $0.createdAt >= since && $0.roleRaw != user }
+        }
         descriptor.fetchLimit = historyWindow
         _messages = Query(descriptor)
     }
@@ -2185,10 +2387,10 @@ private struct AgentMessageListView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    if messages.isEmpty {
+                    if messages.isEmpty, !isInline {
                         emptyState
                     }
-                    if hasEarlier {
+                    if hasEarlier, !isInline {
                         Button("载入更早的对话", action: onLoadEarlier)
                             .buttonStyle(.bordered)
                             .buttonBorderShape(.capsule)
@@ -2215,14 +2417,29 @@ private struct AgentMessageListView: View {
                             typingBaseline: typingBaseline)
                         .id(message.uuid)
                     }
-                    // 流式预览排在最后一条之后。放在滚动流里而不是像
-                    // thinkingRow 那样贴在输入栏上方:长回复要能正常往上滚。
+                    // 思考中那行和流式预览排在最后一条之后,在滚动流里、和 AI 气泡
+                    // 左对齐(不贴在输入栏上方):长回复要能正常往上滚。
+                    if let thinking, streamingAnswer == nil {
+                        thinkingRow(thinking)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .id(Self.thinkingID)
+                            .transition(.opacity)
+                    }
                     if let streamingAnswer {
                         AgentAnswerCard(text: streamingAnswer)
                             .id(Self.streamingID)
                     }
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.top, isInline ? 0 : 16)
+                .padding(.bottom, isInline ? 4 : 16)
+                .background {
+                    GeometryReader { geo in
+                        Color.clear
+                            .onAppear { contentHeight = geo.size.height }
+                            .onChange(of: geo.size.height) { _, height in contentHeight = height }
+                    }
+                }
                 // 宽窗口里收成居中的一栏(见 readableChatWidth)。
                 .frame(maxWidth: DesignMetrics.readableChatWidth)
                 .frame(maxWidth: .infinity)
@@ -2234,8 +2451,11 @@ private struct AgentMessageListView: View {
                 .glassGroup()
                 // 内容比屏幕短时也把这一坨顶到底部,最后一条消息紧挨着输入栏
                 // ——短对话原来是从顶上开始排,和输入栏之间空出一大片。
-                .frame(maxHeight: .infinity, alignment: .bottom)
+                .frame(maxHeight: isInline ? nil : .infinity, alignment: .bottom)
             }
+            // 内联模式:高度随内容,封顶之后才滚;内容不满一屏时也不弹跳。
+            .frame(height: isInline ? min(contentHeight, Self.inlineMaxHeight) : nil)
+            .scrollBounceBehavior(.basedOnSize)
             // 一打开就停在最后一条(不是从头开始往下找)。onAppear 里那句
             // scrollTo 是兜底:LazyVStack 首帧还没把最后一条建出来时,单靠
             // scrollTo 会落空。
@@ -2250,6 +2470,11 @@ private struct AgentMessageListView: View {
             }
             // 流式期间一直贴着底,新吐出来的字不会被输入栏挡住。不带动画:
             // 每隔 80ms 就来一次,叠动画会一路抖。
+            // 思考那行一出现就滚到它(它排在最后一条消息后面,只滚到消息会被输入栏挡住)。
+            .onChange(of: thinking != nil) { _, isThinking in
+                guard isThinking else { return }
+                withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(Self.thinkingID, anchor: .bottom) }
+            }
             .onChange(of: streamingAnswer) { _, text in
                 guard text != nil else { return }
                 proxy.scrollTo(Self.streamingID, anchor: .bottom)
@@ -2273,8 +2498,24 @@ private struct AgentMessageListView: View {
         }
     }
 
+    /// 思考中那行。内联模式下页面内容直接从背后露出来,小字压在上面看不清,
+    /// 垫一颗 Liquid Glass 胶囊。
+    @ViewBuilder
+    private func thinkingRow(_ thinking: (seed: Int, start: Date)) -> some View {
+        let indicator = AgentThinkingIndicator(seed: thinking.seed, start: thinking.start)
+        if isInline {
+            indicator
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .glassBackground(Capsule())
+        } else {
+            indicator
+        }
+    }
+
     /// 流式预览气泡的滚动锚点(它不落库,没有 uuid 可用)。
     private static let streamingID = "streaming-preview"
+    private static let thinkingID = "thinking-indicator"
 
     private static let examplePrompts = [
         "明天下午3点开会", "我之前存的 wifi 密码是多少", "帮我整理一下今天的安排",
@@ -2296,5 +2537,37 @@ private struct AgentMessageListView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 60)
+    }
+}
+
+/// 一轮的思考过程缓冲。引用类型:改它不触发视图刷新(见 AgentView.reasoningLog)。
+final class AgentReasoningLog {
+    var text = ""
+
+    /// ReAct 每一步的想法另起一段,和前后的推理原文分开。
+    func appendStep(_ thought: String) {
+        let trimmed = thought.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if !text.isEmpty, !text.hasSuffix("\n\n") {
+            text += text.hasSuffix("\n") ? "\n" : "\n\n"
+        }
+        text += "› " + trimmed + "\n\n"
+    }
+}
+
+/// 思考中:消息列表末尾、和 AI 气泡左边缘对齐的一行光效小字,每 2.5 秒换一个
+/// 简短词("处理中""摸鱼中"……)。不显示推理原文——全文在回复落库后点「已完成 ›」看。
+struct AgentThinkingIndicator: View {
+    let seed: Int
+    let start: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: start, by: 2.5)) { context in
+            let tick = Int(context.date.timeIntervalSince(start) / 2.5)
+            let words = AgentView.thinkingKeys.map {
+                LocalizedStrings.text($0, language: AppSettings.language)
+            }
+            ShimmerText(text: words[(seed + tick) % words.count])
+        }
     }
 }

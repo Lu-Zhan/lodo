@@ -67,6 +67,7 @@ struct AgentMessageBubble: View {
     var typingBaseline: Date = .distantPast
 
     @Environment(\.modelContext) private var context
+    @State private var showsReasoning = false
 
     var body: some View {
         switch message.role {
@@ -157,6 +158,48 @@ struct AgentMessageBubble: View {
 
     @ViewBuilder
     private var assistantBubble: some View {
+        if message.reasoning.isEmpty {
+            assistantRow
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                reasoningLink
+                assistantRow
+            }
+        }
+    }
+
+    @Environment(\.agentFloatsOverPage) private var floatsOverPage
+
+    /// 这一轮思考完了:气泡上方左对齐一行「已完成 ›」,点开看整段思考过程。
+    private var reasoningLink: some View {
+        Button {
+            showsReasoning = true
+        } label: {
+            HStack(spacing: 3) {
+                Text("已完成")
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            // 「问问 AI」上方悬浮时背后直接是页面内容,垫一颗玻璃胶囊才看得清。
+            .padding(.horizontal, floatsOverPage ? 12 : 0)
+            .padding(.vertical, floatsOverPage ? 6 : 0)
+            .background {
+                if floatsOverPage {
+                    Color.clear.glassBackground(Capsule())
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .pressable()
+        .accessibilityLabel(Text("查看思考过程"))
+        .sheet(isPresented: $showsReasoning) {
+            AgentReasoningSheet(text: message.reasoning)
+        }
+    }
+
+    private var assistantRow: some View {
         HStack {
             if hasCopyableContent {
                 content.contextMenu {
@@ -574,5 +617,50 @@ struct AgentAnswerCard: View {
             }
         }
         .agentCard()
+    }
+}
+
+/// 一轮回复背后的完整思考过程(推理原文 + ReAct 每步的想法)。sheet 是独立呈现
+/// 宿主,强调色自己下发一份(同 SettingsView)。
+struct AgentReasoningSheet: View {
+    let text: String
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.lodoAccent) private var lodoAccent
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(text)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+            }
+            .pageTitle("思考过程")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+        .tint(lodoAccent.accent)
+        .presentationDetents([.medium, .large])
+    }
+}
+
+
+private struct AgentFloatsOverPageKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// 消息悬浮在别的页面上(各页底部「问问 AI」的内联模式),背后没有聊天页的底色。
+    var agentFloatsOverPage: Bool {
+        get { self[AgentFloatsOverPageKey.self] }
+        set { self[AgentFloatsOverPageKey.self] = newValue }
     }
 }

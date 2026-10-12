@@ -344,9 +344,13 @@ data class TripEditUpdate(
     val price: Double? = null, val currency: String? = null,
     /** 住宿每晚的价格:app 按入住晚数乘成总价(resolvedPrice),不让模型自己乘(同 iOS)。 */
     val pricePerNight: Double? = null,
+    /** 交通类的出发地(到达地是 placeName)与航班号/车次。 */
+    val originName: String? = null, val code: String? = null,
+    /** 用户明说提取错了、要改正:带着它,已经记下的航班才允许改名称/起讫地/航班号/时刻(同 iOS)。 */
+    val correction: Boolean = false,
 ) {
     val isEmpty get() = title == null && note == null && start == null && end == null && placeName == null &&
-        price == null && currency == null && pricePerNight == null
+        price == null && currency == null && pricePerNight == null && originName == null && code == null
 
     /** 写进这一项的总价:给了总价用总价;只给每晚价格时住宿按入住晚数乘(没退房时间/不到一晚按一晚),别的类型当总价。 */
     fun resolvedPrice(isLodging: Boolean, startMillis: Long?, endMillis: Long?): Double? {
@@ -361,7 +365,8 @@ data class TripEditUpdate(
     }
 
     /** 只补/改费用和备注。航班允许这一种改法:时刻座位来自订单,但"机票花了 3200"该记得上。 */
-    val touchesOnlyCostOrNote get() = title == null && start == null && end == null && placeName == null
+    val touchesOnlyCostOrNote get() = title == null && start == null && end == null && placeName == null &&
+        originName == null && code == null
 }
 
 data class TripEdit(
@@ -396,7 +401,8 @@ fun parseTripEdit(raw: JSONObject): TripEdit {
         if (start != null && end != null && end.isBefore(start)) end = null
         TripEditUpdate(id, o.text("title"), o.text("note"), start, end, o.text("place"),
             o.number("price")?.takeIf { it >= 0 }, o.text("currency")?.uppercase(),
-            o.number("price_per_night")?.takeIf { it >= 0 }).takeIf { !it.isEmpty }
+            o.number("price_per_night")?.takeIf { it >= 0 }, o.text("origin"), o.text("code"),
+            o.optBoolean("correct", false)).takeIf { !it.isEmpty }
     }.filter { it.id !in removeIds }
     if (removeIds.isEmpty() && additions.isEmpty() && updates.isEmpty()) throw parseError("返回格式异常:行程调整没有任何改动")
     return TripEdit(raw.text("trip") ?: "", raw.text("summary") ?: "", removeIds, additions, updates)

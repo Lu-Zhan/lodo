@@ -3,6 +3,7 @@ package com.lodo.app.ai
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -135,6 +136,20 @@ class AgentProtocolTest {
         val edit = parseTripEdit(raw)
         assertEquals(listOf("a"), edit.removeIds)
         assertTrue(edit.updates.isEmpty())
+    }
+
+    /** 修正提取错的航班:origin/place/code/correct 都要解析出来,且不再算"只改费用备注"。 */
+    @Test
+    fun tripEditCorrectionCarriesRoute() {
+        val edit = parseTripEdit(JSONObject().put("trip", "东京").put("update", JSONArray()
+            .put(JSONObject().put("id", "f").put("origin", "上海").put("place", "东京")
+                .put("title", "上海 → 东京").put("code", "MU523").put("correct", true))))
+        val u = edit.updates.single()
+        assertEquals("上海", u.originName)
+        assertEquals("东京", u.placeName)
+        assertEquals("MU523", u.code)
+        assertTrue(u.correction)
+        assertFalse(u.touchesOnlyCostOrNote)
     }
 
     /** 给已经记下的行程项补费用:update 里的 price/currency 要解析出来(原来整个被丢掉)。 */
