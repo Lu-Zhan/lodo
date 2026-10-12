@@ -1,5 +1,6 @@
 import Foundation
 import WidgetKit
+import UserNotifications
 import LodoCore
 
 /// 空气质量的取数与缓存(健康页、总览、桌面/锁屏小组件共用)。
@@ -87,6 +88,7 @@ enum AirQualityStore {
         report.latitude = lat
         report.longitude = lon
         save(report)
+        AirQualityNotifier.reschedule(report)
         return .success(report)
     }
 
@@ -102,6 +104,7 @@ enum AirQualityStore {
         for url in [cacheURL, widgetSnapshotURL].compactMap({ $0 }) {
             try? FileManager.default.removeItem(at: url)
         }
+        AirQualityNotifier.reschedule(nil)
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
     }
 
@@ -116,7 +119,8 @@ enum AirQualityStore {
         let snapshot = WidgetSnapshot(
             fetchedAt: report.fetchedAt, latitude: report.latitude, longitude: report.longitude,
             aqi: report.aqi, dominant: report.dominant?.symbol,
-            hourly: report.hourly.map { .init(date: $0.date, aqi: $0.aqi) },
+            // 小组件的图只画今天;往后的整点也只排今天的预报。
+            hourly: report.todayHourly(now: .now).map { .init(date: $0.date, aqi: $0.aqi) },
             categoryTitles: AQICategory.allCases.map(title),
             labels: labels)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
@@ -133,5 +137,88 @@ enum AirQualityStore {
     static func advice(_ category: AQICategory) -> String {
         String(localized: String.LocalizationValue(category.advice), bundle: .appLanguage(),
                locale: AppSettings.language.locale)
+    }
+}
+
+/// 空气质量提醒的本地通知(见 `AirQualityReminderPlan`)。标识前缀 `air-quality-`,
+/// 最多 `maxTimes` 条;每次取到新预报、改了提醒设置时整批重排。
+@MainActor
+enum AirQualityNotifier {
+    static let prefix = "air-quality-"
+
+    static var times: [String] {
+        AirQualityReminderPlan.parseTimes(
+            UserDefaults.standard.string(forKey: AppSettings.airQualityReminderTimesKey) ?? "")
+    }
+
+    static var isActive: Bool { AppSettings.airQualityEnabled && !times.isEmpty }
+
+    /// 回前台/后台刷新时调:开着提醒才去取(缓存 30 分钟内不重复请求),取到就会顺手重排。
+    static func refreshIfNeeded() async {
+        guard isActive else { return }
+        if case .success(let report) = await AirQualityStore.refresh() { reschedule(report) }
+    }
+
+    /// 下一次提醒前一小时:后台刷新挂在这儿,争取用上最新的预报。
+    static var nextRefreshDate: Date? {
+        guard isActive else { return nil }
+        let now = Date()
+        return times.compactMap { time -> Date? in
+            let parts = time.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2,
+                  var fire = Calendar.current.date(bySettingHour: parts[0], minute: parts[1],
+                                                   second: 0, of: now) else { return nil }
+            if fire <= now { fire = fire.addingTimeInterval(86400) }
+            return fire.addingTimeInterval(-3600)
+        }.min().map { max($0, now.addingTimeInterval(15 * 60)) }
+    }
+
+    static func reschedule(_ report: AirQualityReport?) {
+        let slots = contents(for: report)
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { requests in
+            let old = requests.map(\.identifier).filter { $0.hasPrefix(prefix) }
+            center.removePendingNotificationRequests(withIdentifiers: old)
+            for slot in slots {
+                let content = UNMutableNotificationContent()
+                content.title = slot.title
+                content.body = slot.body
+                content.sound = .default
+                content.userInfo = ["route": "health"]
+                center.add(UNNotificationRequest(
+                    identifier: slot.id, content: content,
+                    trigger: UNTimeIntervalNotificationTrigger(
+                        timeInterval: max(1, slot.date.timeIntervalSinceNow), repeats: false)))
+            }
+        }
+    }
+
+    /// 要排的那几条(标识、标题、正文、时刻);提醒没开或没有预报时为空。
+    static func contents(for report: AirQualityReport?) -> [(id: String, title: String, body: String, date: Date)] {
+        let locale = AppSettings.language.locale
+        let slots: [(id: String, title: String, body: String, date: Date)]
+        if isActive, let report {
+            let planned = AirQualityReminderPlan.slots(
+                times: times, hourly: report.hourly, now: .now,
+                onlyWhenUnhealthy: UserDefaults.standard.bool(forKey: AppSettings.airQualityReminderOnlyBadKey))
+            slots = planned.map { slot in
+                let tips = slot.tips.map {
+                    String(localized: String.LocalizationValue($0.text), bundle: .appLanguage(), locale: locale)
+                }
+                let separator = AppSettings.language == .en ? ", " : ","
+                // 英文的几条建议是小写开头(拼在一句里),整句首字母大写。
+                var joined = tips.joined(separator: separator)
+                if let first = joined.first { joined = first.uppercased() + joined.dropFirst() }
+                return (prefix + slot.time.replacingOccurrences(of: ":", with: ""),
+                        String(localized: "空气质量:\(AirQualityStore.title(slot.category))",
+                               bundle: .appLanguage(), locale: locale),
+                        String(localized: "AQI \(slot.aqi) · \(joined)",
+                               bundle: .appLanguage(), locale: locale),
+                        slot.fireDate)
+            }
+        } else {
+            slots = []
+        }
+        return slots
     }
 }

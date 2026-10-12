@@ -117,6 +117,8 @@ struct ContentView: View {
                     // 倒数日只预排最近几条提醒,回前台补排后面的;小组件的
                     // "今日"也随日期翻页。
                     CountdownNotifier.reschedule(context: modelContext)
+                    // 空气质量提醒是按预报提前排的,回前台用最新预报重排一次。
+                    Task { @MainActor in await AirQualityNotifier.refreshIfNeeded() }
                     // 信用卡还款提醒:还款日一过,追着下一期再建一条。
                     FinanceReminders.sync(context: modelContext)
                     WidgetBridge.sync(context: modelContext)

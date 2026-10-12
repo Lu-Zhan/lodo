@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import UserNotifications
 import LodoCore
 
 // 空气质量(美标 AQI,Open-Meteo):健康页的一组 + 总览的一个模块。取数在 AirQualityStore。
@@ -46,6 +47,8 @@ struct AirQualitySection: View {
     @State private var failure: AirQualityStore.Failure?
     @State private var loading = false
     @State private var confirmingDisable = false
+    @State private var showsReminders = false
+    @AppStorage(AppSettings.airQualityReminderTimesKey) private var reminderTimes = ""
 
     var body: some View {
         Section {
@@ -68,6 +71,7 @@ struct AirQualitySection: View {
                 if enabled {
                     Menu {
                         Button("刷新", systemImage: "arrow.clockwise") { Task { await load(force: true) } }
+                        Button("提醒设置…", systemImage: "bell") { showsReminders = true }
                         Button("关闭空气质量", systemImage: "xmark.circle", role: .destructive) {
                             confirmingDisable = true
                         }
@@ -77,20 +81,42 @@ struct AirQualitySection: View {
                     .accessibilityLabel("空气质量选项")
                 }
             }
+            // sheet/确认框/task 挂在标题行上:挂在 Section 上会分摊到每一行(task 跑好几遍,sheet 弹不出来)。
+            .sheet(isPresented: $showsReminders) { AirQualityReminderSettingsView() }
+            .confirmationDialog("关闭空气质量?", isPresented: $confirmingDisable, titleVisibility: .visible) {
+                Button("关闭", role: .destructive) {
+                    enabled = false
+                    report = nil
+                    AirQualityStore.disable()
+                }
+            } message: {
+                Text("健康页、总览和小组件都不再显示空气质量,也不再使用位置。")
+            }
+            .task(id: refreshToken) {
+                await load(force: refreshToken > 0)
+                #if DEBUG
+                // 截图验证:直接打开提醒设置;--demo-air-pending 把已排的提醒打到控制台。
+                let args = ProcessInfo.processInfo.arguments
+                if refreshToken == 0, args.contains("--demo-air-reminders") { showsReminders = true }
+                if args.contains("--demo-air-pending") {
+                    try? await Task.sleep(for: .seconds(2))
+                    let settings = await UNUserNotificationCenter.current().notificationSettings()
+                    for slot in AirQualityNotifier.contents(for: report) {
+                        print("[air-pending] plan \(slot.date.formatted(date: .abbreviated, time: .shortened)) | \(slot.title) | \(slot.body)")
+                    }
+                    print("[air-pending] auth=\(settings.authorizationStatus.rawValue) times=\(AirQualityNotifier.times) hourly=\(report?.hourly.count ?? -1)")
+                    for request in await UNUserNotificationCenter.current().pendingNotificationRequests()
+                    where request.identifier.hasPrefix(AirQualityNotifier.prefix) {
+                        let trigger = request.trigger as? UNTimeIntervalNotificationTrigger
+                        print("[air-pending] \(request.identifier) in \(Int(trigger?.timeInterval ?? 0))s | \(request.content.title) | \(request.content.body)")
+                    }
+                }
+                #endif
+            }
         } footer: {
             if enabled, let report {
                 Text("美标 AQI · 数据来自 Open-Meteo(CAMS 模型),更新于 \(report.fetchedAt.formatted(date: .omitted, time: .shortened))")
             }
-        }
-        .task(id: refreshToken) { await load(force: refreshToken > 0) }
-        .confirmationDialog("关闭空气质量?", isPresented: $confirmingDisable, titleVisibility: .visible) {
-            Button("关闭", role: .destructive) {
-                enabled = false
-                report = nil
-                AirQualityStore.disable()
-            }
-        } message: {
-            Text("健康页、总览和小组件都不再显示空气质量,也不再使用位置。")
         }
     }
 
@@ -149,11 +175,29 @@ struct AirQualitySection: View {
         }
         .padding(.vertical, 4)
 
-        if !report.hourly.isEmpty {
-            AirQualityHourlyChart(hourly: report.hourly)
+        if !report.todayHourly(now: .now).isEmpty {
+            AirQualityHourlyChart(hourly: report.todayHourly(now: .now))
                 .frame(height: 120)
                 .padding(.vertical, 4)
         }
+
+        Button { showsReminders = true } label: {
+            HStack {
+                Label("提醒", systemImage: "bell")
+                Spacer()
+                let times = AirQualityReminderPlan.parseTimes(reminderTimes)
+                Text(times.isEmpty ? String(localized: "未开启", bundle: .appLanguage(),
+                                            locale: AppSettings.language.locale)
+                     : times.joined(separator: "、"))
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .pressable()
+        .foregroundStyle(.primary)
 
         HStack {
             concentration("PM2.5", report.pm2_5)
@@ -235,8 +279,8 @@ struct OverviewAirQualityWidget: View {
                         Text(AirQualityStore.advice(report.category))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        if !report.hourly.isEmpty {
-                            AirQualityHourlyChart(hourly: report.hourly, showsAxis: false)
+                        if !report.todayHourly(now: .now).isEmpty {
+                            AirQualityHourlyChart(hourly: report.todayHourly(now: .now), showsAxis: false)
                                 .frame(height: 48)
                         }
                     } else if let dominant = report.dominant {
@@ -249,5 +293,104 @@ struct OverviewAirQualityWidget: View {
                 OverviewEmptyText(text: enabled ? "正在获取空气质量…" : "在健康页开启空气质量后显示")
             }
         }
+    }
+}
+
+// MARK: - 提醒设置
+
+/// 空气质量提醒:几个时间点 + 「只在空气不好时提醒」。改动当场按缓存的预报重排通知。
+struct AirQualityReminderSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @Environment(\.lodoAccent) private var lodoAccent
+    @AppStorage(AppSettings.airQualityReminderTimesKey) private var timesRaw = ""
+    @AppStorage(AppSettings.airQualityReminderOnlyBadKey) private var onlyBad = false
+
+    private var times: [String] { AirQualityReminderPlan.parseTimes(timesRaw) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Toggle("空气质量提醒", isOn: Binding(
+                        get: { !times.isEmpty },
+                        set: { on in
+                            timesRaw = on ? "07:30" : ""
+                            if on { requestNotificationPermission() }
+                            apply()
+                        }))
+                } footer: {
+                    Text("按 Open-Meteo 的逐小时预报提前排好:每条提醒写着那个时间起三小时内预计最高的 AQI,附上简短建议。打开 lodo 或后台刷新时会用最新预报重排。")
+                }
+                if !times.isEmpty {
+                    Section("提醒时间") {
+                        ForEach(times, id: \.self) { time in
+                            DatePicker(LocalizedStringKey("提醒时间"), selection: binding(for: time),
+                                       displayedComponents: .hourAndMinute)
+                                .labelsHidden()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .onDelete { offsets in
+                            var next = times
+                            next.remove(atOffsets: offsets)
+                            timesRaw = AirQualityReminderPlan.encode(next)
+                            apply()
+                        }
+                        if times.count < AirQualityReminderPlan.maxTimes {
+                            Button("添加时间", systemImage: "plus") {
+                                let candidates = ["07:30", "12:00", "17:30", "21:00", "09:00", "15:00"]
+                                let next = candidates.first { !times.contains($0) } ?? "08:00"
+                                timesRaw = AirQualityReminderPlan.encode(times + [next])
+                                apply()
+                            }
+                        }
+                    }
+                    Section {
+                        Toggle("只在空气不好时提醒", isOn: $onlyBad)
+                            .onChange(of: onlyBad) { _, _ in apply() }
+                    } footer: {
+                        Text("开着时,预计 AQI 不超过 100(优、良)就不打扰。")
+                    }
+                }
+            }
+            .pageTitle("空气质量提醒")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+        .tint(lodoAccent.accent)
+        .presentationDetents([.medium, .large])
+    }
+
+    private func binding(for time: String) -> Binding<Date> {
+        Binding(
+            get: {
+                let parts = time.split(separator: ":").compactMap { Int($0) }
+                return Calendar.current.date(bySettingHour: parts.first ?? 7, minute: parts.last ?? 0,
+                                             second: 0, of: .now) ?? .now
+            },
+            set: { date in
+                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                let updated = String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
+                timesRaw = AirQualityReminderPlan.encode(times.map { $0 == time ? updated : $0 })
+                apply()
+            })
+    }
+
+    private func apply() {
+        AirQualityNotifier.reschedule(AirQualityStore.cached())
+        // 后台刷新挂在下一次提醒前一小时(和定时任务共用一个后台任务)。
+        RoutineRunner.refreshSchedule(context: context)
+        // 缓存里的预报可能不够新(或者还没有明天的),顺手取一次。
+        Task { await AirQualityNotifier.refreshIfNeeded() }
+    }
+
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 }

@@ -331,7 +331,7 @@ enum RoutineRunner {
             .compactMap { $0.nextRun() }.min()
         let newsNext: Date? = !NewsStore.feeds(in: context).isEmpty && DeepSeekClient.isConfigured
             ? NewsStore.nextScheduledRun() : nil
-        let next = [routineNext, newsNext].compactMap { $0 }.min()
+        let next = [routineNext, newsNext, AirQualityNotifier.nextRefreshDate].compactMap { $0 }.min()
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: backgroundTaskID)
         guard let next else { return }
         let request = BGAppRefreshTaskRequest(identifier: backgroundTaskID)
@@ -367,5 +367,7 @@ enum RoutineRunner {
     static func handleBackgroundRefresh(container: ModelContainer) async {
         MemoryPipeline.consumeInbox(context: container.mainContext)
         await runDueRoutines(context: container.mainContext, notifyResults: true)
+        // 空气质量提醒:后台刷新挂在下一次提醒前一小时,趁这次唤醒用最新预报重排。
+        await AirQualityNotifier.refreshIfNeeded()
     }
 }

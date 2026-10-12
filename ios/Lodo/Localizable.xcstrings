@@ -1403,6 +1403,22 @@
         }
       }
     },
+    "AQI %lld · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AQI %lld · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AQI %lld · %@"
+          }
+        }
+      }
+    },
     "App Group,仅本机" : {
       "localizations" : {
         "en" : {
@@ -1995,6 +2011,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不提醒"
+          }
+        }
+      }
+    },
+    "不要晨跑" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "skip the morning run"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不要晨跑"
           }
         }
       }
@@ -4304,6 +4336,22 @@
         }
       }
     },
+    "关好门窗" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "keep windows closed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关好门窗"
+          }
+        }
+      }
+    },
     "关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。" : {
       "localizations" : {
         "en" : {
@@ -4864,6 +4912,22 @@
         }
       }
     },
+    "减少户外运动" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "cut back on outdoor exercise"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "减少户外运动"
+          }
+        }
+      }
+    },
     "出发" : {
       "localizations" : {
         "en" : {
@@ -4941,6 +5005,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "出发航站楼,如 T3"
+          }
+        }
+      }
+    },
+    "出门戴口罩" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wear a mask outside"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出门戴口罩"
           }
         }
       }
@@ -6511,6 +6591,22 @@
         }
       }
     },
+    "只在空气不好时提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only When Air Is Unhealthy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只在空气不好时提醒"
+          }
+        }
+      }
+    },
     "只有日期、没有时间的事项,当天几点提醒。" : {
       "localizations" : {
         "en" : {
@@ -6555,6 +6651,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "只读"
+          }
+        }
+      }
+    },
+    "可以开窗通风" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "open the windows"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以开窗通风"
           }
         }
       }
@@ -8585,6 +8697,22 @@
         }
       }
     },
+    "尽量别出门" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "stay inside if you can"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尽量别出门"
+          }
+        }
+      }
+    },
     "尽量待在室内,关好门窗。" : {
       "localizations" : {
         "en" : {
@@ -10357,6 +10485,38 @@
         }
       }
     },
+    "开着时,预计 AQI 不超过 100(优、良)就不打扰。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When on, you won't be notified if the expected AQI stays at 100 or below (Good or Moderate)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开着时,预计 AQI 不超过 100(优、良)就不打扰。"
+          }
+        }
+      }
+    },
+    "开空气净化器" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "run an air purifier"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开空气净化器"
+          }
+        }
+      }
+    },
     "引用" : {
       "localizations" : {
         "en" : {
@@ -11504,6 +11664,22 @@
         }
       }
     },
+    "按 Open-Meteo 的逐小时预报提前排好:每条提醒写着那个时间起三小时内预计最高的 AQI,附上简短建议。打开 lodo 或后台刷新时会用最新预报重排。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled ahead from Open-Meteo's hourly forecast: each reminder shows the highest AQI expected over the next three hours, with a short tip. Reminders are rescheduled with the latest forecast whenever lodo opens or refreshes in the background."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 Open-Meteo 的逐小时预报提前排好:每条提醒写着那个时间起三小时内预计最高的 AQI,附上简短建议。打开 lodo 或后台刷新时会用最新预报重排。"
+          }
+        }
+      }
+    },
     "按「设置 → 资产显示币种」折算,汇率与资产总览共用同一份。" : {
       "localizations" : {
         "en" : {
@@ -11940,6 +12116,22 @@
         }
       }
     },
+    "提醒时间" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminder Times"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒时间"
+          }
+        }
+      }
+    },
     "提醒时间点" : {
       "localizations" : {
         "en" : {
@@ -11952,6 +12144,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "提醒时间点"
+          }
+        }
+      }
+    },
+    "提醒设置…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminder Settings…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒设置…"
           }
         }
       }
@@ -12309,6 +12517,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "放大"
+          }
+        }
+      }
+    },
+    "敏感人群出门戴口罩" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sensitive groups wear a mask"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "敏感人群出门戴口罩"
+          }
+        }
+      }
+    },
+    "敏感人群留意身体" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sensitive groups take care"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "敏感人群留意身体"
           }
         }
       }
@@ -13734,6 +13974,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未完成"
+          }
+        }
+      }
+    },
+    "未开启" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未开启"
           }
         }
       }
@@ -15912,6 +16168,22 @@
         }
       }
     },
+    "添加时间" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加时间"
+          }
+        }
+      }
+    },
     "添加时间点" : {
       "localizations" : {
         "en" : {
@@ -17108,6 +17380,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "空气质量"
+          }
+        }
+      }
+    },
+    "空气质量:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Air quality: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空气质量:%@"
+          }
+        }
+      }
+    },
+    "空气质量提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Air Quality Reminders"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空气质量提醒"
           }
         }
       }
@@ -21353,6 +21657,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "退房"
+          }
+        }
+      }
+    },
+    "适合户外活动" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "good for being outdoors"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适合户外活动"
+          }
+        }
+      }
+    },
+    "适合晨跑" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "good for a morning run"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "适合晨跑"
           }
         }
       }

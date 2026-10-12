@@ -23,6 +23,12 @@ final class AirQualityTests: XCTestCase {
         // null 那一小时跳过。
         XCTAssertEqual(report.hourly.map(\.aqi), [98, 98, 97, 116])
         XCTAssertEqual(report.peak(after: now)?.aqi, 116)
+        // 1791817200 = 当地 23:00,还是今天;明天的点不进今天的图。
+        XCTAssertEqual(report.todayHourly(now: now).count, 4)
+        var tomorrow = report
+        tomorrow.hourly.append(.init(date: Date(timeIntervalSince1970: 1791824400), aqi: 200))
+        XCTAssertEqual(tomorrow.todayHourly(now: now).count, 4)
+        XCTAssertEqual(tomorrow.peak(after: now)?.aqi, 116)
         XCTAssertTrue(report.isFresh(now: now.addingTimeInterval(60)))
         XCTAssertFalse(report.isFresh(now: now.addingTimeInterval(3600)))
     }

@@ -1853,3 +1853,24 @@ ios_view.air_quality_31,儿童、老人和有呼吸道疾病的人减少户外�
 ios_view.air_quality_32,"减少户外活动,外出建议戴口罩。",Cut back on outdoor activity; consider a mask outside.,ios_view,健康页/总览/小组件:空气质量
 ios_view.air_quality_33,"尽量待在室内,关好门窗。",Stay indoors and keep windows closed.,ios_view,健康页/总览/小组件:空气质量
 ios_view.air_quality_34,"避免外出,开启空气净化。",Avoid going out; run an air purifier.,ios_view,健康页/总览/小组件:空气质量
+ios_view.air_quality_reminder_1,提醒设置…,Reminder Settings…,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_2,未开启,Off,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_3,空气质量提醒,Air Quality Reminders,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_4,"按 Open-Meteo 的逐小时预报提前排好:每条提醒写着那个时间起三小时内预计最高的 AQI,附上简短建议。打开 lodo 或后台刷新时会用最新预报重排。","Scheduled ahead from Open-Meteo's hourly forecast: each reminder shows the highest AQI expected over the next three hours, with a short tip. Reminders are rescheduled with the latest forecast whenever lodo opens or refreshes in the background.",ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_5,提醒时间,Reminder Times,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_6,添加时间,Add Time,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_7,只在空气不好时提醒,Only When Air Is Unhealthy,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_8,"开着时,预计 AQI 不超过 100(优、良)就不打扰。","When on, you won't be notified if the expected AQI stays at 100 or below (Good or Moderate).",ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_9,空气质量:%@,Air quality: %@,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_10,AQI %lld · %@,AQI %lld · %@,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_11,适合户外活动,Good for being outdoors,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_12,适合晨跑,Good for a morning run,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_13,可以开窗通风,Open the windows,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_14,敏感人群留意身体,Sensitive groups take care,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_15,敏感人群出门戴口罩,Sensitive groups wear a mask,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_16,不要晨跑,Skip the morning run,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_17,减少户外运动,Cut back on outdoor exercise,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_18,出门戴口罩,Wear a mask outside,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_19,关好门窗,Keep windows closed,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_20,尽量别出门,Stay inside if you can,ios_view,健康页:空气质量提醒
+ios_view.air_quality_reminder_21,开空气净化器,Run an air purifier,ios_view,健康页:空气质量提醒

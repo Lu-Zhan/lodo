@@ -40,6 +40,10 @@ public enum AppSettings {
     /// 空气质量(健康页/总览/小组件)。**默认关**:要用定位,开了会把约 1 公里精度的
     /// 坐标发给 Open-Meteo——和健康开关分开,它不碰健康数据。
     public static let airQualityEnabledKey = "airQualityEnabled"
+    /// 空气质量提醒的时间点,"07:00,18:30"(`AirQualityReminderPlan.parseTimes`);空串 = 不提醒。
+    public static let airQualityReminderTimesKey = "airQualityReminderTimes"
+    /// 只在 AQI 超过「良」(>100)时才提醒。
+    public static let airQualityReminderOnlyBadKey = "airQualityReminderOnlyBad"
     public static let calendarEnabledKey = "calendarEnabled"
     public static let calendarWriteEnabledKey = "calendarWriteEnabled"
     /// lodo 自己那本日历的标识符(EKCalendar.calendarIdentifier)。只在写开关

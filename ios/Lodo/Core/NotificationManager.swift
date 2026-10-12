@@ -1,6 +1,11 @@
 import Foundation
 import SwiftData
 import UserNotifications
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 import LodoCore
 
 /// 纠缠式提醒的通知层。
@@ -358,6 +363,20 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     ) {
         let userInfo = response.notification.request.content.userInfo
         let actionID = response.actionIdentifier
+        // 空气质量提醒:进健康页(走和小组件同一个深链)。
+        if userInfo["route"] as? String == "health" {
+            Task { @MainActor in
+                if let url = URL(string: "lodo://health") {
+                    #if os(iOS)
+                    await UIApplication.shared.open(url)
+                    #elseif os(macOS)
+                    NSWorkspace.shared.open(url)
+                    #endif
+                }
+                completionHandler()
+            }
+            return
+        }
         // 聊天室新消息:进到那个房间(外壳切到 AI 页,AI 页 push 进去)。
         if let room = (userInfo["chatRoom"] as? String).flatMap(UUID.init(uuidString:)) {
             Task { @MainActor in

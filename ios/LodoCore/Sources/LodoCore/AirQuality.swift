@@ -104,16 +104,23 @@ public struct AirQualityReport: Codable, Equatable, Sendable {
     public var pm10: Double?
     public var ozone: Double?
     public var nitrogenDioxide: Double?
-    /// 今天(当地)逐小时的 AQI 预报。
+    /// 逐小时的 AQI 预报,从今天(当地)0 点起两天。图表只画今天(`todayHourly`)。
     public var hourly: [HourPoint]
     /// 数据所在地的时区偏移(秒),判断"今天"用。
     public var utcOffsetSeconds: Int
 
     public var category: AQICategory { AQICategory(aqi: aqi) }
 
+    /// 数据所在地"今天"那 24 小时(按接口给的时区偏移算,不按手机时区)。
+    public func todayHourly(now: Date) -> [HourPoint] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: utcOffsetSeconds) ?? .current
+        return hourly.filter { calendar.isDate($0.date, inSameDayAs: now) }
+    }
+
     /// 今天剩下的时间里(含此刻)最高的那个小时。
     public func peak(after now: Date) -> HourPoint? {
-        hourly.filter { $0.date.addingTimeInterval(3600) > now }.max { $0.aqi < $1.aqi }
+        todayHourly(now: now).filter { $0.date.addingTimeInterval(3600) > now }.max { $0.aqi < $1.aqi }
     }
 
     /// 超过这么久就该重新拉(Open-Meteo 的数据是逐小时的)。
@@ -143,7 +150,8 @@ public enum OpenMeteoAirQuality {
             URLQueryItem(name: "hourly", value: "us_aqi"),
             URLQueryItem(name: "timezone", value: "auto"),
             URLQueryItem(name: "timeformat", value: "unixtime"),
-            URLQueryItem(name: "forecast_days", value: "1"),
+            // 两天:明早的提醒也要有预报可用(见 AirQualityReminderPlan)。
+            URLQueryItem(name: "forecast_days", value: "2"),
         ]
         return components?.url
     }
