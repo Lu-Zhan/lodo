@@ -65,12 +65,21 @@ struct AirQualitySection: View {
                 failureRow(failure)
             }
         } header: {
-            HStack {
+            HStack(spacing: 16) {
                 Text("空气质量")
                 Spacer()
                 if enabled {
+                    // 刷新直接摆在标题行上,不收进菜单;请求中换成转圈。
+                    Button { Task { await load(force: true) } } label: {
+                        if loading {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(loading)
+                    .accessibilityLabel("刷新")
                     Menu {
-                        Button("刷新", systemImage: "arrow.clockwise") { Task { await load(force: true) } }
                         Button("提醒设置…", systemImage: "bell") { showsReminders = true }
                         Button("关闭空气质量", systemImage: "xmark.circle", role: .destructive) {
                             confirmingDisable = true
@@ -115,7 +124,7 @@ struct AirQualitySection: View {
             }
         } footer: {
             if enabled, let report {
-                Text("美标 AQI · 数据来自 Open-Meteo(CAMS 模型),更新于 \(report.fetchedAt.formatted(date: .omitted, time: .shortened))")
+                Text("更新于 \(report.fetchedAt.formatted(date: .omitted, time: .shortened))")
             }
         }
     }
