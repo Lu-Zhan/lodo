@@ -139,6 +139,18 @@ public final class MemoryItem {
     /// 价格就只显示数字。一张菜单一个币种,不逐道菜存。
     public var menuCurrency: String?
 
+    // MARK: - 体检报告字段(tags 含 checkupTagName 时才有意义)
+    // 和菜单同一个分层:这条记忆条目是**整份报告**(原文件 + 整理结果 + OCR 原文),
+    // 一项指标是轻量的 `CheckupEntry`,靠 `CheckupEntry.reportUUID` 指回这条的 uuid。
+    // 报告多页(拍了好几张照片)时第一页在 relativeFilePath,其余在 attachmentRelativePaths。
+    /// 报告属于谁:nil = 本人,否则是 `HealthProfile.uuid`。**只有本人的报告**打「健康」
+    /// 标签、参与 AI 健康分析;家人的只记录不分析。
+    public var checkupProfileUUID: UUID?
+    /// 体检日期(报告上写的那天;认不出来时是导入那天,用户可以改)。
+    public var checkupDate: Date?
+    /// 体检机构。
+    public var checkupInstitution: String?
+
     public init(
         kind: MemoryKind,
         title: String = "",
@@ -258,6 +270,10 @@ public final class MemoryItem {
     /// 在记忆列表里正常显示、正常搜(菜单照片本来就是值得留着的资料)。
     public static let menuTagName = "菜单"
     public var isMenu: Bool { tags.contains(Self.menuTagName) }
+    /// 保留标签:一份整理过的体检报告(条目在 `CheckupEntry`)。和「菜单」同组——
+    /// 保留但不隐藏。本人的报告同时打「健康」,家人的不打(不进健康分析)。
+    public static let checkupTagName = "体检报告"
+    public var isCheckup: Bool { tags.contains(Self.checkupTagName) }
 
     /// 全部保留标签的集合,供 UI 层统一过滤(标签管理页的可管理列表、详情页
     /// 标签编辑器的候选与手输校验都应该引用这一份定义,不要各自维护一份
@@ -267,7 +283,7 @@ public final class MemoryItem {
     /// 两个不同维度——"AI记录"是保留标签但不隐藏,不能共用同一份集合。
     public static let reservedTagNames: Set<String> = [
         assetTagName, contactTagName, autoTagName, healthTagName, travelTagName,
-        menuTagName,
+        menuTagName, checkupTagName,
     ]
     /// 默认从记忆列表/附件选择器隐藏的标签(资产、人脉都是隐私/结构化数据,
     /// 不该跟日常收藏混在一起刷屏)。资产在记忆列表里打开侧栏那行筛选就能看到,

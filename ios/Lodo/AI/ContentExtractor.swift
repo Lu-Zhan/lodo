@@ -111,6 +111,55 @@ enum ContentExtractor {
         }
     }
 
+    /// 体检报告的文字:PDF 先取文字层;文字层几乎是空的(扫描件、拍照转的 PDF)时
+    /// 逐页渲染成图再 OCR。图片直接 OCR。认不出的类型返回空串。
+    /// 和收藏那条 `extract(fileURL:)` 分开:那边扫描版 PDF 拿不到字也无所谓(原文件
+    /// 还在),这边拿不到字整份报告就整理不出来。
+    static func checkupText(fileURL: URL) async -> String {
+        switch MemorySearch.kind(forExtension: fileURL.pathExtension) {
+        case .pdf:
+            let layer = extractPDF(fileURL).text
+            if layer.filter({ !$0.isWhitespace }).count >= 80 { return layer }
+            return await recognizePDFPages(fileURL)
+        case .image:
+            return await recognizeText(VNImageRequestHandler(url: fileURL))
+        case .text:
+            return plainText(of: fileURL)
+        case .link, .file:
+            return ""
+        }
+    }
+
+    /// 扫描版 PDF:逐页按 2 倍渲染成位图再 OCR,最多 `maxPDFPages` 页。
+    private static func recognizePDFPages(_ url: URL) async -> String {
+        guard let document = PDFDocument(url: url) else { return "" }
+        var parts: [String] = []
+        for index in 0..<min(document.pageCount, maxPDFPages) {
+            guard let page = document.page(at: index), let image = render(page) else { continue }
+            let text = await recognizeText(VNImageRequestHandler(cgImage: image))
+            if !text.isEmpty { parts.append(text) }
+        }
+        return parts.joined(separator: "\n")
+    }
+
+    /// PDFPage → CGImage,不经 UIImage/NSImage(两个平台同一份代码)。
+    private static func render(_ page: PDFPage, scale: CGFloat = 2) -> CGImage? {
+        let bounds = page.bounds(for: .mediaBox)
+        let rotated = page.rotation % 180 != 0
+        let size = CGSize(width: (rotated ? bounds.height : bounds.width) * scale,
+                          height: (rotated ? bounds.width : bounds.height) * scale)
+        guard size.width >= 1, size.height >= 1,
+              let context = CGContext(
+                data: nil, width: Int(size.width), height: Int(size.height),
+                bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(origin: .zero, size: size))
+        context.scaleBy(x: scale, y: scale)
+        page.draw(with: .mediaBox, to: context)
+        return context.makeImage()
+    }
+
     /// 菜单 OCR 优先尝试的语言(Vision 的识别语言代码)。和收藏用的 `extractImage`
     /// 分开:那边只认中英足够,菜单的主要场景恰恰是出国看不懂的外文菜单。
     /// 实际生效的是这份和系统支持列表的交集(老系统不支持日韩等语言时自动剔掉)。

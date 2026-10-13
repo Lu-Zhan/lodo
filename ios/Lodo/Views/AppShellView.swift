@@ -349,6 +349,11 @@ struct AppShellView: View {
             SharedTripSync.shared.openAssetsRequest = false
             routeFromOutside(.assets)
         }
+        // 接受了家人体检档案的邀请:切到健康页,那一页自己 push 进档案(它负责把请求置回 nil)。
+        .onChange(of: SharedTripSync.shared.openHealthProfileRequest) { _, uuid in
+            guard uuid != nil else { return }
+            routeFromOutside(.health)
+        }
         // 接受了聊天室邀请:切到 AI 助手页,那一页自己 push 进房间(它负责把请求置回 nil)。
         .onChange(of: SharedTripSync.shared.openChatRequest) { _, uuid in
             guard uuid != nil else { return }
@@ -807,7 +812,7 @@ struct AppShellView: View {
                        "--demo-assets-view"]),
             (.contact, ["--demo-contacts", "--demo-contact-compose", "--demo-contact-graph",
                         "--demo-contact-detail", "--demo-contact-export-picker"]),
-            (.health, ["--demo-health"]),
+            (.health, ["--demo-health", "--demo-checkup"]),
             (.travel, ["--demo-travel"]),
             (.menu, ["--demo-menu"]),
             (.news, ["--demo-news"]),

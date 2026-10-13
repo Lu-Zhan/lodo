@@ -192,6 +192,10 @@ public struct BackupMemoryItem: Codable {
     public var menuSourceLanguage: String?
     public var menuTargetLanguage: String?
     public var menuCurrency: String?
+    // 体检报告字段:同样全是可选,老格式备份缺这些 key 时下面的 init(from:) 用 nil 兜底。
+    public var checkupProfileUUID: UUID?
+    public var checkupDate: Date?
+    public var checkupInstitution: String?
 
     public init(
         uuid: UUID, kindRaw: String, title: String, summary: String, tags: [String],
@@ -218,7 +222,10 @@ public struct BackupMemoryItem: Codable {
         travelFlightData: Data? = nil,
         menuSourceLanguage: String? = nil,
         menuTargetLanguage: String? = nil,
-        menuCurrency: String? = nil
+        menuCurrency: String? = nil,
+        checkupProfileUUID: UUID? = nil,
+        checkupDate: Date? = nil,
+        checkupInstitution: String? = nil
     ) {
         self.uuid = uuid
         self.kindRaw = kindRaw
@@ -260,6 +267,9 @@ public struct BackupMemoryItem: Codable {
         self.menuSourceLanguage = menuSourceLanguage
         self.menuTargetLanguage = menuTargetLanguage
         self.menuCurrency = menuCurrency
+        self.checkupProfileUUID = checkupProfileUUID
+        self.checkupDate = checkupDate
+        self.checkupInstitution = checkupInstitution
     }
 
     /// 手写 init(from:):新增字段用 decodeIfPresent 兜底,老格式备份(这些 key
@@ -309,6 +319,9 @@ public struct BackupMemoryItem: Codable {
         menuSourceLanguage = try c.decodeIfPresent(String.self, forKey: .menuSourceLanguage)
         menuTargetLanguage = try c.decodeIfPresent(String.self, forKey: .menuTargetLanguage)
         menuCurrency = try c.decodeIfPresent(String.self, forKey: .menuCurrency)
+        checkupProfileUUID = try c.decodeIfPresent(UUID.self, forKey: .checkupProfileUUID)
+        checkupDate = try c.decodeIfPresent(Date.self, forKey: .checkupDate)
+        checkupInstitution = try c.decodeIfPresent(String.self, forKey: .checkupInstitution)
     }
 }
 
@@ -342,7 +355,10 @@ extension MemoryItem {
             travelFlightData: travelFlightData,
             menuSourceLanguage: menuSourceLanguage,
             menuTargetLanguage: menuTargetLanguage,
-            menuCurrency: menuCurrency)
+            menuCurrency: menuCurrency,
+            checkupProfileUUID: checkupProfileUUID,
+            checkupDate: checkupDate,
+            checkupInstitution: checkupInstitution)
     }
 }
 
@@ -388,6 +404,9 @@ extension BackupMemoryItem {
         item.menuSourceLanguage = menuSourceLanguage
         item.menuTargetLanguage = menuTargetLanguage
         item.menuCurrency = menuCurrency
+        item.checkupProfileUUID = checkupProfileUUID
+        item.checkupDate = checkupDate
+        item.checkupInstitution = checkupInstitution
     }
 }
 
@@ -1112,6 +1131,9 @@ public struct BackupPayload: Codable {
     public var packingItems: [BackupPackingItem] = []
     /// 资产页的收入/固定支出/信用卡。新增字段,老备份缺 key 时兜底为空。
     public var financeEntries: [BackupFinanceEntry] = []
+    /// 体检档案:家人档案与报告条目(报告本身在 memoryItems 里)。新增字段,老备份缺 key 时兜底为空。
+    public var healthProfiles: [BackupHealthProfile] = []
+    public var checkupEntries: [BackupCheckupEntry] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
@@ -1125,7 +1147,9 @@ public struct BackupPayload: Codable {
         disabledSkills: [String] = [],
         countdownEvents: [BackupCountdownEvent] = [],
         packingItems: [BackupPackingItem] = [],
-        financeEntries: [BackupFinanceEntry] = []
+        financeEntries: [BackupFinanceEntry] = [],
+        healthProfiles: [BackupHealthProfile] = [],
+        checkupEntries: [BackupCheckupEntry] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -1142,6 +1166,8 @@ public struct BackupPayload: Codable {
         self.countdownEvents = countdownEvents
         self.packingItems = packingItems
         self.financeEntries = financeEntries
+        self.healthProfiles = healthProfiles
+        self.checkupEntries = checkupEntries
     }
 
     /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
@@ -1172,5 +1198,86 @@ public struct BackupPayload: Codable {
             [BackupPackingItem].self, forKey: .packingItems) ?? []
         financeEntries = try c.decodeIfPresent(
             [BackupFinanceEntry].self, forKey: .financeEntries) ?? []
+        healthProfiles = try c.decodeIfPresent(
+            [BackupHealthProfile].self, forKey: .healthProfiles) ?? []
+        checkupEntries = try c.decodeIfPresent(
+            [BackupCheckupEntry].self, forKey: .checkupEntries) ?? []
+    }
+}
+
+/// 家人的健康档案(本人没有这一行,见 `HealthProfile`)。
+public struct BackupHealthProfile: Codable {
+    public var uuid: UUID
+    public var name: String
+    public var relation: String
+    public var birthday: Date?
+    public var notes: String
+    public var createdAt: Date
+}
+
+extension HealthProfile {
+    public var backup: BackupHealthProfile {
+        BackupHealthProfile(uuid: uuid, name: name, relation: relation, birthday: birthday,
+                            notes: notes, createdAt: createdAt)
+    }
+}
+
+extension BackupHealthProfile {
+    public func apply(to profile: HealthProfile) {
+        profile.uuid = uuid
+        profile.name = name
+        profile.relation = relation
+        profile.birthday = birthday
+        profile.notes = notes
+        profile.createdAt = createdAt
+    }
+}
+
+/// 体检报告条目。报告那条记忆条目已经在 memoryItems 里,这里补它下面的条目(同 menuDishes)。
+public struct BackupCheckupEntry: Codable {
+    public var uuid: UUID
+    public var reportUUID: UUID
+    public var profileUUID: UUID?
+    public var kindRaw: String
+    public var category: String
+    public var name: String
+    public var value: String
+    public var unit: String
+    public var referenceRange: String
+    public var flagRaw: String
+    public var conclusion: String
+    public var advice: String
+    public var date: Date
+    public var sortIndex: Int
+    public var createdAt: Date
+}
+
+extension CheckupEntry {
+    public var backup: BackupCheckupEntry {
+        BackupCheckupEntry(uuid: uuid, reportUUID: reportUUID, profileUUID: profileUUID,
+                           kindRaw: kindRaw, category: category, name: name, value: value,
+                           unit: unit, referenceRange: referenceRange, flagRaw: flagRaw,
+                           conclusion: conclusion, advice: advice, date: date,
+                           sortIndex: sortIndex, createdAt: createdAt)
+    }
+}
+
+extension BackupCheckupEntry {
+    public func apply(to entry: CheckupEntry) {
+        entry.uuid = uuid
+        entry.reportUUID = reportUUID
+        entry.profileUUID = profileUUID
+        entry.kindRaw = kindRaw
+        entry.category = category
+        entry.name = name
+        entry.value = value
+        entry.unit = unit
+        entry.referenceRange = referenceRange
+        entry.flagRaw = flagRaw
+        entry.conclusion = conclusion
+        entry.advice = advice
+        entry.date = date
+        entry.sortIndex = sortIndex
+        entry.createdAt = createdAt
     }
 }

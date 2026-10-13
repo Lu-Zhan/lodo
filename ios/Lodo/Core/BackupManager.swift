@@ -59,6 +59,8 @@ enum BackupManager {
         let countdownEvents = ((try? context.fetch(FetchDescriptor<CountdownEvent>())) ?? [])
         let packingItems = ((try? context.fetch(FetchDescriptor<PackingItem>())) ?? [])
         let financeEntries = ((try? context.fetch(FetchDescriptor<FinanceEntry>())) ?? [])
+        let healthProfiles = ((try? context.fetch(FetchDescriptor<HealthProfile>())) ?? [])
+        let checkupEntries = ((try? context.fetch(FetchDescriptor<CheckupEntry>())) ?? [])
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -83,7 +85,9 @@ enum BackupManager {
             customSkills: customSkills, disabledSkills: disabledSkills,
             countdownEvents: countdownEvents.map { $0.backup },
             packingItems: packingItems.map { $0.backup },
-            financeEntries: financeEntries.map { $0.backup })
+            financeEntries: financeEntries.map { $0.backup },
+            healthProfiles: healthProfiles.map { $0.backup },
+            checkupEntries: checkupEntries.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -271,6 +275,30 @@ enum BackupManager {
             dto.apply(to: entry)
         }
 
+        // 体检档案:家人档案 + 报告条目(报告本身走 memoryItems 那一轮),按 uuid 去重合并。
+        for dto in payload.healthProfiles {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<HealthProfile>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let profile = existing ?? {
+                let created = HealthProfile(uuid: dto.uuid, name: dto.name)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: profile)
+        }
+        for dto in payload.checkupEntries {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<CheckupEntry>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let entry = existing ?? {
+                let created = CheckupEntry(uuid: dto.uuid, reportUUID: dto.reportUUID, date: dto.date)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: entry)
+        }
+
         // 新闻订阅:只恢复订阅本身,文章下次打开新闻页时重新抓。按 uuid 去重合并。
         for dto in payload.newsFeeds {
             let uuid = dto.uuid
@@ -346,6 +374,10 @@ enum BackupManager {
         // 都不对应任何现存条目)。
         for relationship in (try? context.fetch(FetchDescriptor<ContactRelationship>())) ?? [] {
             context.delete(relationship)
+        }
+        // 体检报告的条目已随报告删掉;家人档案没有挂在记忆条目上,单独清。
+        for profile in (try? context.fetch(FetchDescriptor<HealthProfile>())) ?? [] {
+            context.delete(profile)
         }
         try? context.save()
     }

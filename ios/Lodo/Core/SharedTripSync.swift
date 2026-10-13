@@ -12,6 +12,7 @@ import AppKit
 import LodoCore
 
 /// 旅行共享(仅 iOS/macOS 主 app):把用户主动共享的旅行经 CKSyncEngine 同步给成员。
+/// 同一对引擎后来还承载了资产台账(`assets-`)、聊天室(`chat-`)和家人体检档案(`health-`)。
 ///
 /// - 每趟共享旅行在 owner 私有库里一个 zone(`trip-<uuid>`),整个 zone 一个 CKShare;
 ///   成员那边从 shared database 拉。两个引擎:`privateEngine` 管我分享出去的,
@@ -44,6 +45,8 @@ final class SharedTripSync {
     var openAssetsRequest = false
     /// 接受了聊天室邀请:要打开的房间(AI 助手页接走并置回 nil)。
     var openChatRequest: UUID?
+    /// 接受了家人体检档案的邀请:要打开的档案(健康页接走并置回 nil)。
+    var openHealthProfileRequest: UUID?
     /// 正在看的聊天室(ChatRoomView 进出时设置):app 在前台且正看着这个房间时不发新消息通知。
     @ObservationIgnored var visibleRoom: UUID?
 
@@ -272,6 +275,151 @@ final class SharedTripSync {
             throw ShareError.notSaved
         }
         return stored
+    }
+
+    // MARK: - 家人体检档案共享
+
+    /// 发起家人档案共享(已共享时取回现有的 share),给系统共享界面用。第一次共享时
+    /// TA 名下的全部报告(含原文件)和条目排队上传。只有家人档案能共享,本人没有这一行。
+    func prepareShare(for profile: HealthProfile) async throws -> CKShare {
+        if let minutes = throttleMinutesLeft { throw ShareError.throttled(minutes: minutes) }
+        do {
+            return try await createOrFetchShare(for: profile)
+        } catch {
+            noteThrottle(error)
+            if let minutes = throttleMinutesLeft { throw ShareError.throttled(minutes: minutes) }
+            throw error
+        }
+    }
+
+    private func createOrFetchShare(for profile: HealthProfile) async throws -> CKShare {
+        if !isAvailable { await start() }
+        guard isAvailable, let ckContainer else { throw ShareError.unavailable }
+        if let role = profile.shareRole {
+            let database = role == .owner ? ckContainer.privateCloudDatabase : ckContainer.sharedCloudDatabase
+            let zoneID = CKRecordZone.ID(zoneName: SharedHealthMapping.zoneName(for: profile.uuid),
+                                         ownerName: profile.shareZoneOwner.isEmpty
+                                            ? CKCurrentUserDefaultName : profile.shareZoneOwner)
+            let id = CKRecord.ID(recordName: CKRecordNameZoneWideShare, zoneID: zoneID)
+            do {
+                if let existing = try await database.record(for: id) as? CKShare {
+                    await loadParticipants(existing)
+                    return existing
+                }
+            } catch where Self.isMissing(error) {
+                // 同旅行那条:本地标着共享、服务器上没有。成员没法替 owner 重建。
+                Self.log.notice("health profile \(profile.uuid, privacy: .public) marked shared but zone/share missing; resetting")
+                dropLocalShare(profile)
+                if role == .participant { throw ShareError.gone }
+            }
+        }
+        let zoneID = CKRecordZone.ID(zoneName: SharedHealthMapping.zoneName(for: profile.uuid),
+                                     ownerName: CKCurrentUserDefaultName)
+        let title = String(localized: "\(profile.name)的体检档案", bundle: .appLanguage())
+        let saved = try await saveZoneAndShare(zoneID, title: title, container: ckContainer)
+        Self.log.info("health profile \(profile.uuid, privacy: .public) shared, url=\(saved.url?.absoluteString ?? "nil", privacy: .public)")
+
+        applying = true
+        profile.shareRoleRaw = SharedTripRole.owner.rawValue
+        profile.shareZoneOwner = CKCurrentUserDefaultName
+        try? context?.save()
+        applying = false
+
+        var zones = SharedTripLedger.zones
+        let ledger = SharedZoneLedger(zoneName: zoneID.zoneName, ownerName: zoneID.ownerName,
+                                      role: .owner, tripUUID: profile.uuid)
+        if zones[ledger.key] == nil { zones[ledger.key] = ledger }
+        saveZones(zones)
+        reconcile()
+        return saved
+    }
+
+    /// 系统共享界面里停止共享 / 退出之后(同旅行):owner 删 zone、成员退出,本地留一份
+    /// 不再同步的副本。
+    func didStopSharing(_ profile: HealthProfile) {
+        leaveHealthZone(profile.uuid)
+        markUnshared(profile)
+    }
+
+    /// 本地要删掉一份共享的家人档案之前调:**先**把它从共享里摘出来(owner 删 zone,
+    /// 成员只是退出),再删本地数据。顺序反过来的话,删报告那几次保存会先被对账成
+    /// "删除记录"推上去——成员删自己这份,结果把所有人那边的报告都删了。
+    func willDelete(_ profile: HealthProfile) {
+        guard profile.isShared else { return }
+        leaveHealthZone(profile.uuid)
+    }
+
+    private func leaveHealthZone(_ profileUUID: UUID) {
+        var zones = SharedTripLedger.zones
+        for entry in zones.values where entry.kind == .health && entry.containerUUID == profileUUID {
+            let zoneID = CKRecordZone.ID(zoneName: entry.zoneName, ownerName: entry.ownerName)
+            engine(for: entry.role)?.state.add(pendingDatabaseChanges: [.deleteZone(zoneID)])
+            zones[entry.key] = nil
+        }
+        saveZones(zones)
+        pendingCounts[profileUUID] = nil
+    }
+
+    /// 只清本地(服务器上本来就没有了):账本里的 zone 记录 + 档案上的共享标记。
+    private func dropLocalShare(_ profile: HealthProfile) {
+        var zones = SharedTripLedger.zones
+        for entry in zones.values where entry.kind == .health && entry.containerUUID == profile.uuid {
+            zones[entry.key] = nil
+        }
+        saveZones(zones)
+        markUnshared(profile)
+    }
+
+    private func markUnshared(_ profile: HealthProfile) {
+        applying = true
+        defer { applying = false }
+        profile.shareRoleRaw = ""
+        profile.shareZoneOwner = ""
+        try? context?.save()
+        pendingCounts[profile.uuid] = nil
+    }
+
+    private func fetchProfile(_ uuid: UUID, context: ModelContext) -> HealthProfile? {
+        try? context.fetch(FetchDescriptor<HealthProfile>(predicate: #Predicate { $0.uuid == uuid })).first
+    }
+
+    /// 这位家人名下的报告(打「体检报告」标签的记忆条目)。
+    private func checkupReports(of profileUUID: UUID, context: ModelContext) -> [MemoryItem] {
+        let id: UUID? = profileUUID
+        return ((try? context.fetch(FetchDescriptor<MemoryItem>(
+            predicate: #Predicate { $0.checkupProfileUUID == id }))) ?? []).filter(\.isCheckup)
+    }
+
+    private func checkupEntries(of profileUUID: UUID, context: ModelContext) -> [CheckupEntry] {
+        let id: UUID? = profileUUID
+        return (try? context.fetch(FetchDescriptor<CheckupEntry>(
+            predicate: #Predicate { $0.profileUUID == id }))) ?? []
+    }
+
+    private func fetchCheckupEntry(_ uuid: UUID, context: ModelContext) -> CheckupEntry? {
+        try? context.fetch(FetchDescriptor<CheckupEntry>(predicate: #Predicate { $0.uuid == uuid })).first
+    }
+
+    private func healthSnapshots(for profile: HealthProfile, context: ModelContext) -> [SharedRecordSnapshot] {
+        [SharedHealthMapping.snapshot(of: profile)]
+            + checkupReports(of: profile.uuid, context: context).map(SharedHealthMapping.snapshot(ofReport:))
+            + checkupEntries(of: profile.uuid, context: context).map(SharedHealthMapping.snapshot(of:))
+    }
+
+    /// 同旅行那条:同一个 uuid 两行留一行,多出来的不走 `MemoryPipeline.delete`(会把共用的文件删掉)。
+    private func removeHealthDuplicates(_ profileUUID: UUID, context: ModelContext) {
+        let profiles = (try? context.fetch(FetchDescriptor<HealthProfile>(
+            predicate: #Predicate { $0.uuid == profileUUID }))) ?? []
+        let extraProfiles = Array(profiles.dropFirst())
+        let extraReports = SharedTripPlanner.duplicates(checkupReports(of: profileUUID, context: context), uuid: \.uuid)
+        let extraEntries = SharedTripPlanner.duplicates(checkupEntries(of: profileUUID, context: context), uuid: \.uuid)
+        guard !(extraProfiles.isEmpty && extraReports.isEmpty && extraEntries.isEmpty) else { return }
+        applying = true
+        defer { applying = false }
+        extraProfiles.forEach(context.delete)
+        extraReports.forEach(context.delete)
+        extraEntries.forEach(context.delete)
+        try? context.save()
     }
 
     // MARK: - 资产台账共享
@@ -514,6 +662,7 @@ final class SharedTripSync {
             case .trip: openTripRequest = containerUUID
             case .assets: openAssetsRequest = true
             case .chat: openChatRequest = containerUUID
+            case .health: openHealthProfileRequest = containerUUID
             }
         }
         // 自己点开自己分享出去的链接:什么都不用接,直接打开。
@@ -1012,6 +1161,23 @@ final class SharedTripSync {
                     plan.saves.map { .saveRecord(CKRecord.ID(recordName: $0.uuidString, zoneID: zoneID)) })
                 continue
             }
+            if zone.kind == .health {
+                guard let profile = fetchProfile(zone.containerUUID, context: context) else {
+                    // 档案在本地删掉了(正常删除会先走 willDelete 摘掉 zone,这里是兜底):
+                    // owner 删 zone,成员退出。
+                    engine.state.add(pendingDatabaseChanges: [.deleteZone(zoneID)])
+                    zones[key] = nil
+                    continue
+                }
+                removeHealthDuplicates(zone.containerUUID, context: context)
+                let plan = SharedTripPlanner.pushPlan(local: healthSnapshots(for: profile, context: context),
+                                                      ledger: zone.records)
+                guard !plan.isEmpty else { continue }
+                engine.state.add(pendingRecordZoneChanges:
+                    plan.saves.map { .saveRecord(CKRecord.ID(recordName: $0.uuidString, zoneID: zoneID)) }
+                    + plan.deletes.map { .deleteRecord(CKRecord.ID(recordName: $0.uuidString, zoneID: zoneID)) })
+                continue
+            }
             if zone.kind == .assets {
                 removeAssetDuplicates(zone.containerUUID, context: context)
                 let plan = SharedTripPlanner.pushPlan(
@@ -1179,6 +1345,19 @@ final class SharedTripSync {
             } else {
                 return nil
             }
+        } else if zone.kind == .health {
+            if uuid == zone.containerUUID, let profile = fetchProfile(uuid, context: context) {
+                snapshot = SharedHealthMapping.snapshot(of: profile)
+            } else if let item = fetchEntry(uuid, context: context), item.isCheckup,
+                      item.checkupProfileUUID == zone.containerUUID {
+                snapshot = SharedHealthMapping.snapshot(ofReport: item)
+                fileItem = item
+            } else if let entry = fetchCheckupEntry(uuid, context: context),
+                      entry.profileUUID == zone.containerUUID {
+                snapshot = SharedHealthMapping.snapshot(of: entry)
+            } else {
+                return nil
+            }
         } else if zone.kind == .assets {
             if let item = fetchEntry(uuid, context: context), item.assetLedgerUUID == zone.containerUUID {
                 snapshot = SharedAssetMapping.snapshot(ofAsset: item)
@@ -1312,6 +1491,11 @@ final class SharedTripSync {
             deleteLocalRoom(entry.containerUUID)
         } else if entry.kind == .assets {
             clearAssetMarkers(entry.containerUUID)
+        } else if entry.kind == .health {
+            // 同旅行:停止共享/退出后本地留一份不再同步的副本。
+            if let context, let profile = fetchProfile(entry.containerUUID, context: context) {
+                markUnshared(profile)
+            }
         } else if let context, let trip = fetchTrip(entry.tripUUID, context: context) {
             markUnshared(trip)
         }
@@ -1492,6 +1676,63 @@ final class SharedTripSync {
                         chatArrivals[room.uuid, default: []].append(new)
                     }
                 }
+            case .healthProfile:
+                let profile = fetchProfile(uuid, context: context)
+                switch SharedTripPlanner.incoming(server: server, base: base,
+                                                  local: profile.map { SharedHealthMapping.snapshot(of: $0).fields }) {
+                case .insert(let fields):
+                    let new = HealthProfile(uuid: uuid, name: "")
+                    SharedHealthMapping.apply(fields, to: new)
+                    new.shareRoleRaw = zone.role.rawValue
+                    new.shareZoneOwner = zone.ownerName
+                    context.insert(new)
+                case .update(let fields):
+                    if let profile {
+                        SharedHealthMapping.apply(fields, to: profile)
+                        profile.shareRoleRaw = zone.role.rawValue
+                        profile.shareZoneOwner = zone.ownerName
+                    }
+                case .skipDeletedLocally:
+                    break
+                }
+            case .checkupReport:
+                let item = fetchEntry(uuid, context: context)
+                switch SharedTripPlanner.incoming(server: server, base: base,
+                                                  local: item.map { SharedHealthMapping.snapshot(ofReport: $0).fields }) {
+                case .insert(let fields):
+                    let new = MemoryItem(kind: .text)
+                    new.uuid = uuid
+                    SharedHealthMapping.applyReport(fields, to: new, profileUUID: zone.containerUUID)
+                    new.sharedAddedBy = addedBy
+                    claimFiles(of: new, paths: &filePaths, context: context)
+                    context.insert(new)
+                    saveAssets(of: record, to: new)
+                    reindex.append(new)
+                case .update(let fields):
+                    if let item {
+                        let textChanged = item.sourceText != fields.stringValue("sourceText")
+                        SharedHealthMapping.applyReport(fields, to: item, profileUUID: zone.containerUUID)
+                        if item.sharedAddedBy == nil { item.sharedAddedBy = addedBy }
+                        claimFiles(of: item, paths: &filePaths, context: context)
+                        saveAssets(of: record, to: item)
+                        if textChanged { reindex.append(item) }
+                    }
+                case .skipDeletedLocally:
+                    break
+                }
+            case .checkupEntry:
+                let entry = fetchCheckupEntry(uuid, context: context)
+                switch SharedTripPlanner.incoming(server: server, base: base,
+                                                  local: entry.map { SharedHealthMapping.snapshot(of: $0).fields }) {
+                case .insert(let fields):
+                    let new = CheckupEntry(uuid: uuid, reportUUID: UUID(), date: .now)
+                    SharedHealthMapping.apply(fields, to: new, profileUUID: zone.containerUUID)
+                    context.insert(new)
+                case .update(let fields):
+                    if let entry { SharedHealthMapping.apply(fields, to: entry, profileUUID: zone.containerUUID) }
+                case .skipDeletedLocally:
+                    break
+                }
             case .packing:
                 let item = fetchPacking(uuid, context: context)
                 switch SharedTripPlanner.incoming(server: server, base: base,
@@ -1565,8 +1806,16 @@ final class SharedTripSync {
                     removeChatFile(message.filePath)
                     context.delete(message)
                 }
-            case .trip, .chatRoom, nil:
-                break  // 旅行/聊天室本身的删除走 zone 删除(zoneRemoved)
+            case .checkupReport:
+                // 连原文件和它的条目一起删(条目的删除记录随后也会到,那时已经没了,无害)。
+                if let item = fetchEntry(uuid, context: context), item.isCheckup,
+                   item.checkupProfileUUID == zone.containerUUID {
+                    MemoryPipeline.delete(item, context: context)
+                }
+            case .checkupEntry:
+                if let entry = fetchCheckupEntry(uuid, context: context) { context.delete(entry) }
+            case .trip, .chatRoom, .healthProfile, nil:
+                break  // 旅行/聊天室/家人档案本身的删除走 zone 删除(zoneRemoved)
             }
             zone.records[uuid] = nil
             zones[key] = zone
@@ -1752,6 +2001,8 @@ final class SharedTripSync {
                 }
             } else if zone.kind == .assets {
                 clearAssetMarkers(zone.containerUUID)
+            } else if zone.kind == .health {
+                if let profile = fetchProfile(zone.containerUUID, context: context) { markUnshared(profile) }
             } else if let trip = fetchTrip(zone.tripUUID, context: context) {
                 markUnshared(trip)
             }

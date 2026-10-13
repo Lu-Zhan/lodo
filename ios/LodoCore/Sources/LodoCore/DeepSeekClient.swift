@@ -1505,6 +1505,87 @@ public enum DeepSeekClient {
             dishes: dishes)
     }
 
+    /// 把一份体检/化验报告的文字(PDF 正文或拍照 OCR)整理成一条条指标与综合建议。
+    /// knownNames 是这个人以往报告里已有的指标名,让模型沿用同样的写法——时间轴按名字
+    /// 把历次报告里的同一项串起来,"总胆固醇"和"血清总胆固醇"会被当成两项。
+    ///
+    /// 和菜单一样**不给确认页**:报告上百项,逐条确认比整理完再改难受得多;每一项事后
+    /// 都能改,原文件也一直留着可以对照。
+    public static func parseCheckupReport(
+        text: String, knownNames: [String] = []
+    ) async throws -> ParsedCheckupReport {
+        let known = knownNames.isEmpty ? "" : """
+
+        这个人以往报告里已有的指标名(同一个指标请沿用完全相同的名字):\(knownNames.joined(separator: "、"))
+        """
+        let system = """
+        你是体检报告整理助手。用户给的是一份体检/化验报告的文字,可能来自 PDF 或拍照 OCR,\
+        会有断行、串行、错字,按常识理解。把它整理成结构化条目。
+
+        只返回 JSON:{"title": "报告名称,如 2026 年度健康体检", \
+        "date": "体检日期 YYYY-MM-DD,看不出就省略", \
+        "institution": "体检机构,没写就省略", \
+        "items": [条目, ...], \
+        "summary_advice": "报告里的综合建议/总检结论,整理成通顺的几句话;报告没写就省略"},\
+        不要任何其他文字。每个条目:
+        {"category": "所属项目或科室,如 血常规/肝功能/血脂/腹部B超/内科", \
+        "name": "指标或检查项名称", \
+        "value": "结果原样,如 5.6、阴性、未见明显异常", \
+        "unit": "单位,没有就省略", \
+        "reference": "参考范围原样,如 3.9-6.1、<5.2,没有就省略", \
+        "flag": "high|low|abnormal|normal", \
+        "conclusion": "这一项的文字结论或描述", \
+        "advice": "报告里针对这一项的分析或建议"}
+
+        规则:
+        - 只整理报告里写了的内容,不要自己解读、诊断或补充建议;advice 和 summary_advice \
+        只填报告原文里有的分析/建议,没有就省略,不要编。
+        - 报告里针对某一项的分析或建议(如"总胆固醇偏高,建议低脂饮食")放进那一项的 advice;\
+        针对整体的建议放进 summary_advice,不要重复放。
+        - 数值类指标 value 只写结果本身(如 5.6),单位放 unit;影像、心电图、体格检查这类\
+        描述性的项目把描述写进 conclusion,value 写一句简短结论(如 未见异常)或省略。
+        - flag:报告上标了 ↑/H/偏高 是 high,↓/L/偏低 是 low,阳性/异常/结节等文字异常是 \
+        abnormal,明确正常是 normal;看不出就省略,不要自己按参考范围推。
+        - name 用常见的标准中文名称,英文缩写可以放括号里,如 "谷丙转氨酶(ALT)"。
+        - 报告里的姓名、身份证号、电话、体检编号等个人信息一律不要输出。
+        - 一项也读不出来时返回 {"items": []}。\(known)
+        """
+        return try parseCheckupPayload(await payload(system: system, user: text, timeout: 180))
+    }
+
+    /// 从 payload 里解析体检报告(单测入口,不发请求)。单项缺名字就跳过那一项,
+    /// 不让整份报告白费(同 parseMenuPayload)。
+    static func parseCheckupPayload(_ payload: [String: Any]) throws -> ParsedCheckupReport {
+        guard let rawItems = payload["items"] as? [[String: Any]] else {
+            throw DeepSeekError.parse("返回格式异常:缺少 items")
+        }
+        func text(_ raw: [String: Any], _ key: String) -> String {
+            if let value = raw[key] as? String { return value.trimmingCharacters(in: .whitespacesAndNewlines) }
+            // 模型偶尔把数值结果写成数字而不是字符串。
+            if let value = raw[key] as? Double { return value.rounded() == value ? String(Int(value)) : String(value) }
+            if let value = raw[key] as? Int { return String(value) }
+            return ""
+        }
+        let items = rawItems.compactMap { raw -> ParsedCheckupItem? in
+            let name = text(raw, "name")
+            guard !name.isEmpty else { return nil }
+            return ParsedCheckupItem(
+                category: text(raw, "category"), name: name, value: text(raw, "value"),
+                unit: text(raw, "unit"), reference: text(raw, "reference"),
+                flag: CheckupFlag(rawValue: text(raw, "flag").lowercased()),
+                conclusion: text(raw, "conclusion"), advice: text(raw, "advice"))
+        }
+        let dayFormatter = DateFormatter()
+        dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dayFormatter.dateFormat = "yyyy-MM-dd"
+        return ParsedCheckupReport(
+            title: text(payload, "title"),
+            date: dayFormatter.date(from: String(text(payload, "date").prefix(10))),
+            institution: text(payload, "institution"),
+            items: items,
+            summaryAdvice: text(payload, "summary_advice"))
+    }
+
     /// 定时任务(`AIRoutine`)到点后跑一次:按用户自己写的指令生成这次要展示的内容。
     /// 和 weeklyInsight/summarizeToday 一样是"薄包装 + 返回一句话 JSON",区别是
     /// 指令来自用户而不是写死的 prompt,并且允许联网——天气/行情这类任务不查就没法做。

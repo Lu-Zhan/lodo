@@ -19,6 +19,7 @@ struct HealthView: View {
 
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
     private var memoryItems: [MemoryItem]
+    @Query private var checkupEntries: [CheckupEntry]
 
     @State private var report: HealthReport = .empty
     @State private var analysis: HealthAnalysis?
@@ -27,10 +28,17 @@ struct HealthView: View {
     @State private var chartKind: HealthMetricKind?
     /// 下拉刷新时 +1,空气质量那一组跟着强制重新请求。
     @State private var airRefreshToken = 0
+    /// 刚上传整理完的体检报告,直接 push 进它的详情。
+    @State private var openReport: UUID?
+    /// 接受了共享邀请的家人档案,push 进去(见 `SharedTripSync.openHealthProfileRequest`)。
+    @State private var openProfile: CheckupProfileTarget?
     #if DEBUG
     /// --demo-health 的临时放行。用 @State 而不是把 healthEnabled 写成 true:
     /// 那是 @AppStorage,会落进 UserDefaults 影响之后不带参数的启动。
     @State private var demoOverride = false
+    /// --demo-checkup-profile / --demo-checkup-metric 直接打开的页面。
+    @State private var demoCheckupProfile = false
+    @State private var demoCheckupMetric: String?
     #endif
 
     /// 是否该展示数据区(而不是"未开启"空态)。
@@ -45,6 +53,8 @@ struct HealthView: View {
     private static let analysisDayKey = "healthAnalysisDay"
     private static let analysisTextKey = "healthAnalysisText"
     private static let analysisSuggestionsKey = "healthAnalysisSuggestions"
+    /// 缓存那份分析时用的体检摘要:报告新增/改过之后当天也要重新分析。
+    private static let analysisCheckupKey = "healthAnalysisCheckup"
 
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -52,9 +62,10 @@ struct HealthView: View {
         return f
     }()
 
-    /// 记忆库里打了「健康」标签的条目(体检报告、用药、饮食记录这些)。
+    /// 记忆库里打了「健康」标签的条目(用药、饮食记录这些)。体检报告不在这里:
+    /// 它们在「体检档案」那一组,喂给 AI 的也是结构化的摘要(`CheckupStore.selfPromptSummary`)。
     private var healthMemories: [MemoryItem] {
-        memoryItems.filter(\.isHealth)
+        memoryItems.filter { $0.isHealth && !$0.isCheckup }
     }
 
     /// 当前画折线的指标:默认第一条有数据的序列。
@@ -88,8 +99,17 @@ struct HealthView: View {
                     metricsSection
                     chartSection
                 }
+                CheckupSection(memoryItems: memoryItems, openReport: $openReport)
                 memoriesSection
             }
+            .navigationDestination(item: $openReport) { CheckupReportView(reportID: $0) }
+            .navigationDestination(item: $openProfile) { CheckupProfileView(profileID: $0.id) }
+            .onChange(of: SharedTripSync.shared.openHealthProfileRequest) { _, _ in consumeProfileRequest() }
+            .onAppear { consumeProfileRequest() }
+            #if DEBUG
+            .navigationDestination(isPresented: $demoCheckupProfile) { CheckupProfileView(profileID: nil) }
+            .navigationDestination(item: $demoCheckupMetric) { CheckupMetricView(profileID: nil, key: $0) }
+            #endif
             .pageTitle("健康")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -100,6 +120,7 @@ struct HealthView: View {
                 await reload()
                 #if DEBUG
                 applyDemoArgumentsIfNeeded()
+                applyCheckupDemoIfNeeded()
                 #endif
             }
             .refreshable {
@@ -310,6 +331,13 @@ struct HealthView: View {
         }
     }
 
+    /// 页面可能是这时才第一次建出来的(那一下不走 onChange),onAppear 也收一次。
+    private func consumeProfileRequest() {
+        guard let uuid = SharedTripSync.shared.openHealthProfileRequest else { return }
+        SharedTripSync.shared.openHealthProfileRequest = nil
+        openProfile = CheckupProfileTarget(id: uuid)
+    }
+
     // MARK: - 加载
 
     private func reload(force: Bool = false) async {
@@ -333,15 +361,23 @@ struct HealthView: View {
         }
         let stamp = Self.dayFormatter.string(from: Date())
         let defaults = UserDefaults.standard
+        // 体检只给本人的(家人的档案不参与健康分析)。报告改过之后当天也重新分析。
+        let checkup = CheckupStore.selfPromptSummary(items: memoryItems, entries: checkupEntries)
         if !force, defaults.string(forKey: Self.analysisDayKey) == stamp,
+           defaults.string(forKey: Self.analysisCheckupKey) == (checkup ?? ""),
            let cached = defaults.string(forKey: Self.analysisTextKey) {
             analysis = HealthAnalysis(
                 analysis: cached,
                 suggestions: defaults.stringArray(forKey: Self.analysisSuggestionsKey) ?? [])
             return
         }
-        let memoryContext = healthMemories.isEmpty ? nil :
-            healthMemories.prefix(10).map { "「\($0.title)」\($0.summary)" }.joined(separator: "、")
+        var contextParts: [String] = []
+        if let checkup { contextParts.append("体检报告:\n\(checkup)") }
+        if !healthMemories.isEmpty {
+            contextParts.append(healthMemories.prefix(10)
+                .map { "「\($0.title)」\($0.summary)" }.joined(separator: "、"))
+        }
+        let memoryContext = contextParts.isEmpty ? nil : contextParts.joined(separator: "\n\n")
         loadingAnalysis = true
         defer { loadingAnalysis = false }
         guard let result = try? await DeepSeekClient.analyzeHealth(
@@ -349,10 +385,51 @@ struct HealthView: View {
         defaults.set(stamp, forKey: Self.analysisDayKey)
         defaults.set(result.analysis, forKey: Self.analysisTextKey)
         defaults.set(result.suggestions, forKey: Self.analysisSuggestionsKey)
+        defaults.set(checkup ?? "", forKey: Self.analysisCheckupKey)
         analysis = result
     }
 
     #if DEBUG
+    /// 体检档案的截图参数:--demo-checkup 塞样板(本人两份 + 妈妈一份,不走网络),
+    /// 配 --demo-checkup-profile / --demo-checkup-report / --demo-checkup-metric <指标名>
+    /// 直接打开对应页面。
+    private func applyCheckupDemoIfNeeded() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--demo-checkup") else { return }
+        CheckupStore.seedDemo(context: context)
+        // 真发一次 AI:拿样板 PDF 走完整的识别 → 整理 → 落库,整理完打开那份报告。
+        if arguments.contains("--demo-checkup-import-live"),
+           let pdf = CheckupStore.demoPDFURL() {
+            Task {
+                do {
+                    let item = try await CheckupStore.importReport(
+                        files: [pdf], images: [], profileID: nil, context: context)
+                    openReport = item.uuid
+                } catch {
+                    print("[checkup-demo] import failed: \(error)")
+                }
+            }
+            return
+        }
+        // --demo-checkup-shared:把样板家人标成"已共享"(只改本地标记,不发 iCloud 请求)。
+        let family = (try? context.fetch(FetchDescriptor<HealthProfile>()))?.first
+        if arguments.contains("--demo-checkup-shared"), let family {
+            family.shareRoleRaw = SharedTripRole.owner.rawValue
+            try? context.save()
+        }
+        if arguments.contains("--demo-checkup-family"), let family {
+            openProfile = CheckupProfileTarget(id: family.uuid)
+        } else if arguments.contains("--demo-checkup-profile") {
+            demoCheckupProfile = true
+        } else if arguments.contains("--demo-checkup-report") {
+            let items = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+            openReport = CheckupStore.reports(of: nil, in: items).first?.uuid
+        } else if let index = arguments.firstIndex(of: "--demo-checkup-metric"),
+                  index + 1 < arguments.count {
+            demoCheckupMetric = CheckupPlan.metricKey(arguments[index + 1])
+        }
+    }
+
     /// 截图验证用:模拟器里没有真实健康数据,用启动参数摆一份样本序列和假分析,
     /// 和 --demo-overview-ai / --demo-reschedule 同一个惯例。
     private func applyDemoArgumentsIfNeeded() {

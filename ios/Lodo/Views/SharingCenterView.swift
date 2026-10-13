@@ -14,11 +14,18 @@ struct SharingCenterView: View {
            order: .reverse) private var rooms: [ChatRoom]
     @Query(filter: #Predicate<TravelTrip> { $0.shareRoleRaw != "" }, sort: \TravelTrip.startDate,
            order: .reverse) private var trips: [TravelTrip]
+    @Query(filter: #Predicate<HealthProfile> { $0.shareRoleRaw != "" }, sort: \HealthProfile.createdAt)
+    private var profiles: [HealthProfile]
     private let sync = SharedTripSync.shared
 
     private var uniqueRooms: [ChatRoom] {
         var seen = Set<UUID>()
         return rooms.filter { seen.insert($0.uuid).inserted }
+    }
+
+    private var uniqueProfiles: [HealthProfile] {
+        var seen = Set<UUID>()
+        return profiles.filter { seen.insert($0.uuid).inserted }
     }
 
     private var uniqueTrips: [TravelTrip] {
@@ -55,6 +62,16 @@ struct SharingCenterView: View {
                         }
                     }
                 }
+                if !uniqueProfiles.isEmpty {
+                    Section("体检档案") {
+                        ForEach(uniqueProfiles) { profile in
+                            NavigationLink(value: ShareTarget.health(profile.uuid)) {
+                                ShareRow(title: profile.name, symbol: "heart.text.square",
+                                         isOwner: profile.shareRole == .owner)
+                            }
+                        }
+                    }
+                }
                 if let assets = sync.assetShare {
                     Section("资产") {
                         NavigationLink(value: ShareTarget.assets(assets.ledgerUUID)) {
@@ -65,10 +82,10 @@ struct SharingCenterView: View {
                 }
             }
             .overlay {
-                if uniqueRooms.isEmpty && uniqueTrips.isEmpty && sync.assetShare == nil {
+                if uniqueRooms.isEmpty && uniqueTrips.isEmpty && uniqueProfiles.isEmpty && sync.assetShare == nil {
                     ContentUnavailableView(
                         "还没有共享任何内容", systemImage: "person.2",
-                        description: Text("共享的旅行、资产台账和聊天室都会列在这里。"))
+                        description: Text("共享的旅行、资产台账、家人体检档案和聊天室都会列在这里。"))
                     .emptyStateFill()
                 }
             }
@@ -96,18 +113,20 @@ enum ShareTarget: Hashable {
     case chat(UUID)
     case trip(UUID)
     case assets(UUID)
+    case health(UUID)
 
     var kind: SharedZoneKind {
         switch self {
         case .chat: return .chat
         case .trip: return .trip
         case .assets: return .assets
+        case .health: return .health
         }
     }
 
     var containerUUID: UUID {
         switch self {
-        case .chat(let id), .trip(let id), .assets(let id): return id
+        case .chat(let id), .trip(let id), .assets(let id), .health(let id): return id
         }
     }
 }
@@ -241,11 +260,17 @@ private struct ShareDetailView: View {
         return try? context.fetch(FetchDescriptor<TravelTrip>(predicate: #Predicate { $0.uuid == id })).first
     }
 
+    private var profile: HealthProfile? {
+        guard case .health(let id) = target else { return nil }
+        return try? context.fetch(FetchDescriptor<HealthProfile>(predicate: #Predicate { $0.uuid == id })).first
+    }
+
     private var isOwner: Bool {
         switch target {
         case .chat: return room?.isOwner ?? true
         case .trip: return trip?.shareRole != .participant
         case .assets: return sync.assetShare?.role != .participant
+        case .health: return profile?.shareRole != .participant
         }
     }
 
@@ -254,6 +279,7 @@ private struct ShareDetailView: View {
         case .chat: return room?.title ?? ""
         case .trip: return trip?.title ?? ""
         case .assets: return String(localized: "资产台账", bundle: .appLanguage())
+        case .health: return profile?.name ?? ""
         }
     }
 
@@ -303,6 +329,10 @@ private struct ShareDetailView: View {
                 case .assets:
                     let share = try await sync.prepareAssetShare()
                     CloudSharingPresenter.presentAssets(share: share)
+                case .health:
+                    guard let profile else { return }
+                    let share = try await sync.prepareShare(for: profile)
+                    CloudSharingPresenter.present(share: share, profile: profile)
                 }
             } catch {
                 errorText = error.localizedDescription
@@ -318,6 +348,8 @@ private struct ShareDetailView: View {
             if let trip { sync.didStopSharing(trip) }
         case .assets:
             sync.didStopSharingAssets()
+        case .health:
+            if let profile { sync.didStopSharing(profile) }
         }
         dismiss()
     }

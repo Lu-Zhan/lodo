@@ -246,7 +246,8 @@ enum MemoryPipeline {
 
     /// 删除条目、清掉原始文件、清掉这条记忆的全部 MemoryChunk(避免孤儿数据);
     /// 人脉条目额外清掉头像/附件文件与牵涉的全部 ContactRelationship 边,
-    /// 菜单条目额外清掉它下面的全部 MenuDish(其余类型这几步都是空操作)。
+    /// 菜单条目额外清掉它下面的全部 MenuDish,体检报告清掉它的 CheckupEntry
+    /// (其余类型这几步都是空操作)。
     /// 菜品的清理放在这里而不是只放在 MenuStore:菜单条目在记忆页里就是一条
     /// 普通条目,从那边划掉走的是这个入口,不在这里清就会留下一堆指向不存在
     /// 菜单的孤儿菜品(和 ContactRelationship 同样的道理)。
@@ -269,6 +270,9 @@ enum MemoryPipeline {
         let dishes = (try? context.fetch(FetchDescriptor<MenuDish>(
             predicate: #Predicate { $0.menuUUID == owner }))) ?? []
         for dish in dishes { context.delete(dish) }
+        let checkupEntries = (try? context.fetch(FetchDescriptor<CheckupEntry>(
+            predicate: #Predicate { $0.reportUUID == owner }))) ?? []
+        for entry in checkupEntries { context.delete(entry) }
         context.delete(item)
         try? context.save()
     }

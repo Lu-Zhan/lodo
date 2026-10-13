@@ -118,8 +118,12 @@ extension AgentHostView {
                 onThought(thought)
                 let report = await HealthKitBridge.report(days: days)
                 // 只把汇总统计喂回模型——逐条原始样本不出 HealthKitBridge。
-                let observation = report.isEmpty
+                var observation = report.isEmpty
                     ? "没有可用的健康数据(未授权或没有记录)" : report.promptSummary()
+                // 本人的体检摘要一起给(只有本人的,家人的档案不参与健康分析)。
+                if let checkup = CheckupStore.selfPromptSummary(context: context) {
+                    observation += "\n\n体检报告:\n\(checkup)"
+                }
                 reasoningHistory.append((role: "assistant",
                                          content: "思考:\(thought);读健康数据:最近 \(days) 天"))
                 reasoningHistory.append((role: "user", content: "健康数据:\n\(observation)"))

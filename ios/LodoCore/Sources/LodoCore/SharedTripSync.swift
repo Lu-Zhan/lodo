@@ -35,14 +35,20 @@ public enum SharedRecordType: String, Codable, Sendable, CaseIterable {
     /// 共享聊天室(`chat-<uuid>` zone):房间本身和消息。
     case chatRoom = "ChatRoom"
     case chatMessage = "ChatMessage"
+    /// 共享的家人体检档案(`health-<uuid>` zone):档案本身、报告(打「体检报告」标签的
+    /// 记忆条目,原文件随记录上传)和报告里的条目。
+    case healthProfile = "HealthProfile"
+    case checkupReport = "CheckupReport"
+    case checkupEntry = "CheckupEntry"
 }
 
-/// 共享 zone 的种类,按 zone 名前缀认(`trip-` / `assets-` / `chat-`)。同一套引擎、账本、合并
+/// 共享 zone 的种类,按 zone 名前缀认(`trip-` / `assets-` / `chat-` / `health-`)。同一套引擎、账本、合并
 /// 规则两种都用,只是"这个 zone 里装的是哪些记录"不一样。
 public enum SharedZoneKind: String, Codable, Sendable {
     case trip
     case assets
     case chat
+    case health
 
     public init?(zoneName: String) {
         if zoneName.hasPrefix(SharedTripMapping.zonePrefix) {
@@ -51,6 +57,8 @@ public enum SharedZoneKind: String, Codable, Sendable {
             self = .assets
         } else if zoneName.hasPrefix(SharedChatMapping.zonePrefix) {
             self = .chat
+        } else if zoneName.hasPrefix(SharedHealthMapping.zonePrefix) {
+            self = .health
         } else {
             return nil
         }
@@ -61,6 +69,7 @@ public enum SharedZoneKind: String, Codable, Sendable {
     public static func containerUUID(fromZoneName name: String) -> UUID? {
         SharedTripMapping.tripUUID(fromZoneName: name) ?? SharedAssetMapping.ledgerUUID(fromZoneName: name)
             ?? SharedChatMapping.roomUUID(fromZoneName: name)
+            ?? SharedHealthMapping.profileUUID(fromZoneName: name)
     }
 }
 
@@ -227,6 +236,119 @@ public enum SharedTripMapping {
 
     public static func decode(_ data: Data) -> SharedFields? {
         try? JSONDecoder().decode(SharedFields.self, from: data)
+    }
+}
+
+// MARK: - 家人体检档案 ↔ 字段
+
+/// 共享一位家人的体检档案(2026-10):一个家人一个 zone(`health-<HealthProfile.uuid>`)+
+/// zone-wide CKShare,同旅行那套。zone 里装的是**这位家人名下的全部东西**——档案本身、
+/// 报告(`MemoryItem.checkupProfileUUID` 指向 TA)、条目(`CheckupEntry.profileUUID` 指向 TA),
+/// 不用逐条勾选:一家人一起维护妈妈的档案,本来就该是整份。
+///
+/// 只有家人档案能共享(本人没有 `HealthProfile` 这一行)。收到的一端也落成一位家人,
+/// 所以照样**不参与**那台设备上的 AI 健康分析。
+public enum SharedHealthMapping {
+    public static let zonePrefix = "health-"
+
+    public static func zoneName(for profileUUID: UUID) -> String {
+        zonePrefix + profileUUID.uuidString
+    }
+
+    public static func profileUUID(fromZoneName name: String) -> UUID? {
+        guard name.hasPrefix(zonePrefix) else { return nil }
+        return UUID(uuidString: String(name.dropFirst(zonePrefix.count)))
+    }
+
+    public static func snapshot(of profile: HealthProfile) -> SharedRecordSnapshot {
+        var f = SharedFields()
+        f["name"] = .string(profile.name)
+        f["relation"] = .string(profile.relation)
+        f["birthday"] = profile.birthday.map { .date($0) }
+        f["notes"] = .string(profile.notes)
+        f["createdAt"] = .date(profile.createdAt)
+        return SharedRecordSnapshot(type: .healthProfile, uuid: profile.uuid, fields: f)
+    }
+
+    public static func apply(_ f: SharedFields, to profile: HealthProfile) {
+        profile.name = f.string("name") ?? ""
+        profile.relation = f.string("relation") ?? ""
+        profile.birthday = f.date("birthday")
+        profile.notes = f.string("notes") ?? ""
+        profile.createdAt = f.date("createdAt") ?? profile.createdAt
+    }
+
+    /// 一份报告。标签不同步(收到的一端本地打「体检报告」,家人的报告不打「健康」),
+    /// 归属也不同步(就是这个 zone 的那位家人)。
+    public static func snapshot(ofReport item: MemoryItem) -> SharedRecordSnapshot {
+        var f = SharedFields()
+        f["kindRaw"] = .string(item.kindRaw)
+        f["title"] = .string(item.title)
+        f["summary"] = .string(item.summary)
+        f["sourceText"] = .string(item.sourceText)
+        f["originalFileName"] = item.originalFileName.map { .string($0) }
+        f["relativeFilePath"] = item.relativeFilePath.map { .string($0) }
+        if !item.attachmentRelativePaths.isEmpty {
+            f["attachmentRelativePaths"] = .strings(item.attachmentRelativePaths)
+        }
+        f["statusRaw"] = .string(item.statusRaw)
+        f["createdAt"] = .date(item.createdAt)
+        f["checkupDate"] = item.checkupDate.map { .date($0) }
+        f["checkupInstitution"] = item.checkupInstitution.map { .string($0) }
+        return SharedRecordSnapshot(type: .checkupReport, uuid: item.uuid, fields: f)
+    }
+
+    public static func applyReport(_ f: SharedFields, to item: MemoryItem, profileUUID: UUID) {
+        item.kindRaw = f.string("kindRaw") ?? MemoryKind.text.rawValue
+        item.title = f.string("title") ?? ""
+        item.summary = f.string("summary") ?? ""
+        item.sourceText = f.string("sourceText") ?? ""
+        item.originalFileName = f.string("originalFileName")
+        item.relativeFilePath = SharedFilePath.safe(f.string("relativeFilePath"))
+        item.attachmentRelativePaths = (f.strings("attachmentRelativePaths") ?? []).compactMap(SharedFilePath.safe)
+        item.statusRaw = f.string("statusRaw") ?? MemoryStatus.ready.rawValue
+        item.createdAt = f.date("createdAt") ?? item.createdAt
+        item.checkupDate = f.date("checkupDate")
+        item.checkupInstitution = f.string("checkupInstitution")
+        item.checkupProfileUUID = profileUUID
+        // 家人的报告:只有「体检报告」,不打「健康」(不进健康分析)。别的普通标签留着。
+        item.tags = [MemoryItem.checkupTagName]
+            + item.tags.filter { $0 != MemoryItem.checkupTagName && $0 != MemoryItem.healthTagName }
+    }
+
+    public static func snapshot(of entry: CheckupEntry) -> SharedRecordSnapshot {
+        var f = SharedFields()
+        f["reportUUID"] = .string(entry.reportUUID.uuidString)
+        f["kindRaw"] = .string(entry.kindRaw)
+        f["category"] = .string(entry.category)
+        f["name"] = .string(entry.name)
+        f["value"] = .string(entry.value)
+        f["unit"] = .string(entry.unit)
+        f["referenceRange"] = .string(entry.referenceRange)
+        f["flagRaw"] = .string(entry.flagRaw)
+        f["conclusion"] = .string(entry.conclusion)
+        f["advice"] = .string(entry.advice)
+        f["date"] = .date(entry.date)
+        f["sortIndex"] = .int(entry.sortIndex)
+        f["createdAt"] = .date(entry.createdAt)
+        return SharedRecordSnapshot(type: .checkupEntry, uuid: entry.uuid, fields: f)
+    }
+
+    public static func apply(_ f: SharedFields, to entry: CheckupEntry, profileUUID: UUID) {
+        if let report = f.string("reportUUID").flatMap(UUID.init(uuidString:)) { entry.reportUUID = report }
+        entry.profileUUID = profileUUID
+        entry.kindRaw = f.string("kindRaw") ?? CheckupEntryKind.item.rawValue
+        entry.category = f.string("category") ?? ""
+        entry.name = f.string("name") ?? ""
+        entry.value = f.string("value") ?? ""
+        entry.unit = f.string("unit") ?? ""
+        entry.referenceRange = f.string("referenceRange") ?? ""
+        entry.flagRaw = f.string("flagRaw") ?? ""
+        entry.conclusion = f.string("conclusion") ?? ""
+        entry.advice = f.string("advice") ?? ""
+        entry.date = f.date("date") ?? entry.date
+        entry.sortIndex = f.int("sortIndex") ?? 0
+        entry.createdAt = f.date("createdAt") ?? entry.createdAt
     }
 }
 

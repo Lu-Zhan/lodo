@@ -32,6 +32,14 @@ enum CloudSharingPresenter {
         }
     }
 
+    /// 家人体检档案(见 `SharedTripSync.prepareShare(for: HealthProfile)`)。
+    static func present(share: CKShare, profile: HealthProfile) {
+        present(share: share, title: String(localized: "\(profile.name)的体检档案", bundle: .appLanguage()),
+                isOwner: profile.shareRole != .participant) {
+            SharedTripSync.shared.didStopSharing(profile)
+        }
+    }
+
     /// 资产台账共享(整本台账,见 `SharedTripSync.prepareAssetShare`)。
     static func presentAssets(share: CKShare) {
         present(share: share, title: String(localized: "资产", bundle: .appLanguage()),
@@ -177,6 +185,14 @@ enum CloudSharingPresenter {
     static func present(share: CKShare, room: ChatRoom) {
         present(share: share, title: room.title, isOwner: room.isOwner) {
             SharedTripSync.shared.didStopSharing(room)
+        }
+    }
+
+    /// 家人体检档案(见 `SharedTripSync.prepareShare(for: HealthProfile)`)。
+    static func present(share: CKShare, profile: HealthProfile) {
+        present(share: share, title: String(localized: "\(profile.name)的体检档案", bundle: .appLanguage()),
+                isOwner: profile.shareRole != .participant) {
+            SharedTripSync.shared.didStopSharing(profile)
         }
     }
 
