@@ -1586,6 +1586,32 @@ public enum DeepSeekClient {
             summaryAdvice: text(payload, "summary_advice"))
     }
 
+    /// 「重新匹配检查项」:给一个人历次报告里出现过的全部检查项写法(编号清单,
+    /// `CheckupNormalizer.promptLines`),让模型把指同一项指标的编号归成组、每组给一个
+    /// 统一名。拼清单、解析、怎么改怎么删都在 `CheckupNormalizer`。
+    public static func matchCheckupNames(_ catalog: [CheckupNormalizer.NameInfo]) async throws -> [CheckupNameGroup] {
+        let system = """
+        你是体检报告整理助手。下面是同一个人历次体检报告里出现过的检查项,每行是\
+        「编号|名称|分类|单位|示例结果」。其中有些是同一项指标的不同写法:中文和英文、\
+        缩写和全称、带不带"血清"等前缀、OCR 错字。把指同一项指标的编号归成一组,\
+        每组给一个统一名称。
+
+        规则:
+        - 只把确定是同一项指标的归成一组;拿不准就不要合并。
+        - 相近但不是同一项的不要合并,如 低密度脂蛋白 和 高密度脂蛋白、空腹血糖 和 \
+        糖化血红蛋白、尿葡萄糖 和 血糖、左眼视力 和 右眼视力、收缩压 和 舒张压。
+        - 单位换算后不是同一个量的不要合并(如 百分比 和 绝对值 的白细胞分类)。
+        - 统一名称用常见的标准中文名称,英文缩写放括号里,如 "谷丙转氨酶(ALT)";\
+        组里已有合适的写法就直接沿用它。
+        - 每组至少两个编号,一个编号只出现在一组里;没有需要合并的就返回空数组。
+
+        只返回 JSON:{"groups": [{"name": "统一名称", "ids": [编号, ...]}]},不要任何其他文字。
+        """
+        let payload = try await payload(
+            system: system, user: CheckupNormalizer.promptLines(catalog), timeout: 120)
+        return CheckupNormalizer.parseGroups(payload, catalog: catalog)
+    }
+
     /// 定时任务(`AIRoutine`)到点后跑一次:按用户自己写的指令生成这次要展示的内容。
     /// 和 weeklyInsight/summarizeToday 一样是"薄包装 + 返回一句话 JSON",区别是
     /// 指令来自用户而不是写死的 prompt,并且允许联网——天气/行情这类任务不查就没法做。

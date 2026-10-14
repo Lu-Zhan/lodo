@@ -2082,6 +2082,22 @@
         }
       }
     },
+    "下面灰色的写法会统一改成上面的名称。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The gray spellings below will be renamed to the name above."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下面灰色的写法会统一改成上面的名称。"
+          }
+        }
+      }
+    },
     "不健康" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4391,6 +4407,22 @@
         }
       }
     },
+    "共 %lld 次记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld records in total"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共 %lld 次记录"
+          }
+        }
+      }
+    },
     "共享与权限" : {
       "localizations" : {
         "en" : {
@@ -6052,6 +6084,22 @@
         }
       }
     },
+    "删除重复记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Duplicate Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除重复记录"
+          }
+        }
+      }
+    },
     "利率 %@" : {
       "localizations" : {
         "en" : {
@@ -6647,6 +6695,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "即将出发"
+          }
+        }
+      }
+    },
+    "历次报告里的检查项名称已经一致,也没有重复的记录。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test names are already consistent across reports, and there are no duplicate records."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历次报告里的检查项名称已经一致,也没有重复的记录。"
           }
         }
       }
@@ -7327,6 +7391,22 @@
         }
       }
     },
+    "合并为同一项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge into One Item"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合并为同一项"
+          }
+        }
+      }
+    },
     "合并更新" : {
       "localizations" : {
         "en" : {
@@ -7371,6 +7451,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "合计"
+          }
+        }
+      }
+    },
+    "同一份报告里同一项出现了不止一次、结果也相同,只留信息最全的那条,它缺的单位、参考范围、建议从重复的那条补上。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The same test appears more than once in a report with the same result. Only the most complete record is kept; missing units, reference ranges and advice are filled in from the duplicate."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同一份报告里同一项出现了不止一次、结果也相同,只留信息最全的那条,它缺的单位、参考范围、建议从重复的那条补上。"
           }
         }
       }
@@ -10709,6 +10805,22 @@
         }
       }
     },
+    "应用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用"
+          }
+        }
+      }
+    },
     "应用修改" : {
       "localizations" : {
         "en" : {
@@ -12270,6 +12382,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "把任务写进系统日历"
+          }
+        }
+      }
+    },
+    "把历次报告里同一项指标的不同写法(中英文、缩写、全称)合成一项,并去掉重复的记录。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge different spellings of the same test across reports (Chinese/English, abbreviations, full names) into one item, and remove duplicate records."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把历次报告里同一项指标的不同写法(中英文、缩写、全称)合成一项,并去掉重复的记录。"
           }
         }
       }
@@ -16014,6 +16142,22 @@
         }
       }
     },
+    "正在比对各次报告里的检查项…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparing test items across reports…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在比对各次报告里的检查项…"
+          }
+        }
+      }
+    },
     "正在生成…" : {
       "localizations" : {
         "en" : {
@@ -16936,6 +17080,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有选中行程"
+          }
+        }
+      }
+    },
+    "没有配置 AI,只按英文缩写和完全相同的名称匹配。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI isn't set up, so only matching abbreviations and identical names are merged."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有配置 AI,只按英文缩写和完全相同的名称匹配。"
+          }
+        }
+      }
+    },
+    "没有需要合并的检查项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to Merge"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有需要合并的检查项"
           }
         }
       }
@@ -23562,6 +23738,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新写入"
+          }
+        }
+      }
+    },
+    "重新匹配检查项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-match Test Items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新匹配检查项"
           }
         }
       }

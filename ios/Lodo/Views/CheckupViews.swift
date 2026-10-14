@@ -130,6 +130,7 @@ struct CheckupProfileView: View {
     @AppStorage("checkupTimelineMode") private var modeRaw = CheckupTimelineMode.reports.rawValue
 
     @State private var showImport = false
+    @State private var showNormalize = false
     @State private var editingProfile = false
     @State private var openReport: UUID?
     @State private var shareFiles: ShareFiles?
@@ -179,6 +180,15 @@ struct CheckupProfileView: View {
                 case .reports: reportsList
                 case .metrics: metricsList
                 }
+                Section {
+                    Button {
+                        showNormalize = true
+                    } label: {
+                        Label("重新匹配检查项", systemImage: "arrow.triangle.merge")
+                    }
+                } footer: {
+                    Text("把历次报告里同一项指标的不同写法(中英文、缩写、全称)合成一项,并去掉重复的记录。")
+                }
             }
         }
         .navigationTitle(name)
@@ -202,6 +212,12 @@ struct CheckupProfileView: View {
                         }
                         .disabled(preparingCloudShare || !sync.isAvailable)
                     }
+                    Button {
+                        showNormalize = true
+                    } label: {
+                        Label("重新匹配检查项", systemImage: "arrow.triangle.merge")
+                    }
+                    .disabled(reports.isEmpty)
                     Button {
                         prepareShare()
                     } label: {
@@ -231,6 +247,9 @@ struct CheckupProfileView: View {
         }
         .sheet(item: $shareFiles) { files in
             CheckupShareSheet(name: name, urls: files.urls)
+        }
+        .sheet(isPresented: $showNormalize) {
+            CheckupNormalizeView(profileID: profileID)
         }
         .alert("分享失败", isPresented: Binding(
             get: { shareError != nil }, set: { if !$0 { shareError = nil } })) {
@@ -393,6 +412,138 @@ struct CheckupProfileView: View {
                 profileID: profileID, name: name, context: context))
         } catch {
             shareError = error.localizedDescription
+        }
+    }
+}
+
+/// 「重新匹配检查项」:先算出要合并哪些写法、删哪些重复记录给用户看,点「应用」才
+/// 落库。合并错了的代价是把两项指标的历史搅在一起,所以不直接执行。
+private struct CheckupNormalizeView: View {
+    let profileID: UUID?
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    @State private var plan: CheckupNormalizationPlan?
+    @State private var errorMessage: String?
+    @State private var task: Task<Void, Never>?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let plan {
+                    if plan.isEmpty {
+                        ContentUnavailableView {
+                            Label("没有需要合并的检查项", systemImage: "checkmark.circle")
+                        } description: {
+                            Text("历次报告里的检查项名称已经一致,也没有重复的记录。")
+                        }
+                    } else {
+                        groupsSection(plan)
+                        removalsSection(plan)
+                    }
+                } else if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(LodoColor.critical)
+                        Button("重试") { start() }
+                    }
+                } else {
+                    Section {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("正在比对各次报告里的检查项…")
+                                .foregroundStyle(.secondary)
+                        }
+                    } footer: {
+                        if !DeepSeekClient.isConfigured {
+                            Text("没有配置 AI,只按英文缩写和完全相同的名称匹配。")
+                        }
+                    }
+                }
+            }
+            .pageTitle("重新匹配检查项")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("应用") {
+                        if let plan { CheckupStore.apply(plan, context: context) }
+                        dismiss()
+                    }
+                    .disabled(plan?.isEmpty ?? true)
+                }
+            }
+        }
+        .onAppear { if plan == nil { start() } }
+        .onDisappear { task?.cancel() }
+    }
+
+    @ViewBuilder
+    private func groupsSection(_ plan: CheckupNormalizationPlan) -> some View {
+        if !plan.groups.isEmpty {
+            Section {
+                ForEach(plan.groups) { group in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(group.canonical)
+                            .font(.body.weight(.medium))
+                        Text(group.variants.joined(separator: "、"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text("共 \(group.recordCount) 次记录")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("合并为同一项")
+            } footer: {
+                Text("下面灰色的写法会统一改成上面的名称。")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func removalsSection(_ plan: CheckupNormalizationPlan) -> some View {
+        if !plan.removals.isEmpty {
+            Section {
+                ForEach(plan.removals) { entry in
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.name)
+                            Text(entry.date, format: checkupDayFormat)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(entry.displayValue)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            } header: {
+                Text("删除重复记录")
+            } footer: {
+                Text("同一份报告里同一项出现了不止一次、结果也相同,只留信息最全的那条,它缺的单位、参考范围、建议从重复的那条补上。")
+            }
+        }
+    }
+
+    private func start() {
+        errorMessage = nil
+        task?.cancel()
+        task = Task {
+            do {
+                let result = try await CheckupStore.normalizationPlan(profileID: profileID, context: context)
+                guard !Task.isCancelled else { return }
+                plan = result
+            } catch {
+                guard !Task.isCancelled else { return }
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

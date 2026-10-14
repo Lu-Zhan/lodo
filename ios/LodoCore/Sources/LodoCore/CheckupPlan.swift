@@ -260,7 +260,7 @@ public enum CheckupPlan {
             byKey[key, default: []].append(entry)
         }
         let metrics = byKey.map { key, records -> CheckupMetric in
-            let sorted = records.sorted { ($0.date, $0.sortIndex) < ($1.date, $1.sortIndex) }
+            let sorted = dropSameDayRepeats(records.sorted { ($0.date, $0.sortIndex) < ($1.date, $1.sortIndex) })
             let latest = sorted.last!
             return CheckupMetric(key: key, name: latest.name, category: latest.category, records: sorted)
         }
@@ -276,6 +276,19 @@ public enum CheckupPlan {
             if left != right { return left < right }
             return ($0.latest?.sortIndex ?? 0) < ($1.latest?.sortIndex ?? 0)
         }
+    }
+
+    /// 同一天、同样结果的记录只留一条(同一份报告导入了两次时,时间轴上不出现两个
+    /// 叠在一起的点)。数据本身不动,删重复记录走「重新匹配检查项」。
+    static func dropSameDayRepeats(_ records: [CheckupEntryValue]) -> [CheckupEntryValue] {
+        var seen = Set<String>()
+        var kept: [CheckupEntryValue] = []
+        for record in records.reversed() {
+            let result = (record.value.isEmpty ? record.conclusion : record.value)
+                .filter { !$0.isWhitespace }.lowercased()
+            if seen.insert("\(dayString(record.date))|\(result)").inserted { kept.append(record) }
+        }
+        return kept.reversed()
     }
 
     /// 一份报告里的条目按分类分组,分类按首次出现的顺序(不按字母重排),

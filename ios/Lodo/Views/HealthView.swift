@@ -395,6 +395,24 @@ struct HealthView: View {
     /// 直接打开对应页面。
     private func applyCheckupDemoIfNeeded() {
         let arguments = ProcessInfo.processInfo.arguments
+        // --demo-checkup-normalize-dump:按本机真实数据算一次「重新匹配检查项」的方案
+        // 打到控制台(会真发 AI 请求),**不落库**,真机上核对匹配结果用。
+        if arguments.contains("--demo-checkup-normalize-dump") {
+            Task {
+                do {
+                    let plan = try await CheckupStore.normalizationPlan(profileID: nil, context: context)
+                    for group in plan.groups {
+                        print("[checkup-normalize] merge \(group.variants) -> \(group.canonical) (\(group.recordCount))")
+                    }
+                    for entry in plan.removals {
+                        print("[checkup-normalize] remove \(entry.name) \(CheckupPlan.dayString(entry.date)) \(entry.displayValue)")
+                    }
+                    print("[checkup-normalize] updates=\(plan.updates.count) removals=\(plan.removals.count)")
+                } catch {
+                    print("[checkup-normalize] failed: \(error)")
+                }
+            }
+        }
         guard arguments.contains("--demo-checkup") else { return }
         CheckupStore.seedDemo(context: context)
         // 真发一次 AI:拿样板 PDF 走完整的识别 → 整理 → 落库,整理完打开那份报告。

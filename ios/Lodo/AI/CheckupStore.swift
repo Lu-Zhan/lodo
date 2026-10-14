@@ -247,6 +247,52 @@ enum CheckupStore {
         try? context.save()
     }
 
+    // MARK: - 重新匹配检查项
+
+    /// 算出一个人的档案要怎么合并、去重(不落库)。配了 AI 时先让它按清单归组,再叠上
+    /// 本地的缩写规则;没配 AI 只用本地规则和完全重复的记录。AI 请求失败照常抛错。
+    static func normalizationPlan(profileID: UUID?, context: ModelContext) async throws -> CheckupNormalizationPlan {
+        let all = (try? context.fetch(FetchDescriptor<CheckupEntry>())) ?? []
+        let entries = entries(ofProfile: profileID, in: all)
+        let catalog = CheckupNormalizer.catalog(entries)
+        var aiGroups: [CheckupNameGroup] = []
+        if DeepSeekClient.isConfigured, catalog.count >= 2 {
+            aiGroups = try await DeepSeekClient.matchCheckupNames(catalog)
+        }
+        let groups = CheckupNormalizer.merge(aiGroups, CheckupNormalizer.localGroups(catalog))
+        return CheckupNormalizer.plan(entries, groups: groups)
+    }
+
+    /// 应用方案:改名/补字段、删掉重复项,再重写受影响报告的摘要和 sourceText。
+    /// 算方案之后条目可能已经被改过或删掉(共享档案别人在改),找不到的跳过。
+    static func apply(_ plan: CheckupNormalizationPlan, context: ModelContext) {
+        let all = (try? context.fetch(FetchDescriptor<CheckupEntry>())) ?? []
+        let byID = Dictionary(all.map { ($0.uuid, $0) }, uniquingKeysWith: { first, _ in first })
+        var touched = Set<UUID>()
+        for (id, value) in plan.updates {
+            guard let entry = byID[id] else { continue }
+            entry.name = value.name
+            entry.category = value.category
+            entry.value = value.value
+            entry.unit = value.unit
+            entry.referenceRange = value.referenceRange
+            entry.flagRaw = value.flag?.rawValue ?? ""
+            entry.conclusion = value.conclusion
+            entry.advice = value.advice
+            touched.insert(entry.reportUUID)
+        }
+        for removal in plan.removals {
+            guard let entry = byID[removal.id] else { continue }
+            touched.insert(entry.reportUUID)
+            context.delete(entry)
+        }
+        try? context.save()
+        let items = (try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []
+        for report in items where touched.contains(report.uuid) {
+            refreshDerived(report, context: context)
+        }
+    }
+
     /// 摘要(记忆列表卡片那一行)+ sourceText(整理结果在前、原文在后),再重建索引。
     private static func refreshDerived(_ report: MemoryItem, context: ModelContext) {
         let entries = entryModels(of: report.uuid, in: context).map(CheckupEntryValue.init(from:))

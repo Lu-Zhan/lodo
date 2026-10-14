@@ -69,7 +69,7 @@ struct AirQualitySection: View {
                 Text("空气质量")
                 Spacer()
                 if enabled {
-                    // 刷新直接摆在标题行上,不收进菜单;请求中换成转圈。
+                    // 刷新 | 提醒 | 其他,都摆在标题行右上角;刷新请求中换成转圈。
                     Button { Task { await load(force: true) } } label: {
                         if loading {
                             ProgressView().controlSize(.small)
@@ -79,8 +79,13 @@ struct AirQualitySection: View {
                     }
                     .disabled(loading)
                     .accessibilityLabel("刷新")
+                    // 提醒也摆在标题行上(开着时铃铛是实心的),菜单里只剩关闭。
+                    Button { showsReminders = true } label: {
+                        Image(systemName: AirQualityReminderPlan.parseTimes(reminderTimes).isEmpty
+                              ? "bell" : "bell.fill")
+                    }
+                    .accessibilityLabel("提醒设置")
                     Menu {
-                        Button("提醒设置…", systemImage: "bell") { showsReminders = true }
                         Button("关闭空气质量", systemImage: "xmark.circle", role: .destructive) {
                             confirmingDisable = true
                         }
@@ -186,27 +191,9 @@ struct AirQualitySection: View {
 
         if !report.todayHourly(now: .now).isEmpty {
             AirQualityHourlyChart(hourly: report.todayHourly(now: .now))
-                .frame(height: 120)
+                .frame(height: 80)
                 .padding(.vertical, 4)
         }
-
-        Button { showsReminders = true } label: {
-            HStack {
-                Label("提醒", systemImage: "bell")
-                Spacer()
-                let times = AirQualityReminderPlan.parseTimes(reminderTimes)
-                Text(times.isEmpty ? String(localized: "未开启", bundle: .appLanguage(),
-                                            locale: AppSettings.language.locale)
-                     : times.joined(separator: "、"))
-                    .foregroundStyle(.secondary)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .contentShape(Rectangle())
-        }
-        .pressable()
-        .foregroundStyle(.primary)
 
         HStack {
             concentration("PM2.5", report.pm2_5)
