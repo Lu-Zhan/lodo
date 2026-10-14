@@ -222,7 +222,7 @@ ios_view.amount_optional,金额(可选),Amount (optional),ios_view,
 ios_view.the_amount_can_t_be_read_as_a_number,"金额无法识别为数字,改成数字或清空这一栏才能保存。",The amount can't be read as a number—make it a number or clear this field to save.,ios_view,
 ios_view.attachment,附件,Attachment,ios_view,
 ios_view.high,高,High,ios_view,
-ios_view.deepseek_by_default_cloud_providers_all,"默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。","DeepSeek by default; cloud providers all use OpenAI-compatible endpoints, keys are stored per-provider in the Keychain; Apple Intelligence runs on-device and needs no key.",ios_view,
+ios_view.deepseek_by_default_cloud_providers_all,"默认 GLM-5.3 Flash;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。","GLM-5.3 Flash by default; cloud providers all use OpenAI-compatible endpoints, keys are stored per-provider in the Keychain; Apple Intelligence runs on-device and needs no key.",ios_view,
 ios_view.save_2,保存,Save,ios_view,
 ios_view.convert_to_todo,转为任务,Convert to Task,ios_view,
 ios_view.watch_the_first_launch_introduction,重新看一遍首次打开时的功能介绍。,Watch the first-launch introduction again.,ios_view,
@@ -290,8 +290,8 @@ android_ui.auto_stop_after_silence_0_s,静音自动停止:{0} 秒,Auto-stop afte
 android_ui.0_min,{0} 分钟,{0} min,android_ui,"运行时用 stringResource(id, arg) 传参;arg 是 minutes"
 android_ui.how_long_did_0_actually_take,「{0}」实际用了多久?,"How long did ""{0}"" actually take?",android_ui,"运行时用 stringResource(id, arg) 传参;arg 是 title"
 android_ui.due_now,🔔 到期提醒,🔔 Due Now,android_ui,
-ios_core.deepseek_api_key_not_configured_set_it,"未配置 DeepSeek API key,请到「设置」里填写。",DeepSeek API key not configured. Set it up in Settings.,ios_core,
-ios_core.deepseek_request_failed,调用 DeepSeek 失败:,DeepSeek request failed: ,ios_core,"前缀,后接原始错误信息"
+ios_core.deepseek_api_key_not_configured_set_it,"未配置 AI 服务的 API key,请到「设置」里填写。",AI provider API key not configured. Set it up in Settings.,ios_core,
+ios_core.deepseek_request_failed,调用 AI 失败:,AI request failed: ,ios_core,"前缀,后接原始错误信息"
 ios_core.couldn_t_parse,无法解析:,Couldn't parse: ,ios_core,"前缀,后接原始错误信息"
 ios_core.qwen_asr_api_key_not_configured_set,"未配置 Qwen 语音识别 API key,请到「设置」里填写。",Qwen speech recognition API key not configured. Set it up in Settings.,ios_core,
 ios_core.qwen_asr_request_failed,调用 Qwen 语音识别失败:,Qwen speech recognition request failed: ,ios_core,"前缀,后接原始错误信息"
@@ -392,14 +392,14 @@ android_core_ai.couldn_t_parse_invalid_response_missing_4,无法解析:返回格
 android_core_ai.couldn_t_parse_no_reschedule,无法解析:没有可用的改期候选,Couldn't parse: no reschedule suggestions available,android_core_ai,
 android_core_ai.couldn_t_parse_invalid_response_missing_5,无法解析:返回格式异常:缺少 insight,"Couldn't parse: invalid response, missing insight",android_core_ai,
 android_core_ai.couldn_t_parse_invalid_response_format,无法解析:返回格式异常,Couldn't parse: invalid response format,android_core_ai,
-android_core_ai.deepseek_request_failed_invalid,"调用 DeepSeek 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。",DeepSeek request failed: invalid endpoint. Check your AI provider settings.,android_core_ai,
+android_core_ai.deepseek_request_failed_invalid,"调用 AI 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。",AI request failed: invalid endpoint. Check your AI provider settings.,android_core_ai,
 android_core_ai.couldn_t_parse_invalid_response,无法解析:返回格式异常:时长超出范围,"Couldn't parse: invalid response, duration out of range",android_core_ai,
 android_core_ai.couldn_t_parse_invalid_response_weekday,无法解析:返回格式异常:周几超出范围,"Couldn't parse: invalid response, weekday out of range",android_core_ai,
 android_core_ai.couldn_t_parse_invalid_response_unknown_2,无法解析:返回格式异常:未知工具 ,"Couldn't parse: invalid response, unknown tool ",android_core_ai,后接工具名
 android_core_ai.couldn_t_parse_invalid_time_format,无法解析:时间点格式异常:,Couldn't parse: invalid time format: ,android_core_ai,后接原始时间字符串
-android_core_ai.deepseek_request_failed,调用 DeepSeek 失败:,DeepSeek request failed: ,android_core_ai,"前缀,后接原始错误信息"
-android_core_ai.deepseek_api_key_not_configured_set_it,"未配置 DeepSeek API key,请到「设置」里填写。",DeepSeek API key not configured. Set it up in Settings.,android_core_ai,
-android_core_ai.deepseek_request_failed_invalid_2,"调用 DeepSeek 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。",DeepSeek request failed: invalid endpoint. Check your AI provider settings.,android_core_ai,
+android_core_ai.deepseek_request_failed,调用 AI 失败:,AI request failed: ,android_core_ai,"前缀,后接原始错误信息"
+android_core_ai.deepseek_api_key_not_configured_set_it,"未配置 AI 服务的 API key,请到「设置」里填写。",AI provider API key not configured. Set it up in Settings.,android_core_ai,
+android_core_ai.deepseek_request_failed_invalid_2,"调用 AI 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。",AI request failed: invalid endpoint. Check your AI provider settings.,android_core_ai,
 android_core_ai.invalid_link,无效链接:,Invalid link: ,android_core_ai,后接原始 url
 android_core_ai.failed_to_fetch_link_http,抓取链接失败:HTTP ,Failed to fetch link: HTTP ,android_core_ai,后接状态码
 android_core_ai.web_search_failed_invalid_response,联网搜索失败:返回格式异常,Web search failed: invalid response format,android_core_ai,
@@ -1138,7 +1138,7 @@ android_ui.voice_silence_timeout_hint,"语音输入静音超过设定时长自�
 android_ui.model_name,模型名称,Model name,android_ui,Android app UI localization
 android_ui.model_default_0,模型(默认 {0}),Model (default: {0}),android_ui,Android app UI localization
 android_ui.saved,已保存,Saved,android_ui,Android app UI localization
-android_ui.ai_provider_storage_footer,"默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。",DeepSeek is the default. Providers use OpenAI-compatible APIs; each API key is encrypted and stored on this device.,android_ui,Android app UI localization
+android_ui.ai_provider_storage_footer,"默认 GLM-5.3 Flash;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。",GLM-5.3 Flash is the default. Providers use OpenAI-compatible APIs; each API key is encrypted and stored on this device.,android_ui,Android app UI localization
 android_ui.thinking_off,关闭,Off,android_ui,Android app UI localization
 android_ui.thinking_low,低,Low,android_ui,Android app UI localization
 android_ui.thinking_medium,中,Medium,android_ui,Android app UI localization
@@ -1218,7 +1218,7 @@ android_ui.duration_start_message_0,{0} — 该开始了!,{0} — Time to start!
 android_ui.time_to_finish,时间到 — 完成了吗?,Time's up — is it done?,android_ui,Android app UI localization
 android_ui.complete_action,完成,Done,android_ui,Android app UI localization
 android_ui.asset_liability_0_1,负债 {0} {1},Liability {0} {1},android_ui,Android app UI localization
-android_ui.agent_footer,"一句话新增/修改/完成/删除任务,可一次说多件事;输入内容和当前任务列表会发送给 DeepSeek 解析。","Create, edit, complete, or delete one or more tasks in a sentence. Your input and current task list are sent to DeepSeek for processing.",android_ui,Android app UI localization
+android_ui.agent_footer,"一句话新增/修改/完成/删除任务,可一次说多件事;输入内容和当前任务列表会发送给 AI 服务商解析。","Create, edit, complete, or delete one or more tasks in a sentence. Your input and current task list are sent to your AI provider for processing.",android_ui,Android app UI localization
 ios_view.unnamed_contact,(未命名),Untitled,ios_view,人脉空标题占位
 ios_view.unnamed_task,未命名任务,Untitled task,ios_view,定时任务空标题占位
 ios_view.view_original_file,查看原文件,View original file,ios_view,附件入口
@@ -1398,9 +1398,9 @@ web.save,💾 保存,💾 Save,web,Streamlit demo UI
 web.no_completed_tasks_yet,还没有完成的事项,No completed tasks yet,web,Streamlit demo UI
 web.completed_time,完成于 {time},Completed {time},web,Streamlit demo UI
 web.deepseek_api_key_is_not_configured_add_it_to_web_env_or_create_the_task_manually,"未配置 DEEPSEEK_API_KEY,请在 web/.env 中填写,或使用手动创建。",DEEPSEEK_API_KEY is not configured. Add it to web/.env or create the task manually.,web,Streamlit demo UI
-web.deepseek_request_failed,调用 DeepSeek 失败:,DeepSeek request failed:,web,Streamlit demo UI
+web.deepseek_request_failed,调用 AI 失败:,AI request failed:,web,Streamlit demo UI
 web.could_not_parse,无法解析:,Could not parse:,web,Streamlit demo UI
-web.deepseek_returned_an_invalid_response,DeepSeek 返回格式异常:,DeepSeek returned an invalid response:,web,Streamlit demo UI
+web.deepseek_returned_an_invalid_response,AI 返回格式异常:,AI returned an invalid response:,web,Streamlit demo UI
 ask_bar.overview,今天有什么安排？,What's on today?,ios_view,底部对话条占位短句
 ask_bar.todo,要记下什么事？,Anything to remember?,ios_view,底部对话条占位短句
 ask_bar.calendar,要安排点什么？,Plan something?,ios_view,底部对话条占位短句

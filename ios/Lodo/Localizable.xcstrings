@@ -290,6 +290,38 @@
         }
       }
     },
+    "%@ 历次变化" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ over time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 历次变化"
+          }
+        }
+      }
+    },
+    "%@ 年体检报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Checkup Report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 年体检报告"
+          }
+        }
+      }
+    },
     "%@ 根据最近 24 小时的文章整理" : {
       "localizations" : {
         "en" : {
@@ -562,6 +594,22 @@
         }
       }
     },
+    "%@的体检档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@'s Checkup Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@的体检档案"
+          }
+        }
+      }
+    },
     "%@调整了旅行「%@」" : {
       "localizations" : {
         "en" : {
@@ -686,6 +734,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 件"
+          }
+        }
+      }
+    },
+    "%lld 份报告 · 最近 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld reports · latest %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 份报告 · 最近 %@"
           }
         }
       }
@@ -850,6 +914,22 @@
         }
       }
     },
+    "%lld 次记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 次记录"
+          }
+        }
+      }
+    },
     "%lld 道菜" : {
       "localizations" : {
         "en" : {
@@ -894,6 +974,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 项安排"
+          }
+        }
+      }
+    },
+    "%lld 项异常" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld abnormal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 项异常"
           }
         }
       }
@@ -1778,6 +1874,38 @@
         }
       }
     },
+    "上传 PDF 或拍下纸质报告,AI 会把指标、结论和建议整理成一条条记录。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload a PDF or photograph a paper report. AI will organize the results, findings and advice into individual entries."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传 PDF 或拍下纸质报告,AI 会把指标、结论和建议整理成一条条记录。"
+          }
+        }
+      }
+    },
+    "上传体检报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload Checkup Report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传体检报告"
+          }
+        }
+      }
+    },
     "上升" : {
       "localizations" : {
         "en" : {
@@ -1858,6 +1986,22 @@
         }
       }
     },
+    "上限" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upper limit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上限"
+          }
+        }
+      }
+    },
     "下一步" : {
       "localizations" : {
         "en" : {
@@ -1918,6 +2062,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下降"
+          }
+        }
+      }
+    },
+    "下限" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lower limit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下限"
           }
         }
       }
@@ -2909,6 +3069,22 @@
         }
       }
     },
+    "从相册选择" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose from Photos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从相册选择"
+          }
+        }
+      }
+    },
     "从相册选择截图" : {
       "localizations" : {
         "en" : {
@@ -3265,6 +3441,54 @@
         }
       }
     },
+    "体检日期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checkup Date"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体检日期"
+          }
+        }
+      }
+    },
+    "体检机构" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provider"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体检机构"
+          }
+        }
+      }
+    },
+    "体检档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checkup Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体检档案"
+          }
+        }
+      }
+    },
     "作者" : {
       "localizations" : {
         "en" : {
@@ -3534,6 +3758,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "值机柜台"
+          }
+        }
+      }
+    },
+    "偏低" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偏低"
+          }
+        }
+      }
+    },
+    "偏高" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偏高"
           }
         }
       }
@@ -4247,6 +4503,22 @@
         }
       }
     },
+    "共享档案…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Records…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享档案…"
+          }
+        }
+      }
+    },
     "共享没有存到 iCloud,请稍后再试" : {
       "localizations" : {
         "en" : {
@@ -4279,7 +4551,24 @@
         }
       }
     },
+    "共享的旅行、资产台账、家人体检档案和聊天室都会列在这里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared trips, asset ledgers, family checkup records and chat rooms appear here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享的旅行、资产台账、家人体检档案和聊天室都会列在这里。"
+          }
+        }
+      }
+    },
     "共享的旅行、资产台账和聊天室都会列在这里。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4420,6 +4709,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关系"
+          }
+        }
+      }
+    },
+    "关系(如 妈妈)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relationship (e.g. Mom)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关系(如 妈妈)"
           }
         }
       }
@@ -5071,6 +5376,22 @@
         }
       }
     },
+    "分享失败" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't Share"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享失败"
+          }
+        }
+      }
+    },
     "分享导出的文件" : {
       "localizations" : {
         "en" : {
@@ -5083,6 +5404,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分享导出的文件"
+          }
+        }
+      }
+    },
+    "分享档案" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享档案"
           }
         }
       }
@@ -5131,6 +5469,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分类(可选),如 银行卡、房产、保险"
+          }
+        }
+      }
+    },
+    "分类(如 血常规)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category (e.g. Complete Blood Count)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分类(如 血常规)"
           }
         }
       }
@@ -5362,6 +5716,22 @@
         }
       }
     },
+    "删除报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除报告"
+          }
+        }
+      }
+    },
     "删除收藏" : {
       "localizations" : {
         "en" : {
@@ -5426,6 +5796,22 @@
         }
       }
     },
+    "删除这一项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Item"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这一项"
+          }
+        }
+      }
+    },
     "删除这一项?" : {
       "localizations" : {
         "en" : {
@@ -5470,6 +5856,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除这个订阅?"
+          }
+        }
+      }
+    },
+    "删除这份报告?整理出的条目和原文件会一并删除。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this report? Its entries and original files will be deleted too."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这份报告?整理出的条目和原文件会一并删除。"
+          }
+        }
+      }
+    },
+    "删除这份档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Profile"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这份档案"
+          }
+        }
+      }
+    },
+    "删除这份档案?TA 名下的体检报告和原文件会一并删除。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this profile? All of their checkup reports and original files will be deleted too."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这份档案?TA 名下的体检报告和原文件会一并删除。"
           }
         }
       }
@@ -6102,6 +6536,54 @@
         }
       }
     },
+    "包括一份整理好的文字档案和每份报告的原文件。对方不需要安装 lodo 也能打开。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Includes an organized text summary plus the original file of every report. Recipients don't need lodo to open them."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包括一份整理好的文字档案和每份报告的原文件。对方不需要安装 lodo 也能打开。"
+          }
+        }
+      }
+    },
+    "单位" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单位"
+          }
+        }
+      }
+    },
+    "单项的建议记在对应的那一项下面。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advice about a single item belongs under that item."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单项的建议记在对应的那一项下面。"
+          }
+        }
+      }
+    },
     "博客" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6169,6 +6651,22 @@
         }
       }
     },
+    "历次记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历次记录"
+          }
+        }
+      }
+    },
     "原文" : {
       "localizations" : {
         "en" : {
@@ -6197,6 +6695,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "原文件"
+          }
+        }
+      }
+    },
+    "原文件不在这台设备上" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The original file isn't on this device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原文件不在这台设备上"
           }
         }
       }
@@ -6294,6 +6808,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "参考:%@,%@"
+          }
+        }
+      }
+    },
+    "参考范围 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reference %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "参考范围 %@"
+          }
+        }
+      }
+    },
+    "参考范围(如 3.9-6.1)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reference range (e.g. 3.9-6.1)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "参考范围(如 3.9-6.1)"
           }
         }
       }
@@ -6599,6 +7145,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "只在空气不好时提醒"
+          }
+        }
+      }
+    },
+    "只有「我」名下的报告参与 AI 健康分析。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only reports under “Me” are used in the AI health analysis."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有「我」名下的报告参与 AI 健康分析。"
           }
         }
       }
@@ -7919,6 +8481,22 @@
         }
       }
     },
+    "备注(过敏史、慢病等)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes (allergies, chronic conditions…)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注(过敏史、慢病等)"
+          }
+        }
+      }
+    },
     "复制" : {
       "localizations" : {
         "en" : {
@@ -8307,6 +8885,38 @@
         }
       }
     },
+    "家人" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family member"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "家人"
+          }
+        }
+      }
+    },
+    "家人的报告只记录和分享,不参与 AI 健康分析。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Family members' reports are only kept and shared — they're not used in the AI health analysis."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "家人的报告只记录和分享,不参与 AI 健康分析。"
+          }
+        }
+      }
+    },
     "宽" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -8546,6 +9156,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。"
+          }
+        }
+      }
+    },
+    "导出为文件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export as Files"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出为文件"
           }
         }
       }
@@ -8919,6 +9545,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已共享"
+          }
+        }
+      }
+    },
+    "已共享 · 我创建的" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared · created by me"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已共享 · 我创建的"
+          }
+        }
+      }
+    },
+    "已共享 · 我加入的" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared · joined"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已共享 · 我加入的"
           }
         }
       }
@@ -10180,6 +10838,22 @@
         }
       }
     },
+    "建议" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advice"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建议"
+          }
+        }
+      }
+    },
     "开" : {
       "localizations" : {
         "en" : {
@@ -10530,6 +11204,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "开空气净化器"
+          }
+        }
+      }
+    },
+    "异常" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abnormal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "异常"
           }
         }
       }
@@ -11031,6 +11721,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "成员那边会留一份当前的副本,之后不再同步。"
+          }
+        }
+      }
+    },
+    "成员都可以查看、上传和修改这份档案,改动会自动同步。共享的家人档案在每个人那里都不参与 AI 健康分析。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone can view, upload and edit these records, and changes sync automatically. Shared family records are never used in anyone's AI health analysis."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成员都可以查看、上传和修改这份档案,改动会自动同步。共享的家人档案在每个人那里都不参与 AI 健康分析。"
           }
         }
       }
@@ -11601,6 +12307,70 @@
         }
       }
     },
+    "报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "报告"
+          }
+        }
+      }
+    },
+    "报告名称" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "报告名称"
+          }
+        }
+      }
+    },
+    "报告里的综合建议或总检结论" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The report's overall advice or summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "报告里的综合建议或总检结论"
+          }
+        }
+      }
+    },
+    "报告里针对这一项的分析或建议" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The report's analysis or advice for this item"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "报告里针对这一项的分析或建议"
+          }
+        }
+      }
+    },
     "拍一张菜单或导入截图,AI 会整理出每道菜、翻译外文并补上简介,选好了直接给服务员看。" : {
       "localizations" : {
         "en" : {
@@ -11746,6 +12516,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按币种"
+          }
+        }
+      }
+    },
+    "按报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By Report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按报告"
+          }
+        }
+      }
+    },
+    "按指标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By Indicator"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按指标"
           }
         }
       }
@@ -12360,6 +13162,22 @@
         }
       }
     },
+    "支持 PDF 和图片,纸质报告每页拍一张。文字在本机识别,发给 AI 的只有识别出来的文字;原文件留在本机,随时可以打开对照。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDFs and images are supported — take one photo per page of a paper report. Text is recognized on this device and only that text is sent to AI; the original files stay here so you can always check against them."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支持 PDF 和图片,纸质报告每页拍一张。文字在本机识别,发给 AI 的只有识别出来的文字;原文件留在本机,随时可以打开对照。"
+          }
+        }
+      }
+    },
     "收入" : {
       "localizations" : {
         "en" : {
@@ -12649,6 +13467,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "整理失败,重试"
+          }
+        }
+      }
+    },
+    "整理有误的地方点一下就能改;每一项都可以对照原文件核对。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap anything that was read wrong to fix it, and check each item against the original file."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整理有误的地方点一下就能改;每一项都可以对照原文件核对。"
           }
         }
       }
@@ -14062,6 +14896,22 @@
         }
       }
     },
+    "未标记" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not flagged"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未标记"
+          }
+        }
+      }
+    },
     "未登录 iCloud" : {
       "localizations" : {
         "en" : {
@@ -14122,6 +14972,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未读"
+          }
+        }
+      }
+    },
+    "本人的体检结果会作为 AI 健康分析的参考;家人的档案只做记录和分享,不参与分析。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your own checkup results are used as context for the AI health analysis. Family members' records are only kept and shared — they're never analyzed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本人的体检结果会作为 AI 健康分析的参考;家人的档案只做记录和分享,不参与分析。"
           }
         }
       }
@@ -14466,6 +15332,22 @@
         }
       }
     },
+    "查看原文件(%lld 个)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Original Files (%lld)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看原文件(%lld 个)"
+          }
+        }
+      }
+    },
     "查看图片" : {
       "localizations" : {
         "en" : {
@@ -14526,6 +15408,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "查看成员"
+          }
+        }
+      }
+    },
+    "查看方式" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看方式"
+          }
+        }
+      }
+    },
+    "查看这份报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View This Report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看这份报告"
           }
         }
       }
@@ -14643,6 +15557,22 @@
         }
       }
     },
+    "标记" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flag"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标记"
+          }
+        }
+      }
+    },
     "标题" : {
       "localizations" : {
         "en" : {
@@ -14655,6 +15585,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "标题"
+          }
+        }
+      }
+    },
+    "档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "档案"
           }
         }
       }
@@ -15116,6 +16062,22 @@
         }
       }
     },
+    "正在识别并整理报告…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading and organizing the report…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在识别并整理报告…"
+          }
+        }
+      }
+    },
     "正在识别并整理菜品…" : {
       "localizations" : {
         "en" : {
@@ -15225,6 +16187,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在读取成员…"
+          }
+        }
+      }
+    },
+    "正常" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正常"
           }
         }
       }
@@ -15626,6 +16604,38 @@
         }
       }
     },
+    "没有从文件里认出文字。拍照时尽量拍清楚、拍正,或者换成 PDF 原件试试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No text was recognized. Try a sharper, straighter photo, or the original PDF."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有从文件里认出文字。拍照时尽量拍清楚、拍正,或者换成 PDF 原件试试。"
+          }
+        }
+      }
+    },
+    "没有从这份报告里整理出任何指标。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results could be extracted from this report."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有从这份报告里整理出任何指标。"
+          }
+        }
+      }
+    },
     "没有任务" : {
       "localizations" : {
         "en" : {
@@ -15866,6 +16876,22 @@
         }
       }
     },
+    "没有标记时按参考范围自动判断高低。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without a flag, high or low is judged from the reference range."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有标记时按参考范围自动判断高低。"
+          }
+        }
+      }
+    },
     "没有还没到的日子了。" : {
       "localizations" : {
         "en" : {
@@ -16028,6 +17054,22 @@
         }
       }
     },
+    "添加一项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Item"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加一项"
+          }
+        }
+      }
+    },
     "添加事项" : {
       "localizations" : {
         "en" : {
@@ -16120,6 +17162,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加定时任务"
+          }
+        }
+      }
+    },
+    "添加家人档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Family Member"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加家人档案"
           }
         }
       }
@@ -16232,6 +17290,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加目的地"
+          }
+        }
+      }
+    },
+    "添加综合建议" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Overall Advice"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加综合建议"
           }
         }
       }
@@ -17879,6 +18953,22 @@
         }
       }
     },
+    "结果" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结果"
+          }
+        }
+      }
+    },
     "结果发通知" : {
       "localizations" : {
         "en" : {
@@ -17891,6 +18981,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "结果发通知"
+          }
+        }
+      }
+    },
+    "结论" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finding"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结论"
+          }
+        }
+      }
+    },
+    "结论或描述" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finding or description"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结论或描述"
           }
         }
       }
@@ -17927,6 +19049,22 @@
         }
       }
     },
+    "综合建议" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overall Advice"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "综合建议"
+          }
+        }
+      }
+    },
     "绿色" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -17940,6 +19078,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "绿色"
+          }
+        }
+      }
+    },
+    "绿色区域是参考范围 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The green band is the reference range %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "绿色区域是参考范围 %@"
           }
         }
       }
@@ -18011,6 +19165,22 @@
     "编辑名称" : {
 
     },
+    "编辑家人信息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Family Member"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑家人信息"
+          }
+        }
+      }
+    },
     "编辑布局" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -18024,6 +19194,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "编辑布局"
+          }
+        }
+      }
+    },
+    "编辑报告信息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Report Info"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑报告信息"
           }
         }
       }
@@ -18175,6 +19361,7 @@
       }
     },
     "美标 AQI · 数据来自 Open-Meteo(CAMS 模型),更新于 %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -20595,6 +21782,22 @@
         }
       }
     },
+    "还没有体检报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Checkup Reports"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有体检报告"
+          }
+        }
+      }
+    },
     "还没有倒数日" : {
       "localizations" : {
         "en" : {
@@ -20735,6 +21938,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有抓到文章,下拉可以手动刷新。"
+          }
+        }
+      }
+    },
+    "还没有报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reports yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有报告"
           }
         }
       }
@@ -21220,6 +22439,54 @@
         }
       }
     },
+    "这份报告已经删除" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Report Was Deleted"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这份报告已经删除"
+          }
+        }
+      }
+    },
+    "这份档案是别人共享给你的:删除只会退出共享、删掉这台设备上的这份,不影响其他成员。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These records were shared with you. Deleting only leaves the share and removes this device's copy — other members aren't affected."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这份档案是别人共享给你的:删除只会退出共享、删掉这台设备上的这份,不影响其他成员。"
+          }
+        }
+      }
+    },
+    "这份档案正在共享:删除会停止共享,其他成员那边留一份不再同步的副本。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These records are shared. Deleting stops sharing; other members keep a copy that no longer syncs."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这份档案正在共享:删除会停止共享,其他成员那边留一份不再同步的副本。"
+          }
+        }
+      }
+    },
     "这句话会显示在旅行列表的卡片上。" : {
       "localizations" : {
         "en" : {
@@ -21504,6 +22771,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这项在共享台账里,删除后共享的成员那边也会一起删掉。"
+          }
+        }
+      }
+    },
+    "这项指标已经没有记录了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Records for This Indicator"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这项指标已经没有记录了"
           }
         }
       }
@@ -22862,6 +24145,22 @@
         }
       }
     },
+    "项目多的报告要整理一两分钟。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Long reports can take a minute or two."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目多的报告要整理一两分钟。"
+          }
+        }
+      }
+    },
     "预览" : {
       "localizations" : {
         "en" : {
@@ -23071,18 +24370,18 @@
         }
       }
     },
-    "默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。" : {
+    "默认 GLM-5.3 Flash;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "DeepSeek by default; cloud providers all use OpenAI-compatible endpoints, keys are stored per-provider in the Keychain; Apple Intelligence runs on-device and needs no key."
+            "value" : "GLM-5.3 Flash by default; cloud providers all use OpenAI-compatible endpoints, keys are stored per-provider in the Keychain; Apple Intelligence runs on-device and needs no key."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。"
+            "value" : "默认 GLM-5.3 Flash;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。"
           }
         }
       }
@@ -23115,1302 +24414,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认位置,仅本机"
-          }
-        }
-      }
-    },
-    "家人" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Family member"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "家人"
-          }
-        }
-      }
-    },
-    "上传体检报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upload Checkup Report"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上传体检报告"
-          }
-        }
-      }
-    },
-    "添加家人档案" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Family Member"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加家人档案"
-          }
-        }
-      }
-    },
-    "体检档案" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checkup Records"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "体检档案"
-          }
-        }
-      }
-    },
-    "本人的体检结果会作为 AI 健康分析的参考;家人的档案只做记录和分享,不参与分析。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your own checkup results are used as context for the AI health analysis. Family members' records are only kept and shared — they're never analyzed."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "本人的体检结果会作为 AI 健康分析的参考;家人的档案只做记录和分享,不参与分析。"
-          }
-        }
-      }
-    },
-    "%lld 份报告 · 最近 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld reports · latest %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 份报告 · 最近 %@"
-          }
-        }
-      }
-    },
-    "还没有报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No reports yet"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有报告"
-          }
-        }
-      }
-    },
-    "还没有体检报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Checkup Reports"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有体检报告"
-          }
-        }
-      }
-    },
-    "上传 PDF 或拍下纸质报告,AI 会把指标、结论和建议整理成一条条记录。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upload a PDF or photograph a paper report. AI will organize the results, findings and advice into individual entries."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上传 PDF 或拍下纸质报告,AI 会把指标、结论和建议整理成一条条记录。"
-          }
-        }
-      }
-    },
-    "查看方式" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查看方式"
-          }
-        }
-      }
-    },
-    "按报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "By Report"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按报告"
-          }
-        }
-      }
-    },
-    "按指标" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "By Indicator"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按指标"
-          }
-        }
-      }
-    },
-    "分享档案" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share Records"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分享档案"
-          }
-        }
-      }
-    },
-    "编辑家人信息" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit Family Member"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑家人信息"
-          }
-        }
-      }
-    },
-    "分享失败" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't Share"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分享失败"
-          }
-        }
-      }
-    },
-    "%lld 项异常" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld abnormal"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 项异常"
-          }
-        }
-      }
-    },
-    "%lld 次记录" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld records"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 次记录"
-          }
-        }
-      }
-    },
-    "包括一份整理好的文字档案和每份报告的原文件。对方不需要安装 lodo 也能打开。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Includes an organized text summary plus the original file of every report. Recipients don't need lodo to open them."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "包括一份整理好的文字档案和每份报告的原文件。对方不需要安装 lodo 也能打开。"
-          }
-        }
-      }
-    },
-    "未标记" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not flagged"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未标记"
-          }
-        }
-      }
-    },
-    "正常" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Normal"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正常"
-          }
-        }
-      }
-    },
-    "偏高" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "High"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "偏高"
-          }
-        }
-      }
-    },
-    "偏低" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Low"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "偏低"
-          }
-        }
-      }
-    },
-    "异常" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abnormal"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "异常"
-          }
-        }
-      }
-    },
-    "参考范围 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reference %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "参考范围 %@"
-          }
-        }
-      }
-    },
-    "这份报告已经删除" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This Report Was Deleted"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这份报告已经删除"
-          }
-        }
-      }
-    },
-    "体检日期" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checkup Date"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "体检日期"
-          }
-        }
-      }
-    },
-    "体检机构" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Provider"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "体检机构"
-          }
-        }
-      }
-    },
-    "档案" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Profile"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "档案"
-          }
-        }
-      }
-    },
-    "原文件不在这台设备上" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The original file isn't on this device"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原文件不在这台设备上"
-          }
-        }
-      }
-    },
-    "查看原文件(%lld 个)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View Original Files (%lld)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查看原文件(%lld 个)"
-          }
-        }
-      }
-    },
-    "综合建议" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Overall Advice"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "综合建议"
-          }
-        }
-      }
-    },
-    "添加综合建议" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Overall Advice"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加综合建议"
-          }
-        }
-      }
-    },
-    "添加一项" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Item"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加一项"
-          }
-        }
-      }
-    },
-    "整理有误的地方点一下就能改;每一项都可以对照原文件核对。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap anything that was read wrong to fix it, and check each item against the original file."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "整理有误的地方点一下就能改;每一项都可以对照原文件核对。"
-          }
-        }
-      }
-    },
-    "编辑报告信息" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit Report Info"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑报告信息"
-          }
-        }
-      }
-    },
-    "删除报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Report"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除报告"
-          }
-        }
-      }
-    },
-    "删除这份报告?整理出的条目和原文件会一并删除。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete this report? Its entries and original files will be deleted too."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除这份报告?整理出的条目和原文件会一并删除。"
-          }
-        }
-      }
-    },
-    "这项指标已经没有记录了" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Records for This Indicator"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这项指标已经没有记录了"
-          }
-        }
-      }
-    },
-    "绿色区域是参考范围 %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The green band is the reference range %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "绿色区域是参考范围 %@"
-          }
-        }
-      }
-    },
-    "查看这份报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View This Report"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查看这份报告"
-          }
-        }
-      }
-    },
-    "历次记录" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "History"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "历次记录"
-          }
-        }
-      }
-    },
-    "%@ 历次变化" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ over time"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 历次变化"
-          }
-        }
-      }
-    },
-    "下限" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lower limit"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下限"
-          }
-        }
-      }
-    },
-    "上限" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upper limit"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上限"
-          }
-        }
-      }
-    },
-    "从相册选择" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose from Photos"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从相册选择"
-          }
-        }
-      }
-    },
-    "报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Report"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "报告"
-          }
-        }
-      }
-    },
-    "支持 PDF 和图片,纸质报告每页拍一张。文字在本机识别,发给 AI 的只有识别出来的文字;原文件留在本机,随时可以打开对照。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PDFs and images are supported — take one photo per page of a paper report. Text is recognized on this device and only that text is sent to AI; the original files stay here so you can always check against them."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "支持 PDF 和图片,纸质报告每页拍一张。文字在本机识别,发给 AI 的只有识别出来的文字;原文件留在本机,随时可以打开对照。"
-          }
-        }
-      }
-    },
-    "正在识别并整理报告…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reading and organizing the report…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在识别并整理报告…"
-          }
-        }
-      }
-    },
-    "项目多的报告要整理一两分钟。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Long reports can take a minute or two."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "项目多的报告要整理一两分钟。"
-          }
-        }
-      }
-    },
-    "家人的报告只记录和分享,不参与 AI 健康分析。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Family members' reports are only kept and shared — they're not used in the AI health analysis."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "家人的报告只记录和分享,不参与 AI 健康分析。"
-          }
-        }
-      }
-    },
-    "删除这一项" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Item"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除这一项"
-          }
-        }
-      }
-    },
-    "分类(如 血常规)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Category (e.g. Complete Blood Count)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分类(如 血常规)"
-          }
-        }
-      }
-    },
-    "结果" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Result"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "结果"
-          }
-        }
-      }
-    },
-    "单位" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unit"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "单位"
-          }
-        }
-      }
-    },
-    "参考范围(如 3.9-6.1)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reference range (e.g. 3.9-6.1)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "参考范围(如 3.9-6.1)"
-          }
-        }
-      }
-    },
-    "标记" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flag"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "标记"
-          }
-        }
-      }
-    },
-    "没有标记时按参考范围自动判断高低。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Without a flag, high or low is judged from the reference range."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有标记时按参考范围自动判断高低。"
-          }
-        }
-      }
-    },
-    "结论或描述" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finding or description"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "结论或描述"
-          }
-        }
-      }
-    },
-    "结论" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finding"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "结论"
-          }
-        }
-      }
-    },
-    "报告里针对这一项的分析或建议" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The report's analysis or advice for this item"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "报告里针对这一项的分析或建议"
-          }
-        }
-      }
-    },
-    "建议" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Advice"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "建议"
-          }
-        }
-      }
-    },
-    "报告里的综合建议或总检结论" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The report's overall advice or summary"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "报告里的综合建议或总检结论"
-          }
-        }
-      }
-    },
-    "单项的建议记在对应的那一项下面。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Advice about a single item belongs under that item."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "单项的建议记在对应的那一项下面。"
-          }
-        }
-      }
-    },
-    "报告名称" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Report name"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "报告名称"
-          }
-        }
-      }
-    },
-    "只有「我」名下的报告参与 AI 健康分析。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only reports under “Me” are used in the AI health analysis."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "只有「我」名下的报告参与 AI 健康分析。"
-          }
-        }
-      }
-    },
-    "关系(如 妈妈)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Relationship (e.g. Mom)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关系(如 妈妈)"
-          }
-        }
-      }
-    },
-    "备注(过敏史、慢病等)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notes (allergies, chronic conditions…)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "备注(过敏史、慢病等)"
-          }
-        }
-      }
-    },
-    "删除这份档案" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Profile"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除这份档案"
-          }
-        }
-      }
-    },
-    "删除这份档案?TA 名下的体检报告和原文件会一并删除。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete this profile? All of their checkup reports and original files will be deleted too."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除这份档案?TA 名下的体检报告和原文件会一并删除。"
-          }
-        }
-      }
-    },
-    "没有从文件里认出文字。拍照时尽量拍清楚、拍正,或者换成 PDF 原件试试。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No text was recognized. Try a sharper, straighter photo, or the original PDF."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有从文件里认出文字。拍照时尽量拍清楚、拍正,或者换成 PDF 原件试试。"
-          }
-        }
-      }
-    },
-    "没有从这份报告里整理出任何指标。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No results could be extracted from this report."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有从这份报告里整理出任何指标。"
-          }
-        }
-      }
-    },
-    "%@ 年体检报告" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Checkup Report"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 年体检报告"
-          }
-        }
-      }
-    },
-    "%@的体检档案" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@'s Checkup Records"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@的体检档案"
-          }
-        }
-      }
-    },
-    "共享档案…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share Records…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共享档案…"
-          }
-        }
-      }
-    },
-    "导出为文件" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export as Files"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "导出为文件"
-          }
-        }
-      }
-    },
-    "已共享 · 我创建的" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shared · created by me"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已共享 · 我创建的"
-          }
-        }
-      }
-    },
-    "已共享 · 我加入的" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shared · joined"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已共享 · 我加入的"
-          }
-        }
-      }
-    },
-    "成员都可以查看、上传和修改这份档案,改动会自动同步。共享的家人档案在每个人那里都不参与 AI 健康分析。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Everyone can view, upload and edit these records, and changes sync automatically. Shared family records are never used in anyone's AI health analysis."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "成员都可以查看、上传和修改这份档案,改动会自动同步。共享的家人档案在每个人那里都不参与 AI 健康分析。"
-          }
-        }
-      }
-    },
-    "这份档案正在共享:删除会停止共享,其他成员那边留一份不再同步的副本。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "These records are shared. Deleting stops sharing; other members keep a copy that no longer syncs."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这份档案正在共享:删除会停止共享,其他成员那边留一份不再同步的副本。"
-          }
-        }
-      }
-    },
-    "这份档案是别人共享给你的:删除只会退出共享、删掉这台设备上的这份,不影响其他成员。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "These records were shared with you. Deleting only leaves the share and removes this device's copy — other members aren't affected."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这份档案是别人共享给你的:删除只会退出共享、删掉这台设备上的这份,不影响其他成员。"
-          }
-        }
-      }
-    },
-    "共享的旅行、资产台账、家人体检档案和聊天室都会列在这里。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shared trips, asset ledgers, family checkup records and chat rooms appear here."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共享的旅行、资产台账、家人体检档案和聊天室都会列在这里。"
           }
         }
       }

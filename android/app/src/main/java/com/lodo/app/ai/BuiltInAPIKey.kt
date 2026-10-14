@@ -9,13 +9,13 @@ import com.lodo.app.BuildConfig
  */
 object BuiltInAPIKey {
     private val deepSeek: String? = BuildConfig.BUILT_IN_DEEPSEEK_KEY.takeIf { it.isNotBlank() }
-    /** RunAPI(runapi.host)账号的 key,GPT-6 Luna(默认服务商)用它。 */
+    /** RunAPI(runapi.host)账号的 key,GLM-5.3 Flash(默认服务商)和 GPT-6 Luna 共用。 */
     private val runAPI: String? = BuildConfig.BUILT_IN_RUNAPI_KEY.takeIf { it.isNotBlank() }
 
     /** 按服务商名查内置 key;DeepSeek 两档(以及改名前的老名字)共用一把。 */
     fun key(provider: String): String? = when (provider) {
         "DeepSeek Flash", "DeepSeek V4 Pro", "DeepSeek", "DeepSeek V4 Flash Vision" -> deepSeek
-        "GPT-6 Luna" -> runAPI
+        "GLM-5.3 Flash", "GPT-6 Luna" -> runAPI
         else -> null
     }
 }

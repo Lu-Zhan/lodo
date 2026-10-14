@@ -190,7 +190,7 @@
     <string name="android_ui_model_name">Model name</string>
     <string name="android_ui_model_default_0">Model (default: %1$s)</string>
     <string name="android_ui_saved">Saved</string>
-    <string name="android_ui_ai_provider_storage_footer">DeepSeek is the default. Providers use OpenAI-compatible APIs; each API key is encrypted and stored on this device.</string>
+    <string name="android_ui_ai_provider_storage_footer">GLM-5.3 Flash is the default. Providers use OpenAI-compatible APIs; each API key is encrypted and stored on this device.</string>
     <string name="android_ui_thinking_off">Off</string>
     <string name="android_ui_thinking_low">Low</string>
     <string name="android_ui_thinking_medium">Medium</string>
@@ -243,5 +243,5 @@
     <string name="android_ui_time_to_finish">Time\'s up — is it done?</string>
     <string name="android_ui_complete_action">Done</string>
     <string name="android_ui_asset_liability_0_1">Liability %1$s {1}</string>
-    <string name="android_ui_agent_footer">Create, edit, complete, or delete one or more tasks in a sentence. Your input and current task list are sent to DeepSeek for processing.</string>
+    <string name="android_ui_agent_footer">Create, edit, complete, or delete one or more tasks in a sentence. Your input and current task list are sent to your AI provider for processing.</string>
 </resources>

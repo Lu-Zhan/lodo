@@ -221,10 +221,11 @@ public enum AppSettings {
     }
 
     /// AI 服务商预设(均为 OpenAI 兼容的 chat/completions 接口),默认 RunAPI 的
-    /// GPT-6 Luna;"自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
+    /// GLM-5.3 Flash;"自定义"支持任何兼容服务(OpenRouter、Ollama 等)。
     public static let aiProviders: [(name: String, endpoint: String, model: String)] = [
         // 排第一个 = 默认服务商(见 defaultAIProvider),也是 aiEndpoint 认不出
         // 服务商名时的兜底。
+        ("GLM-5.3 Flash", "https://runapi.host/v1/chat/completions", "glm-5.3-flash"),
         ("GPT-6 Luna", "https://runapi.host/v1/chat/completions", "gpt-6-luna"),
         // 下面两条 DeepSeek 走同一个接口、
         // 同一把 key,区别只在 model 字段。名字直接跟着模型走:DeepSeek 的
@@ -246,7 +247,7 @@ public enum AppSettings {
 
     /// 没选过服务商时用哪个。改这个值会让"从没进过设置页"的老用户也一起换过去
     /// ——他们本来就没做过选择,跟着默认走是预期行为。
-    public static let defaultAIProvider = "GPT-6 Luna"
+    public static let defaultAIProvider = "GLM-5.3 Flash"
 
     /// 老版本存下来的服务商名 → 现在的名字。两个 DeepSeek 预设原来按当时的模型
     /// 代号命名,那两个模型都已经不在 API 上了(见 aiProviders 的注释),改名成

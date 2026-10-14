@@ -88,7 +88,7 @@ struct AISettingsView: View {
             } header: {
                 Text("AI 服务")
             } footer: {
-                Text("默认 DeepSeek;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。")
+                Text("默认 GLM-5.3 Flash;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。")
             }
 
             aiThinkingSection

@@ -72,9 +72,9 @@ ENGLISH = {
     '还没有完成的事项': 'No completed tasks yet',
     '完成于 {time}': 'Completed {time}',
     '未配置 DEEPSEEK_API_KEY,请在 web/.env 中填写,或使用手动创建。': 'DEEPSEEK_API_KEY is not configured. Add it to web/.env or create the task manually.',
-    '调用 DeepSeek 失败:': 'DeepSeek request failed:',
+    '调用 AI 失败:': 'AI request failed:',
     '无法解析:': 'Could not parse:',
-    'DeepSeek 返回格式异常:': 'DeepSeek returned an invalid response:',
+    'AI 返回格式异常:': 'AI returned an invalid response:',
 }
 
 

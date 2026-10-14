@@ -19,7 +19,7 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 data class AIProviderPreset(val name: String, val endpoint: String, val model: String)
 
 /** 没选过服务商时用哪个（与 iOS AppSettings.defaultAIProvider 一致）。 */
-const val DEFAULT_AI_PROVIDER = "GPT-6 Luna"
+const val DEFAULT_AI_PROVIDER = "GLM-5.3 Flash"
 
 /**
  * 老版本存下来的服务商名 → 现在的名字(与 iOS AppSettings.renamedAIProviders 一致)。
@@ -44,7 +44,8 @@ val apiKeyAliases = mapOf(
 
 val aiProviderPresets = listOf(
     // 排第一个 = 默认服务商,也是认不出服务商名时的兜底(同 iOS)。
-    AIProviderPreset(DEFAULT_AI_PROVIDER, "https://runapi.host/v1/chat/completions", "gpt-6-luna"),
+    AIProviderPreset(DEFAULT_AI_PROVIDER, "https://runapi.host/v1/chat/completions", "glm-5.3-flash"),
+    AIProviderPreset("GPT-6 Luna", "https://runapi.host/v1/chat/completions", "gpt-6-luna"),
     // 名字直接跟着模型走:DeepSeek 的 /models 目前只给这两个,别再填别的代号。
     AIProviderPreset("DeepSeek Flash", "https://api.deepseek.com/chat/completions",
         "deepseek-flash"),
@@ -87,7 +88,7 @@ data class Settings(
     val agentAutoRecordOnOpen: Boolean = true,
     /** 语音输入静音多少秒后自动停止,默认 3 秒;0 = 关闭,不自动停止。 */
     val agentSilenceTimeoutSeconds: Int = 3,
-    /** AI 服务商("自定义"用自定义端点),默认 DeepSeek。 */
+    /** AI 服务商("自定义"用自定义端点),默认 GLM-5.3 Flash。 */
     val aiProvider: String = DEFAULT_AI_PROVIDER,
     /** 模型覆盖值,空=用服务商默认。 */
     val aiModel: String = "",

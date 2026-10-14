@@ -83,7 +83,7 @@ def _complete(system_prompt: str, user_text: str) -> dict:
     except AIParseError:
         raise
     except Exception as exc:
-        raise AIParseError(f"调用 DeepSeek 失败:{exc}") from exc
+        raise AIParseError(f"调用 AI 失败:{exc}") from exc
 
     if "error" in data:
         raise AIParseError(f"无法解析:{data['error']}")
@@ -101,7 +101,7 @@ def _complete(system_prompt: str, user_text: str) -> dict:
             "repeat_times": repeat_times,
         }
     except (KeyError, ValueError) as exc:
-        raise AIParseError(f"DeepSeek 返回格式异常:{data}") from exc
+        raise AIParseError(f"AI 返回格式异常:{data}") from exc
 
 
 def _time_context(now: Optional[datetime]) -> dict:

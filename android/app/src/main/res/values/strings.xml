@@ -190,7 +190,7 @@
     <string name="android_ui_model_name">模型名称</string>
     <string name="android_ui_model_default_0">模型(默认 %1$s)</string>
     <string name="android_ui_saved">已保存</string>
-    <string name="android_ui_ai_provider_storage_footer">默认 DeepSeek;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。</string>
+    <string name="android_ui_ai_provider_storage_footer">默认 GLM-5.3 Flash;各服务商均为 OpenAI 兼容接口,key 按服务商分别加密存储在本机。</string>
     <string name="android_ui_thinking_off">关闭</string>
     <string name="android_ui_thinking_low">低</string>
     <string name="android_ui_thinking_medium">中</string>
@@ -243,5 +243,5 @@
     <string name="android_ui_time_to_finish">时间到 — 完成了吗?</string>
     <string name="android_ui_complete_action">完成</string>
     <string name="android_ui_asset_liability_0_1">负债 %1$s {1}</string>
-    <string name="android_ui_agent_footer">一句话新增/修改/完成/删除任务,可一次说多件事;输入内容和当前任务列表会发送给 DeepSeek 解析。</string>
+    <string name="android_ui_agent_footer">一句话新增/修改/完成/删除任务,可一次说多件事;输入内容和当前任务列表会发送给 AI 服务商解析。</string>
 </resources>

@@ -1066,7 +1066,7 @@ object DeepSeekClient {
                 client.newCall(request).execute()
             } catch (e: IOException) {
                 throw DeepSeekException(
-                    Strings.translate("调用 DeepSeek 失败:", CurrentLang.value) + e.message)
+                    Strings.translate("调用 AI 失败:", CurrentLang.value) + e.message)
             }
         }
     }
@@ -1154,7 +1154,7 @@ object DeepSeekClient {
                 } catch (e: IOException) {
                     ensureActive()
                     if (raw.isNotEmpty()) throw DeepSeekException(
-                        Strings.translate("调用 DeepSeek 失败:", CurrentLang.value) + e.message)
+                        Strings.translate("调用 AI 失败:", CurrentLang.value) + e.message)
                     return@withContext fallback()
                 }
             }
@@ -1190,10 +1190,10 @@ object DeepSeekClient {
     ): JSONObject =
         withContext(Dispatchers.IO) {
             if (config.apiKey.isNullOrBlank()) {
-                throw DeepSeekException(Strings.translate("未配置 DeepSeek API key,请到「设置」里填写。", CurrentLang.value))
+                throw DeepSeekException(Strings.translate("未配置 AI 服务的 API key,请到「设置」里填写。", CurrentLang.value))
             }
             if (config.endpoint.isBlank()) {
-                throw DeepSeekException(Strings.translate("调用 DeepSeek 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。", CurrentLang.value))
+                throw DeepSeekException(Strings.translate("调用 AI 失败:无效的服务地址,请到「设置」里检查 AI 服务商配置。", CurrentLang.value))
             }
             val body = JSONObject()
                 .put("model", config.model)
@@ -1237,7 +1237,7 @@ object DeepSeekClient {
                 }
                 if (resp.code != 200) {
                     throw DeepSeekException(
-                        Strings.translate("调用 DeepSeek 失败:", CurrentLang.value) +
+                        Strings.translate("调用 AI 失败:", CurrentLang.value) +
                             "HTTP ${resp.code} ${text.take(200)}")
                 }
                 val content = try {
