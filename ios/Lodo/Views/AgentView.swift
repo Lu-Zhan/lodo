@@ -897,7 +897,30 @@ struct AgentView: View {
         HStack(alignment: .bottom, spacing: 8) {
             attachButton
             textCapsule
+            if presentation == .inline, inlineSessionStart != nil || isInputFocused {
+                inlineCloseButton
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
+        .animation(.lodoAware(.snappy(duration: 0.2)), value: inlineSessionStart != nil || isInputFocused)
+    }
+
+    /// 各页「问问 AI」启用时(正在打字或这一轮开着)最右边那颗玻璃圆:收起键盘、
+    /// 关掉这一轮悬浮对话——往下划之外的显式入口(2026-10,用户要求)。
+    /// 和 + 号同样的写法:glassBackground 而不是 .glassButton(),尺寸才和同排一致。
+    private var inlineCloseButton: some View {
+        Button {
+            dismissInline()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary)
+                .frame(width: Self.composerControlSize, height: Self.composerControlSize)
+                .glassBackground(Circle())
+                .hitTarget(visualSize: Self.composerControlSize)
+        }
+        .pressable()
+        .accessibilityLabel("收起")
     }
 
     /// 独立的 + 号:自己一颗玻璃圆,不再是靠合并卡片衬底的纯图标。
@@ -2418,11 +2441,14 @@ private struct AgentMessageListView: View {
     private var isInline: Bool { since != nil }
     static let inlineMaxHeight: CGFloat = 420
     @Environment(\.agentInlineRoom) private var inlineRoom
-    /// 默认封顶 420;页面上方装不下时按页面剩的地方来(减掉把手那一截),但至少留 120。
+    /// 悬浮对话一打开就铺到页面顶端(像把上拉面板拉满,2026-10 用户要求):高度 =
+    /// 页面在输入栏上方剩的地方(减掉顶上那点空),至少 120;不知道页面高度时退回 420。
     private var inlineMaxHeight: CGFloat {
         guard let inlineRoom else { return Self.inlineMaxHeight }
-        return max(120, min(Self.inlineMaxHeight, inlineRoom - Self.inlineHandleHeight))
+        return max(120, inlineRoom - Self.inlineHandleHeight)
     }
+    /// 顶上那截渐隐:消息滚到顶时淡出,不留一条硬边。
+    static let inlineTopFade: CGFloat = 32
     /// 悬浮内容顶上留的那点空(原来是把手,已去掉)。
     static let inlineHandleHeight: CGFloat = 8
 
@@ -2550,10 +2576,25 @@ private struct AgentMessageListView: View {
                 // 内容比屏幕短时也把这一坨顶到底部,最后一条消息紧挨着输入栏
                 // ——短对话原来是从顶上开始排,和输入栏之间空出一大片。
                 .frame(maxHeight: isInline ? nil : .infinity, alignment: .bottom)
+                // 内联铺满到顶时,内容不满一屏也贴着输入栏(从底往上排)。
+                .frame(minHeight: isInline && inlineRoom != nil ? inlineMaxHeight - 8 : nil,
+                       alignment: .bottom)
             }
             .coordinateSpace(name: Self.scrollSpace)
             // 内联模式:高度随内容,封顶之后才滚;内容不满一屏时也不弹跳。
-            .frame(height: isInline ? min(contentHeight, inlineMaxHeight) : nil)
+            .frame(height: isInline ? (inlineRoom != nil ? inlineMaxHeight : min(contentHeight, inlineMaxHeight)) : nil)
+            // 顶上透明渐隐,不是一条带底色的边。
+            .mask {
+                if isInline {
+                    VStack(spacing: 0) {
+                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                            .frame(height: Self.inlineTopFade)
+                        Color.black
+                    }
+                } else {
+                    Color.black
+                }
+            }
             .scrollBounceBehavior(.basedOnSize)
             // 一打开就停在最后一条(不是从头开始往下找)。onAppear 里那句
             // scrollTo 是兜底:LazyVStack 首帧还没把最后一条建出来时,单靠

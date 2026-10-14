@@ -48,6 +48,9 @@ struct AppSidebarView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            // 行刚好装满一屏时系统按内容大小判定、整列拖不动;侧栏恒可上下拖(回弹),
+            // 字号调大、行放不下时照常滚动。
+            .scrollBounceBehavior(.always)
             // **这个 List 不能塞进 `glassGroup()`(GlassEffectContainer)**:实测
             // (iOS 27 模拟器)整排行的图标和文字会被当成玻璃的采样源整个糊掉,
             // 只剩八块白色圆角。相邻玻璃共用容器那条规矩在这里让位——八行各自
