@@ -1,4 +1,5 @@
 import SwiftUI
+import LodoCore
 
 /// 应用侧栏(导航栏)的面板内容;窄屏抽屉和宽屏常驻列共用同一份视图。
 /// 自上而下:「Lodo 衬线体 wordmark」固定头部 → 总览/任务/日历/记忆四个页面导航行
@@ -23,6 +24,8 @@ struct AppSidebarView: View {
     let onSelect: (AppSection) -> Void
 
     @Environment(\.lodoAccent) private var lodoAccent
+    /// 设置 → 资产 →「在侧栏显示资产」,默认开。
+    @AppStorage(AppSettings.assetsInSidebarKey) private var assetsInSidebar = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,7 +39,9 @@ struct AppSidebarView: View {
                 // 人脉/健康/旅行/菜单都是建在记忆库上的功能,紧跟在记忆行后面。
                 navRow(.contact, title: "人脉", systemImage: "person.crop.circle")
                 // 资产:车房存款是打了「资产」标签的记忆条目,收入/支出/信用卡另存。
-                navRow(.assets, title: "资产", systemImage: "banknote")
+                if assetsInSidebar {
+                    navRow(.assets, title: "资产", systemImage: "banknote")
+                }
                 navRow(.health, title: "健康", systemImage: "heart.text.square")
                 navRow(.travel, title: "旅行", systemImage: "suitcase.rolling")
                 navRow(.menu, title: "菜单", systemImage: "menucard")
@@ -215,10 +220,11 @@ struct SystemSidebarList: View {
     let onOpenSettings: () -> Void
     /// 「共享与权限」页(设置旁边那颗)。
     var onOpenSharing: () -> Void = {}
+    @AppStorage(AppSettings.assetsInSidebarKey) private var assetsInSidebar = true
 
     var body: some View {
         List(selection: $selection) {
-            ForEach(AppSection.pages, id: \.self) { page in
+            ForEach(AppSection.pages.filter { $0 != .assets || assetsInSidebar }, id: \.self) { page in
                 NavigationLink(value: page) {
                     Label(page.title, systemImage: page.systemImage)
                 }

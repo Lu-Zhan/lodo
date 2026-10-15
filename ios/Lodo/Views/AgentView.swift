@@ -338,7 +338,8 @@ struct AgentView: View {
         }
         #endif
         .sheet(isPresented: $showMemoryPicker) {
-            MemoryPickerView(excluding: Set(pendingAttachments.compactMap(\.memoryUUID))) { picked in
+            MemoryPickerView(excluding: Set(pendingAttachments.compactMap(\.memoryUUID)),
+                             allowsAssets: !AppSettings.assetsAIIsolated) { picked in
                 for item in picked {
                     pendingAttachments.append(PendingAttachment(
                         displayName: item.title.isEmpty ? (item.originalFileName ?? "记忆条目") : item.title,
@@ -979,7 +980,10 @@ struct AgentView: View {
             }
             // app 里已有的条目:不新建记忆,只把它现在的内容随这条消息发出去。
             Menu {
-                ForEach(AgentReferenceCategory.allCases) { category in
+                // 「AI 与资产隔离」开着时不给引用资产(引用就是把资产内容发给 AI)。
+                ForEach(AgentReferenceCategory.allCases.filter {
+                    $0 != .assets || !AppSettings.assetsAIIsolated
+                }) { category in
                     Button {
                         referencePicker = category
                     } label: {
@@ -1275,9 +1279,9 @@ struct AgentView: View {
             .accessibilityLabel("识别中")
     }
 
-    /// 嵌在输入胶囊末尾的麦克风:纯图标,**不套玻璃**——它已经落在胶囊那层玻璃
-    /// 上了,玻璃采样不到玻璃,再叠一层只会那一块失真。发送/完成录音仍是实心
-    /// 强调色圆:主操作要压过玻璃这一档。
+    /// 嵌在输入胶囊末尾的语音键:`waveform.circle.fill`(2026-10,用户要求换成「语音」
+    /// 图标的 fill 版,不再是麦克风那颗「录音」图标),**不套玻璃**——它已经落在胶囊那层
+    /// 玻璃上了,玻璃采样不到玻璃。整颗圆和发送键同尺寸同圆心,两态切换时位置不动。
     ///
     /// 命中区照例补到 44pt。它会往左吃进文本框 8pt——这是内嵌按钮的固有取舍
     /// (系统自家的文本框内嵌按钮也一样),换来的是不必把可点区缩到 28pt。
@@ -1288,8 +1292,8 @@ struct AgentView: View {
         } label: {
             // 显式取主题强调色:`Color.accentColor` 走 tint,按钮 disabled(busy)
             // 时会被系统染成灰色,和旁边的发送键对不上。
-            Image(systemName: "mic.fill")
-                .font(.system(size: 15, weight: .semibold))
+            Image(systemName: "waveform.circle.fill")
+                .font(.system(size: Self.composerInlineControlSize - 4, weight: .regular))
                 .foregroundStyle(lodoAccent.accent)
                 .frame(width: Self.composerInlineControlSize, height: Self.composerInlineControlSize)
                 .hitTarget(visualSize: Self.composerInlineControlSize)

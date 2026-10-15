@@ -6,6 +6,8 @@ import SwiftUI
 /// - 左下:圆形按钮进总览(`lodo://overview`);
 /// - 右下:圆形按钮直接开始语音输入(`lodo://voice`,AI 页打开就开始听)。
 /// 三块各自是一个 `Link`(小号小组件也支持多个点击区域)。内容静态,时间线不刷新。
+/// 配色同天气小组件(2026-10,用户要求):系统背景 + 系统的主/次文字色和填充色,
+/// 深浅色自动跟着变,不再用 app 的强调色。语音键是 `waveform`(语音),不是麦克风。
 struct ChatWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LodoChat", provider: ChatProvider()) { _ in
@@ -35,8 +37,6 @@ struct ChatProvider: TimelineProvider {
 
 struct ChatWidgetView: View {
     private static let spacing: CGFloat = 10
-    /// 强调色跟着 app 的设置走(app 写进 App Group,见 `WidgetTheme`)。
-    private let accent = WidgetTheme.load().accent
 
     var body: some View {
         VStack(spacing: Self.spacing) {
@@ -47,11 +47,11 @@ struct ChatWidgetView: View {
 
             HStack(spacing: Self.spacing) {
                 Link(destination: URL(string: "lodo://overview")!) {
-                    CircleButton(symbol: "square.stack.3d.up", accent: accent)
+                    CircleButton(symbol: "square.stack.3d.up")
                 }
                 .accessibilityLabel("打开总览")
                 Link(destination: URL(string: "lodo://voice")!) {
-                    CircleButton(symbol: "mic.fill", accent: accent)
+                    CircleButton(symbol: "waveform")
                 }
                 .accessibilityLabel("语音输入")
             }
@@ -60,7 +60,7 @@ struct ChatWidgetView: View {
     }
 
     /// 图标贴左、「Chat」在整颗胶囊里居中(不是在图标右边那截里居中)。
-    /// 三颗按钮同一种浅灰底 + 强调色图标(用户要求和总览那颗一致),「Chat」是灰字。
+    /// 三颗按钮同一种系统填充底 + 主文字色图标,「Chat」是次文字色。
     private var chatCapsule: some View {
         ZStack {
             Capsule().fill(.fill.secondary)
@@ -70,7 +70,7 @@ struct ChatWidgetView: View {
             HStack {
                 Image(systemName: "sparkles")
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(accent)
+                    .foregroundStyle(.primary)
                     .widgetAccentable()
                 Spacer(minLength: 0)
             }
@@ -80,17 +80,16 @@ struct ChatWidgetView: View {
     }
 }
 
-/// 下面那两颗圆:浅灰底 + 强调色图标。
+/// 下面那两颗圆:系统填充底 + 主文字色图标。
 private struct CircleButton: View {
     let symbol: String
-    let accent: Color
 
     var body: some View {
         ZStack {
             Circle().fill(.fill.secondary)
             Image(systemName: symbol)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(accent)
+                .foregroundStyle(.primary)
                 .widgetAccentable()
         }
         .aspectRatio(1, contentMode: .fit)

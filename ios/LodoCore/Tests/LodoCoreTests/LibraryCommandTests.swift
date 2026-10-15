@@ -90,6 +90,33 @@ final class LibraryCommandTests: XCTestCase {
             validUUIDs: [], memoryEnabled: false))
     }
 
+    /// 「AI 与资产隔离」:新建照常,修改换成一句说明;prompt 里不放资产清单、换成隔离规则。
+    func testAssetIsolationAllowsCreateOnly() throws {
+        let created = try DeepSeekClient.parseCommand(
+            ["actions": [["action": "create_asset", "title": "理财", "value": 5000]]],
+            validUUIDs: [], memoryEnabled: false, assetsEnabled: true, assetUpdateEnabled: false)
+        guard case .actions(let createActions) = created,
+              case .asset = createActions.first else { return XCTFail() }
+
+        let updated = try DeepSeekClient.parseCommand(
+            ["actions": [["action": "update_asset", "id": assetID.uuidString, "value": 1]]],
+            validUUIDs: [], memoryEnabled: false, assetsEnabled: true, assetUpdateEnabled: false)
+        guard case .actions(let updateActions) = updated,
+              case .answer(let text) = updateActions.first else { return XCTFail() }
+        XCTAssertEqual(text, DeepSeekClient.assetIsolatedReply)
+
+        let entry = AssetEntry(id: assetID, title: "西湖边的小院", category: "房产", value: 6_800_000,
+                               currency: "CNY", liability: nil, interestRate: nil, updatedAt: .now)
+        let isolated = DeepSeekClient.commandSystemPrompt(
+            tasks: [], capabilities: .init(assets: true, assetsReadable: false), assets: [entry]).system
+        XCTAssertFalse(isolated.contains("西湖边的小院"))
+        XCTAssertTrue(isolated.contains(DeepSeekClient.assetIsolationRule))
+        let readable = DeepSeekClient.commandSystemPrompt(
+            tasks: [], capabilities: .init(assets: true), assets: [entry]).system
+        XCTAssertTrue(readable.contains("西湖边的小院"))
+        XCTAssertFalse(readable.contains(DeepSeekClient.assetIsolationRule))
+    }
+
     func testTripPlanRecordFlag() throws {
         let plan = try parseTripPlanAt2026([
             "trip": "东京四日", "record": true, "start_date": "2026-10-01", "end_date": "2026-10-04",

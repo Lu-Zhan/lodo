@@ -48,6 +48,11 @@ struct AssetsView: View {
     @State private var showingShare = false
     @State private var shareError: String?
     @Environment(\.sectionIsActive) private var isActive
+    @Environment(\.scenePhase) private var scenePhase
+    /// 设置 → 资产 →「隐藏资产统计」,默认开:总览卡和收入/支出两档顶上的合计显示成 ***。
+    @AppStorage(AppSettings.assetStatsHiddenKey) private var statsHidden = true
+    /// 这一次点开看过了(点那张卡切换)。离开这一页、app 退到后台就重新盖上。
+    @State private var statsRevealed = false
 
     private var sync: SharedTripSync { SharedTripSync.shared }
     private var assetShare: SharedTripSync.AssetShareState? { sync.assetShare }
@@ -190,6 +195,8 @@ struct AssetsView: View {
                 FinanceReminders.sync(context: context)
             }
             .onAppear { now = Date() }
+            .onChange(of: isActive) { _, active in if !active { statsRevealed = false } }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { statsRevealed = false } }
             #if DEBUG
             .onAppear(perform: applyDemoArguments)
             #endif
@@ -357,6 +364,19 @@ struct AssetsView: View {
         return dates.filter { FinancePlan.monthsSince($0, now: now) >= FinancePlan.staleMonths }.count
     }
 
+    /// 数字现在是不是盖着。
+    private var masked: Bool { statsHidden && !statsRevealed }
+
+    /// 盖着时一律显示 ***(不按位数给星号,免得从长度猜出量级)。
+    private func money(_ text: String) -> String {
+        masked ? "***" : text
+    }
+
+    private func toggleReveal() {
+        guard statsHidden else { return }
+        withAnimation(.lodoAware(.snappy)) { statsRevealed.toggle() }
+    }
+
     private var overviewCard: some View {
         let worth = netWorth
         let month = monthly
@@ -365,14 +385,24 @@ struct AssetsView: View {
                 // 「个人 | 家庭」和「净资产」同一行、靠右(用户要求)。
                 HStack(spacing: 8) {
                     Text("净资产").font(.headline).foregroundStyle(.secondary)
+                    if statsHidden {
+                        Image(systemName: masked ? "eye.slash" : "eye")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
                     Spacer(minLength: 4)
                     if showsScopeSwitch { scopeSwitch }
                 }
-                // 点数字轮换单位:原数 → 万 → 百万。
+                // 点数字轮换单位:原数 → 万 → 百万。盖着的时候点它是揭开。
                 Button {
-                    withAnimation(.lodoAware(.snappy)) { netWorthUnit = netWorthUnit.next }
+                    if masked {
+                        toggleReveal()
+                    } else {
+                        withAnimation(.lodoAware(.snappy)) { netWorthUnit = netWorthUnit.next }
+                    }
                 } label: {
-                    Text(AssetFormat.currency(worth.net, code: displayCurrency, unit: netWorthUnit))
+                    Text(money(AssetFormat.currency(worth.net, code: displayCurrency, unit: netWorthUnit)))
                         .font(.title.bold().monospacedDigit())
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -380,10 +410,10 @@ struct AssetsView: View {
                         .contentTransition(.numericText())
                 }
                 .pressable()
-                .accessibilityHint("切换单位")
+                .accessibilityHint(masked ? "显示金额" : "切换单位")
                 HStack(spacing: 12) {
-                    Text("资产 \(AssetFormat.currency(worth.assets, code: displayCurrency))")
-                    Text("负债 \(AssetFormat.currency(worth.liabilities, code: displayCurrency))")
+                    Text("资产 \(money(AssetFormat.currency(worth.assets, code: displayCurrency)))")
+                    Text("负债 \(money(AssetFormat.currency(worth.liabilities, code: displayCurrency)))")
                 }
                 .font(.footnote.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -428,12 +458,16 @@ struct AssetsView: View {
             }
         }
         .padding(.vertical, 4)
+        // 「隐藏资产统计」开着时,点这张卡揭开/盖回数字(里面的切换、数字按钮照常优先)。
+        .contentShape(Rectangle())
+        .onTapGesture(perform: toggleReveal)
+        .accessibilityAction(named: Text(masked ? "显示金额" : "隐藏金额"), toggleReveal)
     }
 
     private func monthlyFigure(_ title: LocalizedStringKey, _ value: Double, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.footnote).foregroundStyle(.secondary)
-            Text(AssetFormat.currency(value, code: displayCurrency))
+            Text(money(AssetFormat.currency(value, code: displayCurrency)))
                 .font(.body.weight(.medium).monospacedDigit())
                 .foregroundStyle(color)
                 .lineLimit(1)
@@ -526,8 +560,10 @@ struct AssetsView: View {
         }
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowBackground(Color.clear)
-        // 切换条和下面第一组之间收窄(默认分区间距 ~35pt)。
+        // 切换条和下面第一组之间收窄(默认分区间距 ~35pt)。macOS 没有这个修饰符。
+        #if os(iOS)
         .listSectionSpacing(10)
+        #endif
     }
 
     private var excludedCount: Int {
@@ -610,6 +646,8 @@ struct AssetsView: View {
             }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: toggleReveal)
     }
 
     /// 某一档还没有内容时的一行:说明 + 直接新建。
@@ -848,6 +886,10 @@ struct AssetsView: View {
             case "stats": tab = .stats
             default: tab = .all
             }
+        }
+        // --demo-assets-revealed:截图看揭开后的样子(隐藏开关本身不动)。
+        if args.contains("--demo-assets-revealed") {
+            statsRevealed = true
         }
         if args.contains("--demo-assets-shared-ui") {
             demoSharedUI = true

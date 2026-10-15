@@ -294,6 +294,9 @@ public enum DeepSeekClient {
         /// 资产台账:主 app 恒开,当前资产带 id 放进 prompt;Watch 不传 ⇒ prompt 逐字不变。
         assetsEnabled: Bool = false,
         assets: [AssetEntry] = [],
+        /// AI 能不能读/改已有资产。false(设置里「AI 与资产隔离」开着)时 prompt 里不放资产
+        /// 清单、只允许 create_asset,update_asset 换成一句说明。默认 true ⇒ prompt 逐字不变。
+        assetsReadable: Bool = true,
         /// 订阅管理:主 app 恒开(从零订阅也要用),当前订阅带 id 放进 prompt。
         feedsEnabled: Bool = false,
         feeds: [FeedEntry] = [],
@@ -317,7 +320,8 @@ public enum DeepSeekClient {
         let caps = CommandCapabilities(
             memory: memoryEnabled, webSearch: webSearchEnabled, health: healthEnabled,
             travel: travelEnabled, tripPlan: tripPlanEnabled, news: newsEnabled,
-            countdown: countdownEnabled, assets: assetsEnabled, feeds: feedsEnabled)
+            countdown: countdownEnabled, assets: assetsEnabled, feeds: feedsEnabled,
+            assetsReadable: assetsReadable)
         let (system, tasks) = commandSystemPrompt(
             tasks: allTasks, capabilities: caps, pageFocus: pageFocus, groupChat: groupChat,
             history: history,
@@ -359,7 +363,9 @@ public enum DeepSeekClient {
             newsEnabled: newsEnabled,
             countdownEnabled: countdownEnabled,
             validCountdownIDs: countdowns.map(\.id.uuidString),
-            assetsEnabled: assetsEnabled, validAssetIDs: assets.map(\.id.uuidString),
+            assetsEnabled: assetsEnabled,
+            validAssetIDs: assetsReadable ? assets.map(\.id.uuidString) : [],
+            assetUpdateEnabled: assetsReadable,
             feedsEnabled: feedsEnabled, validFeedIDs: feeds.map(\.id.uuidString),
             loadSkillEnabled: hasCatalog,
             keepsAllActions: groupChat != nil)
@@ -422,10 +428,14 @@ public enum DeepSeekClient {
         public var countdown = false
         public var assets = false
         public var feeds = false
+        /// false = 「AI 与资产隔离」:资产只能新建,看不到清单、不能改。
+        public var assetsReadable = true
 
         public init(memory: Bool = false, webSearch: Bool = false, health: Bool = false,
                     travel: Bool = false, tripPlan: Bool = false, news: Bool = false,
-                    countdown: Bool = false, assets: Bool = false, feeds: Bool = false) {
+                    countdown: Bool = false, assets: Bool = false, feeds: Bool = false,
+                    assetsReadable: Bool = true) {
+            self.assetsReadable = assetsReadable
             self.memory = memory
             self.webSearch = webSearch
             self.health = health
@@ -473,8 +483,10 @@ public enum DeepSeekClient {
                 + (countdowns.isEmpty ? "(还没有)" : json(countdownList(countdowns)))
             : ""
         let assetBlock = capabilities.assets && AgentSkillStore.isEnabled(.assetLedger)
-            ? "\n\n" + AgentSkillStore.content(for: .assetLedger) + "\n\n当前资产列表:\n"
-                + (assets.isEmpty ? "(还没有)" : json(assetList(assets)))
+            ? "\n\n" + AgentSkillStore.content(for: .assetLedger)
+                + (capabilities.assetsReadable
+                    ? "\n\n当前资产列表:\n" + (assets.isEmpty ? "(还没有)" : json(assetList(assets)))
+                    : "\n\n" + assetIsolationRule)
             : ""
         let feedBlock = capabilities.feeds && AgentSkillStore.isEnabled(.feeds)
             ? "\n\n" + AgentSkillStore.content(for: .feeds) + "\n\n当前订阅列表:\n"
@@ -509,6 +521,16 @@ public enum DeepSeekClient {
     /// web_search/answer、healthEnabled == false 时 read_health、travelEnabled == false
     /// 时 read_trip、tripPlanEnabled == false 时 plan_trip 按未知 action/工具处理
     /// (即使模型幻觉出来,Watch 等调用方也保持旧行为)。
+    /// 「AI 与资产隔离」开着时拼在资产台账 skill 后面(代替资产清单),优先于 skill 里关于修改的说法。
+    static let assetIsolationRule = """
+    资产隔离(用户在设置里打开了,优先于上面关于修改的规则):你看不到用户已有的资产,\
+    只能用 create_asset 新建,不能 update_asset,也不要猜已有资产的金额。用户要改、要查已有资产时,\
+    用 answer 告诉他去「资产」页自己改,或在 设置 → 资产 里关掉「AI 与资产隔离」。
+    """
+
+    /// 隔离时模型仍然给了 update_asset:不执行,换成这句说明。
+    static let assetIsolatedReply = "资产已与 AI 隔离:我只能帮你新建资产,看不到也改不了已有的资产。可以在「资产」页左滑编辑,或在 设置 → 资产 里关掉「AI 与资产隔离」。"
+
     static func parseCommand(
         _ payload: [String: Any], validUUIDs: [String],
         memoryEnabled: Bool, webSearchEnabled: Bool = false,
@@ -516,6 +538,8 @@ public enum DeepSeekClient {
         tripPlanEnabled: Bool = false, newsEnabled: Bool = false,
         countdownEnabled: Bool = false, validCountdownIDs: [String] = [],
         assetsEnabled: Bool = false, validAssetIDs: [String] = [],
+        /// false = 资产隔离:update_asset 不执行,换成一句说明(`assetIsolatedReply`)。
+        assetUpdateEnabled: Bool = true,
         feedsEnabled: Bool = false, validFeedIDs: [String] = [],
         loadSkillEnabled: Bool = false,
         /// 群聊模式:所有动作都只是卡片、不执行,下面"问答类与写操作互斥"的归一化不适用
@@ -649,6 +673,8 @@ public enum DeepSeekClient {
                 && ["create_countdown", "update_countdown", "delete_countdown"].contains(name):
                 actions.append(.countdown(try parseCountdownOp(raw, action: name,
                                                                validIDs: validCountdownIDs)))
+            case "update_asset" where assetsEnabled && !assetUpdateEnabled:
+                actions.append(.answer(text: assetIsolatedReply))
             case let name? where assetsEnabled && ["create_asset", "update_asset"].contains(name):
                 actions.append(.asset(try parseAssetOp(raw, action: name, validIDs: validAssetIDs)))
             case let name? where feedsEnabled && ["subscribe_feed", "update_feed"].contains(name):

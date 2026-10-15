@@ -397,7 +397,8 @@ struct AgentPromptPreviewView: View {
     }
     private let prompt = DeepSeekClient.commandSystemPrompt(
         tasks: [],
-        capabilities: .init(memory: true, webSearch: true, health: true, travel: true, tripPlan: true)
+        capabilities: .init(memory: true, webSearch: true, health: true, travel: true, tripPlan: true,
+                            assetsReadable: !AppSettings.assetsAIIsolated)
     ).system
 
     var body: some View {

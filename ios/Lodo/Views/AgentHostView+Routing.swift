@@ -51,7 +51,9 @@ extension AgentHostView {
         let countdowns = ((try? context.fetch(FetchDescriptor<CountdownEvent>())) ?? [])
             .map(\.entry)
         // 资产、订阅:主 app 恒开(从零新增也要用),现有的带 id 放进 prompt。
-        let assets = LibraryStore.assetEntries(in: context)
+        // 「AI 与资产隔离」开着(默认)时资产清单不发给 AI,只能新建。
+        let assetsReadable = !AppSettings.assetsAIIsolated
+        let assets = assetsReadable ? LibraryStore.assetEntries(in: context) : []
         let feeds = LibraryStore.feedEntries(in: context)
 
         for _ in 0..<3 {
@@ -62,7 +64,7 @@ extension AgentHostView {
                 // 规划行程不看库里有没有旅行:"帮我规划东京四天"本来就是从零开始的。
                 tripPlanEnabled: true, newsEnabled: newsEnabled,
                 countdownEnabled: true, countdowns: countdowns,
-                assetsEnabled: true, assets: assets,
+                assetsEnabled: true, assets: assets, assetsReadable: assetsReadable,
                 feedsEnabled: true, feeds: feeds,
                 pageFocus: pageFocus, history: reasoningHistory,
                 // 窗口之外的历史压成的常驻摘要。ReAct 每轮都带同一份——它不像
@@ -246,6 +248,11 @@ extension AgentHostView {
                                 memorySkipped.append("「\(item.title)」是旅行行程,请在旅行里删")
                                 return nil
                             }
+                            // 资产隔离时 AI 也不能删资产(检索里本来就排除了,这里兜底)。
+                            guard !(item.isAsset && AppSettings.assetsAIIsolated) else {
+                                memorySkipped.append("资产已与 AI 隔离,请在「资产」页删")
+                                return nil
+                            }
                             return .deleteMemory(uuids: [uuid])
                         }
                     }
@@ -388,10 +395,13 @@ extension AgentHostView {
     ) async -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)] {
         let container = context.container
         let queryVector = await embedQueryBestEffort(question)
+        // 「AI 与资产隔离」开着时资产条目不进检索结果(不发给 AI)。
+        let excludesAssets = AppSettings.assetsAIIsolated
         return await Task.detached(priority: .userInitiated) {
             let bgContext = ModelContext(container)
-            let items = (try? bgContext.fetch(FetchDescriptor<MemoryItem>(
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
+            let items = ((try? bgContext.fetch(FetchDescriptor<MemoryItem>(
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? [])
+                .filter { !(excludesAssets && $0.isAsset) }
             guard !items.isEmpty else { return [] }
             let itemsByUUID = Dictionary(uniqueKeysWithValues: items.map { ($0.uuid, $0) })
 

@@ -84,7 +84,10 @@ struct OverviewView: View {
         pending.filter { $0.nextRemindAt > now && Calendar.current.isDateInToday($0.nextRemindAt) }
     }
     private var todayMemories: [MemoryItem] {
-        memoryItems.filter { Calendar.current.isDateInToday($0.createdAt) }
+        // 这份清单会发给 AI 总结;「AI 与资产隔离」开着时资产不算在里面。
+        memoryItems.filter {
+            Calendar.current.isDateInToday($0.createdAt) && !($0.isAsset && AppSettings.assetsAIIsolated)
+        }
     }
     /// 今天各条定时任务最新的一次成功结果(同一条任务当天跑了多次只留最新的,
     /// 失败的不展示——总览是"看今天怎么样",报错留在设置里的任务详情看)。

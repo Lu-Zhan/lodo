@@ -543,6 +543,9 @@ struct AppShellView: View {
             routeFromOutside(.todo)
         case "countdown":
             routeFromOutside(.countdown)
+        // 设置 → 资产 →「打开资产」(macOS 设置窗口走这条)。
+        case "assets":
+            routeFromOutside(.assets)
         // 空气质量小组件进健康页。
         case "health":
             routeFromOutside(.health)

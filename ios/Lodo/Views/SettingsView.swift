@@ -17,6 +17,11 @@ struct SettingsView: View {
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var healthRangeDays = 14
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
+    @AppStorage(AppSettings.assetStatsHiddenKey) private var assetStatsHidden = true
+    @AppStorage(AppSettings.assetsInSidebarKey) private var assetsInSidebar = true
+    @AppStorage(AppSettings.assetsAIIsolatedKey) private var assetsAIIsolated = true
+    @Environment(\.itemNavigator) private var itemNavigator
+    @Environment(\.openURL) private var openURL
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
     @AppStorage(AppSettings.appIconStyleKey) private var appIconStyleRaw = AppIconStyle.white.rawValue
@@ -286,10 +291,19 @@ struct SettingsView: View {
                                 .tag(entry.code)
                         }
                     }
+                    Toggle("隐藏资产统计", isOn: $assetStatsHidden)
+                    Toggle("在侧栏显示资产", isOn: $assetsInSidebar)
+                    // 备用入口:侧栏里关掉「资产」之后从这里进。
+                    Button {
+                        openAssets()
+                    } label: {
+                        Label("打开资产", systemImage: "banknote")
+                    }
+                    Toggle("AI 与资产隔离", isOn: $assetsAIIsolated)
                 } header: {
                     Text("资产")
                 } footer: {
-                    Text("记忆 tab 的「资产总览」把不同币种的资产换算成这种货币求和;汇率联网免费获取,每天自动更新一次。")
+                    Text("不同币种的资产换算成「汇总展示币种」求和,汇率联网免费获取,每天自动更新一次。「隐藏资产统计」开着时,资产页的净资产、每月收支这些数字显示成 ***,点一下那张卡才露出来。「AI 与资产隔离」开着时,AI 只能帮你新建资产,看不到也改不了已有的资产(资产清单不发给 AI,记忆搜索和引用里也不带资产)。")
                 }
 
                 // ---- iCloud ----
@@ -413,6 +427,17 @@ struct SettingsView: View {
     #endif
 
     // MARK: - 备份与恢复
+
+    /// 设置里那一行「打开资产」:先收起设置再切到资产页。macOS 的设置是独立窗口、
+    /// 拿不到页面导航,走 lodo://assets 交给主窗口。
+    private func openAssets() {
+        if let itemNavigator {
+            dismiss()
+            itemNavigator.open(.assets)
+        } else if let url = URL(string: "lodo://assets") {
+            openURL(url)
+        }
+    }
 
     @ViewBuilder
     private var backupRestoreSection: some View {

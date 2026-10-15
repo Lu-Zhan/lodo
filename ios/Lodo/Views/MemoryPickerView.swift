@@ -7,6 +7,8 @@ import LodoCore
 struct MemoryPickerView: View {
     /// 已经在待发送附件里的 uuid,这里禁用掉避免重复添加同一条。
     let excluding: Set<UUID>
+    /// false = 资产条目一律不出现、也不给「显示资产」开关(AI 附件且「AI 与资产隔离」开着时)。
+    var allowsAssets = true
     let onDone: ([MemoryItem]) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -25,7 +27,7 @@ struct MemoryPickerView: View {
     private var filtered: [MemoryItem] {
         items.filter { item in
             !excluding.contains(item.uuid)
-                && (item.isAsset ? showAssets : true)
+                && (item.isAsset ? (allowsAssets && showAssets) : true)
                 && (item.isContact ? showContacts : true)
                 && item.matches(query)
         }
@@ -61,7 +63,7 @@ struct MemoryPickerView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
-                if items.contains(where: { $0.isAsset }) {
+                if allowsAssets, items.contains(where: { $0.isAsset }) {
                     ToolbarItem(placement: .primaryAction) {
                         Toggle("显示资产", systemImage: "creditcard", isOn: $showAssets)
                             .toggleStyle(.button)
