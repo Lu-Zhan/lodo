@@ -99,14 +99,18 @@ enum AccentPalette: String, CaseIterable, Identifiable {
     }
 
     /// 彩色文字/图标/选中态。
-    var accent: Color {
+    var accent: Color { .lodoDynamic(light: accentHex.light, dark: accentHex.dark) }
+
+    /// `accent` 的明暗两个色值。小组件读不到 app 的设置,由 `WidgetBridge.writeTheme`
+    /// 按这两个值写进 App Group。
+    var accentHex: (light: UInt32, dark: UInt32) {
         switch self {
-        case .terracotta: .lodoDynamic(light: 0xC2410C, dark: 0xFF9E4D)
-        case .blue: .lodoDynamic(light: 0x0A58CA, dark: 0x7FB3FF)
-        case .indigo: .lodoDynamic(light: 0x4338CA, dark: 0xA5B4FC)
-        case .green: .lodoDynamic(light: 0x13703A, dark: 0x4ADE80)
-        case .rose: .lodoDynamic(light: 0xBE123C, dark: 0xFB7185)
-        case .graphite: .lodoDynamic(light: 0x3F3F46, dark: 0xD4D4D8)
+        case .terracotta: (0xC2410C, 0xFF9E4D)
+        case .blue: (0x0A58CA, 0x7FB3FF)
+        case .indigo: (0x4338CA, 0xA5B4FC)
+        case .green: (0x13703A, 0x4ADE80)
+        case .rose: (0xBE123C, 0xFB7185)
+        case .graphite: (0x3F3F46, 0xD4D4D8)
         }
     }
 

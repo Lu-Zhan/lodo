@@ -35,6 +35,8 @@ struct ChatProvider: TimelineProvider {
 
 struct ChatWidgetView: View {
     private static let spacing: CGFloat = 10
+    /// 强调色跟着 app 的设置走(app 写进 App Group,见 `WidgetTheme`)。
+    private let accent = WidgetTheme.load().accent
 
     var body: some View {
         VStack(spacing: Self.spacing) {
@@ -45,56 +47,54 @@ struct ChatWidgetView: View {
 
             HStack(spacing: Self.spacing) {
                 Link(destination: URL(string: "lodo://overview")!) {
-                    CircleButton(symbol: "square.stack.3d.up", prominent: false)
+                    CircleButton(symbol: "square.stack.3d.up", accent: accent)
                 }
                 .accessibilityLabel("打开总览")
                 Link(destination: URL(string: "lodo://voice")!) {
-                    CircleButton(symbol: "mic.fill", prominent: true)
+                    CircleButton(symbol: "mic.fill", accent: accent)
                 }
                 .accessibilityLabel("语音输入")
             }
         }
-        .containerBackground(.fill.tertiary, for: .widget)
+        .homeWidgetBackground()
     }
 
     /// 图标贴左、「Chat」在整颗胶囊里居中(不是在图标右边那截里居中)。
+    /// 三颗按钮同一种浅灰底 + 强调色图标(用户要求和总览那颗一致),「Chat」是灰字。
     private var chatCapsule: some View {
         ZStack {
-            Capsule().fill(.tint)
+            Capsule().fill(.fill.secondary)
             Text(verbatim: "Chat")
                 .font(.headline)
+                .foregroundStyle(.secondary)
             HStack {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .widgetAccentable()
                 Spacer(minLength: 0)
             }
-            .padding(.leading, 14)
+            .padding(.leading, 12)
         }
-        .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .widgetAccentable()
     }
 }
 
-/// 下面那两颗圆:总览是浅底 + 强调色图标,语音是实心强调色(主操作)。
+/// 下面那两颗圆:浅灰底 + 强调色图标。
 private struct CircleButton: View {
     let symbol: String
-    let prominent: Bool
+    let accent: Color
 
     var body: some View {
         ZStack {
-            if prominent {
-                Circle().fill(.tint)
-            } else {
-                Circle().fill(.fill.secondary)
-            }
+            Circle().fill(.fill.secondary)
             Image(systemName: symbol)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(prominent ? AnyShapeStyle(.white) : AnyShapeStyle(.tint))
+                .foregroundStyle(accent)
+                .widgetAccentable()
         }
         .aspectRatio(1, contentMode: .fit)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .widgetAccentable(prominent)
     }
 }
 

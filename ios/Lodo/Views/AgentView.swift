@@ -194,15 +194,10 @@ struct AgentView: View {
     static let voiceRequest = "\u{0}lodo-voice"
 
 
-    /// 标题下面那行小字的前半截:当前服务商。
-    ///
-    /// 这儿曾经还带思考强度——那是个静态设置项(设置页有 Picker),摆在对话页
-    /// 最显眼的位置每次都一样、没有信息量,现在让位给 token 用量与速度
-    /// (`AgentTitleView` 自己读 `AIUsageMonitor`)。
+    /// macOS 窗口副标题的前半截:当前服务商(`AgentWindowSubtitle` 自己读 `AIUsageMonitor`)。
     private var aiModeSummary: String { AppSettings.aiProvider }
 
-    /// 后半截:联网搜索是否已配置。有 token 指标可报时被指标顶掉(见
-    /// `AgentTitleView`)——导航栏这行放不下两截都留。
+    /// 后半截:联网搜索是否已配置。有 token 指标可报时被指标顶掉。
     private var aiCapabilitySummary: String? {
         WebSearchClient.isConfigured ? "联网搜索" : nil
     }
@@ -259,24 +254,8 @@ struct AgentView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
-            // 自定义 principal:标题恒为「Lodo☀️～」(单一持续对话,没有
-            // 每段对话各自的标题了);标题下加一行
-            // 当前 AI 模式(服务商/思考强度/联网搜索),不然用户在对话里完全
-            // 看不出现在到底是哪个服务商、思考开没开、能不能联网搜索——
-            // 这些都要跳回设置页才看得到。
-            // principal 项恒定渲染(只淡出内容),抽屉展开/拖拽时导航栏高度
-            // 才不会跟着两行标题的消失/出现联动跳变,chatColumn 紧贴在导航栏
-            // 下方布局,导航栏一变高聊天区就会跟着窜一下——这是纯文字 VStack,
-            // 没有 Liquid Glass 背景,可以放心用 opacity(☰ 那颗不行,它带
-            // 系统画的 Liquid Glass 底,见 sidebarToolbarButton 的注释)。
-            // 标题拆成子视图:判据要从它自己所在位置读 sidebarChrome——右栏拉开时
-            // 容器会在这一层往下覆盖一份"藏起 chrome"的值,AgentView 本身读不到。
-            #if !os(macOS)
-            ToolbarItem(placement: .principal) {
-                AgentTitleView(title: Self.pageTitle, mode: aiModeSummary,
-                               capability: aiCapabilitySummary)
-            }
-            #endif
+            // 标题和旅行页同一种样子(用户要求,2026-10):系统单行标题,不再在
+            // 下面挂「服务商 · token 速度」那一行。macOS 仍在窗口副标题里显示它。
             if !(sidebarChrome?.hidesChrome ?? false) {
                 ToolbarItem(placement: .primaryAction) {
                     ChatRoomsToolbarButton { chatPath.append(.rooms) }
@@ -2276,49 +2255,9 @@ private struct ImageViewerTarget: Identifiable {
     let id: UUID
 }
 
-/// 点输入卡片里的缩略图打开的大图查看页:黑底,左右滑动切换这次要发的几张照片,
-/// 点图片以外的空白处回到对话。
-/// 导航栏正中两行:对话标题 + 第二行「服务商 · token 用量/速度」(还没发过请求时
-/// 后半截是联网搜索这类能力标记)。恒定渲染、只淡出内容——导航栏高度才不会
-/// 跟着抽屉/右栏开合跳变。
-private struct AgentTitleView: View {
-    let title: String
-    /// 当前服务商。
-    let mode: String
-    /// 联网搜索这类能力标记;有 token 指标时被它顶掉。
-    let capability: String?
-    @Environment(\.sidebarChrome) private var chrome
-    /// token 用量/速度。**故意在这个子视图里读**:每 0.25s 跳一次数字,
-    /// 在 AgentView.body 里读会把整条 chatStack 跟着重建,这里只重建导航栏这两行。
-    private let usage = AIUsageMonitor.shared
-
-    private var hides: Bool { chrome?.hidesChrome ?? false }
-
-    private var subtitle: String {
-        [mode, usage.turn?.badge ?? capability]
-            .compactMap { $0 }
-            .joined(separator: " · ")
-    }
-
-    var body: some View {
-        VStack(spacing: 1) {
-            Text(title)
-                .font(.headline)
-                .lineLimit(1)
-            Text(subtitle)
-                .font(.caption)
-                .monospacedDigit()
-                .lineLimit(1)
-                .foregroundStyle(.secondary)
-        }
-        .opacity(hides ? 0 : 1)
-        .accessibilityHidden(hides)
-    }
-}
-
 #if os(macOS)
-/// macOS 窗口副标题:「服务商 · token 用量/速度」。和 iOS 的 `AgentTitleView` 同一个口径,
-/// 同样单独成一个子视图去读 monitor——每 0.25s 跳一次数字,只重建这个零尺寸的视图。
+/// macOS 窗口副标题:「服务商 · token 用量/速度」。iOS 上不显示这一行(标题同旅行页,只有一行),
+/// 单独成一个子视图去读 monitor——每 0.25s 跳一次数字,只重建这个零尺寸的视图。
 private struct AgentWindowSubtitle: View {
     let mode: String
     let capability: String?
@@ -2334,6 +2273,8 @@ private struct AgentWindowSubtitle: View {
 }
 #endif
 
+/// 点输入卡片里的缩略图打开的大图查看页:黑底,左右滑动切换这次要发的几张照片,
+/// 点图片以外的空白处回到对话。
 private struct AgentImageViewer: View {
     let images: [PendingAttachment]
     @State private var selection: UUID
@@ -2643,9 +2584,12 @@ private struct AgentMessageListView: View {
             .defaultScrollAnchor(.bottom)
             // 可视区域变矮(键盘弹起)时仍贴着底部,最后一条跟着输入栏一起往上走。
             .keepsBottomOnSizeChanges()
-            // AI 页顶部(导航栏)和底部(输入栏)背后也不要系统的滚动边缘效果,
-            // 消息直接从透明的标题和输入栏背后滚过去(用户要求)。
-            .hidesScrollEdgeEffects(true)
+            // 「问问 AI」悬浮时上下都不要系统的滚动边缘效果。AI 页(用户要求,参考系统
+            // 设计):标题后面是柔和渐隐——从下往上渐渐变实,标题本身不垫底;输入栏
+            // 背后不要,消息直接从它四周透出来。
+            .hidesScrollEdgeEffects(isInline)
+            .softTopScrollEdgeTransition()
+            .hidesBottomScrollEdgeEffect(!isInline)
             .onChange(of: messages.count) { _, _ in
                 // 回复落库后(AI 页和各页的悬浮对话都一样)最后一条的底边贴着输入栏顶,
                 // 也就是键盘上方那截(用户要求)。

@@ -57,6 +57,7 @@ struct OverviewView: View {
     @State private var healthReport: HealthReport?
     /// 空气质量模块的数据;没开或没取到时为 nil。
     @State private var airReport: AirQualityReport? = AirQualityStore.cached()
+    @State private var weather: WeatherReport? = WeatherStore.cached()
     @AppStorage(AppSettings.airQualityEnabledKey) private var airQualityEnabled = false
     /// 通知"改期"按钮交接的改期候选(横幅展示,与 TaskRowView 内部滑动触发的
     /// 改期各自独立——见 OverviewView+Reschedule.swift 顶部注释)。
@@ -388,7 +389,7 @@ struct OverviewView: View {
                 chrome?.go(.todo)
             }
         case .airQuality:
-            OverviewAirQualityWidget(size: item.size, report: airReport,
+            OverviewAirQualityWidget(size: item.size, report: airReport, weather: weather,
                                      enabled: airQualityEnabled) { chrome?.go(.health) }
         case .stepsTrend:
             OverviewStepsTrendWidget(
@@ -439,10 +440,14 @@ struct OverviewView: View {
     private func loadAirQuality() async {
         guard airQualityEnabled else {
             airReport = nil
+            weather = nil
             return
         }
         guard layout.items.contains(where: { $0.kind == .airQuality && $0.isVisible }) else { return }
-        if case .success(let report) = await AirQualityStore.refresh() { airReport = report }
+        if case .success(let report) = await AirQualityStore.refresh() {
+            airReport = report
+            weather = WeatherStore.cached()
+        }
     }
 
     private func loadHealthReport() async {

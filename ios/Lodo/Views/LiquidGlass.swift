@@ -97,9 +97,9 @@ extension View {
     /// 去掉底部的滚动边缘效果:底下垫着透明背景的「问问 AI」条时,系统会在条子背后
     /// 把列表糊成一层底色,条子看上去就带了背景(旅行详情面板,用户要求去掉)。
     @ViewBuilder
-    func hidesBottomScrollEdgeEffect() -> some View {
+    func hidesBottomScrollEdgeEffect(_ hidden: Bool = true) -> some View {
         if #available(iOS 26.0, macOS 26.0, *) {
-            scrollEdgeEffectHidden(true, for: .bottom)
+            scrollEdgeEffectHidden(hidden, for: .bottom)
         } else {
             self
         }

@@ -44,6 +44,9 @@ struct AirQualitySection: View {
 
     @AppStorage(AppSettings.airQualityEnabledKey) private var enabled = false
     @State private var report: AirQualityReport? = AirQualityStore.cached()
+    /// 天气和空气质量一起取(同一个开关、同一个坐标,见 `WeatherStore`)。
+    @State private var weather: WeatherReport? = WeatherStore.cached()
+    @State private var attribution: WeatherAttribution?
     @State private var failure: AirQualityStore.Failure?
     @State private var loading = false
     @State private var confirmingDisable = false
@@ -59,14 +62,14 @@ struct AirQualitySection: View {
             } else if loading {
                 HStack {
                     ProgressView().controlSize(.small)
-                    Text("正在获取空气质量…").foregroundStyle(.secondary)
+                    Text("正在获取天气与空气质量…").foregroundStyle(.secondary)
                 }
             } else if let failure {
                 failureRow(failure)
             }
         } header: {
             HStack(spacing: 16) {
-                Text("空气质量")
+                Text("天气与空气质量")
                 Spacer()
                 if enabled {
                     // 刷新 | 提醒 | 其他,都摆在标题行右上角;刷新请求中换成转圈。
@@ -86,25 +89,26 @@ struct AirQualitySection: View {
                     }
                     .accessibilityLabel("提醒设置")
                     Menu {
-                        Button("关闭空气质量", systemImage: "xmark.circle", role: .destructive) {
+                        Button("关闭天气与空气质量", systemImage: "xmark.circle", role: .destructive) {
                             confirmingDisable = true
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .accessibilityLabel("空气质量选项")
+                    .accessibilityLabel("天气与空气质量选项")
                 }
             }
             // sheet/确认框/task 挂在标题行上:挂在 Section 上会分摊到每一行(task 跑好几遍,sheet 弹不出来)。
             .sheet(isPresented: $showsReminders) { AirQualityReminderSettingsView() }
-            .confirmationDialog("关闭空气质量?", isPresented: $confirmingDisable, titleVisibility: .visible) {
+            .confirmationDialog("关闭天气与空气质量?", isPresented: $confirmingDisable, titleVisibility: .visible) {
                 Button("关闭", role: .destructive) {
                     enabled = false
                     report = nil
+                    weather = nil
                     AirQualityStore.disable()
                 }
             } message: {
-                Text("健康页、总览和小组件都不再显示空气质量,也不再使用位置。")
+                Text("健康页、总览和小组件都不再显示天气与空气质量,也不再使用位置。")
             }
             .task(id: refreshToken) {
                 await load(force: refreshToken > 0)
@@ -129,19 +133,24 @@ struct AirQualitySection: View {
             }
         } footer: {
             if enabled, let report {
-                Text("更新于 \(report.fetchedAt.formatted(date: .omitted, time: .shortened))")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("更新于 \(report.fetchedAt.formatted(date: .omitted, time: .shortened))")
+                    if weather != nil, let attribution {
+                        WeatherAttributionView(attribution: attribution)
+                    }
+                }
             }
         }
     }
 
     private var disabledRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("所在地今天的空气质量", systemImage: "aqi.medium")
+            Label("所在地今天的天气与空气质量", systemImage: "cloud.sun")
                 .font(.body.weight(.medium))
-            Text("按美国 EPA 标准显示 AQI。会把约 1 公里精度的位置发给 Open-Meteo 查询,不涉及健康数据。")
+            Text("天气来自苹果天气,空气质量按美国 EPA 标准显示 AQI。会把约 1 公里精度的位置发给苹果天气和 Open-Meteo 查询,不涉及健康数据。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button("显示空气质量") {
+            Button("显示天气与空气质量") {
                 enabled = true
                 Task { await load(force: true) }
             }
@@ -166,6 +175,10 @@ struct AirQualitySection: View {
     @ViewBuilder
     private func reportRows(_ report: AirQualityReport) -> some View {
         let category = report.category
+        if let weather {
+            WeatherRow(weather: weather)
+                .padding(.vertical, 4)
+        }
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 AQIBadge(aqi: report.aqi)
@@ -222,11 +235,71 @@ struct AirQualitySection: View {
         defer { loading = false }
         switch await AirQualityStore.refresh(force: force) {
         case .success(let fresh):
-            withAnimation(.lodoAware(.snappy)) { report = fresh }
+            withAnimation(.lodoAware(.snappy)) {
+                report = fresh
+                weather = WeatherStore.cached()
+            }
             failure = nil
+            if attribution == nil { attribution = await WeatherStore.attribution() }
         case .failure(let error):
             // 刷新失败时旧数据照样摆着(footer 写着更新时间),没有旧数据才报错。
             if report == nil { failure = error.failure }
+        }
+    }
+}
+
+/// 天气那一行:大号温度 + 图标,状况和今天最高最低。
+struct WeatherRow: View {
+    let weather: WeatherReport
+    var compact = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: weather.symbol)
+                .symbolRenderingMode(.multicolor)
+                .font(.system(size: compact ? 28 : 36))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(WeatherStore.format(weather.temperature))
+                    .font(.system(size: compact ? 30 : 40, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                Text(weather.condition)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                // 总览小卡片只有半宽,最高最低挪到状况下面一行。
+                if compact, let high = weather.high, let low = weather.low {
+                    Text(verbatim: "↑\(WeatherStore.format(high)) ↓\(WeatherStore.format(low))")
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            if !compact, let high = weather.high, let low = weather.low {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("最高 \(WeatherStore.format(high))")
+                    Text("最低 \(WeatherStore.format(low))")
+                }
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// WeatherKit 要求的数据来源标识:苹果天气的标识 + 法律信息链接。
+struct WeatherAttributionView: View {
+    let attribution: WeatherAttribution
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            AsyncImage(url: colorScheme == .dark ? attribution.darkMark : attribution.lightMark) { image in
+                image.resizable().scaledToFit()
+            } placeholder: {
+                Text(verbatim: "\u{F8FF}Weather")
+            }
+            .frame(height: 12)
+            Link("数据来源", destination: attribution.legalPage)
         }
     }
 }
@@ -259,6 +332,7 @@ struct OverviewAirQualityWidget: View {
     let size: OverviewWidgetSize
     /// nil = 还没开或没取到。
     let report: AirQualityReport?
+    let weather: WeatherReport?
     let enabled: Bool
     let action: () -> Void
 
@@ -266,11 +340,22 @@ struct OverviewAirQualityWidget: View {
         OverviewWidgetCard(kind: .airQuality, action: action) {
             if let report {
                 VStack(alignment: .leading, spacing: 6) {
-                    AQIBadge(aqi: report.aqi, font: .system(size: size == .small ? 36 : 40,
-                                                            weight: .semibold, design: .rounded))
-                    Text(AirQualityStore.title(report.category))
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(2)
+                    if let weather {
+                        WeatherRow(weather: weather, compact: true)
+                        HStack(spacing: 6) {
+                            AQIBadge(aqi: report.aqi, font: .headline)
+                            Text(AirQualityStore.title(report.category))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        AQIBadge(aqi: report.aqi, font: .system(size: size == .small ? 36 : 40,
+                                                                weight: .semibold, design: .rounded))
+                        Text(AirQualityStore.title(report.category))
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(2)
+                    }
                     if size == .large {
                         Text(AirQualityStore.advice(report.category))
                             .font(.subheadline)
@@ -279,14 +364,10 @@ struct OverviewAirQualityWidget: View {
                             AirQualityHourlyChart(hourly: report.todayHourly(now: .now), showsAxis: false)
                                 .frame(height: 48)
                         }
-                    } else if let dominant = report.dominant {
-                        Text(dominant.symbol)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
                     }
                 }
             } else {
-                OverviewEmptyText(text: enabled ? "正在获取空气质量…" : "在健康页开启空气质量后显示")
+                OverviewEmptyText(text: enabled ? "正在获取天气与空气质量…" : "在健康页开启天气与空气质量后显示")
             }
         }
     }

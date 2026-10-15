@@ -139,7 +139,7 @@ struct LodoWidgetView: View {
             AddAgentButton(axis: .vertical, iconSize: 30, label: "AI 助手")
         }
         .accessibilityLabel("打开 AI 助手")
-        .containerBackground(.fill.tertiary, for: .widget)
+        .homeWidgetBackground()
     }
 
     private var mediumBody: some View {
@@ -165,7 +165,7 @@ struct LodoWidgetView: View {
             .frame(width: 68)
             .accessibilityLabel("打开 AI 助手")
         }
-        .containerBackground(.fill.tertiary, for: .widget)
+        .homeWidgetBackground()
     }
 
     private var largeBody: some View {
@@ -192,7 +192,7 @@ struct LodoWidgetView: View {
                 Spacer(minLength: 0)
             }
         }
-        .containerBackground(.fill.tertiary, for: .widget)
+        .homeWidgetBackground()
     }
 
     /// 与 app 内 TaskItem.format 一致的时间文案。
@@ -227,7 +227,7 @@ struct LodoWidgetBundle: WidgetBundle {
         TodayLockWidget()
         PinnedLockWidget()
         CountdownLockWidget()
-        // 空气质量:桌面小/中 + 锁屏圆形/长条/一行字。
+        // 天气(含空气质量):桌面小/中 + 锁屏圆形/长条/一行字。
         AirQualityWidget()
     }
 }

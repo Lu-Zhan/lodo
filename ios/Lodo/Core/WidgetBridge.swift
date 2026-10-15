@@ -128,6 +128,7 @@ enum WidgetBridge {
 
     @MainActor
     static func sync(context: ModelContext) {
+        writeTheme()
         guard let url = AppGroup.snapshotURL else { return }
         var descriptor = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" },
@@ -153,6 +154,29 @@ enum WidgetBridge {
         lastSnapshot = data
         try? data.write(to: url, options: .atomic)
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// 强调色快照。字段与 LodoWidget 的 `WidgetTheme` 保持一致:小组件读不到 app 的
+    /// 设置,按这两个色值自己拼出明暗两套强调色。
+    private struct Theme: Codable, Equatable {
+        let accentLight: UInt32
+        let accentDark: UInt32
+    }
+
+    @MainActor
+    private static var lastTheme: Theme?
+
+    /// 把当前强调色写进 App Group(没变就不写);设置里换色时也调一次。
+    @MainActor
+    static func writeTheme() {
+        let hex = AccentPalette.current.accentHex
+        let theme = Theme(accentLight: hex.light, accentDark: hex.dark)
+        guard theme != lastTheme,
+              let url = AppGroup.containerURL?.appending(path: "widget-theme.json"),
+              let data = try? JSONEncoder().encode(theme) else { return }
+        try? data.write(to: url, options: .atomic)
+        if lastTheme != nil { WidgetCenter.shared.reloadAllTimelines() }
+        lastTheme = theme
     }
 
     /// 写锁屏快照;内容和上次一样时不写盘,返回是否有变化。

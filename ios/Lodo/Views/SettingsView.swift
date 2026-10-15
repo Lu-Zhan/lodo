@@ -191,6 +191,8 @@ struct SettingsView: View {
                             let selected = accentPaletteRaw == palette.rawValue
                             Button {
                                 accentPaletteRaw = palette.rawValue
+                                // 桌面小组件(Chat)跟着换色。
+                                WidgetBridge.writeTheme()
                             } label: {
                                 VStack(spacing: 6) {
                                     Circle()

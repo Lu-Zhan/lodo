@@ -24,6 +24,37 @@ struct AirQualitySnapshot: Codable {
     var hourly: [Hour]
     var categoryTitles: [String]
     var labels: Labels
+    /// 天气(app 用 WeatherKit 查好写进来,小组件自己不查)。老快照没有。
+    var weather: Weather?
+
+    struct Weather: Codable {
+        struct Hour: Codable {
+            let date: Date
+            let temperature: Double
+            let symbol: String
+        }
+        let temperature: Double
+        let high: Double?
+        let low: Double?
+        let symbol: String
+        let condition: String
+        let hourly: [Hour]
+
+        /// 这一刻该显示的温度和图标:当前那份过了一小时就换成逐小时预报里这一小时的。
+        func now(at date: Date, fetchedAt: Date) -> (temperature: Double, symbol: String) {
+            guard date.timeIntervalSince(fetchedAt) > 3600,
+                  let hour = hourly.last(where: { $0.date <= date }) else { return (temperature, symbol) }
+            return (hour.temperature, hour.symbol)
+        }
+
+        /// 「23°」,单位按系统地区。
+        static func format(_ celsius: Double) -> String {
+            // 只写「23°」不带 C/F(同系统天气);美制地区换成华氏度。
+            let fahrenheit = Locale.current.measurementSystem == .us
+            let value = fahrenheit ? celsius * 9 / 5 + 32 : celsius
+            return "\(Int(value.rounded()))°"
+        }
+    }
 
     private static var url: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.lodo.app")?
@@ -114,7 +145,9 @@ struct AirQualitySnapshot: Codable {
                  aqi: [42, 45, 48, 52, 57, 63, 70, 78, 85, 92, 98, 104][$0 % 12])
         },
         categoryTitles: ["优", "良", "对敏感人群不健康", "不健康", "非常不健康", "危险"],
-        labels: Labels(title: "空气质量", disabled: "在 lodo 健康页开启空气质量"))
+        labels: Labels(title: "天气", disabled: "在 lodo 健康页开启天气与空气质量"),
+        weather: Weather(temperature: 23, high: 26, low: 17, symbol: "cloud.sun.fill",
+                         condition: "多云", hourly: []))
 }
 
 struct AirQualityEntry: TimelineEntry {
@@ -145,6 +178,8 @@ struct AirQualityProvider: TimelineProvider {
             let now = Date()
             // 现在一份,再按逐小时预报在接下来几个整点各放一份——没网也能跟着预报走。
             let hours = (snapshot?.hourly ?? []).map(\.date).filter { $0 > now }.prefix(6)
+                + (snapshot?.hourly.isEmpty ?? true
+                   ? (snapshot?.weather?.hourly ?? []).map(\.date).filter { $0 > now }.prefix(6) : [])
             let entries = ([now] + hours).map { AirQualityEntry(date: $0, snapshot: snapshot) }
             completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(3600))))
         }
@@ -153,6 +188,7 @@ struct AirQualityProvider: TimelineProvider {
 
 // MARK: - 视图
 
+/// 天气 + 空气质量。不再写主要污染物(用户要求去掉「PM2.5」那行说明)。
 struct AirQualityWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: AirQualityEntry
@@ -168,134 +204,189 @@ struct AirQualityWidgetView: View {
         .widgetURL(URL(string: "lodo://health"))
     }
 
+    private func current(_ snapshot: AirQualitySnapshot) -> (temperature: Double, symbol: String)? {
+        snapshot.weather?.now(at: entry.date, fetchedAt: snapshot.fetchedAt)
+    }
+
     @ViewBuilder
     private func content(_ snapshot: AirQualitySnapshot, aqi: Int) -> some View {
         switch family {
         case .accessoryCircular:
-            Gauge(value: Double(min(aqi, 300)), in: 0...300) {
-                Text("AQI")
-            } currentValueLabel: {
-                Text("\(aqi)")
+            if let now = current(snapshot) {
+                VStack(spacing: 0) {
+                    Image(systemName: now.symbol)
+                        .font(.title3)
+                        .symbolRenderingMode(.hierarchical)
+                    Text(AirQualitySnapshot.Weather.format(now.temperature))
+                        .font(.headline.monospacedDigit())
+                }
+                .widgetAccentable()
+                .containerBackground(.clear, for: .widget)
+            } else {
+                Gauge(value: Double(min(aqi, 300)), in: 0...300) {
+                    Text("AQI")
+                } currentValueLabel: {
+                    Text("\(aqi)")
+                }
+                .gaugeStyle(.accessoryCircular)
+                .widgetAccentable()
+                .containerBackground(.clear, for: .widget)
             }
-            .gaugeStyle(.accessoryCircular)
-            .widgetAccentable()
-            .containerBackground(.clear, for: .widget)
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 1) {
-                Label(snapshot.labels.title, systemImage: "aqi.medium")
-                    .font(.caption.weight(.semibold))
+                if let now = current(snapshot), let weather = snapshot.weather {
+                    HStack(spacing: 4) {
+                        Image(systemName: now.symbol)
+                        Text(AirQualitySnapshot.Weather.format(now.temperature))
+                            .font(.headline.monospacedDigit())
+                        Text(weather.condition)
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
                     .widgetAccentable()
+                    if let range = rangeText(weather) {
+                        Text(range).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Text("AQI \(aqi) · \(snapshot.title(aqi))")
+                    .font(.caption)
                     .lineLimit(1)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(aqi)")
-                        .font(.title3.weight(.semibold).monospacedDigit())
-                    Text(snapshot.title(aqi))
-                        .font(.caption)
-                        .lineLimit(1)
-                }
-                if let dominant = snapshot.dominant {
-                    Text(dominant)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .containerBackground(.clear, for: .widget)
         case .accessoryInline:
-            Text("AQI \(aqi) · \(snapshot.title(aqi))")
-                .containerBackground(.clear, for: .widget)
+            if let now = current(snapshot) {
+                Text("\(Image(systemName: now.symbol)) \(AirQualitySnapshot.Weather.format(now.temperature)) · AQI \(aqi)")
+                    .containerBackground(.clear, for: .widget)
+            } else {
+                Text("AQI \(aqi) · \(snapshot.title(aqi))")
+                    .containerBackground(.clear, for: .widget)
+            }
         case .systemMedium:
             HStack(spacing: 14) {
                 summary(snapshot, aqi: aqi)
-                Chart(snapshot.hourly, id: \.date) { point in
-                    BarMark(x: .value("时间", point.date, unit: .hour), y: .value("AQI", point.aqi))
-                        .foregroundStyle(AirQualitySnapshot.color(point.aqi))
-                        .cornerRadius(2)
-                }
-                .chartYAxis(.hidden)
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .hour, count: 6)) {
-                        AxisValueLabel(format: .dateTime.hour())
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(snapshot.title(aqi), systemImage: "aqi.medium")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Chart(snapshot.hourly, id: \.date) { point in
+                        BarMark(x: .value("时间", point.date, unit: .hour), y: .value("AQI", point.aqi))
+                            .foregroundStyle(AirQualitySnapshot.color(point.aqi))
+                            .cornerRadius(2)
+                    }
+                    .chartYAxis(.hidden)
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .hour, count: 6)) {
+                            AxisValueLabel(format: .dateTime.hour())
+                        }
                     }
                 }
             }
-            .containerBackground(.fill.tertiary, for: .widget)
+            .homeWidgetBackground()
         default:
             summary(snapshot, aqi: aqi)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .homeWidgetBackground()
         }
     }
 
+    /// 小号 / 中号左半:上面天气(图标、温度、状况、今天高低),下面一行空气质量。
     private func summary(_ snapshot: AirQualitySnapshot, aqi: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(snapshot.labels.title, systemImage: "aqi.medium")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+        VStack(alignment: .leading, spacing: 2) {
+            if let now = current(snapshot), let weather = snapshot.weather {
+                HStack(alignment: .top) {
+                    Text(AirQualitySnapshot.Weather.format(now.temperature))
+                        .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
+                        .minimumScaleFactor(0.6)
+                    Spacer(minLength: 0)
+                    Image(systemName: now.symbol)
+                        .font(.title2)
+                        .symbolRenderingMode(.multicolor)
+                }
+                Text(weather.condition)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                if let range = rangeText(weather) {
+                    Text(range)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Label(snapshot.labels.title, systemImage: "cloud.sun")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
             Spacer(minLength: 0)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(spacing: 6) {
                 Circle()
                     .fill(AirQualitySnapshot.color(aqi))
-                    .frame(width: 10, height: 10)
+                    .frame(width: 8, height: 8)
                     .overlay(Circle().strokeBorder(.primary.opacity(0.15), lineWidth: 0.5))
-                Text("\(aqi)")
-                    .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
-                    .minimumScaleFactor(0.6)
-            }
-            Text(snapshot.title(aqi))
-                .font(.subheadline.weight(.medium))
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-            if let dominant = snapshot.dominant {
-                Text(dominant)
+                Text("AQI \(aqi)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                Text(snapshot.title(aqi))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            if snapshot.weather != nil {
+                // WeatherKit 要求在显示天气数据的地方标出数据来源。
+                Text(verbatim: "\u{F8FF}Weather")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private func rangeText(_ weather: AirQualitySnapshot.Weather) -> String? {
+        guard let high = weather.high, let low = weather.low else { return nil }
+        return "↑\(AirQualitySnapshot.Weather.format(high)) ↓\(AirQualitySnapshot.Weather.format(low))"
+    }
+
     @ViewBuilder
     private var disabled: some View {
-        let text = "在 lodo 健康页开启空气质量"
+        let text = "在 lodo 健康页开启天气与空气质量"
         switch family {
         case .accessoryInline:
             Text("AQI —").containerBackground(.clear, for: .widget)
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
-                Image(systemName: "aqi.medium").font(.title3)
+                Image(systemName: "cloud.sun").font(.title3)
             }
             .containerBackground(.clear, for: .widget)
         case .accessoryRectangular:
             VStack(alignment: .leading) {
-                Label("空气质量", systemImage: "aqi.medium").font(.caption.weight(.semibold))
+                Label("天气", systemImage: "cloud.sun").font(.caption.weight(.semibold))
                 Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .containerBackground(.clear, for: .widget)
         default:
             VStack(alignment: .leading, spacing: 6) {
-                Label("空气质量", systemImage: "aqi.medium")
+                Label("天气", systemImage: "cloud.sun")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 Text(text).font(.subheadline)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .containerBackground(.fill.tertiary, for: .widget)
+            .homeWidgetBackground()
         }
     }
 }
 
-/// 空气质量:桌面(小/中)+ 锁屏(圆形/长条/一行字)同一个小组件。
+/// 天气(含空气质量):桌面(小/中)+ 锁屏(圆形/长条/一行字)同一个小组件。
+/// kind 仍是原来的 "LodoAirQuality",已经摆在桌面上的不会掉。
 struct AirQualityWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LodoAirQuality", provider: AirQualityProvider()) { entry in
             AirQualityWidgetView(entry: entry)
         }
-        .configurationDisplayName("空气质量")
-        .description("所在地此刻的美标 AQI 和今天逐小时的变化。")
+        .configurationDisplayName("天气")
+        .description("所在地此刻的天气、温度和空气质量(美标 AQI)。")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular,
                             .accessoryRectangular, .accessoryInline])
     }
