@@ -2,33 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- 定时任务(AIRoutine)的后台刷新:到点由系统唤醒 app 跑 AI 并推结果通知,
-	     标识符与 RoutineRunner.backgroundTaskID 一致。 -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.lodo.app.routine</string>
 	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<!-- 旅行共享的 CKSyncEngine 靠静默推送得知服务器上有变化。 -->
-		<string>remote-notification</string>
-	</array>
-	<!-- 允许接受 CloudKit 共享邀请(旅行共享,见 SharedTripSync)。 -->
-	<key>CKSharingSupported</key>
-	<true/>
-	<key>NSContactsUsageDescription</key>
-	<string>用于从通讯录导入联系人到记忆库,或将记忆库里的联系人导出到通讯录。</string>
-	<key>NSCameraUsageDescription</key>
-	<string>用于拍下菜单,在本机识别上面的文字后交给 AI 整理成菜品清单。</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>用于查询所在地的空气质量(只取约 1 公里精度的位置),以及定时任务里查询当地天气等信息。</string>
-	<!-- 只读健康数据(从不写入,所以不声明 NSHealthUpdateUsageDescription)。
-	     开关默认关,见 AppSettings.healthEnabled。 -->
-	<key>NSHealthShareUsageDescription</key>
-	<string>用于读取步数、睡眠、心率等数据,在本机汇总成健康趋势与建议;只有汇总统计会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备。</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>用于在日历页显示你日历里的日程、在你确认后修改它们,并(可选)把 lodo 的任务写进一本名为 lodo 的日历;开关默认关着,不开就一条也不读、不写。</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -39,6 +16,13 @@
 				<string>lodo</string>
 			</array>
 		</dict>
+	</array>
+	<key>CKSharingSupported</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

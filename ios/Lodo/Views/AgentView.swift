@@ -132,6 +132,10 @@ struct AgentView: View {
     /// AI 回的消息(思考中、回答、操作结果、提问卡……);往下一划清掉、回到只剩输入栏。
     /// 对话本身照旧落进 AI 页那条单一持续对话,这里只是只看这一截。
     @State private var inlineSessionStart: Date?
+    /// 刚收起的那一轮:收起后 1 分钟内再打开(点输入框或直接发送)就接着显示这一轮
+    /// 的对话,而不是从空白开始(用户要求)。各页的输入栏共用一份。
+    @MainActor private static var lastInlineSession: (start: Date, dismissedAt: Date)?
+    private static let inlineResumeWindow: TimeInterval = 60
     /// 往下划关闭时悬浮内容跟着手指往下走的距离。
     @State private var inlineDrag: CGFloat = 0
     /// 内联输入栏和悬浮内容的高度,给背后那层渐隐底定高。
@@ -681,6 +685,9 @@ struct AgentView: View {
         // (悬浮列表滚动着时除外,见 inlineDismissGesture)。
         .simultaneousGesture(inlineDismissGesture)
         .animation(.lodoAware(.snappy(duration: 0.25)), value: inlineSessionStart)
+        .onChange(of: isInputFocused) { _, focused in
+            if focused { resumeInlineSessionIfRecent() }
+        }
     }
 
     private func inlineFloating(since: Date) -> some View {
@@ -779,11 +786,24 @@ struct AgentView: View {
     /// AI 页那条对话,去那里能看到。
     private func dismissInline() {
         isInputFocused = false
+        if let start = inlineSessionStart {
+            Self.lastInlineSession = (start, Date())
+        }
         withAnimation(.lodoAware(.snappy(duration: 0.25))) {
             inlineSessionStart = nil
         }
         inlineDrag = 0
         inlineFloatingHeight = 0
+    }
+
+    /// 收起不到 1 分钟时接回刚才那一轮。
+    private func resumeInlineSessionIfRecent() {
+        guard presentation == .inline, inlineSessionStart == nil,
+              let last = Self.lastInlineSession,
+              Date().timeIntervalSince(last.dismissedAt) < Self.inlineResumeWindow else { return }
+        withAnimation(.lodoAware(.snappy(duration: 0.25))) {
+            inlineSessionStart = last.start
+        }
     }
 
     // MARK: - ReAct 中间步骤的轻量提示
@@ -896,7 +916,8 @@ struct AgentView: View {
         .padding(.horizontal)
         .padding(.top, 8)
         // 各页底部那条和原来「问问 AI」胶囊的位置一致,不把页面内容多顶上去一截。
-        .padding(.bottom, presentation == .inline ? 8 : 18)
+        // AI 页弹键盘时和「问问 AI」一样离键盘 8pt(用户要求对齐),平时仍离底边 18。
+        .padding(.bottom, presentation == .inline || isInputFocused ? 8 : 18)
     }
 
     /// 输入栏控件行的固定高度，与展示页底部「问问 AI」胶囊一致。
@@ -933,7 +954,7 @@ struct AgentView: View {
         } label: {
             Image(systemName: "chevron.down")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(lodoAccent.accent)
                 .frame(width: Self.composerControlSize, height: Self.composerControlSize)
                 .glassBackground(Circle())
                 .hitTarget(visualSize: Self.composerControlSize)
@@ -1853,7 +1874,8 @@ struct AgentView: View {
         busy = true
         // 内联模式:第一句发出去就开始一轮,之后 AI 回的都悬浮在输入栏上方。
         if presentation == .inline, inlineSessionStart == nil {
-            inlineSessionStart = Date()
+            resumeInlineSessionIfRecent()
+            if inlineSessionStart == nil { inlineSessionStart = Date() }
         }
         // 上一次的报错不该跨过这次发送继续挂在输入栏上面。语音那条尤其要在这里清:
         // SpeechInput 自己只在重新开始录音时清 errorText,不再开麦就一直留着。
@@ -2621,10 +2643,9 @@ private struct AgentMessageListView: View {
             .defaultScrollAnchor(.bottom)
             // 可视区域变矮(键盘弹起)时仍贴着底部,最后一条跟着输入栏一起往上走。
             .keepsBottomOnSizeChanges()
-            // sheet 是独立呈现宿主,根上那次 softTopScrollEdgeTransition 不一定传得进来,
-            // 这里自己挂一次:消息滚进导航栏时同样是柔和渐隐。
-            .softTopScrollEdgeTransition()
-            .hidesScrollEdgeEffects(isInline)
+            // AI 页顶部(导航栏)和底部(输入栏)背后也不要系统的滚动边缘效果,
+            // 消息直接从透明的标题和输入栏背后滚过去(用户要求)。
+            .hidesScrollEdgeEffects(true)
             .onChange(of: messages.count) { _, _ in
                 // 回复落库后(AI 页和各页的悬浮对话都一样)最后一条的底边贴着输入栏顶,
                 // 也就是键盘上方那截(用户要求)。

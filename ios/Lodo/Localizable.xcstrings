@@ -5049,16 +5049,6 @@
         }
       }
     },
-    "加入行程" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add to Trip"
-          }
-        }
-      }
-    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -6558,6 +6548,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加入的共享台账 · %lld 项"
+          }
+        }
+      }
+    },
+    "加入行程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to Trip"
           }
         }
       }
@@ -13106,7 +13106,11 @@
         }
       }
     },
+    "提醒设置" : {
+
+    },
     "提醒设置…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14971,6 +14975,7 @@
       }
     },
     "未开启" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -337,6 +337,9 @@ struct SettingsView: View {
             }
             #endif
             .pageTitle("设置")
+            // 设置是 sheet(独立呈现宿主),根上那次柔和渐隐传不进来,自己挂一次:
+            // 滚进标题栏的内容同 AI 页一样渐变消隐(用户要求)。
+            .softTopScrollEdgeTransition()
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
