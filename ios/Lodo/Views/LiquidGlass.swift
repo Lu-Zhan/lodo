@@ -72,6 +72,17 @@ extension View {
         }
     }
 
+    /// 可视区域变高变矮(键盘弹起/收起、输入栏长高)时贴着底部:最后一条的底边
+    /// 跟着键盘顶上那截输入栏一起走,而不是等键盘停稳再跳一下。iOS 18 起才有。
+    @ViewBuilder
+    func keepsBottomOnSizeChanges() -> some View {
+        if #available(iOS 18.0, macOS 15.0, *) {
+            defaultScrollAnchor(.bottom, for: .sizeChanges)
+        } else {
+            self
+        }
+    }
+
     /// 去掉上下两头的滚动边缘效果:「问问 AI」悬浮的回复列表背后有自己那层渐隐底,
     /// 系统再在列表上下沿各糊一道,看上去就是两条硬边的色带。
     @ViewBuilder

@@ -141,6 +141,7 @@ struct AgentView: View {
     @State private var inlineListAtTop = true
     @State private var inlineDragAllowed: Bool?
     @Environment(\.agentInlineRoom) private var inlineRoom
+    @Environment(\.agentInlineTopInset) private var inlineTopInset
 
     /// @State 属性都是 private,合成的 memberwise init 会跟着降级成 private、
     /// 别的文件用不了,所以显式写一个。
@@ -637,7 +638,9 @@ struct AgentView: View {
             if inlineSessionStart != nil || isInputFocused {
                 // 拉起来之后差不多铺满整页(页面在输入栏上方剩多高就铺多高),
                 // 不知道页面高度时退回按悬浮内容的高度。
-                let fade = inlineBarHeight + (inlineRoom ?? inlineFloatingHeight + 56)
+                // 再加上页面顶部的安全区(导航栏 + 状态栏),一路淡到屏幕顶端。
+                let fade = inlineBarHeight + (inlineRoom.map { $0 + inlineTopInset }
+                                              ?? inlineFloatingHeight + 56)
                 inlineScrim(fadeHeight: fade)
                     .offset(y: -(fade - inlineBarHeight))
                     .allowsHitTesting(false)
@@ -703,12 +706,14 @@ struct AgentView: View {
     }
 
     /// 内联对话条背后那层渐隐底:底部是页面底色、往上渐渐透明。
-    /// 页面底色按渐变遮罩;底下 0.3 以内接近实色,输入栏和回复压得住页面内容。
+    /// 页面底色按渐变遮罩,底部实色、往上越来越淡,到屏幕顶端完全透明。
     private func inlineScrim(fadeHeight: CGFloat) -> some View {
+        // 从输入栏底边到屏幕顶端一路均匀变淡(用户要求),不在中段突然掉透明度。
         let mask = LinearGradient(stops: [
             .init(color: .black, location: 0),
-            .init(color: .black.opacity(0.75), location: 0.3),
-            .init(color: .black.opacity(0.3), location: 0.7),
+            .init(color: .black.opacity(0.8), location: 0.2),
+            .init(color: .black.opacity(0.55), location: 0.45),
+            .init(color: .black.opacity(0.25), location: 0.75),
             .init(color: .clear, location: 1),
         ], startPoint: .bottom, endPoint: .top)
         // 不用模糊材质:悬浮列表(UIScrollView)范围里材质会被再合成一遍,在列表
@@ -907,12 +912,13 @@ struct AgentView: View {
 
     /// 各页「问问 AI」启用时(正在打字或这一轮开着)最右边那颗玻璃圆:收起键盘、
     /// 关掉这一轮悬浮对话——往下划之外的显式入口(2026-10,用户要求)。
+    /// 图标是朝下的箭头(用户要求):和"往下一划收起"是同一个方向,不是取消/删除。
     /// 和 + 号同样的写法:glassBackground 而不是 .glassButton(),尺寸才和同排一致。
     private var inlineCloseButton: some View {
         Button {
             dismissInline()
         } label: {
-            Image(systemName: "xmark")
+            Image(systemName: "chevron.down")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: Self.composerControlSize, height: Self.composerControlSize)
@@ -2600,20 +2606,16 @@ private struct AgentMessageListView: View {
             // scrollTo 是兜底:LazyVStack 首帧还没把最后一条建出来时,单靠
             // scrollTo 会落空。
             .defaultScrollAnchor(.bottom)
+            // 可视区域变矮(键盘弹起)时仍贴着底部,最后一条跟着输入栏一起往上走。
+            .keepsBottomOnSizeChanges()
             // sheet 是独立呈现宿主,根上那次 softTopScrollEdgeTransition 不一定传得进来,
             // 这里自己挂一次:消息滚进导航栏时同样是柔和渐隐。
             .softTopScrollEdgeTransition()
             .hidesScrollEdgeEffects(isInline)
-            .onChange(of: messages.count) { old, new in
-                // 内联模式地方小(旅行面板半高时只剩一百多点):回复落库后停在这次新增的
-                // 第一条 AI 回复的**顶上**,「已完成 ›」和回复开头先露出来,往下滚看全文。
-                // (内联列表不含用户消息,`messages` 新的在前,新增的就是前 new-old 条。)
-                if isInline, new > old, messages.indices.contains(new - old - 1) {
-                    let first = messages[new - old - 1]
-                    withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(first.uuid, anchor: .top) }
-                } else if let last = messages.first {
-                    withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }
-                }
+            .onChange(of: messages.count) { _, _ in
+                // 回复落库后(AI 页和各页的悬浮对话都一样)最后一条的底边贴着输入栏顶,
+                // 也就是键盘上方那截(用户要求)。
+                withAnimation(.lodoAware(.snappy)) { scrollToBottom(proxy) }
             }
             // 流式期间一直贴着底,新吐出来的字不会被输入栏挡住。不带动画:
             // 每隔 80ms 就来一次,叠动画会一路抖。
@@ -2627,18 +2629,22 @@ private struct AgentMessageListView: View {
                 proxy.scrollTo(Self.streamingID, anchor: .bottom)
             }
             .onAppear {
-                if let last = messages.first { proxy.scrollTo(last.uuid, anchor: .bottom) }
+                scrollToBottom(proxy)
                 onPendingAskChange(hasPendingAsk)
             }
-            // 键盘弹起时贴回底部。宽屏的系统侧边栏布局走系统键盘让位,滚动位置不会跟着挪,
-            // 最后一条会压在键盘和输入栏后面(实测过);窄屏抽屉把键盘当 safeAreaInset
-            // 补给页面、本来守得住,这里多滚一次也无害。(不用 onGeometryChange 量可视
-            // 高度:那个要 iOS 18,部署目标是 17。)
+            // 键盘弹起/换高度时,最后一个气泡的底边贴回键盘顶上的输入栏(用户要求)。
+            // 宽屏的系统侧边栏布局走系统键盘让位,滚动位置不会跟着挪,最后一条会压在
+            // 键盘和输入栏后面(实测过)。WillChangeFrame 跟着键盘动画一起滚,
+            // DidShow 等键盘停稳再对一次。(不用 onGeometryChange 量可视高度:那个要
+            // iOS 18,部署目标是 17;iOS 18 起另有 keepsBottomOnSizeChanges 兜着。)
             #if os(iOS)
             .onReceive(NotificationCenter.default.publisher(
+                for: UIResponder.keyboardWillChangeFrameNotification)) { _ in
+                withAnimation(.lodoAware(.snappy)) { scrollToBottom(proxy) }
+            }
+            .onReceive(NotificationCenter.default.publisher(
                 for: UIResponder.keyboardDidShowNotification)) { _ in
-                guard let last = messages.first else { return }
-                withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(last.uuid, anchor: .bottom) }
+                withAnimation(.lodoAware(.snappy)) { scrollToBottom(proxy) }
             }
             #endif
             .onChange(of: hasPendingAsk) { _, pending in onPendingAskChange(pending) }
@@ -2657,6 +2663,18 @@ private struct AgentMessageListView: View {
                 .glassBackground(Capsule())
         } else {
             indicator
+        }
+    }
+
+    /// 滚到真正排在最后的那一项的底边:流式预览 > 思考中那行 > 最后一条消息。
+    /// 只滚到最后一条消息的话,后面那行思考中/流式预览会压在输入栏后面。
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        if streamingAnswer != nil {
+            proxy.scrollTo(Self.streamingID, anchor: .bottom)
+        } else if thinking != nil {
+            proxy.scrollTo(Self.thinkingID, anchor: .bottom)
+        } else if let last = messages.first {
+            proxy.scrollTo(last.uuid, anchor: .bottom)
         }
     }
 

@@ -712,6 +712,19 @@ extension EnvironmentValues {
     }
 }
 
+private struct AgentInlineTopInsetKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    /// 所在页面顶部的安全区高度(导航栏 + 状态栏)。「问问 AI」背后那层渐隐底
+    /// 按它一路铺到屏幕顶端,不在导航栏底下截住。
+    var agentInlineTopInset: CGFloat {
+        get { self[AgentInlineTopInsetKey.self] }
+        set { self[AgentInlineTopInsetKey.self] = newValue }
+    }
+}
+
 extension EnvironmentValues {
     /// 消息悬浮在别的页面上(各页底部「问问 AI」的内联模式),背后没有聊天页的底色。
     var agentFloatsOverPage: Bool {

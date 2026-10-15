@@ -18,21 +18,29 @@ private struct AskBarModifier: ViewModifier {
     @State private var prefill: String?
     /// 页面在输入栏上方还剩多高,悬浮内容按它封顶(见 `agentInlineRoom`)。
     @State private var room: CGFloat?
+    /// 页面顶部安全区(导航栏 + 状态栏),渐隐底铺到屏幕顶端用。
+    @State private var topInset: CGFloat = 0
 
     func body(content: Content) -> some View {
         content
             .background {
                 GeometryReader { geo in
-                    let height = geo.size.height - geo.safeAreaInsets.bottom
+                    // geo.size 已经是安全区以内的高度(底部安全区含输入栏本身和键盘),
+                    // 再减一次 safeAreaInsets.bottom 会重复扣:键盘一弹起就只剩负数,
+                    // 悬浮对话被压到最小 120pt(实测)。
+                    let height = geo.size.height
+                    let top = geo.safeAreaInsets.top
                     Color.clear
-                        .onAppear { room = height }
+                        .onAppear { room = height; topInset = top }
                         .onChange(of: height) { _, new in room = new }
+                        .onChange(of: top) { _, new in topInset = new }
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if isVisible {
                     composer
                         .environment(\.agentInlineRoom, room)
+                        .environment(\.agentInlineTopInset, topInset)
                 }
             }
     }
