@@ -21,19 +21,25 @@ extension View {
 }
 
 /// 带条目的结果回复(新建/修改待办、收藏、倒数日、旅行调整)的统一形态:和 AI 普通
-/// 回复(`AgentAnswerCard`)**同一个气泡**——同样的玻璃底、同样以 ✨ 开头的一句话
+/// 回复(`AgentAnswerCard`)**同一个气泡**——同样的玻璃底、同样的一句话开头
 /// (「已新建」「已修改」……),条目列在这句话下面、**不垫任何底色**(用户要求,
 /// 2026-09):原来"玻璃卡里套灰卡"那一层去掉了,一条回复就是一个气泡。
 struct AgentResultReply<Items: View>: View {
     let status: Text
-    /// 句首图标;默认同普通回复的 sparkles。
-    var systemImage: String = "sparkles"
+    /// 句首图标;默认没有(同普通回复,AI 气泡左上角不挂 ✨)。
+    var systemImage: String? = nil
     @ViewBuilder let items: () -> Items
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label { status } icon: { Image(systemName: systemImage) }
-                .font(.body)
+            Group {
+                if let systemImage {
+                    Label { status } icon: { Image(systemName: systemImage) }
+                } else {
+                    status
+                }
+            }
+            .font(.body)
             items()
         }
         .agentCard()
@@ -407,7 +413,7 @@ struct AgentMessageBubble: View {
         // AI 自己记的、不是自己刚收藏的——用 sparkles 图标 + 不同文案区分。
         AgentResultReply(status: Text(localizedSystemStatus),
                          systemImage: resultMemoryItem?.isAutoRecorded == true
-                            ? "sparkles" : "bookmark.circle") {
+                            ? nil : "bookmark.circle") {
             if let item = resultMemoryItem {
                 HStack(spacing: 8) {
                     HStack(alignment: .top, spacing: 10) {
@@ -645,13 +651,9 @@ struct AgentAnswerCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             // 回复是 Markdown 时按 Markdown 渲染(标题/列表/表格…,见 MarkdownView);
-            // 一段普通的话照旧是一段字。Label 自定义标题,✨ 仍对齐第一行。
-            Label {
-                MarkdownView(text: text)
-            } icon: {
-                Image(systemName: "sparkles")
-            }
-            .font(.body)
+            // 一段普通的话照旧是一段字。左上角不再挂 ✨(用户要求,2026-10)。
+            MarkdownView(text: text)
+                .font(.body)
             ForEach(relatedTitles, id: \.self) { title in
                 Label(title, systemImage: "bookmark.circle")
                     .font(.subheadline)

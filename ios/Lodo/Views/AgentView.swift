@@ -120,6 +120,8 @@ struct AgentView: View {
     @Environment(\.sidebarChrome) private var sidebarChrome
     @Environment(\.sectionIsActive) private var sectionIsActive
     @State private var showPhotoPicker = false
+    /// 「附件 › 拍照」:全屏系统相机,拍完当一张照片附件(同相册选的那条路)。
+    @State private var showCamera = false
     @State private var photoSelection: [PhotosPickerItem] = []
     /// 点了输入卡片里的某张缩略图:非 nil 时全屏打开大图查看,值是起始那张的 id。
     @State private var viewingImage: ImageViewerTarget?
@@ -329,6 +331,10 @@ struct AgentView: View {
             }
         }
         #if os(iOS)
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraPicker { data in handlePickedImage(data) }
+                .ignoresSafeArea()
+        }
         .fullScreenCover(item: $viewingImage) { target in
             AgentImageViewer(images: pendingImages, initialID: target.id)
         }
@@ -962,21 +968,36 @@ struct AgentView: View {
     /// 命中区仍用 hitTarget 补到 HIG 的 44pt(外观不变)。
     private var attachButton: some View {
         Menu {
-            Button {
-                showPhotoPicker = true
+            // 第一行只露「附件 ›」,照片/拍照/文件/记忆库收在里面(用户要求)。
+            Menu {
+                #if os(iOS)
+                if CameraPicker.isAvailable {
+                    Button {
+                        showCamera = true
+                    } label: {
+                        Label("拍照", systemImage: "camera")
+                    }
+                    .disabled(remainingPhotoSlots == 0)
+                }
+                #endif
+                Button {
+                    showPhotoPicker = true
+                } label: {
+                    Label("照片", systemImage: "photo")
+                }
+                .disabled(remainingPhotoSlots == 0)
+                Button {
+                    showFileImporter = true
+                } label: {
+                    Label("文件", systemImage: "doc")
+                }
+                Button {
+                    showMemoryPicker = true
+                } label: {
+                    Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
+                }
             } label: {
-                Label("照片", systemImage: "photo")
-            }
-            .disabled(remainingPhotoSlots == 0)
-            Button {
-                showFileImporter = true
-            } label: {
-                Label("文件", systemImage: "doc")
-            }
-            Button {
-                showMemoryPicker = true
-            } label: {
-                Label("从记忆库选择", systemImage: "sparkles.rectangle.stack")
+                Label("附件", systemImage: "paperclip")
             }
             // app 里已有的条目:不新建记忆,只把它现在的内容随这条消息发出去。
             Menu {
@@ -2455,6 +2476,12 @@ private struct AgentMessageListView: View {
     /// 换页(.id(historyWindow))时会连带 @State 一起重建、把它推到"点载入更早
     /// 那一刻",但载进来的都是更老的消息,照样不播,所以不用额外重置逻辑。
     @State private var typingBaseline = Date()
+    /// 往左划露出每条消息的时间(参考 iOS 信息):整列跟着手指左移,右边露出时间,
+    /// 松手弹回。0 = 收着,-timeRevealWidth = 全露。
+    @State private var timeReveal: CGFloat = 0
+    /// 这一次拖动认定的方向:nil = 还没定,true = 横向(露时间),false = 竖向(滚列表)。
+    @State private var revealAxisIsHorizontal: Bool?
+    static let timeRevealWidth: CGFloat = 64
     /// 内联模式量出来的内容高度(ScrollView 自己不随内容收缩)。
     @State private var contentHeight: CGFloat = 0
     private var isInline: Bool { since != nil }
@@ -2519,6 +2546,48 @@ private struct AgentMessageListView: View {
         _messages = Query(descriptor)
     }
 
+    /// 时间标签挂在气泡右边、初始整块在视野外,随 timeReveal 一起移进来。
+    /// 今天的只写时刻,更早的上面再写一行日期。
+    private func timestamp(_ date: Date) -> some View {
+        let locale = AppSettings.language.locale
+        let progress = min(1, -timeReveal / Self.timeRevealWidth)
+        return VStack(alignment: .trailing, spacing: 1) {
+            if !Calendar.current.isDateInToday(date) {
+                Text(date.formatted(.dateTime.month(.defaultDigits).day().locale(locale)))
+            }
+            Text(date.formatted(.dateTime.hour().minute().locale(locale)))
+        }
+        .font(.caption2)
+        .monospacedDigit()
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .frame(width: Self.timeRevealWidth, alignment: .trailing)
+        .offset(x: Self.timeRevealWidth + timeReveal)
+        .opacity(progress)
+        .accessibilityHidden(true)
+    }
+
+    /// 横向拖动才接管(起手先判方向,竖着拖照常滚列表);只认往左,
+    /// 超过全露的部分加阻尼;松手弹回。和 ScrollView 的滚动同时识别,不抢手势。
+    private var timeRevealGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                let dx = value.translation.width, dy = value.translation.height
+                if revealAxisIsHorizontal == nil {
+                    revealAxisIsHorizontal = abs(dx) > abs(dy)
+                }
+                guard revealAxisIsHorizontal == true else { return }
+                let pull = min(0, dx)
+                let limit = -Self.timeRevealWidth
+                timeReveal = pull >= limit ? pull : limit + (pull - limit) * 0.25
+            }
+            .onEnded { _ in
+                revealAxisIsHorizontal = nil
+                guard timeReveal != 0 else { return }
+                withAnimation(.lodoAware(.snappy(duration: 0.3))) { timeReveal = 0 }
+            }
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -2551,6 +2620,12 @@ private struct AgentMessageListView: View {
                             onQuote: { onQuote(message) },
                             onEdit: { onEdit(message) },
                             typingBaseline: typingBaseline)
+                        .offset(x: timeReveal)
+                        .overlay(alignment: .trailing) {
+                            if message.kind != .compaction {
+                                timestamp(message.createdAt)
+                            }
+                        }
                         .id(message.uuid)
                     }
                     // 思考中那行和流式预览排在最后一条之后,在滚动流里、和 AI 气泡
@@ -2600,6 +2675,7 @@ private struct AgentMessageListView: View {
                        alignment: .bottom)
             }
             .coordinateSpace(name: Self.scrollSpace)
+            .simultaneousGesture(timeRevealGesture)
             // 内联模式:高度随内容,封顶之后才滚;内容不满一屏时也不弹跳。
             .frame(height: isInline ? (inlineRoom != nil ? inlineMaxHeight : min(contentHeight, inlineMaxHeight)) : nil)
             // 顶上透明渐隐,不是一条带底色的边。**只在内联时挂 mask**:AI 页上挂一层
