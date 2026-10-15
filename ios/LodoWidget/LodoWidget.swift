@@ -220,6 +220,8 @@ struct LodoWidget: Widget {
 struct LodoWidgetBundle: WidgetBundle {
     var body: some Widget {
         LodoWidget()
+        // 桌面 1×1「Chat」:上胶囊进 AI 助手,左下总览,右下语音输入。
+        ChatWidget()
         // 锁屏:1×1 AI 助手;1×2 今日 / 重要的事 / 倒数日。
         AgentLockWidget()
         TodayLockWidget()

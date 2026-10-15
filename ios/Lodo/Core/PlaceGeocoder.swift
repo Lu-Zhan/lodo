@@ -152,6 +152,34 @@ enum PlaceGeocoder {
         return OSMGeocode.parse(data)
     }
 
+    /// 旅行地图上长按放下的那个点叫什么:先问苹果(国内地点),查不到再问 Nominatim
+    /// (国外地点——国内网络上苹果反查国外坐标一律报错)。返回(名字, 地址),都可能为空;
+    /// 一个名字都没有时返回 nil,由调用方让用户自己填。只发坐标。
+    static func placeName(at coordinate: CLLocationCoordinate2D) async -> (name: String, address: String)? {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        if let placemark = try? await CLGeocoder().reverseGeocodeLocation(location).first {
+            let name = placemark.areasOfInterest?.first ?? placemark.name ?? ""
+            let address = [placemark.locality, placemark.subLocality, placemark.thoroughfare]
+                .compactMap { $0 }.joined(separator: " ")
+            if !name.isEmpty { return (name, address) }
+        }
+        guard let url = OSMGeocode.reverseURL(
+            latitude: coordinate.latitude, longitude: coordinate.longitude,
+            language: UserDefaults.standard.string(forKey: AppSettings.languageKey) == AppLanguage.en.rawValue
+                ? "en" : "zh") else { return nil }
+        // 和搜索共用同一个每秒 1 次的限速(Nominatim 使用规定)。
+        let wait = 1.1 - Date().timeIntervalSince(lastOSMRequest)
+        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        lastOSMRequest = Date()
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("lodo/1.0 (https://github.com/Lu-Zhan/lodo)", forHTTPHeaderField: "User-Agent")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let place = OSMGeocode.parseReverse(data), !place.name.isEmpty else { return nil }
+        return (place.name, place.displayName)
+    }
+
     /// 一个坐标落在哪个国家/地区(ISO 码),查不到返回 nil。
     ///
     /// 用来验已经存进库里的坐标:反查得到的国家和这趟旅行对不上就说明当初搜岔了。

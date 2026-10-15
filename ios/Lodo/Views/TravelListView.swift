@@ -11,6 +11,9 @@ struct TravelListView: View {
     /// 非 nil 时 push 进这次旅行的详情页(AI 对话里那条跳转小条,经外壳的
     /// `ItemNavigator` 递进来),消费后置回 nil。
     @Binding var openTripRequest: UUID?
+    /// 在侧栏里点了「旅行」:正处在某次旅行的日期里时直接进那次旅行的详情页
+    /// (旅行中最常看的就是那一趟,不用每次再从列表点进去)。消费后置回 false。
+    @Binding var openOngoingRequest: Bool
 
     @Environment(\.modelContext) private var context
     @Query(sort: [SortDescriptor(\TravelTrip.startDate, order: .reverse)])
@@ -93,8 +96,9 @@ struct TravelListView: View {
             // 构建的(没打开过的页面不构建,见 AppShellView.visited),那一下不会走
             // onChange。
             .onChange(of: openTripRequest) { _, _ in consumeOpenRequest() }
-            .onAppear { consumeOpenRequest() }
-            .onChange(of: trips.count) { _, _ in consumeOpenRequest() }
+            .onAppear { consumeOpenRequest(); consumeOngoingRequest() }
+            .onChange(of: trips.count) { _, _ in consumeOpenRequest(); consumeOngoingRequest() }
+            .onChange(of: openOngoingRequest) { _, _ in consumeOngoingRequest() }
             .alert("删除这次旅行?", isPresented: Binding(
                 get: { pendingDelete != nil },
                 set: { if !$0 { pendingDelete = nil } }
@@ -137,6 +141,19 @@ struct TravelListView: View {
         // 已经站在这次旅行的详情页上就什么都不用做;站在别的二级页上要换过去,
         // 所以整条 path 直接换掉而不是 append。
         guard path.last?.uuid != uuid else { return }
+        path = [trip]
+    }
+
+    /// 侧栏点「旅行」时:有进行中的旅行、并且这一页还停在列表上,就进那次旅行
+    /// (同时有几次进行中的,进最早出发的那次)。已经在看某次旅行的详情就不打断。
+    private func consumeOngoingRequest() {
+        guard openOngoingRequest else { return }
+        // 冷启动时 @Query 可能还没取到数据,同 consumeOpenRequest:先留着。
+        guard !trips.isEmpty else { return }
+        openOngoingRequest = false
+        guard path.isEmpty, openTripRequest == nil,
+              let trip = trips.filter({ $0.isOngoing() }).min(by: { $0.startDate < $1.startDate })
+        else { return }
         path = [trip]
     }
 

@@ -39,6 +39,13 @@ struct TravelDetailView: View {
     @State private var viewingFlight: MemoryItem?
     @State private var addingItem = false
     @State private var addingDate: Date = .now
+    /// 从地图上选中的位置新建行程项时预填的内容(见 placeCandidate)。表单收起时清掉。
+    @State private var addingPrefill: TravelPlacePrefill?
+    /// 地图上选中、还没加进行程的那个位置:点了系统地图上的地点(iOS 18 起),
+    /// 或者长按地图放下的点。地图顶上挂一张卡片,点「加入行程」打开预填好的新建表单。
+    @State private var placeCandidate: MapPlaceCandidate?
+    /// 点中的系统地图地点(iOS 18 起地图选中可以是自己的标记,也可以是系统 POI)。
+    @State private var selectedFeature: MapFeature?
     @State private var importing = false
     @State private var editingTrip = false
     /// 底部行程面板。页面出现时弹出、离开时收回(返回上一页前必须先收掉)。
@@ -466,8 +473,8 @@ struct TravelDetailView: View {
     /// 不能同时弹两张 sheet)。
     private func panelSheets(_ content: some View) -> some View {
         content
-        .sheet(isPresented: $addingItem) {
-            TravelItemEditView(tripUUID: trip.uuid, defaultDate: addingDate)
+        .sheet(isPresented: $addingItem, onDismiss: { addingPrefill = nil }) {
+            TravelItemEditView(tripUUID: trip.uuid, defaultDate: addingDate, prefill: addingPrefill)
         }
         .sheet(item: $editingItem) { item in
             TravelItemEditView(tripUUID: trip.uuid, existing: item)
@@ -558,6 +565,19 @@ struct TravelDetailView: View {
         // 截图验证用:simctl 点不了右上角菜单,直接跑一遍「刷新地点位置」(真发网络请求)。
         if args.contains("--demo-travel-relocate") { relocate() }
         if args.contains("--demo-travel-add") { addingItem = true }
+        // 截图验证用:simctl 长按不了地图,在第一个地点旁边放一个点(真发反查地名),
+        // 带 -add 再接着点「加入行程」。
+        if args.contains("--demo-travel-drop-pin"),
+           let near = entries.first(where: { $0.coordinate != nil && $0.kind == .place })?.coordinate {
+            dropCandidate(at: CLLocationCoordinate2D(latitude: near.latitude - 0.03,
+                                                     longitude: near.longitude - 0.03))
+            if args.contains("--demo-travel-drop-pin-add") {
+                Task {
+                    try? await Task.sleep(for: .seconds(4))
+                    if let candidate = placeCandidate { addCandidateToTrip(candidate) }
+                }
+            }
+        }
         if args.contains("--demo-travel-import") { importing = true }
         // 截图验证用:simctl 点不了行,直接打开第一条非航班项的详情 / 编辑旅行。
         if args.contains("--demo-travel-item") {
@@ -959,58 +979,199 @@ struct TravelDetailView: View {
     /// 每天把当天的地点按时间连起来,一天一个颜色。开着「显示路线」时每一段用
     /// `MKDirections` 规划真实路线(`TravelRouteLoader`),规划不出来的那段退回虚线直线;
     /// 关掉就全部画直线。
+    ///
+    /// 地图上可以直接挑地方加进行程:iOS 18 起点系统地图上的地点(餐馆、景点这些 POI),
+    /// 任何版本都可以长按地图放一个点;地图顶上出一张卡片,「加入行程」打开预填好的表单。
     private var mapLayer: some View {
-        Map(position: $camera, selection: $selectedPin, scope: mapScope) {
-            // 以 renderKey(id + 坐标)做标识:刷新地点位置后同一个点换了坐标,
-            // 按 id 不变的话不保证 MapKit 会把标记挪过去。选中仍按 tag(pin.id)。
-            ForEach(mapPins(for: mapDay), id: \.renderKey) { pin in
-                Marker(pin.title, systemImage: pin.systemImage, coordinate: pin.coordinate)
-                    .tint(pin.color)
-                    .tag(pin.id)
+        MapReader { proxy in
+            tripMap
+                .simultaneousGesture(dropPinGesture(proxy))
+                // 指南针不放在这里:系统会按需要把它藏起来、位置也不固定。它固定摆在右上角
+                // (mapOverlays 里,和左侧按天胶囊顶部对齐)。
+                .mapControls {
+                    MapScaleView()
+                }
+                // 地图铺满整屏(忽略安全区),所以它的中心就是屏幕中央那枚针的针尖。
+                // 只在拖动/缩放停下时取(.onEnd):连续取会让整页每帧重算一遍,确认只要停下那一刻的值。
+                .onMapCameraChange(frequency: .onEnd) { context in
+                    mapCenter = context.region.center
+                }
+                .onAppear { focusCamera(animated: false) }
+                .onChange(of: mapDay) { _, _ in
+                    if let pin = pendingPin.flatMap({ id in mapPins(for: nil).first { $0.id == id } }) {
+                        pendingPin = nil
+                        selectedPin = pin.id
+                        focus(on: [pin], animated: true)
+                    } else {
+                        selectedPin = nil
+                        focusCamera(animated: true)
+                    }
+                }
+                // 直接点地图上的点也一样飞过去(和点列表里那一行同一个效果)。
+                .onChange(of: selectedPin) { _, id in
+                    guard let id, let pin = mapPins(for: nil).first(where: { $0.id == id }) else { return }
+                    focus(on: [pin], animated: true)
+                }
+                .onChange(of: panelDetent) { _, _ in
+                    // 放针模式里镜头归用户(针尖对着哪儿就是哪儿),不自动取景。
+                    guard pinningEntry == nil else { return }
+                    // 面板高度变了,露出来的那截地图也变了,重新取一次景。
+                    if let id = selectedPin, let pin = mapPins(for: nil).first(where: { $0.id == id }) {
+                        focus(on: [pin], animated: true)
+                    } else {
+                        focusCamera(animated: true)
+                    }
+                }
+        }
+    }
+
+    /// 地图本体。iOS 18 起选中值换成 `MapSelection`,系统地图上的地点也能点中;
+    /// 更早的系统只能选自己的标记(地方靠长按放点)。
+    @ViewBuilder
+    private var tripMap: some View {
+        if #available(iOS 18.0, macOS 15.0, *) {
+            Map(position: $camera, selection: featureAwareSelection, scope: mapScope) { mapContent }
+        } else {
+            Map(position: $camera, selection: $selectedPin, scope: mapScope) { mapContent }
+        }
+    }
+
+    @MapContentBuilder
+    private var mapContent: some MapContent {
+        // 以 renderKey(id + 坐标)做标识:刷新地点位置后同一个点换了坐标,
+        // 按 id 不变的话不保证 MapKit 会把标记挪过去。选中仍按 tag(pin.id)。
+        ForEach(mapPins(for: mapDay), id: \.renderKey) { pin in
+            Marker(pin.title, systemImage: pin.systemImage, coordinate: pin.coordinate)
+                .tint(pin.color)
+                .tag(pin.id)
+        }
+        ForEach(mapLegs(for: mapDay)) { leg in
+            MapPolyline(coordinates: leg.coordinates)
+                .stroke(leg.color, style: StrokeStyle(
+                    lineWidth: 4, lineCap: .round, lineJoin: .round,
+                    dash: leg.isStraightFallback ? [6, 6] : []))
+        }
+        // 长按放下的点(系统 POI 被点中时系统自己会高亮,不用再画)。不带 tag,点不中。
+        if let candidate = placeCandidate, candidate.isDropped {
+            Marker(candidate.name.isEmpty ? String(localized: "标记的位置", bundle: .appLanguage(language),
+                                                   locale: language.locale) : candidate.name,
+                   systemImage: "mappin", coordinate: candidate.coordinate)
+                .tint(lodoAccent.accent)
+        }
+    }
+
+    /// 选中值在"自己的标记(按 id)"和"系统地图地点"之间二选一。
+    @available(iOS 18.0, macOS 15.0, *)
+    private var featureAwareSelection: Binding<MapSelection<String>?> {
+        Binding(
+            get: {
+                if let feature = selectedFeature { return MapSelection(feature) }
+                return selectedPin.map { MapSelection($0) }
+            },
+            set: { selection in
+                if let feature = selection?.feature {
+                    selectedPin = nil
+                    selectedFeature = feature
+                    placeCandidate = MapPlaceCandidate(
+                        name: feature.title ?? "", subtitle: nil,
+                        coordinate: feature.coordinate, isDropped: false)
+                } else {
+                    selectedFeature = nil
+                    if placeCandidate?.isDropped == false { placeCandidate = nil }
+                    selectedPin = selection?.value
+                }
+            })
+    }
+
+    /// 长按地图放一个点:按住不动半秒、松手的位置就是那个点。按住后一挪就不算
+    /// (LongPressGesture 的移动容差),拖地图、捏合缩放照常。放针模式里不响应。
+    private func dropPinGesture(_ proxy: MapProxy) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.5)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+            .onEnded { value in
+                guard pinningEntry == nil, case .second(true, let drag?) = value,
+                      let coordinate = proxy.convert(drag.location, from: .local) else { return }
+                dropCandidate(at: coordinate)
             }
-            ForEach(mapLegs(for: mapDay)) { leg in
-                MapPolyline(coordinates: leg.coordinates)
-                    .stroke(leg.color, style: StrokeStyle(
-                        lineWidth: 4, lineCap: .round, lineJoin: .round,
-                        dash: leg.isStraightFallback ? [6, 6] : []))
+    }
+
+    private func dropCandidate(at coordinate: CLLocationCoordinate2D) {
+        selectedPin = nil
+        selectedFeature = nil
+        let candidate = MapPlaceCandidate(name: "", subtitle: nil, coordinate: coordinate,
+                                          isDropped: true, resolving: true)
+        withAnimation(.lodoAware(.snappy)) { placeCandidate = candidate }
+        Task {
+            let found = await PlaceGeocoder.placeName(at: coordinate)
+            // 这期间又放了别的点/关掉了卡片:不覆盖。
+            guard placeCandidate?.id == candidate.id else { return }
+            placeCandidate?.name = found?.name ?? ""
+            placeCandidate?.subtitle = found?.address
+            placeCandidate?.resolving = false
+        }
+    }
+
+    private func dismissCandidate() {
+        selectedFeature = nil
+        withAnimation(.lodoAware(.snappy)) { placeCandidate = nil }
+    }
+
+    /// 「加入行程」:打开新建表单,类型地点、名字和坐标预填好;时间不预填(没定就进「待安排」),
+    /// 正在看某一天时表单里的日期默认落在那天。
+    private func addCandidateToTrip(_ candidate: MapPlaceCandidate) {
+        addingPrefill = TravelPlacePrefill(title: candidate.name, placeName: candidate.name,
+                                           coordinate: candidate.coordinate)
+        addingDate = mapDay ?? trip.startDate
+        dismissCandidate()
+        addingItem = true
+    }
+
+    private func placeCandidateCard(_ candidate: MapPlaceCandidate) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: candidate.isDropped ? "mappin.circle.fill" : "mappin.and.ellipse")
+                .font(.title3)
+                .foregroundStyle(lodoAccent.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                if candidate.resolving {
+                    Text("正在查找地名…").font(.body.weight(.medium)).foregroundStyle(.secondary)
+                } else if candidate.name.isEmpty {
+                    Text("标记的位置").font(.body.weight(.medium))
+                } else {
+                    Text(candidate.name).font(.body.weight(.medium)).lineLimit(2)
+                }
+                if let subtitle = candidate.subtitle, !subtitle.isEmpty {
+                    Text(subtitle).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                }
             }
-        }
-        // 指南针不放在这里:系统会按需要把它藏起来、位置也不固定。它固定摆在右上角
-        // (mapOverlays 里,和左侧按天胶囊顶部对齐)。
-        .mapControls {
-            MapScaleView()
-        }
-        // 地图铺满整屏(忽略安全区),所以它的中心就是屏幕中央那枚针的针尖。
-        // 只在拖动/缩放停下时取(.onEnd):连续取会让整页每帧重算一遍,确认只要停下那一刻的值。
-        .onMapCameraChange(frequency: .onEnd) { context in
-            mapCenter = context.region.center
-        }
-        .onAppear { focusCamera(animated: false) }
-        .onChange(of: mapDay) { _, _ in
-            if let pin = pendingPin.flatMap({ id in mapPins(for: nil).first { $0.id == id } }) {
-                pendingPin = nil
-                selectedPin = pin.id
-                focus(on: [pin], animated: true)
-            } else {
-                selectedPin = nil
-                focusCamera(animated: true)
+            Spacer(minLength: 4)
+            Button {
+                addCandidateToTrip(candidate)
+            } label: {
+                Text("加入行程")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(lodoAccent.onFill)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(lodoAccent.fill, in: Capsule())
             }
-        }
-        // 直接点地图上的点也一样飞过去(和点列表里那一行同一个效果)。
-        .onChange(of: selectedPin) { _, id in
-            guard let id, let pin = mapPins(for: nil).first(where: { $0.id == id }) else { return }
-            focus(on: [pin], animated: true)
-        }
-        .onChange(of: panelDetent) { _, _ in
-            // 放针模式里镜头归用户(针尖对着哪儿就是哪儿),不自动取景。
-            guard pinningEntry == nil else { return }
-            // 面板高度变了,露出来的那截地图也变了,重新取一次景。
-            if let id = selectedPin, let pin = mapPins(for: nil).first(where: { $0.id == id }) {
-                focus(on: [pin], animated: true)
-            } else {
-                focusCamera(animated: true)
+            .pressable()
+            .disabled(candidate.resolving)
+            Button {
+                dismissCandidate()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .hitTarget(visualSize: 20)
             }
+            .pressable()
+            .accessibilityLabel("取消")
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glassBackground(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .transition(.opacity)
     }
 
     /// 地图上浮着的东西:左上角按天筛选、顶上一条提示。都在安全区之内(导航栏下面)。
@@ -1022,6 +1183,9 @@ struct TravelDetailView: View {
                 // 固定在右上角、常驻显示(正北朝上时系统默认会藏起来),顶边和左侧按天胶囊对齐。
                 MapCompass(scope: mapScope)
                     .mapControlVisibility(.visible)
+            }
+            if pinningEntry == nil, let candidate = placeCandidate {
+                placeCandidateCard(candidate)
             }
             if pinningEntry != nil {
                 pinningHint
@@ -1067,6 +1231,7 @@ struct TravelDetailView: View {
         }
         .padding(12)
         .animation(.lodoAware(.snappy), value: mapNotice)
+        .animation(.lodoAware(.snappy), value: placeCandidate?.id)
     }
 
     private var emptyMapNotice: String? {
@@ -1590,6 +1755,17 @@ struct TravelDetailView: View {
 
     private static func dayColor(_ index: Int) -> Color {
         dayColors[index % dayColors.count]
+    }
+
+    /// 地图上选中、还没加进行程的位置(见 placeCandidate)。
+    struct MapPlaceCandidate: Identifiable {
+        let id = UUID()
+        var name: String
+        var subtitle: String?
+        let coordinate: CLLocationCoordinate2D
+        /// true = 长按放下的点(要自己画标记、地名要反查);false = 点中的系统地图地点。
+        let isDropped: Bool
+        var resolving = false
     }
 
     private struct MapPin: Identifiable {

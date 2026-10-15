@@ -5049,6 +5049,16 @@
         }
       }
     },
+    "加入行程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to Trip"
+          }
+        }
+      }
+    },
     "最终 Prompt" : {
       "localizations" : {
         "en" : {
@@ -15701,6 +15711,16 @@
         }
       }
     },
+    "标记的位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dropped Pin"
+          }
+        }
+      }
+    },
     "标题" : {
       "localizations" : {
         "en" : {
@@ -16138,6 +16158,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在查找「%@」的位置…"
+          }
+        }
+      }
+    },
+    "正在查找地名…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking up place name…"
           }
         }
       }

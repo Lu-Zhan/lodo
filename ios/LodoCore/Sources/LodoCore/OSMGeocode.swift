@@ -76,6 +76,31 @@ public enum OSMGeocode {
         return components?.url
     }
 
+    /// 反查一个坐标附近最具体的那个东西(旅行地图上长按放下的点叫什么)。
+    /// zoom 18 = 建筑/店铺一级;只发坐标。
+    public static func reverseURL(latitude: Double, longitude: Double,
+                                  language: String = "zh") -> URL? {
+        var components = URLComponents(string: "https://nominatim.openstreetmap.org/reverse")
+        components?.queryItems = [
+            URLQueryItem(name: "lat", value: String(format: "%.6f", latitude)),
+            URLQueryItem(name: "lon", value: String(format: "%.6f", longitude)),
+            URLQueryItem(name: "format", value: "jsonv2"),
+            URLQueryItem(name: "zoom", value: "18"),
+            URLQueryItem(name: "addressdetails", value: "1"),
+            URLQueryItem(name: "namedetails", value: "1"),
+            URLQueryItem(name: "accept-language", value: language),
+        ]
+        return components?.url
+    }
+
+    /// 解析 `/reverse` 的返回(单个对象,字段同搜索结果;没找到时是 `{"error": …}`)。
+    public static func parseReverse(_ data: Data) -> Place? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object["error"] == nil,
+              let wrapped = try? JSONSerialization.data(withJSONObject: [object]) else { return nil }
+        return parse(wrapped).first
+    }
+
     public static func parse(_ data: Data) -> [Place] {
         guard let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
         return array.compactMap { raw in

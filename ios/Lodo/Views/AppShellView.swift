@@ -196,6 +196,8 @@ struct AppShellView: View {
     /// 非 nil 时切到旅行页并 push 进这次旅行的详情(AI 对话里那条跳转小条)。
     /// 旅行页消费掉之后置回 nil。
     @State private var travelTripRequest: UUID?
+    /// 在侧栏里点了「旅行」:正处在某次旅行的日期里时,旅行页直接进那次旅行的详情。
+    @State private var travelOpenOngoing = false
 
     /// 窄屏抽屉是否展开。宽屏用的是系统 NavigationSplitView(`columnVisibility`),
     /// 不读这个开关。
@@ -381,31 +383,9 @@ struct AppShellView: View {
         }
         // 深链:lodo://add(小组件"+"、锁屏 AI 小组件)/lodo://agent?text=…(Siri Intent 回退)
         // 切到 AI 页;lodo://memory(分享收藏后跳回)切到记忆页;lodo://todo、
-        // lodo://countdown(锁屏小组件)切到任务页/倒数日页。
-        .onOpenURL { url in
-            guard url.scheme == "lodo" else { return }
-            switch url.host {
-            case "add":
-                openAgent(prefill: "")
-            case "agent":
-                let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                    .queryItems?.first { $0.name == "text" }?.value
-                openAgent(prefill: text ?? "")
-            case "memory":
-                memoryPath = []
-                routeFromOutside(.memory)
-            // 锁屏小组件:「今日」「重要的事」进任务页,「倒数日」进倒数日页。
-            case "todo":
-                routeFromOutside(.todo)
-            case "countdown":
-                routeFromOutside(.countdown)
-            // 空气质量小组件进健康页。
-            case "health":
-                routeFromOutside(.health)
-            default:
-                break
-            }
-        }
+        // lodo://countdown(锁屏小组件)切到任务页/倒数日页;lodo://voice、lodo://overview
+        // (桌面「Chat」小组件)进 AI 页直接开始听 / 进总览。
+        .onOpenURL { url in handleDeepLink(url) }
     }
 
     // MARK: - 页面
@@ -446,7 +426,7 @@ struct AppShellView: View {
         case .health:
             HealthView()
         case .travel:
-            TravelListView(openTripRequest: $travelTripRequest)
+            TravelListView(openTripRequest: $travelTripRequest, openOngoingRequest: $travelOpenOngoing)
         case .menu:
             MenuListView()
         case .news:
@@ -466,7 +446,7 @@ struct AppShellView: View {
                 // 目标页先在抽屉背后建立,页面切换不参加接下来的收起弹簧。
                 var transaction = Transaction(animation: nil)
                 transaction.disablesAnimations = true
-                withTransaction(transaction) { go(target) }
+                withTransaction(transaction) { selectFromSidebar(target) }
                 if !usesRegularLayout { closeSidebarAfterSelection() }
             }
         )
@@ -497,6 +477,13 @@ struct AppShellView: View {
     private func go(_ target: AppSection) {
         section = target
         visited.insert(target)
+    }
+
+    /// 侧栏里点了某一页。点「旅行」时如果正在旅行中,顺带请旅行页进那次旅行的详情
+    /// (旅行页还停在列表上才进,已经在看别的旅行就不打断)。
+    private func selectFromSidebar(_ target: AppSection) {
+        if target == .travel { travelOpenOngoing = true }
+        go(target)
     }
 
     /// 从 app 外面进来的跳转(快捷指令/Siri、深链、小组件、通知、共享邀请):切页的同时
@@ -531,6 +518,36 @@ struct AppShellView: View {
             go(.assets)
         case .news:
             go(.news)
+        }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme == "lodo" else { return }
+        switch url.host {
+        case "add":
+            openAgent(prefill: "")
+        // 桌面「Chat」小组件:右下麦克风直接开始语音输入,左下进总览。
+        case "voice":
+            openAgent(prefill: AgentView.voiceRequest)
+        case "overview":
+            routeFromOutside(.overview)
+        case "agent":
+            let text = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "text" }?.value
+            openAgent(prefill: text ?? "")
+        case "memory":
+            memoryPath = []
+            routeFromOutside(.memory)
+        // 锁屏小组件:「今日」「重要的事」进任务页,「倒数日」进倒数日页。
+        case "todo":
+            routeFromOutside(.todo)
+        case "countdown":
+            routeFromOutside(.countdown)
+        // 空气质量小组件进健康页。
+        case "health":
+            routeFromOutside(.health)
+        default:
+            break
         }
     }
 
@@ -756,7 +773,7 @@ struct AppShellView: View {
     private var regularLayout: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SystemSidebarList(
-                selection: Binding(get: { section }, set: { if let target = $0 { go(target) } }),
+                selection: Binding(get: { section }, set: { if let target = $0 { selectFromSidebar(target) } }),
                 onOpenSettings: { showSettings = true },
                 onOpenSharing: { openSharing() })
             #if os(macOS)
@@ -843,6 +860,12 @@ struct AppShellView: View {
         if let index = args.firstIndex(of: "--demo-page"), index + 1 < args.count,
            let page = AppSection.allCases.first(where: { "\($0)" == args[index + 1] }) {
             go(page)
+        }
+        // 走一遍深链处理(simctl openurl 会卡在系统的「在 Lodo 中打开?」确认框上,
+        // 小组件点进来没有这一步):--demo-open-url lodo://voice。
+        if let index = args.firstIndex(of: "--demo-open-url"), index + 1 < args.count,
+           let url = URL(string: args[index + 1]) {
+            handleDeepLink(url)
         }
         if args.contains("--demo-open-first-trip") {
             let descriptor = FetchDescriptor<TravelTrip>(sortBy: [SortDescriptor(\.startDate)])

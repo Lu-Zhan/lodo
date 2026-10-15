@@ -14,6 +14,9 @@ struct TravelItemEditView: View {
     var existing: MemoryItem?
     /// 新建时表单里时间的默认落点(从某一天进来就默认那天)。
     var defaultDate: Date = .now
+    /// 新建时预填的地点(在旅行地图上点/长按选中的那个位置):名字、地点、坐标一起带进来,
+    /// 类型是「地点」,时间不预填——留给用户定,没定就进「待安排」。
+    var prefill: TravelPlacePrefill?
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -407,6 +410,14 @@ struct TravelItemEditView: View {
         guard let existing else {
             start = defaultDate
             end = defaultDate
+            if let prefill {
+                kind = .place
+                title = prefill.title
+                placeName = prefill.placeName
+                placeCoordinate = prefill.coordinate
+                // 和从搜索结果选中同理:这个名字是跟坐标一起来的,不算手动改名。
+                pickedNames[.place] = prefill.placeName
+            }
             return
         }
         kind = existing.travelKind ?? .place
@@ -518,4 +529,11 @@ struct TravelItemEditView: View {
         }
         dismiss()
     }
+}
+
+/// 从旅行地图上选中的位置新建行程项时预填的内容(见 `TravelItemEditView.prefill`)。
+struct TravelPlacePrefill {
+    var title: String
+    var placeName: String
+    var coordinate: CLLocationCoordinate2D
 }

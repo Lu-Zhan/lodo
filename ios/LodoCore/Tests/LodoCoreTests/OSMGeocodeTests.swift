@@ -104,4 +104,16 @@ final class OSMGeocodeTests: XCTestCase {
         let data = #"[{"lat":"1","lon":"2","name":"x","importance":0.42}]"#.data(using: .utf8)!
         XCTAssertEqual(OSMGeocode.parse(data).first?.importance, 0.42)
     }
+
+    func testReverse() {
+        let url = OSMGeocode.reverseURL(latitude: 34.994856, longitude: 135.785046)!.absoluteString
+        XCTAssertTrue(url.hasPrefix("https://nominatim.openstreetmap.org/reverse?"))
+        XCTAssertTrue(url.contains("lat=34.994856"))
+        XCTAssertTrue(url.contains("zoom=18"))
+        let data = #"{"lat":"34.9948","lon":"135.7850","name":"清水寺","display_name":"清水寺, 京都市","addresstype":"amenity","address":{"country_code":"jp"},"namedetails":{"name:en":"Kiyomizu-dera"}}"#.data(using: .utf8)!
+        let place = OSMGeocode.parseReverse(data)
+        XCTAssertEqual(place?.name, "清水寺")
+        XCTAssertEqual(place?.countryCode, "JP")
+        XCTAssertNil(OSMGeocode.parseReverse(#"{"error":"Unable to geocode"}"#.data(using: .utf8)!))
+    }
 }

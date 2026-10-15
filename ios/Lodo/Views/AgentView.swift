@@ -173,9 +173,22 @@ struct AgentView: View {
     private func consumePrefill() {
         guard let request = pendingPrefill else { return }
         pendingPrefill = nil
+        // 桌面小组件右下那颗麦克风:不弹键盘,直接开始听(同点输入栏里的麦克风)。
+        if request == Self.voiceRequest {
+            guard !speech.isRecording, !speech.isProcessing, !busy else { return }
+            isInputFocused = false
+            typedPrefix = text
+            speech.toggle()
+            return
+        }
         if !request.isEmpty { text = request }
         isInputFocused = true
     }
+
+    /// 经 `pendingPrefill` 递进来的特殊值:不是预填文字,而是「打开就开始语音输入」
+    /// (`lodo://voice`)。用一个不可能被用户打出来的串,省得为它另开一条绑定。
+    static let voiceRequest = "\u{0}lodo-voice"
+
 
     /// 标题下面那行小字的前半截:当前服务商。
     ///
