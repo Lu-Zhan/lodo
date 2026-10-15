@@ -357,7 +357,9 @@ struct WeatherAttributionView: View {
                 Text(verbatim: "\u{F8FF}Weather")
             }
             .frame(height: 12)
+            // Link 在分区 footer 里不继承 footer 的字号,显式和旁边「更新于」一致。
             Link("数据来源", destination: attribution.legalPage)
+                .font(.footnote)
         }
     }
 }
