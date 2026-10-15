@@ -644,7 +644,14 @@ struct AgentAnswerCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(text, systemImage: "sparkles").font(.body)
+            // 回复是 Markdown 时按 Markdown 渲染(标题/列表/表格…,见 MarkdownView);
+            // 一段普通的话照旧是一段字。Label 自定义标题,✨ 仍对齐第一行。
+            Label {
+                MarkdownView(text: text)
+            } icon: {
+                Image(systemName: "sparkles")
+            }
+            .font(.body)
             ForEach(relatedTitles, id: \.self) { title in
                 Label(title, systemImage: "bookmark.circle")
                     .font(.subheadline)

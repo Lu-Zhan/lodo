@@ -2058,6 +2058,29 @@ struct AgentView: View {
             appendAssistant(kind: .answer, content: "你收藏的 wifi 密码是 8888。",
                             relatedTitles: ["家里 wifi 密码"])
         }
+        // Markdown 回复(标题、列表、粗体、表格、代码块)。
+        if ProcessInfo.processInfo.arguments.contains("--demo-agent-markdown") {
+            context.insert(AgentMessage(role: .user, content: "京都三天怎么安排"))
+            appendAssistant(kind: .answer, content: """
+                ## 京都三日
+                按区域串起来,**少走回头路**:
+                1. 第一天:东山——清水寺、二年坂、祇园
+                2. 第二天:岚山——竹林、天龙寺
+                   - 早上 8 点前到竹林人少
+                3. 第三天:伏见稻荷 + 宇治
+
+                > 寺社大多 17:00 关门。
+
+                | 景点 | 门票 |
+                |---|---:|
+                | 清水寺 | ¥500 |
+                | 天龙寺 | ¥800 |
+
+                ```
+                京都站 → 清水五条 约 10 分钟
+                ```
+                """)
+        }
         if ProcessInfo.processInfo.arguments.contains("--demo-agent-executed") {
             context.insert(AgentMessage(role: .user, content: "把开会删了"))
             appendAssistant(kind: .executed, content: "已完成执行")

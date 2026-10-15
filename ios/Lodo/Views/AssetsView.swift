@@ -15,17 +15,19 @@ import LodoCore
 /// 各项组成(`AssetStatsSections`)。资产可以设成不计入总资产(`MemoryItem.assetExcluded`),
 /// 不进净资产、趋势、组成。
 ///
-/// 总览卡:净资产 + 每月收支;有哪一项超过 3 个月没更新就挂一行提示。
-/// 右上角两组(2026-10,用户要求):「我的/家庭 切换 | 共享」一组 + 单独的「+」。
-/// - 切换(`AssetScope`):我的 = 除了别人加进共享台账的那些以外的全部;家庭 = 共享
-///   台账里的条目(谁加的都算)。没有共享台账时「家庭」那页引导去邀请。
-/// - 共享:勾选哪些条目经 iCloud 共享给家人一起记(`AssetShareSheet`)。
-/// - 新建「+」——收入/支出/信用卡 AI 接不了(同人脉页右上角那两颗的道理)。
+/// 总览卡:净资产 + 每月收支;有哪一项超过 3 个月没更新就挂一行提示。「净资产」那一行
+/// 右边是「个人 | 家庭」小切换(`AssetScope`,有共享台账时才有)和「已共享 x 项」:
+/// 个人 = 除了别人加进共享台账的那些以外的全部;家庭 = 共享台账里的条目(谁加的都算)。
+/// 右上角:共享(勾选哪些条目经 iCloud 共享给家人一起记,`AssetShareSheet`)+ 新建「+」
+/// ——收入/支出/信用卡 AI 接不了(同人脉页右上角那两颗的道理)。
+/// 条目行不响应点击:左滑露出「编辑」,再往左滑到底是「删除」(2026-10,用户要求)。
 struct AssetsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.sidebarChrome) private var sidebarChrome
     @Environment(\.lodoAccent) private var lodoAccent
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var displayCurrency = "CNY"
+    /// 净资产大数字的单位(点一下数字轮换:原数 → 万 → 百万),本机偏好。
+    @AppStorage("assetNetWorthUnit") private var netWorthUnit = AssetAmountUnit.full
 
     @Query private var memoryItems: [MemoryItem]
     @Query(sort: \FinanceEntry.sortIndex) private var allEntries: [FinanceEntry]
@@ -39,6 +41,10 @@ struct AssetsView: View {
     /// 共享台账里别人加的条目(「我的」不显示它们)。读的是共享账本文件,不在 body 里
     /// 每次现读,数据或共享状态变了再刷新。
     @State private var addedByOthers: Set<UUID> = []
+    #if DEBUG
+    /// 截图用(--demo-assets-shared-ui):模拟器没登 iCloud,摆出「个人 | 家庭」看排版。
+    @State private var demoSharedUI = false
+    #endif
     @State private var showingShare = false
     @State private var shareError: String?
     @Environment(\.sectionIsActive) private var isActive
@@ -62,8 +68,11 @@ struct AssetsView: View {
         allEntries.filter { inScope(uuid: $0.uuid, ledger: $0.ledgerUUID) }
     }
 
+    /// 没有共享台账时恒为「个人」(切换也不显示)。
+    private var effectiveScope: AssetScope { assetShare == nil ? .mine : scope }
+
     private func inScope(uuid: UUID, ledger: UUID?) -> Bool {
-        switch scope {
+        switch effectiveScope {
         case .mine: return !addedByOthers.contains(uuid)
         case .family: return isShared(ledger)
         }
@@ -89,19 +98,21 @@ struct AssetsView: View {
     }
 
     private var isEmpty: Bool { assets.isEmpty && entries.isEmpty }
+    /// 本机一条都没有(不分个人/家庭)才显示整页空态;家庭那边空着时总览卡照常在,
+    /// 不然切换跟着总览卡一起没了,切不回来。
+    private var isEmptyAll: Bool { allAssets.isEmpty && allEntries.isEmpty }
 
     var body: some View {
         NavigationStack {
             List {
-                if scope == .family && assetShare == nil {
-                    familyEmptyState
-                } else if isEmpty {
+                if isEmptyAll {
                     emptyState
                 } else {
                     tabBar
                     switch tab {
                     case .all:
                         Section { overviewCard }
+                        if isEmpty { familyHintSection }
                         assetSections
                         financeSection(.income)
                         spendingSection
@@ -125,12 +136,7 @@ struct AssetsView: View {
             .contentMargins(.top, 4, for: .scrollContent)
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false) {
-                    // 「我的/家庭 | 共享」同一组玻璃,「+」单独一颗(iOS 26 用 ToolbarSpacer 分开)。
-                    ToolbarItemGroup(placement: .primaryAction) {
-                        scopeButton
-                        shareButton
-                    }
-                    fixedToolbarSpacer
+                    ToolbarItem(placement: .primaryAction) { shareButton }
                     ToolbarItem(placement: .primaryAction) { addMenu }
                 }
             }
@@ -197,48 +203,43 @@ struct AssetsView: View {
         "\(memoryItems.count)-\(allEntries.count)-\(assetShare?.ledgerUUID.uuidString ?? "")"
     }
 
-    /// 右上角那颗切换:图标是**当前**显示的范围,点一下换到另一个。
-    private var scopeButton: some View {
-        Button {
-            withAnimation(.lodoAware(.snappy)) { scope = scope == .mine ? .family : .mine }
-        } label: {
-            Label(scope == .mine ? "我的资产" : "家庭资产",
-                  systemImage: scope == .mine ? "person.fill" : "house.fill")
-        }
-        .accessibilityHint(scope == .mine ? "切换到家庭资产" : "切换到我的资产")
+    private var showsScopeSwitch: Bool {
+        #if DEBUG
+        if demoSharedUI { return true }
+        #endif
+        return assetShare != nil
     }
 
-    @ToolbarContentBuilder
-    private var fixedToolbarSpacer: some ToolbarContent {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            ToolbarSpacer(.fixed, placement: .primaryAction)
+    /// 「净资产」那一行右边的小切换。
+    private var scopeSwitch: some View {
+        SlidingSwitch(options: AssetScope.allCases, selection: $scope, height: 26,
+                      font: .footnote.weight(.semibold)) {
+            Text($0.title)
         }
+        .frame(width: 112)
     }
 
-    /// 「家庭」那页还没有共享台账:说明 + 直接去邀请(打开共享确认页)。
-    private var familyEmptyState: some View {
+    /// 家庭那边还没有条目(共享台账里一条都没勾):说明 + 去勾选。
+    private var familyHintSection: some View {
         Section {
-            ContentUnavailableView {
-                Label("还没有家庭资产", systemImage: "house")
-            } description: {
-                Text("把要一起记的资产勾进共享台账,邀请家人加入后,大家记的都在这里。")
-            } actions: {
-                Button {
-                    showingShare = true
-                } label: {
-                    Text("邀请家人")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(lodoAccent.onFill)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(Capsule().fill(lodoAccent.fill))
+            Button {
+                showingShare = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "house")
+                        .foregroundStyle(.tint)
+                        .frame(width: 22)
+                    Text("共享台账里还没有条目,点这里勾选要和家人一起记的。")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                 }
-                .pressable()
-                .disabled(allAssets.isEmpty && allEntries.isEmpty)
+                .contentShape(Rectangle())
             }
-            .emptyStateFill()
+            .pressableCard()
         }
-        .listRowBackground(Color.clear)
     }
 
     // MARK: - 共享
@@ -257,29 +258,6 @@ struct AssetsView: View {
                   systemImage: assetShare == nil ? "person.crop.circle.badge.plus" : "person.2.fill")
         }
         .disabled(allAssets.isEmpty && allEntries.isEmpty && assetShare == nil)
-    }
-
-    /// 总览卡顶上那一行:共享状态(共享了几项、是否在同步),点它也能打开确认页。
-    @ViewBuilder
-    private var shareStatus: some View {
-        if let assetShare {
-            let pending = sync.pendingCounts[assetShare.ledgerUUID] ?? 0
-            let count = assets.filter { $0.assetLedgerUUID == assetShare.ledgerUUID }.count
-                + entries.filter { $0.ledgerUUID == assetShare.ledgerUUID }.count
-            Label {
-                if pending > 0 {
-                    Text("正在同步 \(pending) 项")
-                } else if assetShare.role == .owner {
-                    Text("已共享 \(count) 项")
-                } else {
-                    Text("加入的共享台账 · \(count) 项")
-                }
-            } icon: {
-                Image(systemName: "person.2.fill")
-            }
-            .font(.footnote.weight(.medium))
-            .foregroundStyle(lodoAccent.accent)
-        }
     }
 
     // MARK: - 新建
@@ -345,25 +323,12 @@ struct AssetsView: View {
 
     private var emptyState: some View {
         Section {
-            Group {
-                if scope == .family {
-                    ContentUnavailableView {
-                        Label("共享台账里还没有条目", systemImage: "house")
-                    } description: {
-                        Text("在共享里勾选要和家人一起记的资产。")
-                    } actions: {
-                        Button("选择共享的条目") { showingShare = true }
-                            .glassProminentButton()
-                    }
-                } else {
-                    ContentUnavailableView {
-                        Label("还没有记过资产", systemImage: "banknote")
-                    } description: {
-                        Text("记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。")
-                    } actions: {
-                        emptyAddMenu
-                    }
-                }
+            ContentUnavailableView {
+                Label("还没有记过资产", systemImage: "banknote")
+            } description: {
+                Text("记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。")
+            } actions: {
+                emptyAddMenu
             }
             .emptyStateFill()
         }
@@ -396,13 +361,26 @@ struct AssetsView: View {
         let worth = netWorth
         let month = monthly
         return VStack(alignment: .leading, spacing: 12) {
-            shareStatus
             VStack(alignment: .leading, spacing: 2) {
-                Text("净资产").font(.subheadline).foregroundStyle(.secondary)
-                Text(AssetFormat.currency(worth.net, code: displayCurrency))
-                    .font(.title.bold().monospacedDigit())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                // 「个人 | 家庭」和「净资产」同一行、靠右(用户要求)。
+                HStack(spacing: 8) {
+                    Text("净资产").font(.headline).foregroundStyle(.secondary)
+                    Spacer(minLength: 4)
+                    if showsScopeSwitch { scopeSwitch }
+                }
+                // 点数字轮换单位:原数 → 万 → 百万。
+                Button {
+                    withAnimation(.lodoAware(.snappy)) { netWorthUnit = netWorthUnit.next }
+                } label: {
+                    Text(AssetFormat.currency(worth.net, code: displayCurrency, unit: netWorthUnit))
+                        .font(.title.bold().monospacedDigit())
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .contentTransition(.numericText())
+                }
+                .pressable()
+                .accessibilityHint("切换单位")
                 HStack(spacing: 12) {
                     Text("资产 \(AssetFormat.currency(worth.assets, code: displayCurrency))")
                     Text("负债 \(AssetFormat.currency(worth.liabilities, code: displayCurrency))")
@@ -443,7 +421,7 @@ struct AssetsView: View {
                     .foregroundStyle(.secondary)
             }
             if staleCount > 0 {
-                Label("有 \(staleCount) 项超过 \(FinancePlan.staleMonths) 个月没更新了,点进去核对一下金额。",
+                Label("有 \(staleCount) 项超过 \(FinancePlan.staleMonths) 个月没更新了,左滑编辑核对一下金额。",
                       systemImage: "clock.arrow.circlepath")
                     .font(.footnote)
                     .foregroundStyle(lodoAccent.accent)
@@ -485,26 +463,31 @@ struct AssetsView: View {
     }
 
     private func assetRow(_ item: MemoryItem) -> some View {
-        Button {
-            editingAsset = AssetSheet(item: item, category: category(of: item))
-        } label: {
-            FinanceRow(symbol: AssetCategory.symbol(for: category(of: item)),
-                       title: item.title,
-                       detail: assetDetail(item),
-                       amount: item.assetValue.map { AssetFormat.currency($0, code: item.assetCurrencyOrDefault) },
-                       amountColor: .primary,
-                       stale: FinancePlan.monthsSince(item.assetUpdatedAtOrCreated, now: now)
-                           >= FinancePlan.staleMonths,
-                       shared: marksShared(item.assetLedgerUUID))
-        }
-        .pressableCard()
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                pendingDeleteAsset = item
-            } label: {
-                Label("删除", systemImage: "trash")
+        FinanceRow(symbol: AssetCategory.symbol(for: category(of: item)),
+                   title: item.title,
+                   detail: assetDetail(item),
+                   amount: item.assetValue.map { AssetFormat.currency($0, code: item.assetCurrencyOrDefault) },
+                   amountColor: .primary,
+                   stale: FinancePlan.monthsSince(item.assetUpdatedAtOrCreated, now: now)
+                       >= FinancePlan.staleMonths,
+                   shared: marksShared(item.assetLedgerUUID))
+            // 左滑先露出「编辑」,再往左滑到底是「删除」:第一颗是最外侧、整行滑到底触发的那颗。
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    pendingDeleteAsset = item
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+                editAction { editingAsset = AssetSheet(item: item, category: category(of: item)) }
             }
+    }
+
+    /// 行左滑里的「编辑」(在「删除」里侧)。
+    private func editAction(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label("编辑", systemImage: "pencil")
         }
+        .tint(LodoColor.neutralAction)
     }
 
     /// 行上挂不挂「共享」小图标:条目是逐条勾选共享的,共享的和没共享的混在一起,
@@ -669,26 +652,25 @@ struct AssetsView: View {
         if !liabilityAssets.isEmpty {
             Section {
                 ForEach(liabilityAssets) { item in
-                    Button {
-                        editingAsset = AssetSheet(item: item, category: category(of: item))
-                    } label: {
-                        FinanceRow(symbol: AssetCategory.symbol(for: category(of: item)),
-                                   title: item.title,
-                                   detail: liabilityDetail(item),
-                                   amount: item.assetLiability.map {
-                                       AssetFormat.currency($0, code: item.assetCurrencyOrDefault)
-                                   },
-                                   amountColor: LodoColor.critical,
-                                   stale: FinancePlan.monthsSince(item.assetUpdatedAtOrCreated, now: now)
-                                       >= FinancePlan.staleMonths,
-                                   shared: marksShared(item.assetLedgerUUID))
-                    }
-                    .pressableCard()
+                    FinanceRow(symbol: AssetCategory.symbol(for: category(of: item)),
+                               title: item.title,
+                               detail: liabilityDetail(item),
+                               amount: item.assetLiability.map {
+                                   AssetFormat.currency($0, code: item.assetCurrencyOrDefault)
+                               },
+                               amountColor: LodoColor.critical,
+                               stale: FinancePlan.monthsSince(item.assetUpdatedAtOrCreated, now: now)
+                                   >= FinancePlan.staleMonths,
+                               shared: marksShared(item.assetLedgerUUID))
+                        // 这一行是那项资产的负债,删除在「全部」里的资产行上,这里只给编辑。
+                        .swipeActions(edge: .trailing) {
+                            editAction { editingAsset = AssetSheet(item: item, category: category(of: item)) }
+                        }
                 }
             } header: {
                 Label("负债", systemImage: "building.columns")
             } footer: {
-                Text("负债记在对应的资产上(还欠多少本金),每月的月供记在「固定支出」里。")
+                Text("负债记在对应的资产上(还欠多少本金),左滑编辑;每月的月供记在「固定支出」里。")
             }
         }
     }
@@ -725,31 +707,29 @@ struct AssetsView: View {
     }
 
     private func financeRow(_ entry: FinanceEntry) -> some View {
-        Button {
-            editingEntry = FinanceSheet(kind: entry.kind, entry: entry, estimated: entry.estimated)
-        } label: {
-            FinanceRow(symbol: symbol(for: entry),
-                       title: FinanceText.displayTitle(entry),
-                       detail: financeDetail(entry),
-                       amount: amountText(entry),
-                       amountColor: entry.kind == .income ? LodoColor.positive
-                           : entry.kind == .expense ? LodoColor.critical : .primary,
-                       // 月估计消费是估个大概,不催着核对。
-                       stale: !entry.estimated
-                           && FinancePlan.monthsSince(entry.updatedAt, now: now) >= FinancePlan.staleMonths,
-                       reminding: entry.kind == .creditCard && entry.remindEnabled && entry.dayOfMonth != nil,
-                       shared: marksShared(entry.ledgerUUID))
-        }
-        .pressableCard()
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                FinanceReminders.removeReminder(for: entry, context: context)
-                context.delete(entry)
-                try? context.save()
-            } label: {
-                Label("删除", systemImage: "trash")
+        FinanceRow(symbol: symbol(for: entry),
+                   title: FinanceText.displayTitle(entry),
+                   detail: financeDetail(entry),
+                   amount: amountText(entry),
+                   amountColor: entry.kind == .income ? LodoColor.positive
+                       : entry.kind == .expense ? LodoColor.critical : .primary,
+                   // 月估计消费是估个大概,不催着核对。
+                   stale: !entry.estimated
+                       && FinancePlan.monthsSince(entry.updatedAt, now: now) >= FinancePlan.staleMonths,
+                   reminding: entry.kind == .creditCard && entry.remindEnabled && entry.dayOfMonth != nil,
+                   shared: marksShared(entry.ledgerUUID))
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    FinanceReminders.removeReminder(for: entry, context: context)
+                    context.delete(entry)
+                    try? context.save()
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+                editAction {
+                    editingEntry = FinanceSheet(kind: entry.kind, entry: entry, estimated: entry.estimated)
+                }
             }
-        }
     }
 
     private func symbol(for entry: FinanceEntry) -> String {
@@ -869,6 +849,9 @@ struct AssetsView: View {
             default: tab = .all
             }
         }
+        if args.contains("--demo-assets-shared-ui") {
+            demoSharedUI = true
+        }
         if args.contains("--demo-assets-family") {
             scope = .family
         }
@@ -899,9 +882,16 @@ private struct FinanceSheet: Identifiable {
     var id: String { entry?.uuid.uuidString ?? "new-\(kind.rawValue)\(estimated ? "-estimated" : "")" }
 }
 
-/// 右上角「我的 / 家庭」。只是这一页的视图状态,不存。
-private enum AssetScope {
+/// 「个人 | 家庭」。只是这一页的视图状态,不存。
+private enum AssetScope: CaseIterable {
     case mine, family
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .mine: "个人"
+        case .family: "家庭"
+        }
+    }
 }
 
 /// 顶上的四档切换。只是这一页的视图状态,不存。

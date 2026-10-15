@@ -552,21 +552,39 @@ private struct AssetOverviewCard: View {
 enum AssetFormat {
     @MainActor private static var formatters: [String: NumberFormatter] = [:]
 
+    /// 资产金额一律不显示小数(用户要求,2026-10);换成万/百万时才留最多两位。
     @MainActor
-    private static func formatter(for code: String) -> NumberFormatter {
-        if let cached = formatters[code] { return cached }
+    private static func formatter(for code: String, fractionDigits: Int = 0) -> NumberFormatter {
+        let key = "\(code)-\(fractionDigits)"
+        if let cached = formatters[key] { return cached }
         let f = NumberFormatter()
         f.numberStyle = .currency
         f.currencyCode = code
-        f.maximumFractionDigits = 2
+        f.maximumFractionDigits = fractionDigits
         f.minimumFractionDigits = 0
-        formatters[code] = f
+        formatters[key] = f
         return f
     }
 
     @MainActor
     static func currency(_ value: Double, code: String) -> String {
         formatter(for: code).string(from: NSNumber(value: value)) ?? "\(code) \(value)"
+    }
+
+    /// 按单位缩写:「CN¥496.6万」「CN¥4.97百万」。原数时同 `currency`。
+    @MainActor
+    static func currency(_ value: Double, code: String, unit: AssetAmountUnit) -> String {
+        guard unit != .full else { return currency(value, code: code) }
+        let scaled = value / unit.divisor
+        let number = formatter(for: code, fractionDigits: 2).string(from: NSNumber(value: scaled))
+            ?? "\(code) \(scaled)"
+        switch unit {
+        case .full: return number
+        case .tenThousand:
+            return String(localized: "\(number)万", bundle: .appLanguage(), locale: AppSettings.language.locale)
+        case .million:
+            return String(localized: "\(number)百万", bundle: .appLanguage(), locale: AppSettings.language.locale)
+        }
     }
 
     /// 利率的展示格式,存的就是百分比数值本身(如 4.5 表示 4.5%),不是小数。
@@ -579,5 +597,23 @@ enum AssetFormat {
 
     static func percent(_ value: Double) -> String {
         (percentFormatter.string(from: NSNumber(value: value)) ?? "\(value)") + "%"
+    }
+}
+
+/// 净资产大数字的显示单位。rawValue 存进 UserDefaults,别改。
+enum AssetAmountUnit: String, CaseIterable {
+    case full, tenThousand, million
+
+    var divisor: Double {
+        switch self {
+        case .full: 1
+        case .tenThousand: 10_000
+        case .million: 1_000_000
+        }
+    }
+
+    var next: AssetAmountUnit {
+        let all = Self.allCases
+        return all[(all.firstIndex(of: self)! + 1) % all.count]
     }
 }

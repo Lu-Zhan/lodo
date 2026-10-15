@@ -159,14 +159,8 @@ struct AssetStatsSections: View {
                 }
                 .foregroundStyle(lodoAccent.accent)
             }
-            if !trend.isEmpty {
-                Text("实线是填写金额的记录;虚线按每月结余(收入 − 固定支出和月供 − 月估计消费)往后估 6 个月,不定期的收入不算。")
-            }
             if !trend.missingCurrencies.isEmpty {
                 Text("以下币种暂时换不到汇率,没有计入:\(trend.missingCurrencies.joined(separator: "、"))")
-            }
-            if excludedCount > 0 {
-                Text("有 \(excludedCount) 项资产设成了不计入总资产,不在统计里。")
             }
         }
     }
