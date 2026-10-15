@@ -56,6 +56,7 @@ enum LibraryStore {
                 return
             }
             record.assetsBefore.append(item.backup)
+            let before = item.currentAssetPoint
             if let title = change.title { item.title = title }
             if let category = change.category { setCategory(category, of: item) }
             if let value = change.value { item.assetValue = value }
@@ -68,6 +69,7 @@ enum LibraryStore {
             }
             // 同资产页的编辑表单:保存一次就算核对过一次。
             item.assetUpdatedAt = Date()
+            item.recordAssetHistory(before: before)
             MemoryPipeline.finishStructuredSave(item, context: context)
             record.lines.append(line(for: item, created: false))
         }

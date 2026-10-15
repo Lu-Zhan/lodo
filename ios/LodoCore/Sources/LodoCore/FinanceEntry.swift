@@ -33,6 +33,11 @@ public final class FinanceEntry {
     public var notes: String = ""
     /// 信用卡:还款日前一天自动生成一条提醒任务(默认开)。
     public var remindEnabled: Bool = true
+    /// 支出里的「月估计消费」(吃饭、日常开销这类估个大概的每月花销),不是固定扣款。
+    /// 只对 kind == expense 有意义,周期恒为每月。用一个标记而不是新的 kind:老版本
+    /// (经 CloudKit 同步到别的设备)认不出新 kind 会落成「收入」,而认不出这个标记
+    /// 只是当成一笔固定支出,口径差不多。
+    public var estimated: Bool = false
     /// 最近一次生成的还款提醒是哪一期(还款日 yyyy-MM-dd)和那条任务,防止重复生成。
     public var reminderCycle: String = ""
     public var reminderTaskUUID: UUID?
@@ -49,6 +54,7 @@ public final class FinanceEntry {
                 currency: String = "CNY", cadence: FinanceCadence = .monthly,
                 dayOfMonth: Int? = nil, statementDay: Int? = nil, institution: String = "",
                 endDate: Date? = nil, notes: String = "", remindEnabled: Bool = true,
+                estimated: Bool = false,
                 sortIndex: Int = 0, updatedAt: Date = .now, createdAt: Date = .now) {
         self.uuid = uuid
         self.kindRaw = kind.rawValue
@@ -62,6 +68,7 @@ public final class FinanceEntry {
         self.endDate = endDate
         self.notes = notes
         self.remindEnabled = remindEnabled
+        self.estimated = estimated
         self.sortIndex = sortIndex
         self.updatedAt = updatedAt
         self.createdAt = createdAt
@@ -81,7 +88,8 @@ public final class FinanceEntry {
     public var snapshot: FinanceSnapshot {
         FinanceSnapshot(id: uuid, kind: kind, title: title, amount: amount, currency: currency,
                         cadence: cadence, dayOfMonth: dayOfMonth, statementDay: statementDay,
-                        institution: institution, endDate: endDate, updatedAt: updatedAt)
+                        institution: institution, endDate: endDate, estimated: estimated,
+                        updatedAt: updatedAt)
     }
 }
 
@@ -116,12 +124,14 @@ public struct FinanceSnapshot: Equatable, Sendable, Identifiable {
     public let statementDay: Int?
     public let institution: String
     public let endDate: Date?
+    /// 月估计消费(见 `FinanceEntry.estimated`)。
+    public let estimated: Bool
     public let updatedAt: Date
 
     public init(id: UUID = UUID(), kind: FinanceKind, title: String, amount: Double? = nil,
                 currency: String = "CNY", cadence: FinanceCadence = .monthly,
                 dayOfMonth: Int? = nil, statementDay: Int? = nil, institution: String = "",
-                endDate: Date? = nil, updatedAt: Date = .now) {
+                endDate: Date? = nil, estimated: Bool = false, updatedAt: Date = .now) {
         self.id = id
         self.kind = kind
         self.title = title
@@ -132,8 +142,12 @@ public struct FinanceSnapshot: Equatable, Sendable, Identifiable {
         self.statementDay = statementDay
         self.institution = institution
         self.endDate = endDate
+        self.estimated = estimated
         self.updatedAt = updatedAt
     }
+
+    /// 月估计消费按每月算,不看周期字段。
+    public var effectiveCadence: FinanceCadence { estimated ? .monthly : cadence }
 }
 
 public enum FinancePlan {
@@ -141,8 +155,11 @@ public enum FinancePlan {
 
     public struct MonthlyTotal: Equatable, Sendable {
         public var income: Double = 0
+        /// 固定支出(月供、房租、保险……)。
         public var expense: Double = 0
-        public var net: Double { income - expense }
+        /// 月估计消费(`FinanceEntry.estimated`)。
+        public var spending: Double = 0
+        public var net: Double { income - expense - spending }
         /// 换不出汇率、没有计入的币种(同 `TravelTotal.missingCurrencies`:宁可少算也不拿错汇率糊弄)。
         public var missingCurrencies: [String] = []
         /// 不定期的收入/支出条数(不折算进每月,单独说一声)。
@@ -158,7 +175,7 @@ public enum FinancePlan {
         for entry in entries where entry.kind != .creditCard {
             guard let amount = entry.amount else { continue }
             if entry.kind == .expense, let end = entry.endDate, end < now { continue }
-            guard let factor = entry.cadence.monthlyFactor else {
+            guard let factor = entry.effectiveCadence.monthlyFactor else {
                 total.irregularCount += 1
                 continue
             }
@@ -168,6 +185,7 @@ public enum FinancePlan {
                 continue
             }
             if entry.kind == .income { total.income += converted * factor }
+            else if entry.estimated { total.spending += converted * factor }
             else { total.expense += converted * factor }
         }
         total.missingCurrencies = missing.sorted()
@@ -258,13 +276,14 @@ public enum FinancePlan {
 /// 用户自己写的别的分类照样认,排在预设后面。
 public enum AssetCategory {
     /// 预设分类(持久化的就是这几个中文字符串本身——它们是记忆条目的标签)。
-    public static let presets = ["房产", "车辆", "存款", "投资", "保险", "其他"]
+    public static let presets = ["房产", "车辆", "存款", "公积金", "投资", "保险", "其他"]
 
     public static func symbol(for category: String) -> String {
         switch category {
         case "房产": return "house.fill"
         case "车辆": return "car.fill"
         case "存款": return "banknote.fill"
+        case "公积金": return "building.columns.fill"
         case "投资": return "chart.line.uptrend.xyaxis"
         case "保险": return "shield.lefthalf.filled"
         default: return "shippingbox.fill"

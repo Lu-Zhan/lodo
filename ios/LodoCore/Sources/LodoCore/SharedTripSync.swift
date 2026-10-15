@@ -408,6 +408,8 @@ public enum SharedAssetMapping {
         f["assetLiability"] = item.assetLiability.map { .double($0) }
         f["assetInterestRate"] = item.assetInterestRate.map { .double($0) }
         f["assetUpdatedAt"] = item.assetUpdatedAt.map { .date($0) }
+        f["assetExcluded"] = .bool(item.assetExcluded)
+        if !item.assetHistoryData.isEmpty { f["assetHistoryData"] = .string(item.assetHistoryData) }
         return SharedRecordSnapshot(type: .asset, uuid: item.uuid, fields: f)
     }
 
@@ -430,6 +432,8 @@ public enum SharedAssetMapping {
         item.assetLiability = f.double("assetLiability")
         item.assetInterestRate = f.double("assetInterestRate")
         item.assetUpdatedAt = f.date("assetUpdatedAt")
+        item.assetExcluded = f.bool("assetExcluded") ?? false
+        item.assetHistoryData = f.string("assetHistoryData") ?? ""
     }
 
     /// 收入/支出/信用卡。**还款提醒的防重复标记(`reminderCycle`/`reminderTaskUUID`)
@@ -448,6 +452,7 @@ public enum SharedAssetMapping {
         f["endDate"] = entry.endDate.map { .date($0) }
         f["notes"] = .string(entry.notes)
         f["remindEnabled"] = .bool(entry.remindEnabled)
+        if entry.estimated { f["estimated"] = .bool(true) }
         f["sortIndex"] = .int(entry.sortIndex)
         f["updatedAt"] = .date(entry.updatedAt)
         f["createdAt"] = .date(entry.createdAt)
@@ -466,6 +471,7 @@ public enum SharedAssetMapping {
         entry.endDate = f.date("endDate")
         entry.notes = f.string("notes") ?? ""
         entry.remindEnabled = f.bool("remindEnabled") ?? true
+        entry.estimated = f.bool("estimated") ?? false
         entry.sortIndex = f.int("sortIndex") ?? 0
         entry.updatedAt = f.date("updatedAt") ?? entry.updatedAt
         entry.createdAt = f.date("createdAt") ?? entry.createdAt

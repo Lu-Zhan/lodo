@@ -115,6 +115,7 @@ enum AgentReferenceRenderer {
             amount(item.assetValue, currency).map { "价值:" + $0 },
             amount(item.assetLiability, currency).map { "负债:" + $0 },
             item.assetInterestRate.map { "利率:\($0)%" },
+            item.assetExcluded ? "不计入总资产" : nil,
             "上次更新:" + dayFormatter.string(from: item.assetUpdatedAtOrCreated),
             item.summary.isEmpty ? nil : "说明:" + item.summary,
         ])
@@ -123,7 +124,7 @@ enum AgentReferenceRenderer {
     private static func renderFinance(_ entry: FinanceEntry) -> String {
         let kind: String = switch entry.kind {
         case .income: "收入"
-        case .expense: "固定支出"
+        case .expense: entry.estimated ? "月估计消费" : "固定支出"
         case .creditCard: "信用卡"
         }
         let cadence: String = switch entry.cadence {

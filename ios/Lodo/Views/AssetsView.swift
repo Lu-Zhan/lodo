@@ -10,7 +10,12 @@ import LodoCore
 /// - 信用卡:额度、银行、账单日、还款日,还款日前一天自动生成一条提醒任务
 ///   (`FinanceReminders`)。
 ///
-/// 顶上是总览卡:净资产 + 每月收支;有哪一项超过 3 个月没更新就挂一行提示。
+/// 顶上一条「全部 | 收入 | 支出 | 统计」切换(`AssetTab`):全部 = 总览卡 + 所有条目;
+/// 收入 = 收入各项;支出 = 月估计消费 + 固定支出 + 负债 + 信用卡;统计 = 总资产趋势与
+/// 各项组成(`AssetStatsSections`)。资产可以设成不计入总资产(`MemoryItem.assetExcluded`),
+/// 不进净资产、趋势、组成。
+///
+/// 总览卡:净资产 + 每月收支;有哪一项超过 3 个月没更新就挂一行提示。
 /// 新建收在右上角「+」——收入/支出/信用卡 AI 接不了(同人脉页右上角那两颗的道理)。
 /// 「+」旁边是共享:整本台账经 iCloud 共享给家人一起记(`SharedTripSync.prepareAssetShare`,
 /// 同旅行共享那套),对方加入之前自己记的那些不会被传过去。
@@ -27,6 +32,7 @@ struct AssetsView: View {
     @State private var editingEntry: FinanceSheet?
     @State private var pendingDeleteAsset: MemoryItem?
     @State private var now = Date()
+    @State private var tab: AssetTab = .all
     @State private var showingShare = false
     @State private var shareError: String?
     @Environment(\.sectionIsActive) private var isActive
@@ -40,8 +46,23 @@ struct AssetsView: View {
         memoryItems.filter(\.isAsset).sorted { $0.createdAt < $1.createdAt }
     }
 
+    /// 计入总资产的那些(净资产、趋势、组成只算它们)。
+    private var countedAssets: [MemoryItem] {
+        assets.filter { !$0.assetExcluded }
+    }
+
     private func entries(_ kind: FinanceKind) -> [FinanceEntry] {
-        entries.filter { $0.kind == kind }
+        entries.filter { $0.kind == kind && !$0.estimated }
+    }
+
+    /// 月估计消费(支出里的 `estimated`)。
+    private var spendingEntries: [FinanceEntry] {
+        entries.filter { $0.kind == .expense && $0.estimated }
+    }
+
+    /// 有负债的资产(支出页「负债」那一组)。
+    private var liabilityAssets: [MemoryItem] {
+        assets.filter { ($0.assetLiability ?? 0) > 0 }
     }
 
     private var isEmpty: Bool { assets.isEmpty && entries.isEmpty }
@@ -52,14 +73,29 @@ struct AssetsView: View {
                 if isEmpty {
                     emptyState
                 } else {
-                    Section { overviewCard }
-                    assetSections
-                    financeSection(.income)
-                    financeSection(.expense)
-                    financeSection(.creditCard)
+                    tabBar
+                    switch tab {
+                    case .all:
+                        Section { overviewCard }
+                        assetSections
+                        financeSection(.income)
+                        spendingSection
+                        financeSection(.expense)
+                        financeSection(.creditCard)
+                    case .income:
+                        incomeTab
+                    case .expense:
+                        expenseTab
+                    case .stats:
+                        statsTab
+                    }
                 }
             }
             .pageTitle("资产")
+            // 标题在顶部正中(同记忆页),不用大标题——下面紧跟着切换条。
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false) {
                     ToolbarItem(placement: .primaryAction) { shareButton }
@@ -74,7 +110,7 @@ struct AssetsView: View {
                     .environment(\.lodoAccent, lodoAccent)
             }
             .sheet(item: $editingEntry) { sheet in
-                FinanceEntryEditView(kind: sheet.kind, existing: sheet.entry)
+                FinanceEntryEditView(kind: sheet.kind, existing: sheet.entry, estimated: sheet.estimated)
                     .tint(lodoAccent.accent)
                     .environment(\.lodoAccent, lodoAccent)
             }
@@ -213,6 +249,9 @@ struct AssetsView: View {
                 editingEntry = FinanceSheet(kind: .expense, entry: nil)
             } label: { Label("固定支出", systemImage: "arrow.up.circle") }
             Button {
+                editingEntry = FinanceSheet(kind: .expense, entry: nil, estimated: true)
+            } label: { Label("月估计消费", systemImage: "cart") }
+            Button {
                 editingEntry = FinanceSheet(kind: .creditCard, entry: nil)
             } label: { Label("信用卡", systemImage: "creditcard") }
         }
@@ -236,8 +275,8 @@ struct AssetsView: View {
 
     private var netWorth: FinancePlan.NetWorth {
         FinancePlan.netWorth(
-            assets.map { (value: $0.assetValue, liability: $0.assetLiability,
-                          currency: $0.assetCurrencyOrDefault) },
+            countedAssets.map { (value: $0.assetValue, liability: $0.assetLiability,
+                                 currency: $0.assetCurrencyOrDefault) },
             in: displayCurrency) { rates.convert($0, from: $1, to: $2) }
     }
 
@@ -249,7 +288,8 @@ struct AssetsView: View {
 
     /// 超过 `FinancePlan.staleMonths` 个月没更新的条数。
     private var staleCount: Int {
-        let dates = assets.map(\.assetUpdatedAtOrCreated) + entries.map(\.updatedAt)
+        let dates = assets.map(\.assetUpdatedAtOrCreated)
+            + entries.filter { !$0.estimated }.map(\.updatedAt)
         return dates.filter { FinancePlan.monthsSince($0, now: now) >= FinancePlan.staleMonths }.count
     }
 
@@ -273,11 +313,11 @@ struct AssetsView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             }
-            if !entries(.income).isEmpty || !entries(.expense).isEmpty {
+            if !entries(.income).isEmpty || !entries(.expense).isEmpty || !spendingEntries.isEmpty {
                 Divider()
                 HStack(alignment: .top) {
                     monthlyFigure("每月收入", month.income, color: LodoColor.positive)
-                    monthlyFigure("固定支出", month.expense, color: LodoColor.critical)
+                    monthlyFigure("每月支出", month.expense + month.spending, color: LodoColor.critical)
                     monthlyFigure("每月结余", month.net, color: .primary)
                 }
                 if month.irregularCount > 0 {
@@ -295,6 +335,11 @@ struct AssetsView: View {
             }
             if worth.unvaluedCount > 0 {
                 Text("有 \(worth.unvaluedCount) 项资产没填金额,不计入总额。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if excludedCount > 0 {
+                Text("有 \(excludedCount) 项资产设成了不计入总资产。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -377,10 +422,182 @@ struct AssetsView: View {
         if let rate = item.assetInterestRate {
             parts.append(localized("利率 \(AssetFormat.percent(rate))"))
         }
+        if item.assetExcluded {
+            parts.append(localized("不计入总资产"))
+        }
         parts.append(updatedText(item.assetUpdatedAtOrCreated))
         if let name = item.sharedAddedBy, !name.isEmpty, isShared(item.assetLedgerUUID) {
             parts.append(localized("由 \(name) 添加"))
         }
+        return parts.joined(separator: " · ")
+    }
+
+    // MARK: - 切换条与各档
+
+    /// 「全部 | 收入 | 支出 | 统计」,同任务页顶部那条(`SlidingSwitch`)。
+    private var tabBar: some View {
+        Section {
+            SlidingSwitch(options: AssetTab.allCases, selection: $tab, height: 44,
+                          font: .body.weight(.semibold)) {
+                Text($0.title)
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+        .listRowBackground(Color.clear)
+    }
+
+    private var excludedCount: Int {
+        assets.filter(\.assetExcluded).count
+    }
+
+    @ViewBuilder
+    private var incomeTab: some View {
+        let month = monthly
+        Section {
+            monthlySummaryRow([("每月收入", month.income, LodoColor.positive)])
+        }
+        if entries(.income).isEmpty {
+            addHintSection("还没有记收入", systemImage: "arrow.down.circle") {
+                editingEntry = FinanceSheet(kind: .income, entry: nil)
+            }
+        } else {
+            financeSection(.income)
+        }
+    }
+
+    @ViewBuilder
+    private var expenseTab: some View {
+        let month = monthly
+        Section {
+            monthlySummaryRow([
+                ("月估计消费", month.spending, LodoColor.critical),
+                ("固定支出", month.expense, LodoColor.critical),
+                ("每月支出", month.expense + month.spending, .primary),
+            ])
+        }
+        if spendingEntries.isEmpty {
+            addHintSection("还没有估计每月消费", systemImage: "cart") {
+                editingEntry = FinanceSheet(kind: .expense, entry: nil, estimated: true)
+            }
+        } else {
+            spendingSection
+        }
+        financeSection(.expense)
+        liabilitySection
+        financeSection(.creditCard)
+    }
+
+    @ViewBuilder
+    private var statsTab: some View {
+        let month = monthly
+        AssetStatsSections(
+            trend: AssetTrend.build(assets: countedAssets.map(\.assetHistory), monthlyNet: month.net,
+                                    in: displayCurrency, now: now) { rates.convert($0, from: $1, to: $2) },
+            monthlyNet: month.net,
+            assets: FinancePlan.composition(
+                countedAssets.compactMap { item in
+                    item.assetValue.map { (name: category(of: item), amount: $0,
+                                           currency: item.assetCurrencyOrDefault) }
+                },
+                in: displayCurrency) { rates.convert($0, from: $1, to: $2) },
+            liabilities: FinancePlan.composition(
+                countedAssets.compactMap { item in
+                    item.assetLiability.map { (name: item.title, amount: $0,
+                                               currency: item.assetCurrencyOrDefault) }
+                },
+                in: displayCurrency) { rates.convert($0, from: $1, to: $2) },
+            income: FinancePlan.composition(
+                entries(.income).compactMap { entry in
+                    FinancePlan.monthlyAmount(entry.snapshot).map {
+                        (name: FinanceText.displayTitle(entry), amount: $0, currency: entry.currency)
+                    }
+                },
+                in: displayCurrency) { rates.convert($0, from: $1, to: $2) },
+            currency: displayCurrency,
+            excludedCount: excludedCount,
+            now: now)
+    }
+
+    /// 收入/支出两档顶上那一行每月合计。
+    private func monthlySummaryRow(_ figures: [(LocalizedStringKey, Double, Color)]) -> some View {
+        HStack(alignment: .top) {
+            ForEach(Array(figures.enumerated()), id: \.offset) { _, figure in
+                monthlyFigure(figure.0, figure.1, color: figure.2)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// 某一档还没有内容时的一行:说明 + 直接新建。
+    private func addHintSection(_ title: LocalizedStringKey, systemImage: String,
+                                action: @escaping () -> Void) -> some View {
+        Section {
+            Button(action: action) {
+                HStack(spacing: 10) {
+                    Image(systemName: systemImage)
+                        .foregroundStyle(.tint)
+                        .frame(width: 22)
+                    Text(title).foregroundStyle(.secondary)
+                    Spacer()
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(.tint)
+                }
+                .contentShape(Rectangle())
+            }
+            .pressableCard()
+        }
+    }
+
+    /// 月估计消费:吃饭、日常开销这类估个大概的每月花销。
+    @ViewBuilder
+    private var spendingSection: some View {
+        if !spendingEntries.isEmpty {
+            Section {
+                ForEach(spendingEntries) { entry in financeRow(entry) }
+            } header: {
+                Label("月估计消费", systemImage: "cart")
+            } footer: {
+                Text("估个大概就行,算进每月结余,也用来估计未来几个月的资产。")
+            }
+        }
+    }
+
+    /// 负债:有负债本金的资产(房贷车贷),点进去更新。
+    @ViewBuilder
+    private var liabilitySection: some View {
+        if !liabilityAssets.isEmpty {
+            Section {
+                ForEach(liabilityAssets) { item in
+                    Button {
+                        editingAsset = AssetSheet(item: item, category: category(of: item))
+                    } label: {
+                        FinanceRow(symbol: AssetCategory.symbol(for: category(of: item)),
+                                   title: item.title,
+                                   detail: liabilityDetail(item),
+                                   amount: item.assetLiability.map {
+                                       AssetFormat.currency($0, code: item.assetCurrencyOrDefault)
+                                   },
+                                   amountColor: LodoColor.critical,
+                                   stale: FinancePlan.monthsSince(item.assetUpdatedAtOrCreated, now: now)
+                                       >= FinancePlan.staleMonths,
+                                   shared: marksShared(item.assetLedgerUUID))
+                    }
+                    .pressableCard()
+                }
+            } header: {
+                Label("负债", systemImage: "building.columns")
+            } footer: {
+                Text("负债记在对应的资产上(还欠多少本金),每月的月供记在「固定支出」里。")
+            }
+        }
+    }
+
+    private func liabilityDetail(_ item: MemoryItem) -> String {
+        var parts: [String] = []
+        if let rate = item.assetInterestRate {
+            parts.append(localized("利率 \(AssetFormat.percent(rate))"))
+        }
+        parts.append(updatedText(item.assetUpdatedAtOrCreated))
         return parts.joined(separator: " · ")
     }
 
@@ -408,7 +625,7 @@ struct AssetsView: View {
 
     private func financeRow(_ entry: FinanceEntry) -> some View {
         Button {
-            editingEntry = FinanceSheet(kind: entry.kind, entry: entry)
+            editingEntry = FinanceSheet(kind: entry.kind, entry: entry, estimated: entry.estimated)
         } label: {
             FinanceRow(symbol: symbol(for: entry),
                        title: FinanceText.displayTitle(entry),
@@ -416,7 +633,9 @@ struct AssetsView: View {
                        amount: amountText(entry),
                        amountColor: entry.kind == .income ? LodoColor.positive
                            : entry.kind == .expense ? LodoColor.critical : .primary,
-                       stale: FinancePlan.monthsSince(entry.updatedAt, now: now) >= FinancePlan.staleMonths,
+                       // 月估计消费是估个大概,不催着核对。
+                       stale: !entry.estimated
+                           && FinancePlan.monthsSince(entry.updatedAt, now: now) >= FinancePlan.staleMonths,
                        reminding: entry.kind == .creditCard && entry.remindEnabled && entry.dayOfMonth != nil,
                        shared: marksShared(entry.ledgerUUID))
         }
@@ -435,7 +654,7 @@ struct AssetsView: View {
     private func symbol(for entry: FinanceEntry) -> String {
         switch entry.kind {
         case .income: return "arrow.down.circle.fill"
-        case .expense: return "arrow.up.circle.fill"
+        case .expense: return entry.estimated ? "cart.fill" : "arrow.up.circle.fill"
         case .creditCard: return "creditcard.fill"
         }
     }
@@ -445,7 +664,7 @@ struct AssetsView: View {
         let money = AssetFormat.currency(amount, code: entry.currency)
         switch entry.kind {
         case .creditCard: return localized("额度 \(money)")
-        case .income, .expense: return FinanceText.withCadence(money, entry.cadence)
+        case .income, .expense: return FinanceText.withCadence(money, entry.snapshot.effectiveCadence)
         }
     }
 
@@ -493,12 +712,33 @@ struct AssetsView: View {
         guard args.contains("--demo-assets") else { return }
         if assets.isEmpty && entries.isEmpty {
             let stale = Calendar.current.date(byAdding: .month, value: -5, to: .now) ?? .now
-            MemoryPipeline.saveAsset(title: "望京的房子", value: 6_800_000, liability: 2_400_000,
-                                     interestRate: 3.85, category: "房产", note: "", context: context)
-            MemoryPipeline.saveAsset(title: "特斯拉 Model 3", value: 180_000, category: "车辆",
-                                     note: "", context: context)
-            MemoryPipeline.saveAsset(title: "招商银行储蓄", value: 320_000, category: "存款",
-                                     note: "", context: context)
+            func monthsAgo(_ n: Int) -> Date { Calendar.current.date(byAdding: .month, value: -n, to: .now) ?? .now }
+            /// 样板的金额历史(趋势图要有几个点才看得出来)。
+            func history(_ item: MemoryItem?, _ points: [(Int, Double, Double?)]) {
+                guard let item else { return }
+                var list = AssetHistory.decode(item.assetHistoryData)
+                for (ago, value, liability) in points {
+                    list = AssetHistory.appending(AssetValuePoint(date: monthsAgo(ago), value: value,
+                                                                  liability: liability, currency: "CNY"), to: list)
+                }
+                item.assetHistoryData = AssetHistory.encode(list)
+            }
+            history(MemoryPipeline.saveAsset(title: "望京的房子", value: 6_800_000, liability: 2_400_000,
+                                             interestRate: 3.85, category: "房产", note: "", context: context),
+                    [(9, 6_500_000, 2_500_000), (4, 6_650_000, 2_450_000)])
+            history(MemoryPipeline.saveAsset(title: "特斯拉 Model 3", value: 180_000, liability: 60_000,
+                                             category: "车辆", note: "", context: context),
+                    [(7, 210_000, 90_000), (3, 195_000, 75_000)])
+            history(MemoryPipeline.saveAsset(title: "招商银行储蓄", value: 320_000, category: "存款",
+                                             note: "", context: context),
+                    [(5, 240_000, nil), (2, 290_000, nil)])
+            history(MemoryPipeline.saveAsset(title: "住房公积金", value: 126_000, category: "公积金",
+                                             note: "", context: context),
+                    [(6, 102_000, nil)])
+            if let parents = MemoryPipeline.saveAsset(title: "替爸妈存的定期", value: 200_000, category: "存款",
+                                                      note: "", context: context) {
+                parents.assetExcluded = true
+            }
             let samples: [FinanceEntry] = [
                 FinanceEntry(kind: .income, title: "工资", amount: 32_000, dayOfMonth: 10,
                              institution: "字节跳动", sortIndex: 0),
@@ -508,6 +748,8 @@ struct AssetsView: View {
                              endDate: Calendar.current.date(byAdding: .year, value: 22, to: .now),
                              sortIndex: 2, updatedAt: stale),
                 FinanceEntry(kind: .expense, title: "车险", amount: 5_600, cadence: .yearly, sortIndex: 3),
+                FinanceEntry(kind: .expense, title: "吃饭", amount: 4_000, estimated: true, sortIndex: 6),
+                FinanceEntry(kind: .expense, title: "日常开销", amount: 3_000, estimated: true, sortIndex: 7),
                 FinanceEntry(kind: .creditCard, title: "经典白", amount: 80_000, dayOfMonth: 20,
                              statementDay: 3, institution: "招商银行", sortIndex: 4),
                 FinanceEntry(kind: .creditCard, title: "Visa 白金", amount: 50_000, dayOfMonth: 8,
@@ -516,6 +758,15 @@ struct AssetsView: View {
             samples.forEach(context.insert)
             try? context.save()
             FinanceReminders.sync(context: context)
+        }
+        // --demo-assets-tab income|expense|stats:直接切到某一档。
+        if let index = args.firstIndex(of: "--demo-assets-tab"), index + 1 < args.count {
+            switch args[index + 1] {
+            case "income": tab = .income
+            case "expense": tab = .expense
+            case "stats": tab = .stats
+            default: tab = .all
+            }
         }
         if args.contains("--demo-assets-card") {
             editingEntry = FinanceSheet(kind: .creditCard, entry: entries(.creditCard).first)
@@ -540,7 +791,22 @@ private struct AssetSheet: Identifiable {
 private struct FinanceSheet: Identifiable {
     let kind: FinanceKind
     let entry: FinanceEntry?
-    var id: String { entry?.uuid.uuidString ?? "new-\(kind.rawValue)" }
+    var estimated = false
+    var id: String { entry?.uuid.uuidString ?? "new-\(kind.rawValue)\(estimated ? "-estimated" : "")" }
+}
+
+/// 顶上的四档切换。只是这一页的视图状态,不存。
+private enum AssetTab: CaseIterable {
+    case all, income, expense, stats
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .all: "全部"
+        case .income: "收入"
+        case .expense: "支出"
+        case .stats: "统计"
+        }
+    }
 }
 
 /// 资产页的一行:图标、标题 + 一行摘要、右边金额。超过 3 个月没更新的在摘要前

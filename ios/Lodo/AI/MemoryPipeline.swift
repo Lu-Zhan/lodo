@@ -131,6 +131,7 @@ enum MemoryPipeline {
             assetCurrency: value != nil ? currency : nil,
             assetLiability: liability, assetInterestRate: interestRate)
         item.assetUpdatedAt = Date()
+        item.recordAssetHistory()
         context.insert(item)
         saveAndReindex(item, context: context)
         return item
@@ -348,6 +349,7 @@ enum MemoryPipeline {
                 item.summary = entry.summary
                 item.tags = entry.tags
                 if entry.assetValue != nil || entry.liabilityValue != nil || entry.interestRate != nil {
+                    let before = item.isAsset ? item.currentAssetPoint : nil
                     if let assetValue = entry.assetValue {
                         item.assetValue = assetValue
                         item.assetCurrency = entry.assetCurrency
@@ -363,6 +365,10 @@ enum MemoryPipeline {
                     // tags 里判断的)。
                     if !item.tags.contains(MemoryItem.assetTagName) {
                         item.tags.append(MemoryItem.assetTagName)
+                    }
+                    if entry.assetValue != nil || entry.liabilityValue != nil {
+                        item.assetUpdatedAt = Date()
+                        item.recordAssetHistory(before: before)
                     }
                 }
                 item.statusRaw = MemoryStatus.ready.rawValue

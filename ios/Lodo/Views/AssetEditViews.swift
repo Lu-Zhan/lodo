@@ -19,6 +19,7 @@ struct AssetEditView: View {
     @State private var liabilityText = ""
     @State private var rateText = ""
     @State private var note = ""
+    @State private var included = true
     @State private var didLoad = false
     @State private var confirmingDelete = false
 
@@ -77,6 +78,11 @@ struct AssetEditView: View {
                         Text("负债按同一个币种填。每月的月供记在「固定支出」里。")
                     }
                 }
+                Section {
+                    Toggle("计入总资产", isOn: $included)
+                } footer: {
+                    Text("关掉后这一项照样记着,但不算进净资产、趋势和组成,比如替家人代管的钱。")
+                }
                 Section("备注") {
                     TextField("备注(可选)", text: $note, axis: .vertical)
                         .lineLimit(2...5)
@@ -124,6 +130,7 @@ struct AssetEditView: View {
         liabilityText = existing.assetLiability.map(Self.plain) ?? ""
         rateText = existing.assetInterestRate.map(Self.plain) ?? ""
         note = existing.summary
+        included = !existing.assetExcluded
     }
 
     /// 3000000.0 显示成 3000000,不带尾巴上的 .0。
@@ -137,10 +144,14 @@ struct AssetEditView: View {
         let rate = number(rateText) ?? nil
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let existing else {
-            MemoryPipeline.saveAsset(title: trimmedTitle, value: value, currency: currency,
-                                     liability: liability, interestRate: rate,
-                                     category: category == "其他" ? "" : category,
-                                     note: note, context: context)
+            let item = MemoryPipeline.saveAsset(title: trimmedTitle, value: value, currency: currency,
+                                                liability: liability, interestRate: rate,
+                                                category: category == "其他" ? "" : category,
+                                                note: note, context: context)
+            if let item, !included {
+                item.assetExcluded = true
+                try? context.save()
+            }
             dismiss()
             return
         }
@@ -151,6 +162,7 @@ struct AssetEditView: View {
             let index = tags.lastIndex { MemoryItem.reservedTagNames.contains($0) }.map { $0 + 1 } ?? 0
             tags.insert(category, at: index)
         }
+        let before = existing.currentAssetPoint
         existing.title = trimmedTitle
         existing.tags = tags
         existing.assetValue = value
@@ -158,7 +170,9 @@ struct AssetEditView: View {
         existing.assetLiability = liability
         existing.assetInterestRate = rate
         existing.summary = note
+        existing.assetExcluded = !included
         existing.assetUpdatedAt = Date()
+        existing.recordAssetHistory(before: before)
         MemoryPipeline.finishStructuredSave(existing, context: context)
         dismiss()
     }
@@ -168,6 +182,8 @@ struct AssetEditView: View {
 struct FinanceEntryEditView: View {
     let kind: FinanceKind
     var existing: FinanceEntry?
+    /// 支出里的「月估计消费」(`FinanceEntry.estimated`):只有名称和每月金额。
+    var estimated = false
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -202,7 +218,9 @@ struct FinanceEntryEditView: View {
     private var navigationTitle: LocalizedStringKey {
         switch kind {
         case .income: return existing == nil ? "添加收入" : "收入"
-        case .expense: return existing == nil ? "添加固定支出" : "固定支出"
+        case .expense:
+            if estimated { return existing == nil ? "添加月估计消费" : "月估计消费" }
+            return existing == nil ? "添加固定支出" : "固定支出"
         case .creditCard: return existing == nil ? "添加信用卡" : "信用卡"
         }
     }
@@ -212,6 +230,8 @@ struct FinanceEntryEditView: View {
             Form {
                 if kind == .creditCard {
                     cardSections
+                } else if estimated {
+                    spendingSection
                 } else {
                     flowSections
                 }
@@ -280,6 +300,17 @@ struct FinanceEntryEditView: View {
             } footer: {
                 Text("房贷车贷这类会还完的,过了截止日期就不再算进每月支出。")
             }
+        }
+    }
+
+    // MARK: - 月估计消费
+
+    private var spendingSection: some View {
+        Section {
+            TextField("名称,如 吃饭、日常开销", text: $title)
+            amountField("每月大概花多少")
+        } footer: {
+            Text("估个大概就行,不用记账。算进每月结余,也用来估计未来几个月的资产。")
         }
     }
 
@@ -361,10 +392,15 @@ struct FinanceEntryEditView: View {
         entry.currency = currency
         entry.amount = amount ?? nil
         entry.notes = notes
+        entry.estimated = kind == .expense && estimated
         if kind == .creditCard {
             entry.dayOfMonth = dayOfMonth
             entry.statementDay = statementDay
             entry.remindEnabled = remindEnabled
+        } else if entry.estimated {
+            entry.cadence = .monthly
+            entry.dayOfMonth = nil
+            entry.endDate = nil
         } else {
             entry.cadence = cadence
             entry.dayOfMonth = cadence == .monthly ? dayOfMonth : nil

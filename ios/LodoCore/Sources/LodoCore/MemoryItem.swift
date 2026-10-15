@@ -73,6 +73,13 @@ public final class MemoryItem {
     /// 资产金额/负债最近一次更新的时间(资产页"上次更新 3 个月前")。老数据为 nil,
     /// 按 createdAt 算(见 assetUpdatedAtOrCreated)。
     public var assetUpdatedAt: Date?
+    /// 这项资产**不计入**资产页的总数(净资产、趋势、组成)。默认 false = 计入;
+    /// 比如替父母代管的存款、只是记一笔备查的东西。
+    public var assetExcluded: Bool = false
+    /// 金额历史(`[AssetValuePoint]` 的 JSON),资产页「趋势」折线图按它画。每次保存
+    /// 金额时追加一个点(同一天的覆盖),见 `recordAssetHistory`。老数据为空串,
+    /// 按当前金额 + 更新时间算一个点(`AssetHistory.effective`)。
+    public var assetHistoryData: String = ""
     /// 在哪本共享资产台账里(`assets-<uuid>` zone 的 uuid);nil = 没共享。只对资产
     /// 条目有意义,见 `SharedAssetMapping`。**不进备份**(同 `TravelTrip.shareRoleRaw`):
     /// 恢复出来就是不共享的一份。

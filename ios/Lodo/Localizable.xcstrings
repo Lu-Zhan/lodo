@@ -1062,6 +1062,22 @@
         }
       }
     },
+    "6 个月后约 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About %@ in 6 months"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 个月后约 %@"
+          }
+        }
+      }
+    },
     "7 天" : {
       "localizations" : {
         "en" : {
@@ -1111,6 +1127,9 @@
       }
     },
     "A" : {
+
+    },
+    "Agent" : {
 
     },
     "agent.md 是总则,其余是可分别编辑、可停用的技能;编辑会直接改变发给 AI 的指令,重置可恢复默认。" : {
@@ -2208,6 +2227,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不要晨跑"
+          }
+        }
+      }
+    },
+    "不计入总资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not counted in total"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不计入总资产"
           }
         }
       }
@@ -3411,6 +3446,70 @@
         }
       }
     },
+    "估个大概就行,不用记账。算进每月结余,也用来估计未来几个月的资产。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A rough guess is fine, no bookkeeping needed. It counts toward the monthly surplus and the asset forecast."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "估个大概就行,不用记账。算进每月结余,也用来估计未来几个月的资产。"
+          }
+        }
+      }
+    },
+    "估个大概就行,算进每月结余,也用来估计未来几个月的资产。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rough guesses. Counted in the monthly surplus and the asset forecast."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "估个大概就行,算进每月结余,也用来估计未来几个月的资产。"
+          }
+        }
+      }
+    },
+    "估计:每月 +%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forecast: +%@/mo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "估计:每月 +%@"
+          }
+        }
+      }
+    },
+    "估计:每月 −%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forecast: −%@/mo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "估计:每月 −%@"
+          }
+        }
+      }
+    },
     "低" : {
       "localizations" : {
         "en" : {
@@ -4394,6 +4493,23 @@
         }
       }
     },
+    "公积金" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Housing Fund"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "公积金"
+          }
+        }
+      }
+    },
     "共 %lld 晚" : {
       "localizations" : {
         "en" : {
@@ -4712,6 +4828,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关掉后只提醒一次:事项仍然显示为逾期,你主动点「稍等」也照样有效。"
+          }
+        }
+      }
+    },
+    "关掉后这一项照样记着,但不算进净资产、趋势和组成,比如替家人代管的钱。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When off, this item is kept but left out of net worth, trend and breakdown — e.g. money you manage for family."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关掉后这一项照样记着,但不算进净资产、趋势和组成,比如替家人代管的钱。"
           }
         }
       }
@@ -5070,6 +5202,22 @@
         }
       }
     },
+    "其余" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Others"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其余"
+          }
+        }
+      }
+    },
     "内存(数据不会保存!)" : {
       "localizations" : {
         "en" : {
@@ -5162,6 +5310,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最近 %lld 天"
+          }
+        }
+      }
+    },
+    "最近 6 个月没有更新过资产,可以更新一下资产了。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assets haven't been updated in 6 months. Time to update your assets."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近 6 个月没有更新过资产,可以更新一下资产了。"
+          }
+        }
+      }
+    },
+    "最近 6 个月没有更新过资产,图上是 %@ 记录的结果。可以更新一下资产了。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assets haven't been updated in 6 months; the chart shows what was recorded on %@. Time to update your assets."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近 6 个月没有更新过资产,图上是 %@ 记录的结果。可以更新一下资产了。"
           }
         }
       }
@@ -7726,6 +7906,22 @@
         }
       }
     },
+    "名称,如 吃饭、日常开销" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, e.g. Food, Daily expenses"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称,如 吃饭、日常开销"
+          }
+        }
+      }
+    },
     "名称,如 工资、年终奖" : {
       "localizations" : {
         "en" : {
@@ -9154,6 +9350,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "定时推送:%@"
+          }
+        }
+      }
+    },
+    "实线是填写金额的记录;虚线按每月结余(收入 − 固定支出和月供 − 月估计消费)往后估 6 个月,不定期的收入不算。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The solid line is what you recorded; the dashed line projects 6 months ahead from the monthly surplus (income − fixed expenses and loan payments − estimated spending). Irregular income is not included."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实线是填写金额的记录;虚线按每月结余(收入 − 固定支出和月供 − 月估计消费)往后估 6 个月,不定期的收入不算。"
           }
         }
       }
@@ -11885,6 +12097,38 @@
         }
       }
     },
+    "总资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total Assets"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总资产"
+          }
+        }
+      }
+    },
+    "总资产趋势" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total assets trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总资产趋势"
+          }
+        }
+      }
+    },
     "恢复默认布局" : {
       "localizations" : {
         "en" : {
@@ -13505,6 +13749,22 @@
         }
       }
     },
+    "支出" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spending"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支出"
+          }
+        }
+      }
+    },
     "支持 PDF 和图片,纸质报告每页拍一张。文字在本机识别,发给 AI 的只有识别出来的文字;原文件留在本机,随时可以打开对照。" : {
       "localizations" : {
         "en" : {
@@ -13549,6 +13809,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "收入、支出与信用卡"
+          }
+        }
+      }
+    },
+    "收入组成(每月)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Income Breakdown (Monthly)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收入组成(每月)"
           }
         }
       }
@@ -14935,6 +15211,22 @@
         }
       }
     },
+    "月估计消费" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Est. Monthly Spending"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月估计消费"
+          }
+        }
+      }
+    },
     "有 %lld 个事项因通知数量已达系统上限,需要打开 app 才能看到提醒" : {
       "localizations" : {
         "en" : {
@@ -14979,6 +15271,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有 %lld 项资产没填金额,不计入总额。"
+          }
+        }
+      }
+    },
+    "有 %lld 项资产设成了不计入总资产,不在统计里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld assets are not counted in the total and are left out of these stats."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 项资产设成了不计入总资产,不在统计里。"
+          }
+        }
+      }
+    },
+    "有 %lld 项资产设成了不计入总资产。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld assets are not counted in the total."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 项资产设成了不计入总资产。"
           }
         }
       }
@@ -16872,6 +17196,38 @@
         }
       }
     },
+    "每月大概花多少" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Roughly per month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月大概花多少"
+          }
+        }
+      }
+    },
+    "每月支出" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Spending"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月支出"
+          }
+        }
+      }
+    },
     "每月收入" : {
       "localizations" : {
         "en" : {
@@ -17736,6 +18092,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加时间点"
+          }
+        }
+      }
+    },
+    "添加月估计消费" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Est. Spending"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加月估计消费"
           }
         }
       }
@@ -19513,6 +19885,22 @@
         }
       }
     },
+    "统计" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stats"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计"
+          }
+        }
+      }
+    },
     "综合建议" : {
       "localizations" : {
         "en" : {
@@ -20503,6 +20891,22 @@
         }
       }
     },
+    "计入总资产" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Count in Total Assets"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "计入总资产"
+          }
+        }
+      }
+    },
     "计划到达" : {
       "localizations" : {
         "en" : {
@@ -20760,6 +21164,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。"
+          }
+        }
+      }
+    },
+    "记下资产的金额后,这里会画出总资产的变化。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once you record asset amounts, the change in total assets is charted here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记下资产的金额后,这里会画出总资产的变化。"
+          }
+        }
+      }
+    },
+    "记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录"
           }
         }
       }
@@ -21185,6 +21621,22 @@
         }
       }
     },
+    "负债" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liabilities"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债"
+          }
+        }
+      }
+    },
     "负债 %@" : {
       "localizations" : {
         "en" : {
@@ -21277,6 +21729,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "负债无法识别为数字,改成数字或清空这一栏才能保存。"
+          }
+        }
+      }
+    },
+    "负债组成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liability Breakdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债组成"
+          }
+        }
+      }
+    },
+    "负债记在对应的资产上(还欠多少本金),每月的月供记在「固定支出」里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liabilities are recorded on their assets (principal still owed); monthly payments go under Fixed Expenses."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债记在对应的资产上(还欠多少本金),每月的月供记在「固定支出」里。"
           }
         }
       }
@@ -21453,6 +21937,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "资产有变化吗？"
+          }
+        }
+      }
+    },
+    "资产组成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asset Breakdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "资产组成"
           }
         }
       }
@@ -22246,6 +22746,22 @@
         }
       }
     },
+    "还没有估计每月消费" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No monthly spending estimate yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有估计每月消费"
+          }
+        }
+      }
+    },
     "还没有体检报告" : {
       "localizations" : {
         "en" : {
@@ -22643,6 +23159,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有记下航班、火车或客车。"
+          }
+        }
+      }
+    },
+    "还没有记收入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No income yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有记收入"
           }
         }
       }

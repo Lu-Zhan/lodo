@@ -164,6 +164,8 @@ public struct BackupMemoryItem: Codable {
     public var assetLiability: Double?
     public var assetInterestRate: Double?
     public var assetUpdatedAt: Date?
+    public var assetExcluded: Bool = false
+    public var assetHistoryData: String = ""
     public var contactNickname: String?
     public var contactPhone: String?
     public var contactEmail: String?
@@ -203,6 +205,7 @@ public struct BackupMemoryItem: Codable {
         relativeFilePath: String?, statusRaw: String, createdAt: Date, assetValue: Double? = nil,
         assetCurrency: String? = nil, assetLiability: Double? = nil,
         assetInterestRate: Double? = nil, assetUpdatedAt: Date? = nil,
+        assetExcluded: Bool = false, assetHistoryData: String = "",
         contactNickname: String? = nil, contactPhone: String? = nil, contactEmail: String? = nil,
         contactBirthday: Date? = nil, contactPreferences: String? = nil,
         contactAvatarRelativePath: String? = nil, attachmentRelativePaths: [String] = [],
@@ -243,6 +246,8 @@ public struct BackupMemoryItem: Codable {
         self.assetLiability = assetLiability
         self.assetInterestRate = assetInterestRate
         self.assetUpdatedAt = assetUpdatedAt
+        self.assetExcluded = assetExcluded
+        self.assetHistoryData = assetHistoryData
         self.contactNickname = contactNickname
         self.contactPhone = contactPhone
         self.contactEmail = contactEmail
@@ -293,6 +298,8 @@ public struct BackupMemoryItem: Codable {
         assetLiability = try c.decodeIfPresent(Double.self, forKey: .assetLiability)
         assetInterestRate = try c.decodeIfPresent(Double.self, forKey: .assetInterestRate)
         assetUpdatedAt = try c.decodeIfPresent(Date.self, forKey: .assetUpdatedAt)
+        assetExcluded = try c.decodeIfPresent(Bool.self, forKey: .assetExcluded) ?? false
+        assetHistoryData = try c.decodeIfPresent(String.self, forKey: .assetHistoryData) ?? ""
         contactNickname = try c.decodeIfPresent(String.self, forKey: .contactNickname)
         contactPhone = try c.decodeIfPresent(String.self, forKey: .contactPhone)
         contactEmail = try c.decodeIfPresent(String.self, forKey: .contactEmail)
@@ -334,6 +341,7 @@ extension MemoryItem {
             assetValue: assetValue, assetCurrency: assetCurrency,
             assetLiability: assetLiability, assetInterestRate: assetInterestRate,
             assetUpdatedAt: assetUpdatedAt,
+            assetExcluded: assetExcluded, assetHistoryData: assetHistoryData,
             contactNickname: contactNickname, contactPhone: contactPhone,
             contactEmail: contactEmail, contactBirthday: contactBirthday,
             contactPreferences: contactPreferences,
@@ -380,6 +388,8 @@ extension BackupMemoryItem {
         item.assetLiability = assetLiability
         item.assetInterestRate = assetInterestRate
         item.assetUpdatedAt = assetUpdatedAt
+        item.assetExcluded = assetExcluded
+        item.assetHistoryData = assetHistoryData
         item.contactNickname = contactNickname
         item.contactPhone = contactPhone
         item.contactEmail = contactEmail
@@ -965,14 +975,15 @@ public struct BackupFinanceEntry: Codable {
     public var endDate: Date?
     public var notes: String
     public var remindEnabled: Bool
+    public var estimated: Bool = false
     public var sortIndex: Int
     public var updatedAt: Date
     public var createdAt: Date
 
     public init(uuid: UUID, kindRaw: String, title: String, amount: Double?, currency: String,
                 cadenceRaw: String, dayOfMonth: Int?, statementDay: Int?, institution: String,
-                endDate: Date?, notes: String, remindEnabled: Bool, sortIndex: Int,
-                updatedAt: Date, createdAt: Date) {
+                endDate: Date?, notes: String, remindEnabled: Bool, estimated: Bool = false,
+                sortIndex: Int, updatedAt: Date, createdAt: Date) {
         self.uuid = uuid
         self.kindRaw = kindRaw
         self.title = title
@@ -985,6 +996,7 @@ public struct BackupFinanceEntry: Codable {
         self.endDate = endDate
         self.notes = notes
         self.remindEnabled = remindEnabled
+        self.estimated = estimated
         self.sortIndex = sortIndex
         self.updatedAt = updatedAt
         self.createdAt = createdAt
@@ -1006,6 +1018,7 @@ public struct BackupFinanceEntry: Codable {
         endDate = try c.decodeIfPresent(Date.self, forKey: .endDate)
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         remindEnabled = try c.decodeIfPresent(Bool.self, forKey: .remindEnabled) ?? true
+        estimated = try c.decodeIfPresent(Bool.self, forKey: .estimated) ?? false
         sortIndex = try c.decodeIfPresent(Int.self, forKey: .sortIndex) ?? 0
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
@@ -1017,7 +1030,8 @@ extension FinanceEntry {
         BackupFinanceEntry(uuid: uuid, kindRaw: kindRaw, title: title, amount: amount,
                            currency: currency, cadenceRaw: cadenceRaw, dayOfMonth: dayOfMonth,
                            statementDay: statementDay, institution: institution, endDate: endDate,
-                           notes: notes, remindEnabled: remindEnabled, sortIndex: sortIndex,
+                           notes: notes, remindEnabled: remindEnabled, estimated: estimated,
+                           sortIndex: sortIndex,
                            updatedAt: updatedAt, createdAt: createdAt)
     }
 }
@@ -1036,6 +1050,7 @@ extension BackupFinanceEntry {
         entry.endDate = endDate
         entry.notes = notes
         entry.remindEnabled = remindEnabled
+        entry.estimated = estimated
         entry.sortIndex = sortIndex
         entry.updatedAt = updatedAt
         entry.createdAt = createdAt

@@ -193,6 +193,7 @@ struct MemoryDetailView: View {
         let tags = reserved + Self.parseTags(tagsText).filter { !MemoryItem.reservedTagNames.contains($0) }
         if tags != item.tags { item.tags = tags }
         if reserved.contains(MemoryItem.assetTagName) {
+            let before = item.currentAssetPoint
             let trimmedValue = assetValueText.trimmingCharacters(in: .whitespaces)
             item.assetValue = trimmedValue.isEmpty ? nil : (Double(trimmedValue) ?? item.assetValue)
             item.assetCurrency = item.assetValue == nil ? nil : assetCurrency
@@ -202,6 +203,11 @@ struct MemoryDetailView: View {
             let trimmedRate = assetInterestRateText.trimmingCharacters(in: .whitespaces)
             item.assetInterestRate = trimmedRate.isEmpty
                 ? nil : (Double(trimmedRate) ?? item.assetInterestRate)
+            // 金额变了才算一次更新(资产页「趋势」按它画)。
+            if item.assetValue != before.value || item.assetLiability != before.liability {
+                item.assetUpdatedAt = Date()
+                item.recordAssetHistory(before: before)
+            }
         } else {
             item.assetValue = nil
             item.assetCurrency = nil
