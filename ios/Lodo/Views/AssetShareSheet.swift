@@ -56,6 +56,8 @@ struct AssetShareSheet: View {
                         Text("请先在系统设置里登录 iCloud")
                     } else if isParticipant {
                         Text("关掉就是退出这本共享台账:别人加的条目会留一份在本机,不再同步。")
+                    } else if !isShared {
+                        Text("经 iCloud 共享给你邀请的人,双方都能查看和修改勾选的条目。没勾的只在你自己的设备上。打开后勾选条目,点「确认并邀请」发邀请。")
                     } else {
                         Text("经 iCloud 共享给你邀请的人,双方都能查看和修改勾选的条目。没勾的只在你自己的设备上。")
                     }
@@ -81,7 +83,7 @@ struct AssetShareSheet: View {
                     if working {
                         ProgressView()
                     } else {
-                        confirmButton("确认", action: confirm)
+                        confirmButton(enabled && !isShared ? "确认并邀请" : "确认", action: confirm)
                             .disabled(!hasChanges)
                     }
                 }
@@ -113,6 +115,23 @@ struct AssetShareSheet: View {
                 }
                 #endif
                 if isShared { members = await sync.assetShareMembers() }
+            }
+            // 系统邀请界面里加了人 / 停止了共享,回来下拉刷新一下成员。
+            .refreshable {
+                if isShared { members = await sync.assetShareMembers() }
+            }
+            // 系统共享界面里停止共享 / 退出之后,开关跟着回到关。
+            .onChange(of: share) { _, new in
+                enabled = new != nil
+                selected = current
+                if new == nil { members = nil }
+            }
+            // 共享同步里的失败(系统共享界面发不出去等)在这张页上如实报,
+            // 不然它压在资产页上面,资产页那条 alert 弹不出来。
+            .onChange(of: sync.lastError) { _, message in
+                guard let message else { return }
+                sync.lastError = nil
+                errorText = message
             }
         }
         #if os(macOS)
@@ -151,8 +170,13 @@ struct AssetShareSheet: View {
                     Text("正在读取共享成员…").foregroundStyle(.secondary)
                 }
             }
-            Button(isParticipant ? "查看成员" : "邀请 / 管理成员") { manageMembers() }
-                .disabled(working)
+            Button {
+                manageMembers()
+            } label: {
+                Label(isParticipant ? "查看成员" : "邀请成员 / 管理成员",
+                      systemImage: isParticipant ? "person.2" : "person.crop.circle.badge.plus")
+            }
+            .disabled(working)
         }
     }
 
@@ -234,6 +258,9 @@ struct AssetShareSheet: View {
         }
     }
 
+    /// 第一次开启:建共享、挂上勾选的条目,然后**就在这张确认页上面**弹系统邀请界面。
+    /// 原来是先收起确认页、等 450ms 再从最上层控制器弹——收起动画没走完时那一下
+    /// present 会被系统静默丢掉,表现就是"点了邀请什么都没发生"。
     private func startSharing() {
         working = true
         let picked = selected
@@ -242,10 +269,9 @@ struct AssetShareSheet: View {
             do {
                 let ckShare = try await sync.prepareAssetShare()
                 sync.applyAssetSelection(add: picked, remove: [])
-                dismiss()
-                // 等确认页收起再弹系统邀请界面(同一时间只能有一个模态)。
-                try? await Task.sleep(for: .milliseconds(450))
+                selected = current
                 CloudSharingPresenter.presentAssets(share: ckShare)
+                members = await sync.assetShareMembers()
             } catch {
                 errorText = error.localizedDescription
                 sync.lastError = nil
@@ -264,14 +290,14 @@ struct AssetShareSheet: View {
         dismiss()
     }
 
+    /// 邀请 / 管理成员:同 startSharing,直接在确认页上面弹系统界面。
     private func manageMembers() {
         working = true
+        errorText = nil
         Task {
             defer { working = false }
             do {
                 let ckShare = try await sync.prepareAssetShare()
-                dismiss()
-                try? await Task.sleep(for: .milliseconds(450))
                 CloudSharingPresenter.presentAssets(share: ckShare)
             } catch {
                 errorText = error.localizedDescription

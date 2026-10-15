@@ -444,6 +444,10 @@ struct AgentView: View {
             isInputFocused = true
             consumePrefill()
             #if DEBUG
+            // 截图用:不弹键盘,看输入栏和标题平时的样子。
+            if ProcessInfo.processInfo.arguments.contains("--demo-agent-no-focus") {
+                isInputFocused = false
+            }
             seedDemoMessagesIfNeeded()
             if ProcessInfo.processInfo.arguments.contains("--demo-agent-hascontent") {
                 text = "明天3点开会"
@@ -899,6 +903,11 @@ struct AgentView: View {
         .padding(.bottom, presentation == .inline || isInputFocused ? 8 : 18)
     }
 
+    /// AI 页的输入栏用更透的玻璃(用户要求,2026-10):消息从它背后滚过去时透得出来,
+    /// 输入栏看上去是浮在对话上的。各页「问问 AI」仍是普通玻璃——它压在页面内容上,
+    /// 太透了字就和背后的列表糊在一起。
+    private var usesClearComposer: Bool { presentation == .page }
+
     /// 输入栏控件行的固定高度，与展示页底部「问问 AI」胶囊一致。
     private static let composerControlSize: CGFloat = DesignMetrics.aiInputHeight
     /// 输入胶囊**里面**那颗(麦克风/发送/识别中)的尺寸。比外面的 + 小一档:
@@ -935,7 +944,7 @@ struct AgentView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(lodoAccent.accent)
                 .frame(width: Self.composerControlSize, height: Self.composerControlSize)
-                .glassBackground(Circle())
+                .glassBackground(Circle(), clear: usesClearComposer)
                 .hitTarget(visualSize: Self.composerControlSize)
         }
         .pressable()
@@ -984,7 +993,7 @@ struct AgentView: View {
             Image(systemName: "plus")
                 .font(.system(size: 17, weight: .semibold))
                 .frame(width: Self.composerControlSize, height: Self.composerControlSize)
-                .glassBackground(Circle())
+                .glassBackground(Circle(), clear: usesClearComposer)
                 .hitTarget(visualSize: Self.composerControlSize)
         }
         #if os(macOS)
@@ -1016,7 +1025,8 @@ struct AgentView: View {
         // 36pt 内部按钮 + 上下各 6pt，正好与 48pt 的页面 AI 入口同高。
         .padding(.vertical, 6)
         .frame(minHeight: Self.composerControlSize)
-        .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
+        .glassBackground(RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous),
+                         clear: usesClearComposer)
     }
 
     private var textColumn: some View {
@@ -1146,7 +1156,7 @@ struct AgentView: View {
                 // 和非录音态的输入胶囊同一块形状、同一个圆角:切进切出录音时
                 // 中间这块玻璃只是换了内容,不是换了一张卡。
                 .glassBackground(
-                    RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous))
+                    RoundedRectangle(cornerRadius: DesignMetrics.composerRadius, style: .continuous), clear: usesClearComposer)
             confirmRecordingButton
         }
         // 写死行高而不是 maxHeight: .infinity——后者会一路撑满 safeAreaInset 给的
@@ -1164,7 +1174,7 @@ struct AgentView: View {
                 .foregroundStyle(Color.primary)
                 .frame(width: Self.composerControlSize, height: Self.composerControlSize)
                 // 和 + 号同一套独立玻璃圆:它俩是同一个槽位的两态。
-                .glassBackground(Circle())
+                .glassBackground(Circle(), clear: usesClearComposer)
                 .hitTarget(visualSize: Self.composerControlSize)
         }
         .pressable()
@@ -2565,18 +2575,11 @@ private struct AgentMessageListView: View {
             .coordinateSpace(name: Self.scrollSpace)
             // 内联模式:高度随内容,封顶之后才滚;内容不满一屏时也不弹跳。
             .frame(height: isInline ? (inlineRoom != nil ? inlineMaxHeight : min(contentHeight, inlineMaxHeight)) : nil)
-            // 顶上透明渐隐,不是一条带底色的边。
-            .mask {
-                if isInline {
-                    VStack(spacing: 0) {
-                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                            .frame(height: Self.inlineTopFade)
-                        Color.black
-                    }
-                } else {
-                    Color.black
-                }
-            }
+            // 顶上透明渐隐,不是一条带底色的边。**只在内联时挂 mask**:AI 页上挂一层
+            // Color.black 的 mask 会按列表自己的 frame(安全区以内)裁内容,滚到标题
+            // 后面的消息被整截裁掉,标题那一带看上去是一块实底,而不是资产页那种
+            // 透明渐隐(2026-10,用户要求对齐资产页)。
+            .modifier(InlineTopFadeMask(enabled: isInline, fade: Self.inlineTopFade))
             .scrollBounceBehavior(.basedOnSize)
             // 一打开就停在最后一条(不是从头开始往下找)。onAppear 里那句
             // scrollTo 是兜底:LazyVStack 首帧还没把最后一条建出来时,单靠
@@ -2712,6 +2715,26 @@ struct AgentThinkingIndicator: View {
             ShimmerText(text: AgentThinkingPhrases.text(
                 elapsed: context.date.timeIntervalSince(start), seed: seed,
                 language: AppSettings.language))
+        }
+    }
+}
+
+/// 「问问 AI」悬浮列表顶上的透明渐隐。AI 页不挂(见调用处)。
+private struct InlineTopFadeMask: ViewModifier {
+    let enabled: Bool
+    let fade: CGFloat
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: fade)
+                    Color.black
+                }
+            }
+        } else {
+            content
         }
     }
 }

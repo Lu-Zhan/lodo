@@ -46,6 +46,13 @@ extension View {
         modifier(GlassBackground(shape: shape, tint: tint, interactive: true))
     }
 
+    /// 更透的玻璃(`Glass.clear`):AI 页输入栏用,消息从它背后滚过去时透得出来,
+    /// 看上去是浮在对话上的。`clear` 为 false 时等同普通 `glassBackground`。
+    /// 「减弱透明度」照样退回不透明面色;旧系统退回更薄的 `ultraThinMaterial`。
+    func glassBackground(_ shape: some Shape, clear: Bool) -> some View {
+        modifier(GlassBackground(shape: shape, clear: clear))
+    }
+
     /// 把 `bar` 钉在滚动内容的顶上,内容从它底下滚过去。iOS 26 起用 `safeAreaBar`:
     /// 系统会在它背后做滚动边缘效果(配合 `softTopScrollEdgeTransition` 就是 .soft
     /// 那种柔和的模糊渐隐);旧系统退回 `safeAreaInset` + 一层材质底,免得文字直接叠在一起。
@@ -119,6 +126,7 @@ struct GlassBackground<S: Shape>: ViewModifier {
     let shape: S
     var tint: Color? = nil
     var interactive = false
+    var clear = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
@@ -133,13 +141,13 @@ struct GlassBackground<S: Shape>: ViewModifier {
         } else if let tint {
             content.background(tint, in: shape)
         } else {
-            content.background(.thinMaterial, in: shape)
+            content.background(clear ? .ultraThinMaterial : .thinMaterial, in: shape)
         }
     }
 
     @available(iOS 26.0, macOS 26.0, *)
     private var glass: Glass {
-        var glass = Glass.regular
+        var glass = clear ? Glass.clear : Glass.regular
         if let tint { glass = glass.tint(tint) }
         if interactive { glass = glass.interactive() }
         return glass

@@ -16,9 +16,11 @@ import LodoCore
 /// 不进净资产、趋势、组成。
 ///
 /// 总览卡:净资产 + 每月收支;有哪一项超过 3 个月没更新就挂一行提示。
-/// 新建收在右上角「+」——收入/支出/信用卡 AI 接不了(同人脉页右上角那两颗的道理)。
-/// 「+」旁边是共享:整本台账经 iCloud 共享给家人一起记(`SharedTripSync.prepareAssetShare`,
-/// 同旅行共享那套),对方加入之前自己记的那些不会被传过去。
+/// 右上角两组(2026-10,用户要求):「我的/家庭 切换 | 共享」一组 + 单独的「+」。
+/// - 切换(`AssetScope`):我的 = 除了别人加进共享台账的那些以外的全部;家庭 = 共享
+///   台账里的条目(谁加的都算)。没有共享台账时「家庭」那页引导去邀请。
+/// - 共享:勾选哪些条目经 iCloud 共享给家人一起记(`AssetShareSheet`)。
+/// - 新建「+」——收入/支出/信用卡 AI 接不了(同人脉页右上角那两颗的道理)。
 struct AssetsView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.sidebarChrome) private var sidebarChrome
@@ -26,13 +28,17 @@ struct AssetsView: View {
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var displayCurrency = "CNY"
 
     @Query private var memoryItems: [MemoryItem]
-    @Query(sort: \FinanceEntry.sortIndex) private var entries: [FinanceEntry]
+    @Query(sort: \FinanceEntry.sortIndex) private var allEntries: [FinanceEntry]
 
     @State private var editingAsset: AssetSheet?
     @State private var editingEntry: FinanceSheet?
     @State private var pendingDeleteAsset: MemoryItem?
     @State private var now = Date()
     @State private var tab: AssetTab = .all
+    @State private var scope: AssetScope = .mine
+    /// 共享台账里别人加的条目(「我的」不显示它们)。读的是共享账本文件,不在 body 里
+    /// 每次现读,数据或共享状态变了再刷新。
+    @State private var addedByOthers: Set<UUID> = []
     @State private var showingShare = false
     @State private var shareError: String?
     @Environment(\.sectionIsActive) private var isActive
@@ -42,8 +48,25 @@ struct AssetsView: View {
 
     private var rates: ExchangeRateStore { ExchangeRateStore.shared }
 
-    private var assets: [MemoryItem] {
+    /// 本机全部资产条目(不分我的/家庭;共享确认页要的是这一份)。
+    private var allAssets: [MemoryItem] {
         memoryItems.filter(\.isAsset).sorted { $0.createdAt < $1.createdAt }
+    }
+
+    /// 当前切换(我的/家庭)下显示的资产。下面的总览、各档、统计都按它算。
+    private var assets: [MemoryItem] {
+        allAssets.filter { inScope(uuid: $0.uuid, ledger: $0.assetLedgerUUID) }
+    }
+
+    private var entries: [FinanceEntry] {
+        allEntries.filter { inScope(uuid: $0.uuid, ledger: $0.ledgerUUID) }
+    }
+
+    private func inScope(uuid: UUID, ledger: UUID?) -> Bool {
+        switch scope {
+        case .mine: return !addedByOthers.contains(uuid)
+        case .family: return isShared(ledger)
+        }
     }
 
     /// 计入总资产的那些(净资产、趋势、组成只算它们)。
@@ -70,7 +93,9 @@ struct AssetsView: View {
     var body: some View {
         NavigationStack {
             List {
-                if isEmpty {
+                if scope == .family && assetShare == nil {
+                    familyEmptyState
+                } else if isEmpty {
                     emptyState
                 } else {
                     tabBar
@@ -96,9 +121,16 @@ struct AssetsView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            // 字号间距收紧(用户要求):标题和切换条之间、切换条和下面第一组之间都窄一档。
+            .contentMargins(.top, 4, for: .scrollContent)
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false) {
-                    ToolbarItem(placement: .primaryAction) { shareButton }
+                    // 「我的/家庭 | 共享」同一组玻璃,「+」单独一颗(iOS 26 用 ToolbarSpacer 分开)。
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        scopeButton
+                        shareButton
+                    }
+                    fixedToolbarSpacer
                     ToolbarItem(placement: .primaryAction) { addMenu }
                 }
             }
@@ -127,7 +159,7 @@ struct AssetsView: View {
                 }
             }
             .sheet(isPresented: $showingShare) {
-                AssetShareSheet(assets: assets, entries: entries)
+                AssetShareSheet(assets: allAssets, entries: allEntries)
                     .tint(lodoAccent.accent)
                     .environment(\.lodoAccent, lodoAccent)
             }
@@ -144,6 +176,9 @@ struct AssetsView: View {
                 sync.lastError = nil
                 shareError = message
             }
+            .task(id: dataSignature) {
+                addedByOthers = assetShare == nil ? [] : sync.assetUUIDsAddedByOthers()
+            }
             .task {
                 await rates.refreshIfNeeded()
                 FinanceReminders.sync(context: context)
@@ -153,6 +188,57 @@ struct AssetsView: View {
             .onAppear(perform: applyDemoArguments)
             #endif
         }
+    }
+
+    // MARK: - 我的 / 家庭
+
+    /// 条目数或共享状态变了就重读一次「别人加的」。
+    private var dataSignature: String {
+        "\(memoryItems.count)-\(allEntries.count)-\(assetShare?.ledgerUUID.uuidString ?? "")"
+    }
+
+    /// 右上角那颗切换:图标是**当前**显示的范围,点一下换到另一个。
+    private var scopeButton: some View {
+        Button {
+            withAnimation(.lodoAware(.snappy)) { scope = scope == .mine ? .family : .mine }
+        } label: {
+            Label(scope == .mine ? "我的资产" : "家庭资产",
+                  systemImage: scope == .mine ? "person.fill" : "house.fill")
+        }
+        .accessibilityHint(scope == .mine ? "切换到家庭资产" : "切换到我的资产")
+    }
+
+    @ToolbarContentBuilder
+    private var fixedToolbarSpacer: some ToolbarContent {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+        }
+    }
+
+    /// 「家庭」那页还没有共享台账:说明 + 直接去邀请(打开共享确认页)。
+    private var familyEmptyState: some View {
+        Section {
+            ContentUnavailableView {
+                Label("还没有家庭资产", systemImage: "house")
+            } description: {
+                Text("把要一起记的资产勾进共享台账,邀请家人加入后,大家记的都在这里。")
+            } actions: {
+                Button {
+                    showingShare = true
+                } label: {
+                    Text("邀请家人")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(lodoAccent.onFill)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(lodoAccent.fill))
+                }
+                .pressable()
+                .disabled(allAssets.isEmpty && allEntries.isEmpty)
+            }
+            .emptyStateFill()
+        }
+        .listRowBackground(Color.clear)
     }
 
     // MARK: - 共享
@@ -170,7 +256,7 @@ struct AssetsView: View {
             Label(assetShare == nil ? "共享资产" : "共享成员",
                   systemImage: assetShare == nil ? "person.crop.circle.badge.plus" : "person.2.fill")
         }
-        .disabled(isEmpty && assetShare == nil)
+        .disabled(allAssets.isEmpty && allEntries.isEmpty && assetShare == nil)
     }
 
     /// 总览卡顶上那一行:共享状态(共享了几项、是否在同步),点它也能打开确认页。
@@ -259,12 +345,25 @@ struct AssetsView: View {
 
     private var emptyState: some View {
         Section {
-            ContentUnavailableView {
-                Label("还没有记过资产", systemImage: "banknote")
-            } description: {
-                Text("记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。")
-            } actions: {
-                emptyAddMenu
+            Group {
+                if scope == .family {
+                    ContentUnavailableView {
+                        Label("共享台账里还没有条目", systemImage: "house")
+                    } description: {
+                        Text("在共享里勾选要和家人一起记的资产。")
+                    } actions: {
+                        Button("选择共享的条目") { showingShare = true }
+                            .glassProminentButton()
+                    }
+                } else {
+                    ContentUnavailableView {
+                        Label("还没有记过资产", systemImage: "banknote")
+                    } description: {
+                        Text("记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。")
+                    } actions: {
+                        emptyAddMenu
+                    }
+                }
             }
             .emptyStateFill()
         }
@@ -442,8 +541,10 @@ struct AssetsView: View {
                 Text($0.title)
             }
         }
-        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowBackground(Color.clear)
+        // 切换条和下面第一组之间收窄(默认分区间距 ~35pt)。
+        .listSectionSpacing(10)
     }
 
     private var excludedCount: Int {
@@ -710,7 +811,7 @@ struct AssetsView: View {
     private func applyDemoArguments() {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("--demo-assets") else { return }
-        if assets.isEmpty && entries.isEmpty {
+        if allAssets.isEmpty && allEntries.isEmpty {
             let stale = Calendar.current.date(byAdding: .month, value: -5, to: .now) ?? .now
             func monthsAgo(_ n: Int) -> Date { Calendar.current.date(byAdding: .month, value: -n, to: .now) ?? .now }
             /// 样板的金额历史(趋势图要有几个点才看得出来)。
@@ -768,6 +869,9 @@ struct AssetsView: View {
             default: tab = .all
             }
         }
+        if args.contains("--demo-assets-family") {
+            scope = .family
+        }
         if args.contains("--demo-assets-card") {
             editingEntry = FinanceSheet(kind: .creditCard, entry: entries(.creditCard).first)
         }
@@ -793,6 +897,11 @@ private struct FinanceSheet: Identifiable {
     let entry: FinanceEntry?
     var estimated = false
     var id: String { entry?.uuid.uuidString ?? "new-\(kind.rawValue)\(estimated ? "-estimated" : "")" }
+}
+
+/// 右上角「我的 / 家庭」。只是这一页的视图状态,不存。
+private enum AssetScope {
+    case mine, family
 }
 
 /// 顶上的四档切换。只是这一页的视图状态,不存。
