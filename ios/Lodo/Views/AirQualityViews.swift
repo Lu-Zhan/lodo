@@ -133,8 +133,10 @@ struct AirQualitySection: View {
             }
         } footer: {
             if enabled, let report {
-                VStack(alignment: .leading, spacing: 6) {
+                // 一行:左边更新时间,苹果天气标识靠右(用户要求)。
+                HStack(spacing: 8) {
                     Text("更新于 \(report.fetchedAt.formatted(date: .omitted, time: .shortened))")
+                    Spacer(minLength: 8)
                     if weather != nil, let attribution {
                         WeatherAttributionView(attribution: attribution)
                     }
@@ -174,57 +176,63 @@ struct AirQualitySection: View {
 
     @ViewBuilder
     private func reportRows(_ report: AirQualityReport) -> some View {
-        let category = report.category
-        if let weather {
-            WeatherRow(weather: weather)
-                .padding(.vertical, 4)
-        }
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                AQIBadge(aqi: report.aqi)
-                Text(AirQualityStore.title(category))
-                    .font(.title3.weight(.semibold))
-                Spacer()
-                if let dominant = report.dominant {
-                    Text("主要污染物 \(dominant.symbol)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+        // 第一行:左边天气(温度,下面最高最低),右边空气指数,两边底部对齐(用户要求)。
+        HStack(alignment: .bottom) {
+            if let weather {
+                WeatherNowView(weather: weather)
             }
-            Text(AirQualityStore.advice(category))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            if let peak = report.peak(after: .now), peak.aqi > report.aqi {
-                Text("今天最高 \(peak.aqi),约 \(peak.date.formatted(date: .omitted, time: .shortened))")
-                    .font(.subheadline)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                AQIBadge(aqi: report.aqi, font: .system(size: weather == nil ? 44 : 30,
+                                                        weight: .semibold, design: .rounded))
+                Text(AirQualityStore.title(report.category))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)
 
-        if !report.todayHourly(now: .now).isEmpty {
-            AirQualityHourlyChart(hourly: report.todayHourly(now: .now))
-                .frame(height: 80)
-                .padding(.vertical, 4)
+        // 第二行:未来 3 天。
+        if let days = weather?.daily, !days.isEmpty {
+            HStack(spacing: 0) {
+                ForEach(days.prefix(3), id: \.date) { day in
+                    WeatherDayView(day: day)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.vertical, 4)
         }
 
-        HStack {
-            concentration("PM2.5", report.pm2_5)
-            concentration("PM10", report.pm10)
-            concentration("O₃", report.ozone)
-            concentration("NO₂", report.nitrogenDioxide)
+        // 第三行:今天逐小时的 AQI,右边 PM2.5 / PM10 / NO₂。
+        HStack(alignment: .center, spacing: 12) {
+            if !report.todayHourly(now: .now).isEmpty {
+                AirQualityHourlyChart(hourly: report.todayHourly(now: .now))
+                    .frame(height: 80)
+            } else {
+                Spacer()
+            }
+            VStack(alignment: .trailing, spacing: 4) {
+                concentration("PM2.5", report.pm2_5)
+                concentration("PM10", report.pm10)
+                concentration("NO₂", report.nitrogenDioxide)
+            }
+            .fixedSize()
         }
+        .padding(.vertical, 4)
     }
 
+    /// 「25 PM2.5」一行(微克每立方米)。
     private func concentration(_ symbol: String, _ value: Double?) -> some View {
-        VStack(spacing: 2) {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(value.map { String(format: "%.0f", $0) } ?? "—")
                 .font(.body.weight(.medium).monospacedDigit())
             Text(symbol)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+                .frame(minWidth: 40, alignment: .leading)
         }
-        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityHint("微克每立方米")
     }
@@ -256,7 +264,7 @@ struct WeatherRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: weather.symbol)
-                .symbolRenderingMode(.multicolor)
+                .weatherSymbolStyle(weather.symbol)
                 .font(.system(size: compact ? 28 : 36))
             VStack(alignment: .leading, spacing: 2) {
                 Text(WeatherStore.format(weather.temperature))
@@ -281,6 +289,56 @@ struct WeatherRow: View {
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(.secondary)
             }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// 健康页第一行左半:图标 + 当前温度,温度下面是状况和今天最高最低。
+struct WeatherNowView: View {
+    let weather: WeatherReport
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            Image(systemName: weather.symbol)
+                .weatherSymbolStyle(weather.symbol)
+                .font(.system(size: 36))
+                .padding(.bottom, 6)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(WeatherStore.format(weather.temperature))
+                    .font(.system(size: 44, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                HStack(spacing: 8) {
+                    Text(weather.condition)
+                        .font(.subheadline.weight(.medium))
+                    if let high = weather.high, let low = weather.low {
+                        Text(verbatim: "↑\(WeatherStore.format(high)) ↓\(WeatherStore.format(low))")
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// 未来某一天:星期、图标、最高/最低。
+struct WeatherDayView: View {
+    let day: WeatherReport.Day
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(day.date, format: .dateTime.weekday(.abbreviated).locale(AppSettings.language.locale))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Image(systemName: day.symbol)
+                .weatherSymbolStyle(day.symbol)
+                .font(.title3)
+                .frame(height: 26)
+            Text(verbatim: "\(WeatherStore.format(day.high)) / \(WeatherStore.format(day.low))")
+                .font(.subheadline.monospacedDigit())
         }
         .accessibilityElement(children: .combine)
     }
@@ -469,5 +527,21 @@ struct AirQualityReminderSettingsView: View {
 
     private func requestNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    }
+}
+
+extension View {
+    /// 天气图标。多色模式里云是白的,白底卡片上看不见,所以带云的图标改用调色板:
+    /// 云画成次要灰,太阳/闪电黄、月亮靛、雨雪蓝;不带云的(晴、月亮…)照旧多色。
+    @ViewBuilder
+    func weatherSymbolStyle(_ name: String) -> some View {
+        if name.contains("cloud") || name.contains("fog") || name.contains("smoke") || name.contains("wind") {
+            let second: Color = name.contains("sun") || name.contains("bolt") ? .yellow
+                : name.contains("moon") ? .indigo : .cyan
+            symbolRenderingMode(.palette)
+                .foregroundStyle(Color.secondary, second)
+        } else {
+            symbolRenderingMode(.multicolor)
+        }
     }
 }

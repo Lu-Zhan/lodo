@@ -301,7 +301,7 @@ struct AirQualityWidgetView: View {
                     Spacer(minLength: 0)
                     Image(systemName: now.symbol)
                         .font(.title2)
-                        .symbolRenderingMode(.multicolor)
+                        .weatherSymbolStyle(now.symbol)
                 }
                 Text(weather.condition)
                     .font(.subheadline.weight(.medium))
@@ -408,4 +408,19 @@ struct AirQualityWidget: Widget {
     AirQualityWidget()
 } timeline: {
     AirQualityEntry(date: .now, snapshot: .sample)
+}
+
+extension View {
+    /// 同 app 里的 `weatherSymbolStyle`:多色模式里云是白的、白底上看不见,带云的改用调色板。
+    @ViewBuilder
+    func weatherSymbolStyle(_ name: String) -> some View {
+        if name.contains("cloud") || name.contains("fog") || name.contains("smoke") || name.contains("wind") {
+            let second: Color = name.contains("sun") || name.contains("bolt") ? .yellow
+                : name.contains("moon") ? .indigo : .cyan
+            symbolRenderingMode(.palette)
+                .foregroundStyle(Color.secondary, second)
+        } else {
+            symbolRenderingMode(.multicolor)
+        }
+    }
 }

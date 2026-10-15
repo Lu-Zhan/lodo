@@ -28,7 +28,7 @@ enum AppSection: Hashable, CaseIterable {
         case .travel: return "旅行"
         case .menu: return "菜单"
         case .news: return "新闻"
-        case .agent: return "AI 助手"
+        case .agent: return "Agent"
         }
     }
 

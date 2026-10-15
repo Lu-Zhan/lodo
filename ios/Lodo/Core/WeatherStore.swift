@@ -29,6 +29,15 @@ struct WeatherReport: Codable, Equatable {
     var condition: String
     /// 接下来 24 小时逐小时的温度,小组件按它往后排时间线。
     var hourly: [Hour]
+    /// 明天起 3 天(健康页那一行)。老缓存没有。
+    var daily: [Day]?
+
+    struct Day: Codable, Equatable {
+        let date: Date
+        let high: Double
+        let low: Double
+        let symbol: String
+    }
 }
 
 /// WeatherKit 要求在显示数据的地方标出苹果天气的标识和法律信息链接。
@@ -58,7 +67,10 @@ enum WeatherStore {
                 fetchedAt: now, temperature: 23, high: 26, low: 17, symbol: "cloud.sun.fill",
                 condition: "多云",
                 hourly: (0..<24).map { .init(date: now.addingTimeInterval(Double($0) * 3600),
-                                             temperature: 23 - Double($0 % 8), symbol: "cloud.sun.fill") })
+                                             temperature: 23 - Double($0 % 8), symbol: "cloud.sun.fill") },
+                daily: (1...3).map { .init(date: Calendar.current.date(byAdding: .day, value: $0, to: now) ?? now,
+                                           high: 25 - Double($0), low: 16 - Double($0),
+                                           symbol: ["sun.max.fill", "cloud.rain.fill", "cloud.fill"][$0 - 1]) })
             if let url = cacheURL, let data = try? JSONEncoder().encode(report) {
                 try? data.write(to: url, options: .atomic)
             }
@@ -82,6 +94,12 @@ enum WeatherStore {
                 hourly: hourly.forecast
                     .filter { $0.date > now.addingTimeInterval(-3600) && $0.date < now.addingTimeInterval(86400) }
                     .map { .init(date: $0.date, temperature: $0.temperature.converted(to: .celsius).value,
+                                 symbol: $0.symbolName) },
+                daily: daily.forecast
+                    .filter { $0.date > now && !Calendar.current.isDate($0.date, inSameDayAs: now) }
+                    .prefix(3)
+                    .map { .init(date: $0.date, high: $0.highTemperature.converted(to: .celsius).value,
+                                 low: $0.lowTemperature.converted(to: .celsius).value,
                                  symbol: $0.symbolName) })
             if let url = cacheURL, let data = try? JSONEncoder().encode(report) {
                 try? data.write(to: url, options: .atomic)
