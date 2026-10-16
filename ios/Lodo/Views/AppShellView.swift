@@ -232,6 +232,9 @@ struct AppShellView: View {
     /// 关闭时它瞬间变 0,而页面还在往回滑——右上角其他工具栏项要等页面到位
     /// 再恢复。收起期间靠这个标记压住它们,动画回调里才放开。
     @State private var isClosingSidebar = false
+    /// 侧栏展开时在右边页面(遮罩)上往左拖的距离,≤ 0。拖动中抽屉跟着手指走,
+    /// 松手后归零:要么随 showSidebar = false 一起收起,要么弹回展开。
+    @State private var sidebarDragX: CGFloat = 0
     /// 宽屏系统侧边栏的显示状态(系统自己的收起按钮改它)。
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     init() {
@@ -585,9 +588,27 @@ struct AppShellView: View {
         isClosingSidebar = true
         withAnimation(sidebarAnimation, completionCriteria: .logicallyComplete) {
             showSidebar = false
+            sidebarDragX = 0
         } completion: {
             isClosingSidebar = false
         }
+    }
+
+    /// 侧栏展开时,在右边被推开的页面上往左滑收起侧栏。只挂在遮罩上:遮罩本来
+    /// 就拦着页面的触摸,这里不会和列表横滑、日历翻页抢方向(那些手势这时收不到)。
+    /// 往右拖不动;松手时拖过三分之一宽或往左甩得够快就收起,否则弹回。
+    private func sidebarCloseDrag(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                sidebarDragX = min(0, max(-width, value.translation.width))
+            }
+            .onEnded { value in
+                if value.translation.width < -width / 3 || value.predictedEndTranslation.width < -width {
+                    closeSidebar()
+                } else {
+                    withAnimation(sidebarAnimation) { sidebarDragX = 0 }
+                }
+            }
     }
 
     /// 选中页面后的收起:和点遮罩/☰ 一样**照常播收起动画**(侧栏往左滑走、
@@ -601,6 +622,7 @@ struct AppShellView: View {
         isClosingSidebar = true
         withAnimation(sidebarAnimation, completionCriteria: .logicallyComplete) {
             showSidebar = false
+            sidebarDragX = 0
         } completion: {
             isClosingSidebar = false
         }
@@ -641,9 +663,10 @@ struct AppShellView: View {
 
     /// 窄屏(iPhone、紧凑宽度 iPad):侧栏占屏幕三分之一(侧栏 : 推开后露出的页面
     /// = 1:2),页面随之推移变暗。
-    /// **没有滑动手势**:只能点左上角 ☰ 打开;收回是再点 ☰、点一下遮罩,或在
-    /// 侧栏里选一个页面。滑动唤出曾经做过(整页右滑),和列表横滑、日历翻页、
-    /// 系统返回手势处处抢方向,已整个去掉。
+    /// **没有滑动唤出**:只能点左上角 ☰ 打开;收回是再点 ☰、点一下遮罩、在遮罩
+    /// 上往左滑,或在侧栏里选一个页面。滑动唤出曾经做过(整页右滑),和列表横滑、
+    /// 日历翻页、系统返回手势处处抢方向,已整个去掉;往左滑收起只挂在遮罩上,
+    /// 不存在这个问题。
     private var compactLayout: some View {
         GeometryReader { proxy in
             compactDrawer(width: proxy.size.width / 3)
@@ -656,7 +679,8 @@ struct AppShellView: View {
 
     private func compactDrawer(width: CGFloat) -> some View {
         // 0 = 收起,1 = 展开。推移/圆角/变暗都从它插值,动画由 showSidebar 驱动。
-        let progress: CGFloat = showSidebar ? 1 : 0
+        // 在遮罩上往左拖时跟着手指走(sidebarDragX)。
+        let progress: CGFloat = showSidebar ? max(0, 1 + sidebarDragX / width) : 0
         return ZStack(alignment: .leading) {
             // 侧栏排在前面 = 画在底下:页面盖在它上面,页面的投影才能落到侧栏上。
             // 面板自己因此不带投影。面板常驻渲染,靠 offset 推到屏幕外表示收起,
@@ -702,6 +726,7 @@ struct AppShellView: View {
                             .opacity(progress)
                             .contentShape(Rectangle())
                             .onTapGesture { closeSidebar() }
+                            .gesture(sidebarCloseDrag(width: width))
                             // 对旁白来说这层不是装饰,是"点一下关掉导航"的按钮。
                             .accessibilityElement()
                             .accessibilityLabel("关闭导航")
@@ -737,6 +762,8 @@ struct AppShellView: View {
         // 方角暗色底板上。日间是不透明色,叠几层都一样,所以只有夜间露馅。
         .background { drawerBackdrop }
         .animation(sidebarAnimation, value: showSidebar)
+        // 手势被系统打断时收不到 onEnded,留下的拖动量在下一次开合时清掉。
+        .onChange(of: showSidebar) { sidebarDragX = 0 }
         // 整个抽屉容器铺到物理屏幕边缘。**必须挂在这一层**,不能只挂在 sectionStack
         // 上:挂在里面时 clipShape 仍按"安全区之内"那个 frame 裁切,推开的卡上下
         // 各短一截、圆角悬在屏幕中间(实测卡内是 249,249,251、上下两截是纯白)。
