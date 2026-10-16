@@ -10,6 +10,9 @@ import LodoCore
 /// ContactPickerView.swift / ContactExportView.swift。
 @MainActor
 enum ContactsBridge {
+    /// **不读备注(CNContactNoteKey)**:iOS 13 起读备注要单独申请
+    /// `com.apple.developer.contacts.notes` entitlement,没有它时只要请求里带上
+    /// 这个键整次读取就失败(批量导入因此一位都导不进来)。
     static let keysToFetch: [CNKeyDescriptor] = [
         CNContactGivenNameKey as CNKeyDescriptor,
         CNContactFamilyNameKey as CNKeyDescriptor,
@@ -17,8 +20,10 @@ enum ContactsBridge {
         CNContactPhoneNumbersKey as CNKeyDescriptor,
         CNContactEmailAddressesKey as CNKeyDescriptor,
         CNContactBirthdayKey as CNKeyDescriptor,
-        CNContactNoteKey as CNKeyDescriptor,
         CNContactImageDataKey as CNKeyDescriptor,
+        // displayName 用 CNContactFormatter 拼全名,它要的键(中间名、前后缀等)
+        // 不止姓和名,缺了会抛异常。
+        CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
     ]
 
     enum AccessResult {
@@ -68,17 +73,25 @@ enum ContactsBridge {
         var imported = 0
         var skipped = 0
         for cnContact in cnContacts {
-            let phone = cnContact.phoneNumbers.first?.value.stringValue
-            let email = cnContact.emailAddresses.first.map { $0.value as String }
+            // 系统选择器交回来的联系人不一定带全每个字段,没取到的键直接读会抛
+            // CNPropertyNotFetchedException(闪退),所以逐个先问一句。
+            func has(_ key: String) -> Bool { cnContact.isKeyAvailable(key) }
+            let phone = has(CNContactPhoneNumbersKey)
+                ? cnContact.phoneNumbers.first?.value.stringValue : nil
+            let email = has(CNContactEmailAddressesKey)
+                ? cnContact.emailAddresses.first.map { $0.value as String } : nil
             if isDuplicate(phone: phone, email: email, knownPhones: knownPhones, knownEmails: knownEmails) {
                 skipped += 1
                 continue
             }
             guard let item = MemoryPipeline.saveContact(
-                name: displayName(for: cnContact), nickname: cnContact.nickname,
+                name: displayName(for: cnContact),
+                nickname: has(CNContactNicknameKey) ? cnContact.nickname : "",
                 phone: phone ?? "", email: email ?? "",
-                birthday: cnContact.birthday?.date, preferences: "", note: cnContact.note,
-                avatarData: cnContact.imageData, attachmentFileURLs: [], context: context
+                birthday: has(CNContactBirthdayKey) ? cnContact.birthday?.date : nil,
+                preferences: "", note: "",
+                avatarData: has(CNContactImageDataKey) ? cnContact.imageData : nil,
+                attachmentFileURLs: [], context: context
             ) else { continue }
             imported += 1
             if let phone, !phone.isEmpty { knownPhones.insert(phone) }
@@ -91,7 +104,7 @@ enum ContactsBridge {
     private static func displayName(for cnContact: CNContact) -> String {
         let formatted = CNContactFormatter.string(from: cnContact, style: .fullName)
         if let formatted, !formatted.isEmpty { return formatted }
-        return cnContact.nickname
+        return cnContact.isKeyAvailable(CNContactNicknameKey) ? cnContact.nickname : ""
     }
 
     // MARK: - 导出(记忆库 → 系统联系人)

@@ -120,13 +120,13 @@ ios_view.routines,定时任务,Routines,ios_view,
 ios_view.the_conversation_will_be_deleted_too,"对话记录会一并删除,不可恢复。","The conversation will be deleted too, and cannot be recovered.",ios_view,
 ios_view.import,导入,Import,ios_view,
 ios_view.import_backup,导入备份,Import Backup,ios_view,
-ios_view.exports_a_zip_with_your_todos_memories,"导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。","Exports a zip with your tasks, memories (with attachments), AI conversations, and settings—useful for switching devices or keeping a local archive. Doesn't include API keys, and is independent of iCloud sync.",ios_view,
+ios_view.exports_a_zip_with_your_todos_memories,"导出任务、记忆(含附件)、AI 对话与设置为 zip,不含 API Key。","Exports tasks, memories (with attachments), AI conversations, and settings as a zip. API keys are not included.",ios_view,
 ios_view.export_to_contacts,导出到通讯录,Export to Contacts,ios_view,
 ios_view.export_backup,导出备份,Export Backup,ios_view,
 ios_view.using_the_built_in_deepseek_api_key_no,"已使用内置 DeepSeek API Key,无需再填。",Using the built-in DeepSeek API key—no need to fill one in.,ios_view,
 ios_view.existing_contacts_matched_by_phone,"已存在的人脉(按手机号/邮箱匹配)会自动跳过,不会重复导入。",Existing contacts (matched by phone/email) are skipped automatically and won't be imported twice.,ios_view,
 ios_view.customized,已自定义,Customized,ios_view,
-ios_view.when_on_todos_sync_automatically_across,"开启后,任务会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。","When on, tasks sync automatically across iPhone/Mac/Apple Watch signed into the same Apple ID; when off, they're kept only on this device. Quit and reopen the app for changes to take effect.",ios_view,
+ios_view.when_on_todos_sync_automatically_across,在登录同一 Apple ID 的设备间同步任务;更改后需重新打开 App 生效。,Syncs tasks across devices signed into the same Apple ID. Reopen the app after changing.,ios_view,
 ios_view.get_started,开始使用,Get Started,ios_view,
 ios_view.start_adding,开始添加,Start Adding,ios_view,
 ios_view.affects_the_tone_of_follow_up_questions,"影响反问、汇总和洞察的说话风格,不影响解析结果;默认为无个性。","Affects the tone of follow-up questions, summaries, and insights—not parsing results. Default is no personality.",ios_view,
@@ -152,7 +152,7 @@ ios_view.nickname,昵称,Nickname,ios_view,
 ios_view.nickname_optional,昵称(可选),Nickname (optional),ios_view,
 ios_view.no_preferences_yet_mention_a_standing,"暂无偏好;说一句「以后开会都留一小时」这样的长期要求,AI 会自动记在这里,也可以直接手写。","No preferences yet; mention a standing preference like ""always leave an hour for meetings"" and the AI will record it here, or write one yourself.",ios_view,
 ios_view.tasks_with_a_duration_get_a_reminder_at,有时长的事项会在开始和结束各提醒一次,Tasks with a duration get a reminder at both start and end,ios_view,
-ios_view.provider_api_key_thinking_level_web,服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。,"Provider & API key, thinking level, web search, AI personality, voice input, completion insight, AI memory, and skill editing all live here.",ios_view,
+ios_view.provider_api_key_thinking_level_web,服务商、API Key、联网搜索、语音、Skill 等。,"Provider, API key, web search, voice, skills and more.",ios_view,
 ios_view.permission,权限,Permission,ios_view,
 ios_view.view_onboarding,查看引导,View Onboarding,ios_view,
 ios_view.tags,标签,Tags,ios_view,
@@ -177,7 +177,7 @@ ios_view.photo,照片,Photo,ios_view,
 ios_view.tap_in_the_top_right_to_add_one_like,"用右上角的 + 添加,比如每天早上让 AI 总结今天的任务。","Tap + in the top right to add one, like having the AI summarize today's tasks every morning.",ios_view,
 ios_view.clear_ai_memory,确定清空 AI 记忆吗?,Clear AI memory?,ios_view,
 ios_view.how_long_to_wait_before_reminding_you,"稍等或忽略提醒后,间隔多久再次提醒,直到完成。","How long to wait before reminding you again after you snooze or ignore, until the task is done.",ios_view,
-ios_view.snooze_interval_all_day_reminder_time,稍等间隔、全天事项提醒时间、每日任务汇总都在这里。,"Snooze interval, all-day reminder time, and daily digest all live here.",ios_view,
+ios_view.snooze_interval_all_day_reminder_time,稍等间隔、全天提醒、每日汇总。,"Snooze interval, all-day reminders, daily digest.",ios_view,
 ios_view.run_now,立即运行,Run Now,ios_view,
 ios_view.filter,筛选,Filter,ios_view,
 ios_view.manage_tags,管理标签,Manage Tags,ios_view,
@@ -225,7 +225,7 @@ ios_view.high,高,High,ios_view,
 ios_view.deepseek_by_default_cloud_providers_all,"默认 GLM-5.3 Flash;云服务商均为 OpenAI 兼容接口,key 按服务商分别保存在钥匙串中;苹果智能在设备端运行,免 key。","GLM-5.3 Flash by default; cloud providers all use OpenAI-compatible endpoints, keys are stored per-provider in the Keychain; Apple Intelligence runs on-device and needs no key.",ios_view,
 ios_view.save_2,保存,Save,ios_view,
 ios_view.convert_to_todo,转为任务,Convert to Task,ios_view,
-ios_view.watch_the_first_launch_introduction,重新看一遍首次打开时的功能介绍。,Watch the first-launch introduction again.,ios_view,
+ios_view.watch_the_first_launch_introduction,重看首次打开时的功能介绍。,Replay the first-launch introduction.,ios_view,
 ios_view.icloud_sync,iCloud 同步,iCloud Sync,ios_view,
 ios_view.today_s_memories,今天的记忆,Today's Memories,ios_view,
 ios_view.today_s_routines,今日例行,Today's Routines,ios_view,
@@ -559,7 +559,7 @@ ios_view.7_days,7 天,7 days,ios_view,
 ios_view.14_days,14 天,14 days,ios_view,
 ios_view.30_days,30 天,30 days,ios_view,
 ios_view.request_health_access_again,重新请求健康权限,Request Health Access Again,ios_view,
-ios_view.health_settings_footer,"开启后「健康」页会读取步数、睡眠、心率等数据,在本机汇总成趋势。只有汇总统计(日均、最近一天、环比变化)会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备;关闭后这一页不发任何请求。撤销授权请到系统「设置 → 隐私与安全性 → 健康」。","When enabled, the Health page reads steps, sleep, heart rate and more, and summarizes trends on this device. Only aggregate statistics (daily averages, the latest day, period-over-period change) are sent to your chosen AI provider — raw records never leave this device. Turn it off and this page makes no requests at all. To revoke access, go to Settings → Privacy & Security → Health.",ios_view,
+ios_view.health_settings_footer,"「健康」页在本机汇总步数、睡眠、心率等趋势。只有汇总统计会发给 AI 服务商,原始记录不会离开这台设备;关闭后不发任何请求。","The Health page summarizes steps, sleep, heart rate and more on this device. Only summary statistics are sent to your AI provider; raw records never leave this device. When off, no requests are made.",ios_view,
 ios_core.travel_flight,航班,Flight,ios_core,行程项类型
 ios_core.travel_train,火车,Train,ios_core,行程项类型
 ios_core.travel_coach,客车,Coach,ios_core,行程项类型
@@ -1040,7 +1040,7 @@ ios_view.catalog_cc22768d1604,完成于 %@,Completed on %@,ios_view,Xcode 提取
 ios_view.catalog_a2efd736db6c,完成哪个事项?,Which task should be completed?,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_0749e9504b50,完成录音,Finish Recording,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_8d9fc2384140,完整 system prompt(共 %lld 字),Full system prompt (%lld characters),ios_view,Xcode 提取的 iOS UI 文案
-ios_view.catalog_2ade7821ccfd,"对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。","Say “Open Lodo Assistant” to Siri, or on iPhone 15 Pro and later, choose Shortcuts → Open Lodo Assistant under Settings > Action Button for one-tap access.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_2ade7821ccfd,"对 Siri 说“打开lodo助手”,或把操作按钮设为这条快捷指令,一键呼出 AI 助手。","Say “Open Lodo Assistant” to Siri, or assign this shortcut to the Action button.",ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_a01a8d53938f,导入失败,Import Failed,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_11883b2a5e40,导出(%lld),Export (%lld),ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_675338126127,导出失败,Export Failed,ios_view,Xcode 提取的 iOS UI 文案
@@ -1050,7 +1050,7 @@ ios_view.catalog_cdfab96f757f,已保存,Saved,ios_view,Xcode 提取的 iOS UI �
 ios_view.catalog_5c5b7cfb1208,已导入,Imported,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_35f670828a53,已导出,Exported,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_e3abce2148d2,已结束 · %lld,Ended · %lld,ios_view,Xcode 提取的 iOS UI 文案
-ios_view.catalog_a407916a8387,"开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。","When enabled, the Calendar page shows your calendar events. Open an event to edit or delete it in Apple's editor; you confirm each change. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync both ways: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Long-press or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in Settings → Privacy & Security → Calendars.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_a407916a8387,"开启后「日历」页显示你的日程。「把任务写进系统日历」会新建一本 lodo 日历并双向同步:在日历里改时间或标题会回写任务,删掉事件会连任务一起删除(不可撤销);关掉时写入的事件一并清除。","The Calendar page shows your events. Write Tasks to Calendar creates a “lodo” calendar that syncs both ways: editing an event’s time or title updates the task, and deleting the event deletes the task (can’t be undone). Turning it off removes those events.",ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_79cc871ca992,开始,Start,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_5f1eb0da681f,开始了,Started,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_df9da1ccc43f,开始对话,Start a Conversation,ios_view,Xcode 提取的 iOS UI 文案
@@ -1063,7 +1063,7 @@ ios_view.catalog_22ee03203313,打开 lodo 助手,Open Lodo Assistant,ios_view,Xc
 ios_view.catalog_9163caf90d7c,打开 lodo 的全局 AI 助手。,Open Lodo's AI assistant from anywhere.,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_7d4f8a3109e0,把一个任务标记为完成。,Mark a task as complete.,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_2dd549fb4ee1,把任务写进系统日历,Write Tasks to System Calendar,ios_view,Xcode 提取的 iOS UI 文案
-ios_view.catalog_2ca03c9e27a6,"按钮、选中态和链接的颜色。每一档的浅色/深色两套取值都核过对比度,换色不会让文字变得难读。","Colors for buttons, selected states, and links. Light and dark variants are checked for contrast and readability.",ios_view,Xcode 提取的 iOS UI 文案
+ios_view.catalog_2ca03c9e27a6,按钮、选中态和链接的颜色。,"Color of buttons, selections, and links.",ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_f55018f3f968,按项目查看,View by Project,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_9655ee6cf6e0,搜索记忆,Search Memories,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_4c87b9356524,收藏于,Saved on,ios_view,Xcode 提取的 iOS UI 文案
@@ -1693,7 +1693,6 @@ calendar.event_delete_failed,"删除失败,请到「日历」app 里删除。",C
 calendar.event_open_in_app,在「日历」中打开,Open in Calendar,ios_view,日历事件详情(macOS)
 calendar.event_delete_this,仅删除这一次,Delete This Event Only,ios_view,日历事件详情(macOS)
 calendar.event_delete_future,删除这一次及以后,Delete All Future Events,ios_view,日历事件详情(macOS)
-settings.calendar_footer_mac,"开启后「日历」页会显示你日历里的日程,点开一条可以查看详情、删除,修改请到「日历」app 里进行。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页右键或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到「系统设置 → 隐私与安全性 → 日历」。","When enabled, the Calendar page shows your calendar events. Open an event to view details or delete it; edit it in the Calendar app. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync **both ways**: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Right-click or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in System Settings → Privacy & Security → Calendars.",ios_view,设置(macOS)
 settings.health_unavailable,"这台设备没有健康数据,步数、睡眠、心率的趋势和 AI 分析请在 iPhone 上查看。","This device has no health data. View step, sleep and heart rate trends and AI analysis on your iPhone.",ios_view,设置(Mac 等无健康库的设备)
 health.unavailable_title,这台设备没有健康数据,No Health Data on This Device,ios_view,健康页(Mac 等无健康库的设备)
 health.unavailable_body,"步数、睡眠、心率等数据只在 iPhone 和 Apple Watch 上有,请在 iPhone 上的 lodo 里查看趋势和 AI 分析。体检报告、病历这类健康资料仍然可以在这里记录,也能问 AI。","Steps, sleep, heart rate and other data are only on iPhone and Apple Watch — open lodo on your iPhone for trends and AI analysis. You can still record health documents like checkup reports and medical records here and ask the AI about them.",ios_view,健康页(Mac 等无健康库的设备)
@@ -1875,3 +1874,12 @@ ios_view.air_quality_reminder_18,出门戴口罩,Wear a mask outside,ios_view,�
 ios_view.air_quality_reminder_19,关好门窗,Keep windows closed,ios_view,健康页:空气质量提醒
 ios_view.air_quality_reminder_20,尽量别出门,Stay inside if you can,ios_view,健康页:空气质量提醒
 ios_view.air_quality_reminder_21,开空气净化器,Run an air purifier,ios_view,健康页:空气质量提醒
+ios_view.contacts_import_from_contacts,从通讯录导入,Import from Contacts,ios_view,人脉页从通讯录导入
+ios_view.contacts_import_pick,选择联系人导入,Choose Contacts to Import,ios_view,人脉页从通讯录导入
+ios_view.contacts_import_all,导入全部联系人,Import All Contacts,ios_view,人脉页从通讯录导入
+ios_view.contacts_import_all_confirm,确定要导入通讯录中的全部联系人吗?,Import all contacts from your address book?,ios_view,人脉页从通讯录导入
+ios_view.contacts_import_done,导入完成,Import Complete,ios_view,人脉页从通讯录导入
+ios_view.contacts_import_count,已导入 %lld 位,Imported %lld,ios_view,人脉页从通讯录导入
+ios_view.contacts_import_skipped,",跳过 %lld 位重复",", skipped %lld duplicates",ios_view,人脉页从通讯录导入
+ios_view.travel_map_current_location,当前位置,Current location,ios_view,旅行地图右下角定位按钮
+ios_view.travel_map_location_failed,没能取到当前位置。请在系统设置里允许 Lodo 使用位置后再试。,Couldn't get your current location. Allow Lodo to use your location in Settings and try again.,ios_view,旅行地图定位失败提示

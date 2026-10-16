@@ -74,6 +74,10 @@ struct TravelDetailView: View {
     /// 底部面板在屏幕上的位置(面板里量出来的全局坐标)。放针模式的两颗按钮悬浮在
     /// 它上方、和它左右对齐。
     @State private var panelFrame: CGRect = .zero
+    /// 地图右下角那颗「搜索」拉起的选地点页。
+    @State private var searchingPlace = false
+    /// 正在取当前位置(那颗「定位」换成转圈)。
+    @State private var locatingUser = false
     /// 地图控件(指南针)固定摆在右上角,和地图本体靠同一个 scope 关联。
     @Namespace private var mapScope
     /// 切换 mapDay 后要选中的点。行选中需要先把按天筛选退回「全部」,而 mapDay 的
@@ -99,6 +103,8 @@ struct TravelDetailView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private static let peekDetent = PresentationDetent.height(200)
+    /// 面板列表底部渐隐的高度(盖住「问问 AI」那一截再往上一点)。
+    private static let panelBottomFade: CGFloat = 120
     /// 宽屏左栏(行程面板)的宽度。
     private static let wideListWidth: CGFloat = 372
 
@@ -338,7 +344,11 @@ struct TravelDetailView: View {
                 // 撑到 1300 多(实测);地图本来就能裁,让它多窄都行,下限交给外层那一栏。
                 .frame(minWidth: 1, minHeight: 1)
                 .ignoresSafeArea()
-            mapOverlays
+            // 量出这一层底边被底部面板盖住了多少,右下角那两颗按钮就停在面板上沿上面。
+            GeometryReader { geo in
+                mapOverlays(bottomCovered: isWide || panelFrame == .zero
+                            ? 0 : max(0, geo.frame(in: .global).maxY - panelFrame.minY))
+            }
             if pinningEntry != nil {
                 pinningLayer
                     .ignoresSafeArea()
@@ -454,6 +464,15 @@ struct TravelDetailView: View {
             // 默认就问/改这一次旅行,不用每句话都报名字。
             // 条子背后不要系统那层底部滚动边缘效果(会把行程糊成一块白底)。
             .hidesBottomScrollEdgeEffect()
+            // 底部渐隐(用户要求):行程滚到「问问 AI」那一截时逐渐淡出,而不是整块
+            // 硬生生压在条子后面。mask 挂在 askBar 之前,条子本身不受影响。
+            .mask {
+                VStack(spacing: 0) {
+                    Color.black
+                    LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom)
+                        .frame(height: Self.panelBottomFade)
+                }
+            }
             .askBar(focus: .travel(trip: trip.title))
             .frame(maxHeight: .infinity)
             .clipped()
@@ -491,6 +510,13 @@ struct TravelDetailView: View {
         .sheet(isPresented: $editingTrip) {
             TripEditView(trip: trip)
         }
+        // 地图右下角「搜索」:选中的地方飞过去、挂上「加入行程」卡片(同长按放点)。
+        .sheet(isPresented: $searchingPlace) {
+            PlaceSearchView(onPick: { name, coordinate in
+                showSearchedPlace(name: name, coordinate: coordinate)
+            }, hints: TravelStore.geocodeHints(for: trip), regions: TravelStore.expectedRegions(for: trip),
+               anchor: searchAnchor, tripLacksLocation: tripLacksLocation)
+        }
     }
 
     /// 「总览 / 日程 / 消费 / 文件」切换,样式见 `SlidingSwitch`。
@@ -512,6 +538,13 @@ struct TravelDetailView: View {
         if args.contains("--demo-travel-files") { mode = .files }
         if args.contains("--demo-travel-cost") { mode = .cost }
         if args.contains("--demo-travel-packing") { mode = .packing }
+        if args.contains("--demo-travel-search") {
+            // 截图用:直接打开地图右下角「搜索」那一页。
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
+                searchingPlace = true
+            }
+        }
         if args.contains("--demo-travel-pin"),
            let target = entries.first(where: { !$0.kind.isTransport }) {
             // 截图用:对第一个非交通的行程项进放针模式。
@@ -567,8 +600,10 @@ struct TravelDetailView: View {
         if args.contains("--demo-travel-add") { addingItem = true }
         // 截图验证用:simctl 长按不了地图,在第一个地点旁边放一个点(真发反查地名),
         // 带 -add 再接着点「加入行程」。
-        if args.contains("--demo-travel-drop-pin"),
-           let near = entries.first(where: { $0.coordinate != nil && $0.kind == .place })?.coordinate {
+        if args.contains("--demo-travel-drop-pin") {
+            // 样板旅行里还没有带坐标的地点时放在首尔市中心。
+            let near = entries.first(where: { $0.coordinate != nil && $0.kind == .place })?.coordinate
+                ?? TravelCoordinate(latitude: 37.5965, longitude: 127.008)
             dropCandidate(at: CLLocationCoordinate2D(latitude: near.latitude - 0.03,
                                                      longitude: near.longitude - 0.03))
             if args.contains("--demo-travel-drop-pin-add") {
@@ -1051,6 +1086,8 @@ struct TravelDetailView: View {
                     lineWidth: 4, lineCap: .round, lineJoin: .round,
                     dash: leg.isStraightFallback ? [6, 6] : []))
         }
+        // 当前位置的蓝点:只在用户给过定位权限时才画得出来(右下角「定位」会请求一次)。
+        UserAnnotation()
         // 长按放下的点(系统 POI 被点中时系统自己会高亮,不用再画)。不带 tag,点不中。
         if let candidate = placeCandidate, candidate.isDropped {
             Marker(candidate.name.isEmpty ? String(localized: "标记的位置", bundle: .appLanguage(language),
@@ -1167,15 +1204,18 @@ struct TravelDetailView: View {
             .pressable()
             .accessibilityLabel("取消")
         }
-        .padding(.horizontal, 14)
+        .padding(.leading, 18)
+        .padding(.trailing, 14)
         .padding(.vertical, 10)
-        .glassBackground(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        // 两头是半圆(用户要求)。
+        .glassBackground(Capsule())
         .frame(maxWidth: .infinity)
         .transition(.opacity)
     }
 
-    /// 地图上浮着的东西:左上角按天筛选、顶上一条提示。都在安全区之内(导航栏下面)。
-    private var mapOverlays: some View {
+    /// 地图上浮着的东西:左上角按天筛选、顶上一条提示、右下角搜索和定位。
+    /// 都在安全区之内(导航栏下面);`bottomCovered` 是这一层底边被底部面板盖住的高度。
+    private func mapOverlays(bottomCovered: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 if trip.days.count > 1 { dayFilterRail }
@@ -1183,9 +1223,6 @@ struct TravelDetailView: View {
                 // 固定在右上角、常驻显示(正北朝上时系统默认会藏起来),顶边和左侧按天胶囊对齐。
                 MapCompass(scope: mapScope)
                     .mapControlVisibility(.visible)
-            }
-            if pinningEntry == nil, let candidate = placeCandidate {
-                placeCandidateCard(candidate)
             }
             if pinningEntry != nil {
                 pinningHint
@@ -1228,8 +1265,32 @@ struct TravelDetailView: View {
                 .frame(maxWidth: .infinity)
                 .transition(.opacity)
             }
+            // 放针模式有自己的两颗按钮;面板拉满时地图基本看不见,一起收起。
+            if pinningEntry == nil && (isWide || panelDetent != .large) {
+                Spacer(minLength: 0)
+                VStack(spacing: 12) {
+                    // 面板半高时露出来的地图可能只剩一截,竖排放不下就横排。
+                    ViewThatFits(in: .vertical) {
+                        HStack {
+                            Spacer(minLength: 0)
+                            mapButtons(vertical: true)
+                        }
+                        HStack {
+                            Spacer(minLength: 0)
+                            mapButtons(vertical: false)
+                        }
+                    }
+                    // 点中/长按/搜索出来的地方:「加入行程」卡片贴在面板上方 18pt(用户要求)。
+                    if let candidate = placeCandidate {
+                        placeCandidateCard(candidate)
+                    }
+                }
+                .padding(.bottom, bottomCovered > 0 ? bottomCovered + Self.panelGapAdjust : 0)
+            }
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, Self.panelGap)
         .animation(.lodoAware(.snappy), value: mapNotice)
         .animation(.lodoAware(.snappy), value: placeCandidate?.id)
     }
@@ -1305,6 +1366,89 @@ struct TravelDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - 右下角:搜索 + 当前位置
+
+    private static let mapButtonSize: CGFloat = 44
+    /// 地图底部那组(按钮、「加入行程」卡片)离底部面板上沿的距离。
+    private static let panelGap: CGFloat = 18
+    /// `panelFrame` 量到的是面板内容区,比面板玻璃的上沿高一截;这里补回差值,
+    /// 让上面那 18pt 量的是到看得见的那条边。
+    private static let panelGapAdjust: CGFloat = -10
+    private static let mapButtonSpacing: CGFloat = 10
+
+    /// 地图右下角竖排两颗 Liquid Glass 圆:上面搜索地点、下面回到当前位置。
+    /// 窄屏停在底部面板上沿上面,宽屏在地图这一栏的右下角。和顶上的提示、候选卡片
+    /// 排在同一个竖排里(见 mapOverlays),地图露出来的那截不够高时不会叠在一起。
+    private func mapButtons(vertical: Bool) -> some View {
+        let layout = vertical ? AnyLayout(VStackLayout(spacing: Self.mapButtonSpacing))
+                              : AnyLayout(HStackLayout(spacing: Self.mapButtonSpacing))
+        return layout {
+            Button {
+                searchingPlace = true
+            } label: {
+                mapButtonLabel { Image(systemName: "magnifyingglass") }
+            }
+            .pressable()
+            .accessibilityLabel("搜索地点")
+            Button(action: showUserLocation) {
+                mapButtonLabel {
+                    if locatingUser {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "location.fill")
+                            .foregroundStyle(lodoAccent.accent)
+                    }
+                }
+            }
+            .pressable()
+            .disabled(locatingUser)
+            .accessibilityLabel("当前位置")
+        }
+        .glassGroup(spacing: Self.mapButtonSpacing)
+    }
+
+    private func mapButtonLabel(@ViewBuilder _ icon: () -> some View) -> some View {
+        icon()
+            .font(.title3.weight(.medium))
+            .foregroundStyle(.primary)
+            .frame(width: Self.mapButtonSize, height: Self.mapButtonSize)
+            .contentShape(Circle())
+            .glassBackground(Circle(), tint: nil)
+    }
+
+    /// 定一次位,镜头飞到那里(按露出来的那截地图取景)。没授权/定位失败如实提示。
+    private func showUserLocation() {
+        locatingUser = true
+        Task {
+            defer { locatingUser = false }
+            guard let coordinate = await LocationHelper.requestCoordinate() else {
+                showNotice(String(localized: "没能取到当前位置。请在系统设置里允许 Lodo 使用位置后再试。",
+                                  bundle: .appLanguage(language), locale: language.locale))
+                return
+            }
+            selectedPin = nil
+            focus(onCoordinates: [coordinate], minimumSpan: 0.012, animated: true)
+        }
+    }
+
+    /// 搜索选中的地方:当成一个放下的点(画标记、顶上挂「加入行程」),镜头飞过去。
+    private func showSearchedPlace(name: String, coordinate: CLLocationCoordinate2D) {
+        selectedPin = nil
+        selectedFeature = nil
+        withAnimation(.lodoAware(.snappy)) {
+            placeCandidate = MapPlaceCandidate(name: name, subtitle: nil, coordinate: coordinate,
+                                               isDropped: true)
+        }
+        if panelDetent == .large { panelDetent = .medium }
+        focus(onCoordinates: [coordinate], minimumSpan: 0.012, animated: true)
+    }
+
+    /// 搜索页按离这趟旅行已有地点的远近排同名结果(交通类不算,同编辑表单)。
+    private var searchAnchor: CLLocationCoordinate2D? {
+        entries.first { !$0.kind.isTransport && $0.coordinate != nil }?.coordinate
+            .map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
     }
 
     private static let pinButtonHeight: CGFloat = 50
@@ -1497,13 +1641,18 @@ struct TravelDetailView: View {
     }
 
     private func focus(on pins: [MapPin], animated: Bool) {
-        let points = pins.map { TravelCoordinate(latitude: $0.coordinate.latitude,
-                                                 longitude: $0.coordinate.longitude) }
+        focus(onCoordinates: pins.map(\.coordinate), minimumSpan: pins.count == 1 ? 0.012 : 0.05,
+              animated: animated)
+    }
+
+    private func focus(onCoordinates coordinates: [CLLocationCoordinate2D], minimumSpan: Double,
+                       animated: Bool) {
+        let points = coordinates.map { TravelCoordinate(latitude: $0.latitude, longitude: $0.longitude) }
         guard let frame = TravelMapFraming.frame(
             points, coveredFraction: coveredFraction,
             // 顶上还有状态栏 + 导航栏按钮和按天胶囊,点落在那一截会被挡住。
             topCoveredFraction: 0.14,
-            minimumSpan: pins.count == 1 ? 0.012 : 0.05) else { return }
+            minimumSpan: minimumSpan) else { return }
         let region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: frame.center.latitude,
                                            longitude: frame.center.longitude),

@@ -19,6 +19,9 @@ struct ContactListView: View {
     @State private var pendingDelete: MemoryItem?
     @State private var showExportPicker = false
     @State private var permissionDenied = false
+    @State private var showPicker = false
+    @State private var showImportAllConfirm = false
+    @State private var importResultMessage: String?
 
     private var contacts: [MemoryItem] { allItems.filter(\.isContact) }
 
@@ -31,6 +34,14 @@ struct ContactListView: View {
                             Label("还没有人脉", systemImage: "person.crop.circle")
                         } description: {
                             Text("在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。")
+                        } actions: {
+                            // AI 接不了通讯录导入这一棒,空态里留着这个入口(同新闻页「添加订阅」)。
+                            Menu {
+                                importMenuItems
+                            } label: {
+                                Text("从通讯录导入")
+                            }
+                            .glassProminentButton()
                         }
                         .emptyStateFill()
                     }
@@ -58,8 +69,18 @@ struct ContactListView: View {
             .navigationDestination(for: MemoryItem.self) { contact in
                 ContactDetailView(item: contact)
             }
-            // 两颗都放右上角:左上角只留 ☰(导航),页面自己的操作一律收在右边。
+            // 都放右上角:左上角只留 ☰(导航),页面自己的操作一律收在右边。
+            // 「从通讯录导入」没有人脉时也要在(AI 接不了这一棒)。
             .toolbar {
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            importMenuItems
+                        } label: {
+                            Label("从通讯录导入", systemImage: "person.crop.circle.badge.plus")
+                        }
+                    }
+                }
                 if !(sidebarChrome?.hidesChrome ?? false), !contacts.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
@@ -91,6 +112,34 @@ struct ContactListView: View {
             }
             .sheet(isPresented: $showExportPicker) {
                 ContactExportPickerView()
+            }
+            #if os(iOS)
+            .sheet(isPresented: $showPicker) {
+                ContactPickerView(
+                    onPicked: { cnContacts in
+                        showPicker = false
+                        importResultMessage = importSummary(
+                            ContactsBridge.importContacts(cnContacts, context: context))
+                    },
+                    onCancel: { showPicker = false })
+                .ignoresSafeArea()
+            }
+            #endif
+            .confirmationDialog(
+                "确定要导入通讯录中的全部联系人吗?", isPresented: $showImportAllConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("导入") { Task { await beginImportAll() } }
+            } message: {
+                Text("已存在的人脉(按手机号/邮箱匹配)会自动跳过,不会重复导入。")
+            }
+            .alert("导入完成", isPresented: Binding(
+                get: { importResultMessage != nil },
+                set: { if !$0 { importResultMessage = nil } }
+            )) {
+                Button("好") { importResultMessage = nil }
+            } message: {
+                Text(importResultMessage ?? "")
             }
             .alert("无法访问通讯录", isPresented: $permissionDenied) {
                 Button("好", role: .cancel) {}
@@ -176,11 +225,43 @@ struct ContactListView: View {
         return parts.joined(separator: " · ")
     }
 
-    // MARK: - 批量导出到通讯录(权限门控)
+    // MARK: - 从通讯录导入
     //
-    // 「从通讯录导入」的两条入口随右下角那颗「+」一起去掉了(新建一律走 AI),
-    // `ContactsBridge.importContacts`/`ContactPickerView` 仍在,要恢复入口时
-    // 挂回来即可。
+    // 两条路:选择导入走系统联系人选择器,只把用户选中的人交给 app,**不需要
+    // 通讯录权限**(仅 iOS,macOS 的选择器是挂在按钮上的弹出框,没接);导入全部
+    // 要先拿权限。两条都按手机号/邮箱去重,已有的人脉跳过。
+
+    @ViewBuilder
+    private var importMenuItems: some View {
+        #if os(iOS)
+        Button("选择联系人导入", systemImage: "person.crop.circle.badge.checkmark") {
+            showPicker = true
+        }
+        #endif
+        Button("导入全部联系人", systemImage: "person.2.badge.plus") {
+            showImportAllConfirm = true
+        }
+    }
+
+    private func beginImportAll() async {
+        guard await ContactsBridge.requestAccess() == .granted else {
+            permissionDenied = true
+            return
+        }
+        importResultMessage = importSummary(
+            ContactsBridge.importContacts(ContactsBridge.fetchAllContacts(), context: context))
+    }
+
+    private func importSummary(_ result: (imported: Int, skipped: Int)) -> String {
+        let locale = AppSettings.language.locale
+        var message = String(localized: "已导入 \(result.imported) 位", bundle: .appLanguage(), locale: locale)
+        if result.skipped > 0 {
+            message += String(localized: ",跳过 \(result.skipped) 位重复", bundle: .appLanguage(), locale: locale)
+        }
+        return message
+    }
+
+    // MARK: - 批量导出到通讯录(权限门控)
 
     private func beginExport() async {
         guard await ContactsBridge.requestAccess() == .granted else {

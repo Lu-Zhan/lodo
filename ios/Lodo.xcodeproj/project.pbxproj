@@ -647,7 +647,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍下菜单,在本机识别上面的文字后交给 AI 整理成菜品清单。";
 				INFOPLIST_KEY_NSContactsUsageDescription = "用于从通讯录导入联系人到记忆库,或将记忆库里的联系人导出到通讯录。";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取步数、睡眠、心率等数据,在本机汇总成健康趋势与建议;只有汇总统计会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备。";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "用于查询所在地的空气质量(只取约 1 公里精度的位置),以及定时任务里查询当地天气等信息。";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "用于查询所在地的空气质量(只取约 1 公里精度的位置)、在旅行地图上显示你的当前位置,以及定时任务里查询当地天气等信息。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "lodo 需要使用麦克风,以便语音输入待办事项。";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";
@@ -700,7 +700,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "用于拍下菜单,在本机识别上面的文字后交给 AI 整理成菜品清单。";
 				INFOPLIST_KEY_NSContactsUsageDescription = "用于从通讯录导入联系人到记忆库,或将记忆库里的联系人导出到通讯录。";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于读取步数、睡眠、心率等数据,在本机汇总成健康趋势与建议;只有汇总统计会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备。";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "用于查询所在地的空气质量(只取约 1 公里精度的位置),以及定时任务里查询当地天气等信息。";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "用于查询所在地的空气质量(只取约 1 公里精度的位置)、在旅行地图上显示你的当前位置,以及定时任务里查询当地天气等信息。";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "lodo 需要使用麦克风,以便语音输入待办事项。";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";
 				INFOPLIST_KEY_NSRemindersUsageDescription = "lodo 需要访问系统提醒事项,以便导入待办和导出 lodo 事项。";

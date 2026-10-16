@@ -33,6 +33,22 @@
         }
       }
     },
+    ",跳过 %lld 位重复" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ", skipped %lld duplicates"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ",跳过 %lld 位重复"
+          }
+        }
+      }
+    },
     "—" : {
       "localizations" : {
         "en" : {
@@ -2143,8 +2159,21 @@
         }
       }
     },
-    "不同币种的资产换算成「汇总展示币种」求和,汇率联网免费获取,每天自动更新一次。「隐藏资产统计」开着时,资产页的净资产、每月收支这些数字显示成 ***,点一下那张卡才露出来。「AI 与资产隔离」开着时,AI 只能帮你新建资产,看不到也改不了已有的资产(资产清单不发给 AI,记忆搜索和引用里也不带资产)。" : {
-
+    "汇率每天联网更新一次。「隐藏资产统计」把资产页的金额显示成 ***,点一下露出;「AI 与资产隔离」让 AI 只能新建资产,看不到已有的。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exchange rates update online once a day. Hide Asset Totals shows amounts as *** until tapped; Isolate Assets from AI lets AI only add new assets, never see existing ones."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "汇率每天联网更新一次。「隐藏资产统计」把资产页的金额显示成 ***,点一下露出;「AI 与资产隔离」让 AI 只能新建资产,看不到已有的。"
+          }
+        }
+      }
     },
     "不填" : {
       "localizations" : {
@@ -3197,6 +3226,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从记忆库选择"
+          }
+        }
+      }
+    },
+    "从通讯录导入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import from Contacts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从通讯录导入"
           }
         }
       }
@@ -5264,6 +5309,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "内容"
+          }
+        }
+      }
+    },
+    "导入全部联系人" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import All Contacts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入全部联系人"
+          }
+        }
+      }
+    },
+    "导入完成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import Complete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入完成"
+          }
+        }
+      }
+    },
+    "已导入 %lld 位" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已导入 %lld 位"
           }
         }
       }
@@ -9464,18 +9557,18 @@
         }
       }
     },
-    "对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。" : {
+    "对 Siri 说“打开lodo助手”,或把操作按钮设为这条快捷指令,一键呼出 AI 助手。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Say “Open Lodo Assistant” to Siri, or on iPhone 15 Pro and later, choose Shortcuts → Open Lodo Assistant under Settings > Action Button for one-tap access."
+            "value" : "Say “Open Lodo Assistant” to Siri, or assign this shortcut to the Action button."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "对 Siri 说“打开lodo助手”,或在 iPhone 15 Pro 及以上机型的「设置 > 操作按钮」里选择「快捷指令」→「打开 lodo 助手」,一键呼出 AI 助手。"
+            "value" : "对 Siri 说“打开lodo助手”,或把操作按钮设为这条快捷指令,一键呼出 AI 助手。"
           }
         }
       }
@@ -9674,18 +9767,18 @@
         }
       }
     },
-    "导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。" : {
+    "导出任务、记忆(含附件)、AI 对话与设置为 zip,不含 API Key。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Exports a zip with your tasks, memories (with attachments), AI conversations, and settings—useful for switching devices or keeping a local archive. Doesn't include API keys, and is independent of iCloud sync."
+            "value" : "Exports tasks, memories (with attachments), AI conversations, and settings as a zip. API keys are not included."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "导出一份包含任务、记忆(含附件)、AI 对话与设置的 zip 文件,可用于换设备或本地留档;不含 API Key,与 iCloud 同步互不影响。"
+            "value" : "导出任务、记忆(含附件)、AI 对话与设置为 zip,不含 API Key。"
           }
         }
       }
@@ -11497,18 +11590,18 @@
         }
       }
     },
-    "开启后,任务会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。" : {
+    "在登录同一 Apple ID 的设备间同步任务;更改后需重新打开 App 生效。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When on, tasks sync automatically across iPhone/Mac/Apple Watch signed into the same Apple ID; when off, they're kept only on this device. Quit and reopen the app for changes to take effect."
+            "value" : "Syncs tasks across devices signed into the same Apple ID. Reopen the app after changing."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后,任务会在登录同一 Apple ID 的 iPhone/Mac/Apple Watch 间自动同步;关闭后仅保存在本机。更改后需要退出并重新打开 App 才能生效。"
+            "value" : "在登录同一 Apple ID 的设备间同步任务;更改后需重新打开 App 生效。"
           }
         }
       }
@@ -11529,50 +11622,34 @@
         }
       }
     },
-    "开启后「健康」页会读取步数、睡眠、心率等数据,在本机汇总成趋势。只有汇总统计(日均、最近一天、环比变化)会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备;关闭后这一页不发任何请求。撤销授权请到系统「设置 → 隐私与安全性 → 健康」。" : {
+    "「健康」页在本机汇总步数、睡眠、心率等趋势。只有汇总统计会发给 AI 服务商,原始记录不会离开这台设备;关闭后不发任何请求。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When enabled, the Health page reads steps, sleep, heart rate and more, and summarizes trends on this device. Only aggregate statistics (daily averages, the latest day, period-over-period change) are sent to your chosen AI provider — raw records never leave this device. Turn it off and this page makes no requests at all. To revoke access, go to Settings → Privacy & Security → Health."
+            "value" : "The Health page summarizes steps, sleep, heart rate and more on this device. Only summary statistics are sent to your AI provider; raw records never leave this device. When off, no requests are made."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后「健康」页会读取步数、睡眠、心率等数据,在本机汇总成趋势。只有汇总统计(日均、最近一天、环比变化)会发给你选择的 AI 服务商,逐条原始记录不会离开这台设备;关闭后这一页不发任何请求。撤销授权请到系统「设置 → 隐私与安全性 → 健康」。"
+            "value" : "「健康」页在本机汇总步数、睡眠、心率等趋势。只有汇总统计会发给 AI 服务商,原始记录不会离开这台设备;关闭后不发任何请求。"
           }
         }
       }
     },
-    "开启后「日历」页会显示你日历里的日程,点开一条可以查看详情、删除,修改请到「日历」app 里进行。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页右键或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到「系统设置 → 隐私与安全性 → 日历」。" : {
+    "开启后「日历」页显示你的日程。「把任务写进系统日历」会新建一本 lodo 日历并双向同步:在日历里改时间或标题会回写任务,删掉事件会连任务一起删除(不可撤销);关掉时写入的事件一并清除。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When enabled, the Calendar page shows your calendar events. Open an event to view details or delete it; edit it in the Calendar app. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync **both ways**: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Right-click or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in System Settings → Privacy & Security → Calendars."
+            "value" : "The Calendar page shows your events. Write Tasks to Calendar creates a “lodo” calendar that syncs both ways: editing an event’s time or title updates the task, and deleting the event deletes the task (can’t be undone). Turning it off removes those events."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开启后「日历」页会显示你日历里的日程,点开一条可以查看详情、删除,修改请到「日历」app 里进行。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页右键或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到「系统设置 → 隐私与安全性 → 日历」。"
-          }
-        }
-      }
-    },
-    "开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When enabled, the Calendar page shows your calendar events. Open an event to edit or delete it in Apple's editor; you confirm each change. “Write Tasks to System Calendar” creates a calendar named lodo and adds incomplete tasks with their titles and times. Changes sync both ways: editing a mirrored event updates its task, and deleting the event also deletes the task (this can't be undone). Long-press or swipe left on your own events in Calendar to turn them into tasks. Once claimed, they sync both ways, but deleting the task won't delete your original event. Turning this off removes mirrored events. Revoke access in Settings → Privacy & Security → Calendars."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开启后「日历」页会显示你日历里的日程,点开任意一条可以用系统的编辑界面修改或删除(改动都要你自己确认)。「把任务写进系统日历」会新建一本名为 lodo 的日历,只往这本里写未完成的任务(标题和时间),并且是**双向**的:在日历 app 里改这些事件的时间或标题会回写进任务,把事件删掉会连任务一起删掉(不可撤销)。你自己日历里的日程可以在日历页长按或左滑「转为任务」,认领之后才跟着双向,而且任务删了也不会去删你的日程。关掉开关时会把写进去的事件一并清掉。撤销授权请到系统「设置 → 隐私与安全性 → 日历」。"
+            "value" : "开启后「日历」页显示你的日程。「把任务写进系统日历」会新建一本 lodo 日历并双向同步:在日历里改时间或标题会回写任务,删掉事件会连任务一起删除(不可撤销);关掉时写入的事件一并清除。"
           }
         }
       }
@@ -11847,6 +11924,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "归档后不再显示在列表、小组件和总览里,也不再提醒;在列表最下面「已归档」里可以找回来。"
+          }
+        }
+      }
+    },
+    "当前位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前位置"
           }
         }
       }
@@ -13232,18 +13325,18 @@
         }
       }
     },
-    "按钮、选中态和链接的颜色。每一档的浅色/深色两套取值都核过对比度,换色不会让文字变得难读。" : {
+    "按钮、选中态和链接的颜色。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Colors for buttons, selected states, and links. Light and dark variants are checked for contrast and readability."
+            "value" : "Color of buttons, selections, and links."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按钮、选中态和链接的颜色。每一档的浅色/深色两套取值都核过对比度,换色不会让文字变得难读。"
+            "value" : "按钮、选中态和链接的颜色。"
           }
         }
       }
@@ -15484,18 +15577,18 @@
         }
       }
     },
-    "服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。" : {
+    "服务商、API Key、联网搜索、语音、Skill 等。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Provider & API key, thinking level, web search, AI personality, voice input, completion insight, AI memory, and skill editing all live here."
+            "value" : "Provider, API key, web search, voice, skills and more."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "服务商与 API Key、思考强度、联网搜索、AI 个性、语音交互、完成洞察、AI 记忆、Skill 编辑都在这里。"
+            "value" : "服务商、API Key、联网搜索、语音、Skill 等。"
           }
         }
       }
@@ -17806,6 +17899,22 @@
         }
       }
     },
+    "没能取到当前位置。请在系统设置里允许 Lodo 使用位置后再试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't get your current location. Allow Lodo to use your location in Settings and try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没能取到当前位置。请在系统设置里允许 Lodo 使用位置后再试。"
+          }
+        }
+      }
+    },
     "泰铢" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -19052,6 +19161,22 @@
         }
       }
     },
+    "确定要导入通讯录中的全部联系人吗?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import all contacts from your address book?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确定要导入通讯录中的全部联系人吗?"
+          }
+        }
+      }
+    },
     "确认" : {
 
     },
@@ -19283,18 +19408,18 @@
         }
       }
     },
-    "稍等间隔、全天事项提醒时间、每日任务汇总都在这里。" : {
+    "稍等间隔、全天提醒、每日汇总。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Snooze interval, all-day reminder time, and daily digest all live here."
+            "value" : "Snooze interval, all-day reminders, daily digest."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "稍等间隔、全天事项提醒时间、每日任务汇总都在这里。"
+            "value" : "稍等间隔、全天提醒、每日汇总。"
           }
         }
       }
@@ -24184,6 +24309,22 @@
         }
       }
     },
+    "选择联系人导入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Contacts to Import"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择联系人导入"
+          }
+        }
+      }
+    },
     "选择菜单" : {
       "localizations" : {
         "en" : {
@@ -24689,18 +24830,18 @@
         }
       }
     },
-    "重新看一遍首次打开时的功能介绍。" : {
+    "重看首次打开时的功能介绍。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Watch the first-launch introduction again."
+            "value" : "Replay the first-launch introduction."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重新看一遍首次打开时的功能介绍。"
+            "value" : "重看首次打开时的功能介绍。"
           }
         }
       }
