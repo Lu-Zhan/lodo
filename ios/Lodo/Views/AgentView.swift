@@ -415,6 +415,9 @@ struct AgentView: View {
         }
         .onDisappear {
             speech.stop()
+            // 全屏弹出(相机、看图、彩蛋)盖上来时 iOS 也会对底下发 onDisappear,
+            // 那不是离开对话页——这时清附件会把刚选好的照片文件连记忆一起删掉。
+            guard !isPresentingCover else { return }
             discardUnsentAttachments()
         }
         .task {
@@ -1679,6 +1682,11 @@ struct AgentView: View {
 
     /// 页面关闭时清掉还没发送就留下的孤儿记忆(拍了照/选了文件但没点发送、
     /// 也没手动移除 chip 就直接关掉了聊天页);从记忆库选的已有条目不受影响。
+    /// 本页自己弹出的全屏界面还开着(见 onDisappear)。
+    private var isPresentingCover: Bool {
+        showCamera || viewingImage != nil || showEasterEgg
+    }
+
     private func discardUnsentAttachments() {
         for attachment in pendingAttachments where attachment.isNewlyCreated {
             guard let uuid = attachment.memoryUUID,
