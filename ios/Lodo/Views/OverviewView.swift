@@ -17,6 +17,7 @@ struct OverviewView: View {
     // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
     @Environment(\.modelContext) var context
     @Environment(\.sidebarChrome) private var chrome
+    @Environment(\.itemNavigator) private var navigator
     @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "pending" },
            sort: \TaskItem.nextRemindAt)
     var pending: [TaskItem]
@@ -24,11 +25,12 @@ struct OverviewView: View {
     private var memoryItems: [MemoryItem]
     @Query(sort: [SortDescriptor(\AIRoutineRun.createdAt, order: .reverse)])
     private var routineRuns: [AIRoutineRun]
-    /// 今天完成了几件(重复事项完成一次也会插一条 done 历史,正好算进来)。
-    @Query(filter: #Predicate<TaskItem> { $0.statusRaw == "done" },
-           sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
-    private var doneTasks: [TaskItem]
+    /// 最近 5 周完成的(本周完成/近 4 周热力格子/今天完成几件都只看这一段;
+    /// 重复事项完成一次也会插一条 done 历史,正好算进来)。窗口在 init 时定,
+    /// 比要用的 4 周多留一周,页面跨几天不重建也够用——不再把全部历史都捞出来。
+    @Query private var doneTasks: [TaskItem]
     @Query(sort: \TravelTrip.startDate) private var trips: [TravelTrip]
+    @Query(sort: \AIRoutine.createdAt) private var routines: [AIRoutine]
     /// 「倒数日」页里建的,汇进总览的倒数日模块。
     @Query private var countdownEvents: [CountdownEvent]
     @Environment(\.scenePhase) private var scenePhase
@@ -47,17 +49,19 @@ struct OverviewView: View {
     /// 每分钟刷新一次(「接下来」的倒计时要走),回前台/下拉时也刷新。
     @State private var now = Date()
     @State private var editingTask: TaskItem?
-    @State private var suggestion: String?
-    @State private var memorySummary: String?
+    @State private var suggestion: OverviewAIText = .loading
+    @State private var memorySummary: OverviewAIText = .loading
     @State private var newsItems: [NewsDigest.Item] = []
     @State private var newsPlaceholder = "正在整理订阅要闻…"
     @State private var newsLoading = false
-    @State private var healthTip: String?
+    @State private var healthTip: OverviewAIText = .loading
     /// 圆环/步数图用的最近 7 天健康汇总;nil = 健康开关关着(那时一次 HealthKit 都不读)。
     @State private var healthReport: HealthReport?
     /// 空气质量模块的数据;没开或没取到时为 nil。
     @State private var airReport: AirQualityReport? = AirQualityStore.cached()
     @State private var weather: WeatherReport? = WeatherStore.cached()
+    @State private var airLoading = false
+    @State private var airFailure: AirQualityStore.Failure?
     @AppStorage(AppSettings.airQualityEnabledKey) private var airQualityEnabled = false
     /// 通知"改期"按钮交接的改期候选(横幅展示,与 TaskRowView 内部滑动触发的
     /// 改期各自独立——见 OverviewView+Reschedule.swift 顶部注释)。
@@ -66,12 +70,19 @@ struct OverviewView: View {
     @State var rescheduleError: String?
     @State var notificationRescheduleTask: Task<Void, Never>?
 
-    private static let suggestionDayKey = "overviewSuggestionDay"
-    private static let suggestionTextKey = "overviewSuggestionText"
-    private static let memorySummaryDayKey = "overviewMemorySummaryDay"
-    private static let memorySummaryTextKey = "overviewMemorySummaryText"
-    private static let healthDayKey = "overviewHealthDay"
-    private static let healthTextKey = "overviewHealthText"
+    /// UserDefaults 里存 `<key>Stamp` / `<key>Text` 两项(见 cachedAIText)。
+    private static let suggestionKey = "overviewSuggestion"
+    private static let memoryKey = "overviewMemorySummary"
+    private static let healthKey = "overviewHealth"
+
+    init(rescheduleRequestUUID: Binding<String?>) {
+        _rescheduleRequestUUID = rescheduleRequestUUID
+        let calendar = Calendar.current
+        let cutoff = calendar.date(byAdding: .day, value: -35, to: calendar.startOfDay(for: .now)) ?? .distantPast
+        _doneTasks = Query(filter: #Predicate<TaskItem> {
+            $0.statusRaw == "done" && ($0.doneAt ?? cutoff) > cutoff
+        }, sort: [SortDescriptor(\TaskItem.doneAt, order: .reverse)])
+    }
 
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -193,6 +204,12 @@ struct OverviewView: View {
                 reloadEvents()
                 Task { await loadHealthReport(); await loadNews() }
             }
+            // 页面一直开着过了 0 点:日历要补上新的"明天",健康圆环要取今天的数。
+            // AI 那几段的 task id 里带着日期,自己会重新要。
+            .onChange(of: dayStamp) { _, _ in
+                reloadEvents()
+                Task { await loadHealthReport() }
+            }
             #if os(iOS)
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in
                 reloadEvents()
@@ -211,38 +228,48 @@ struct OverviewView: View {
                 applyDemoArguments()
                 #endif
             }
-            .task(id: "\(Self.dayFormatter.string(from: now))-\(layout.items.contains { $0.kind == .news && $0.isVisible })") {
+            .task(id: "\(dayStamp)-\(isVisible(.news))") {
                 await loadNews()
             }
             // 空气质量:每半小时一档(缓存本身 30 分钟内不重复请求),模块不显示时不取。
-            .task(id: "\(Int(now.timeIntervalSince1970 / 1800))-\(airQualityEnabled)-\(layout.items.contains { $0.kind == .airQuality && $0.isVisible })") {
+            .task(id: "\(Int(now.timeIntervalSince1970 / 1800))-\(airQualityEnabled)-\(isVisible(.airQuality))") {
                 await loadAirQuality()
+            }
+            // AI 那几段按"当天 + 输入内容"取:完成了一件、新收藏了一条,指纹变了就重新要;
+            // 等 1.5 秒再发,连着点完成几件只要一次。
+            .task(id: "\(dayStamp)|\(suggestionFingerprint)|\(isVisible(.suggestion))") {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                guard !Task.isCancelled else { return }
+                await loadSuggestion()
+            }
+            .task(id: "\(dayStamp)|\(memoryFingerprint)|\(isVisible(.memories))") {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                guard !Task.isCancelled else { return }
+                await loadMemorySummary()
+            }
+            .task(id: "\(dayStamp)|\(isVisible(.health))") {
+                await loadHealthTip()
+            }
+            .task(id: "\(dayStamp)|\(healthWidgetsVisible)") {
+                await loadHealthReport()
             }
             .onReceive(NotificationCenter.default.publisher(for: .newsDigestsUpdated)) { _ in
                 Task { await loadNews() }
             }
             .task {
                 now = Date()
-                await loadHealthReport()
-                await loadSuggestion()
-                await loadMemorySummary()
-                await loadHealthTip()
-                #if DEBUG
-                if ProcessInfo.processInfo.arguments.contains("--demo-overview-ai") {
-                    suggestion = "先处理到期的「团队周会」,再按时间顺序做剩下几件,写周报可以留到最后。"
-                    memorySummary = "今天收藏的都是效率类内容,建议这周找时间整理一下笔记。"
-                    healthTip = "这周步数比上周多了两成,静息心率降了 3 次/分;睡眠偏短,今晚早点睡。"
-                }
-                #endif
             }
             .refreshable {
                 now = Date()
                 reloadEvents()
-                await loadNews(force: true)
-                await loadHealthReport()
-                await loadSuggestion(force: true)
-                await loadMemorySummary(force: true)
-                await loadHealthTip(force: true)
+                // 互不依赖,一起发;下拉的转圈等最慢的那个。
+                async let news: Void = loadNews(force: true)
+                async let health: Void = loadHealthReport()
+                async let air: Void = loadAirQuality(force: true)
+                async let suggestion: Void = loadSuggestion(force: true)
+                async let memories: Void = loadMemorySummary(force: true)
+                async let tip: Void = loadHealthTip(force: true)
+                _ = await (news, health, air, suggestion, memories, tip)
             }
         }
         #if os(macOS)
@@ -355,7 +382,24 @@ struct OverviewView: View {
             }
         case .agenda:
             OverviewAgendaWidget(size: item.size, events: calendarConnected ? todayEvents : nil,
-                                 now: now) { chrome?.go(.calendar) }
+                                 taskTimes: todayTaskTimes, now: now) { chrome?.go(.calendar) }
+        case .backlog:
+            let backlog = OverviewBacklog.build(remindAts: pending.map(\.remindAt), now: now)
+            OverviewBacklogWidget(size: item.size, backlog: backlog,
+                                  oldest: backlog.oldestIndex.map { pending[$0] }) { chrome?.go(.todo) }
+        case .trip:
+            let trip = tripStatus
+            OverviewTripWidget(size: item.size, trip: trip.map { tripCandidates[$0.tripIndex] },
+                               status: trip, now: now) {
+                if let trip {
+                    let uuid = tripCandidates[trip.tripIndex].uuid
+                    if let navigator { navigator.open(.trip(uuid)) } else { chrome?.go(.travel) }
+                }
+            }
+        case .recovery:
+            OverviewRecoveryWidget(size: item.size, report: healthReport, now: now) { chrome?.go(.health) }
+        case .routineStatus:
+            OverviewRoutineStatusWidget(size: item.size, status: routineStatus, now: now)
         case .countdown:
             OverviewCountdownWidget(size: item.size, entries: countdownEntries, now: now,
                                     action: { chrome?.go(.countdown) })
@@ -366,34 +410,35 @@ struct OverviewView: View {
         case .routines:
             OverviewRoutinesWidget(runs: todayRoutineRuns)
         case .suggestion:
-            OverviewTextWidget(kind: .suggestion, text: suggestion,
-                               placeholder: DeepSeekClient.isConfigured ? "今天没有需要处理的任务" : "配置 AI 后显示处理建议")
+            OverviewTextWidget(kind: .suggestion, state: suggestion)
         case .memories:
-            OverviewTextWidget(kind: .memories, text: memorySummary,
-                               placeholder: todayMemories.isEmpty ? "今天还没有新收藏" : "正在整理今天的收藏…")
+            OverviewTextWidget(kind: .memories, state: memorySummary)
         case .health:
             // 点一下去健康页看完整趋势;跨页跳转走 sidebarChrome.go。
-            OverviewTextWidget(kind: .health, text: healthTip,
-                               placeholder: AppSettings.healthEnabled ? "暂无健康数据" : "在设置里开启健康分析后显示",
-                               action: { chrome?.go(.health) })
+            OverviewTextWidget(kind: .health, state: healthTip, action: { chrome?.go(.health) })
         case .activityRings:
             OverviewActivityRingsWidget(size: item.size, report: healthReport, now: now) {
                 chrome?.go(.health)
             }
         case .taskProgress:
-            OverviewTaskProgressWidget(size: item.size, done: doneTodayCount,
-                                       remaining: todayRemaining.count, now: now) {
+            let plan = OverviewCharts.todayPlan(doneToday: doneTodayCount,
+                                                pendingRemindAts: pending.map(\.remindAt), now: now)
+            OverviewTaskProgressWidget(size: item.size, done: plan.done,
+                                       remaining: plan.remaining, now: now) {
                 chrome?.go(.todo)
             }
         case .weeklyDone:
+            let doneDates = doneTasks.compactMap(\.doneAt)
             OverviewWeeklyDoneWidget(
                 size: item.size,
-                days: OverviewCharts.weeklyDone(doneDates: doneTasks.compactMap(\.doneAt), now: now)) {
+                days: OverviewCharts.recentWeeks(doneDates: doneDates, weeks: 4, now: now),
+                comparison: OverviewCharts.weekToDate(doneDates: doneDates, now: now)) {
                 chrome?.go(.todo)
             }
         case .airQuality:
             OverviewAirQualityWidget(size: item.size, report: airReport, weather: weather,
-                                     enabled: airQualityEnabled) { chrome?.go(.health) }
+                                     enabled: airQualityEnabled, loading: airLoading,
+                                     failure: airFailure, now: now) { chrome?.go(.health) }
         case .stepsTrend:
             OverviewStepsTrendWidget(
                 size: item.size,
@@ -440,17 +485,27 @@ struct OverviewView: View {
     }
 
     /// 健康开关关着时不读 HealthKit(同 loadHealthTip 的隐私口径),圆环/步数图显示引导。
-    private func loadAirQuality() async {
+    /// 天气和空气质量是同一次刷新里的两个独立请求:哪个失败都不拖累另一个,
+    /// 所以结果不管成败都把两份缓存各自读回来;失败原因单独记着,卡片上如实说。
+    private func loadAirQuality(force: Bool = false) async {
         guard airQualityEnabled else {
             airReport = nil
             weather = nil
+            airFailure = nil
             return
         }
-        guard layout.items.contains(where: { $0.kind == .airQuality && $0.isVisible }) else { return }
-        if case .success(let report) = await AirQualityStore.refresh() {
+        guard isVisible(.airQuality), !airLoading else { return }
+        airLoading = true
+        defer { airLoading = false }
+        switch await AirQualityStore.refresh(force: force) {
+        case .success(let report):
             airReport = report
-            weather = WeatherStore.cached()
+            airFailure = nil
+        case .failure(let error):
+            airReport = AirQualityStore.cached()
+            airFailure = error.failure
         }
+        weather = WeatherStore.cached()
     }
 
     private func loadHealthReport() async {
@@ -464,6 +519,8 @@ struct OverviewView: View {
             healthReport = nil
             return
         }
+        // 用到健康数据的模块都没显示时不读 HealthKit。
+        guard healthWidgetsVisible else { return }
         healthReport = await HealthKitBridge.report(days: 7)
     }
 
@@ -482,7 +539,60 @@ struct OverviewView: View {
 
     // MARK: - 数据
 
-    private var layout: OverviewLayout { OverviewLayout.decode(layoutRaw) }
+    /// 布局 JSON 一次 body 里要用好几回;按原串缓存解码结果,串没变就不再解。
+    private var layout: OverviewLayout { Self.layoutMemo.layout(for: layoutRaw) }
+    private static let layoutMemo = OverviewLayoutMemo()
+
+    private func isVisible(_ kind: OverviewWidgetKind) -> Bool {
+        layout.items.contains { $0.kind == kind && $0.isVisible }
+    }
+
+    private var healthWidgetsVisible: Bool {
+        [.activityRings, .stepsTrend, .recovery].contains(where: isVisible)
+    }
+
+    private var dayStamp: String { Self.dayFormatter.string(from: now) }
+
+    /// 今天还没完成、有具体时刻的任务(今日时间轴上的点)。
+    private var todayTaskTimes: [Date] {
+        pending.filter { !$0.allDay && Calendar.current.isDate($0.nextRemindAt, inSameDayAs: now) }
+            .map(\.nextRemindAt)
+    }
+
+    /// 处理建议的输入指纹:用原定时间而不是下一次响铃——到期的事每 15 分钟顺延一次
+    /// nextRemindAt,按它算的话建议会跟着每 15 分钟重新要一遍。
+    private var suggestionFingerprint: String {
+        OverviewCharts.fingerprint((due + todayUpcoming).map {
+            "\($0.uuid)|\($0.title)|\($0.remindAt.timeIntervalSince1970)"
+        })
+    }
+
+    private var memoryFingerprint: String {
+        OverviewCharts.fingerprint(todayMemories.map { "\($0.uuid)|\($0.title)|\($0.summary)" })
+    }
+
+    /// 旅行中模块只看还没结束、60 天内出发的那几次,行程项也只为它们取。
+    private var tripCandidates: [TravelTrip] {
+        let today = Calendar.current.startOfDay(for: now)
+        let horizon = today.addingTimeInterval(61 * 86400)
+        return trips.filter { Calendar.current.startOfDay(for: $0.endDate) >= today && $0.startDate < horizon }
+    }
+
+    private var tripStatus: OverviewTripStatus? {
+        let candidates = tripCandidates
+        return OverviewTripStatus.build(
+            trips: candidates.map { ($0.startDate, $0.endDate) },
+            entries: candidates.map { TravelStore.entries(for: $0.uuid, from: memoryItems) },
+            now: now)
+    }
+
+    private var routineStatus: OverviewRoutineStatus {
+        let cutoff = Calendar.current.startOfDay(for: now).addingTimeInterval(-7 * 86400)
+        return OverviewRoutineStatus.build(
+            routines: routines.map { ($0.uuid, $0.name, $0.enabled, $0.nextRun(after: now)) },
+            runs: routineRuns.prefix { $0.createdAt >= cutoff }.map { ($0.routineUUID, $0.failed, $0.createdAt) },
+            now: now)
+    }
 
     private var layoutBinding: Binding<OverviewLayout> {
         Binding(get: { layout }, set: { layoutRaw = $0.encoded() })
@@ -555,6 +665,9 @@ struct OverviewView: View {
             series(.steps, [6200, 9100, 7400, 10300, 5600, 8800, 5200]),
             series(.activeEnergy, [420, 610, 380, 560, 300, 520, 360]),
             series(.exerciseMinutes, [25, 42, 18, 35, 10, 31, 22]),
+            series(.sleepHours, [7.1, 6.4, 7.8, 5.9, 6.8, 8.2, 6.6]),
+            series(.restingHeartRate, [62, 64, 60, 66, 63, 59, 61]),
+            series(.hrv, [42, 38, 47, 35, 41, 50, 44]),
         ], rangeDays: 7)
     }
 
@@ -622,72 +735,145 @@ struct OverviewView: View {
         }
     }
 
-    /// 按天缓存(参考 TodoListView.loadInsight 按 ISO 周缓存的做法),只在成功
-    /// 时写缓存——离线/请求失败不会把当天"钉死"成空。没有待办时不请求,清空展示。
+    /// AI 那几段的缓存:按"当天 + 输入指纹"认,只在成功时写——离线/请求失败不会把
+    /// 当天"钉死"成空;任务完成了、新收藏了,指纹对不上就重新要一份。
+    private func cachedAIText(_ key: String, stamp: String) -> String? {
+        guard UserDefaults.standard.string(forKey: key + "Stamp") == stamp else { return nil }
+        return UserDefaults.standard.string(forKey: key + "Text")
+    }
+
+    private func storeAIText(_ text: String, key: String, stamp: String) {
+        UserDefaults.standard.set(stamp, forKey: key + "Stamp")
+        UserDefaults.standard.set(text, forKey: key + "Text")
+    }
+
+    #if DEBUG
+    /// 截图用:不发请求,三段 AI 直接摆样板文字。
+    private var demoAI: Bool { ProcessInfo.processInfo.arguments.contains("--demo-overview-ai") }
+    #endif
+
     private func loadSuggestion(force: Bool = false) async {
-        guard DeepSeekClient.isConfigured else { return }
+        #if DEBUG
+        if demoAI {
+            suggestion = .text("先处理到期的「团队周会」,再按时间顺序做剩下几件,写周报可以留到最后。")
+            return
+        }
+        #endif
+        guard isVisible(.suggestion) else { return }
+        guard DeepSeekClient.isConfigured else {
+            suggestion = .unavailable("配置 AI 后显示处理建议")
+            return
+        }
         let items = due + todayUpcoming
         guard !items.isEmpty else {
-            suggestion = nil
+            suggestion = .empty("今天没有需要处理的任务")
             return
         }
-        let stamp = Self.dayFormatter.string(from: Date())
-        let defaults = UserDefaults.standard
-        if !force, defaults.string(forKey: Self.suggestionDayKey) == stamp,
-           let cached = defaults.string(forKey: Self.suggestionTextKey) {
-            suggestion = cached
+        let stamp = "\(dayStamp)|\(suggestionFingerprint)"
+        if !force, let cached = cachedAIText(Self.suggestionKey, stamp: stamp) {
+            suggestion = .text(cached)
             return
         }
+        // 已经有一段时只在后台换掉,不把卡片闪回"正在整理"。
+        if case .text = suggestion {} else { suggestion = .loading }
         let summary = items.map { "「\($0.title)」\($0.caption)" }.joined(separator: "、")
-        guard let text = try? await DeepSeekClient.suggestTodayHandling(summary: summary) else { return }
-        defaults.set(stamp, forKey: Self.suggestionDayKey)
-        defaults.set(text, forKey: Self.suggestionTextKey)
-        suggestion = text
+        do {
+            let text = try await DeepSeekClient.suggestTodayHandling(summary: summary)
+            guard !Task.isCancelled else { return }
+            storeAIText(text, key: Self.suggestionKey, stamp: stamp)
+            suggestion = .text(text)
+        } catch {
+            guard !Task.isCancelled else { return }
+            if case .text = suggestion {} else { suggestion = .failed }
+        }
     }
 
     /// 健康提示:总开关关着时一个请求都不发(健康数据敏感,不该默认往外送);
-    /// 其余逻辑和 loadSuggestion 一致——按天缓存、只在成功时写缓存。
+    /// 健康数据一天内变化不大,只按天缓存。
     private func loadHealthTip(force: Bool = false) async {
-        guard AppSettings.healthEnabled, DeepSeekClient.isConfigured else {
-            healthTip = nil
+        #if DEBUG
+        if demoAI {
+            healthTip = .text("这周步数比上周多了两成,静息心率降了 3 次/分;睡眠偏短,今晚早点睡。")
             return
         }
-        let stamp = Self.dayFormatter.string(from: Date())
-        let defaults = UserDefaults.standard
-        if !force, defaults.string(forKey: Self.healthDayKey) == stamp,
-           let cached = defaults.string(forKey: Self.healthTextKey) {
-            healthTip = cached
+        #endif
+        guard isVisible(.health) else { return }
+        guard AppSettings.healthEnabled else {
+            healthTip = .unavailable("在设置里开启健康分析后显示")
             return
         }
+        guard DeepSeekClient.isConfigured else {
+            healthTip = .unavailable("配置 AI 后显示健康提示")
+            return
+        }
+        let stamp = dayStamp
+        if !force, let cached = cachedAIText(Self.healthKey, stamp: stamp) {
+            healthTip = .text(cached)
+            return
+        }
+        if case .text = healthTip {} else { healthTip = .loading }
         let report = await HealthKitBridge.report(days: AppSettings.healthRangeDays)
         guard !report.isEmpty else {
-            healthTip = nil
+            healthTip = .empty("暂无健康数据")
             return
         }
-        guard let text = try? await DeepSeekClient.suggestTodayHealth(
-            summary: report.promptSummary()) else { return }
-        defaults.set(stamp, forKey: Self.healthDayKey)
-        defaults.set(text, forKey: Self.healthTextKey)
-        healthTip = text
+        do {
+            let text = try await DeepSeekClient.suggestTodayHealth(summary: report.promptSummary())
+            guard !Task.isCancelled else { return }
+            storeAIText(text, key: Self.healthKey, stamp: stamp)
+            healthTip = .text(text)
+        } catch {
+            guard !Task.isCancelled else { return }
+            if case .text = healthTip {} else { healthTip = .failed }
+        }
     }
 
     private func loadMemorySummary(force: Bool = false) async {
-        guard DeepSeekClient.isConfigured else { return }
+        #if DEBUG
+        if demoAI {
+            memorySummary = .text("今天收藏的都是效率类内容,建议这周找时间整理一下笔记。")
+            return
+        }
+        #endif
+        guard isVisible(.memories) else { return }
         guard !todayMemories.isEmpty else {
-            memorySummary = nil
+            memorySummary = .empty("今天还没有新收藏")
             return
         }
-        let stamp = Self.dayFormatter.string(from: Date())
-        let defaults = UserDefaults.standard
-        if !force, defaults.string(forKey: Self.memorySummaryDayKey) == stamp,
-           let cached = defaults.string(forKey: Self.memorySummaryTextKey) {
-            memorySummary = cached
+        guard DeepSeekClient.isConfigured else {
+            memorySummary = .unavailable("配置 AI 后显示今天收藏的总结")
             return
         }
+        let stamp = "\(dayStamp)|\(memoryFingerprint)"
+        if !force, let cached = cachedAIText(Self.memoryKey, stamp: stamp) {
+            memorySummary = .text(cached)
+            return
+        }
+        if case .text = memorySummary {} else { memorySummary = .loading }
         let summary = todayMemories.map { "「\($0.title)」\($0.summary)" }.joined(separator: "、")
-        guard let text = try? await DeepSeekClient.summarizeTodayMemories(summary: summary) else { return }
-        defaults.set(stamp, forKey: Self.memorySummaryDayKey)
-        defaults.set(text, forKey: Self.memorySummaryTextKey)
-        memorySummary = text
+        do {
+            let text = try await DeepSeekClient.summarizeTodayMemories(summary: summary)
+            guard !Task.isCancelled else { return }
+            storeAIText(text, key: Self.memoryKey, stamp: stamp)
+            memorySummary = .text(text)
+        } catch {
+            guard !Task.isCancelled else { return }
+            if case .text = memorySummary {} else { memorySummary = .failed }
+        }
+    }
+}
+
+/// 布局 JSON 的解码缓存(见 `OverviewView.layout`)。
+@MainActor
+final class OverviewLayoutMemo {
+    private var raw: String?
+    private var value = OverviewLayout.default
+
+    func layout(for raw: String) -> OverviewLayout {
+        if raw != self.raw {
+            self.raw = raw
+            value = OverviewLayout.decode(raw)
+        }
+        return value
     }
 }

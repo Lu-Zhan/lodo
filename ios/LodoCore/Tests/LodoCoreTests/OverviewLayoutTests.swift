@@ -168,4 +168,12 @@ final class OverviewLayoutTests: XCTestCase {
         XCTAssertEqual(entries.map(\.title), ["假期", "东京旅行", "考研"])
         XCTAssertEqual(entries.map(\.kind), [.countdown, .countdown, .countdown])
     }
+
+    func testDayProgressUsesRealDayLengthOnDSTDays() {
+        var ny = Calendar(identifier: .gregorian)
+        ny.timeZone = TimeZone(identifier: "America/New_York")!
+        // 2026-03-08 美东进入夏令时,这一天只有 23 小时;正午时已过 11 小时。
+        let noon = ny.date(from: DateComponents(year: 2026, month: 3, day: 8, hour: 12))!
+        XCTAssertEqual(OverviewTime.dayProgress(at: noon, calendar: ny), 11.0 / 23.0, accuracy: 0.0001)
+    }
 }

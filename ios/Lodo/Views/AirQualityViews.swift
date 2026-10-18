@@ -394,41 +394,161 @@ struct OverviewAirQualityWidget: View {
     let report: AirQualityReport?
     let weather: WeatherReport?
     let enabled: Bool
+    var loading = false
+    /// 最近一次刷新失败的原因;有旧数据时照样显示旧数据,只在底下注明。
+    var failure: AirQualityStore.Failure? = nil
+    let now: Date
     let action: () -> Void
 
     var body: some View {
         OverviewWidgetCard(kind: .airQuality, action: action) {
-            if let report {
-                VStack(alignment: .leading, spacing: 6) {
-                    if let weather {
-                        WeatherRow(weather: weather, compact: true)
-                        HStack(spacing: 6) {
-                            AQIBadge(aqi: report.aqi, font: .headline)
-                            Text(AirQualityStore.title(report.category))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    } else {
-                        AQIBadge(aqi: report.aqi, font: .system(size: size == .small ? 36 : 40,
-                                                                weight: .semibold, design: .rounded))
-                        Text(AirQualityStore.title(report.category))
-                            .font(.subheadline.weight(.medium))
-                            .lineLimit(2)
-                    }
-                    if size == .large {
-                        Text(AirQualityStore.advice(report.category))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        if !report.todayHourly(now: .now).isEmpty {
-                            AirQualityHourlyChart(hourly: report.todayHourly(now: .now), showsAxis: false)
-                                .frame(height: 48)
-                        }
-                    }
+            if !enabled {
+                OverviewEmptyText(text: "在健康页开启天气与空气质量后显示")
+            } else if report == nil && weather == nil {
+                if loading {
+                    OverviewEmptyText(text: "正在获取天气与空气质量…")
+                } else {
+                    OverviewEmptyText(text: failure == .location ? "拿不到位置,下拉刷新重试"
+                                                                  : "暂时没取到,下拉刷新重试")
                 }
             } else {
-                OverviewEmptyText(text: enabled ? "正在获取天气与空气质量…" : "在健康页开启天气与空气质量后显示")
+                VStack(alignment: .leading, spacing: 6) {
+                    // 天气和空气质量是两个独立请求:哪边有就显示哪边,不互相拖累。
+                    if let weather {
+                        WeatherRow(weather: weather, compact: true)
+                    }
+                    if let report {
+                        if weather != nil {
+                            HStack(spacing: 6) {
+                                AQIBadge(aqi: report.aqi, font: .headline)
+                                Text(AirQualityStore.title(report.category))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        } else {
+                            AQIBadge(aqi: report.aqi, font: .system(size: size == .small ? 36 : 40,
+                                                                    weight: .semibold, design: .rounded))
+                            Text(AirQualityStore.title(report.category))
+                                .font(.subheadline.weight(.medium))
+                                .lineLimit(2)
+                        }
+                    }
+                    if size == .large {
+                        if let report {
+                            Text(AirQualityStore.advice(report.category))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        nextHoursChart
+                    }
+                    footer
+                }
             }
+        }
+    }
+
+    /// 接下来 12 小时:上面温度折线、下面 AQI 柱子,共用一条时间轴(上下分开画,
+    /// 不做双 Y 轴——两个量纲叠在一起没法读)。AQI 柱子按 EPA 等级上色,只上色块不写字。
+    @ViewBuilder
+    private var nextHoursChart: some View {
+        let points = OverviewCharts.nextHours(
+            temperatures: weather?.hourly.map { ($0.date, $0.temperature) } ?? [],
+            aqi: report?.hourly.map { ($0.date, $0.aqi) } ?? [],
+            now: now)
+        if !points.isEmpty, let first = points.first?.date, let last = points.last?.date {
+            let domain = first...last.addingTimeInterval(3600)
+            let temps = points.compactMap(\.temperature)
+            VStack(spacing: 10) {
+                if !temps.isEmpty {
+                    Chart(points.filter { $0.temperature != nil }) { point in
+                        LineMark(x: .value("时间", point.date, unit: .hour),
+                                 y: .value("温度", point.temperature ?? 0))
+                            .interpolationMethod(.monotone)
+                            .foregroundStyle(Color.orange)
+                        if point.temperature == temps.max() || point.temperature == temps.min() {
+                            PointMark(x: .value("时间", point.date, unit: .hour),
+                                      y: .value("温度", point.temperature ?? 0))
+                                .foregroundStyle(Color.orange)
+                                .symbolSize(18)
+                                .annotation(position: point.temperature == temps.max() ? .top : .bottom, spacing: 2) {
+                                    Text(WeatherStore.format(point.temperature ?? 0))
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
+                        }
+                    }
+                    .chartXScale(domain: domain)
+                    .chartYScale(domain: (temps.min() ?? 0) - 3...(temps.max() ?? 0) + 3)
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                    .frame(height: 48)
+                }
+                if points.contains(where: { $0.aqi != nil }) {
+                    Chart(points.filter { $0.aqi != nil }) { point in
+                        BarMark(x: .value("时间", point.date, unit: .hour), y: .value("AQI", point.aqi ?? 0))
+                            .foregroundStyle(AQICategory(aqi: point.aqi ?? 0).color)
+                            .cornerRadius(2)
+                    }
+                    .chartXScale(domain: domain)
+                    .chartYAxis(.hidden)
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .hour, count: 3)) { _ in
+                            AxisValueLabel(format: .dateTime.hour().locale(AppSettings.language.locale))
+                        }
+                    }
+                    .frame(height: 52)
+                } else {
+                    Chart(points.filter { $0.temperature != nil }) { point in
+                        RuleMark(x: .value("时间", point.date, unit: .hour)).opacity(0)
+                    }
+                    .chartXScale(domain: domain)
+                    .chartYAxis(.hidden)
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .hour, count: 3)) { _ in
+                            AxisValueLabel(format: .dateTime.hour().locale(AppSettings.language.locale))
+                        }
+                    }
+                    .frame(height: 18)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(nextHoursSummary(points))
+        }
+    }
+
+    private func nextHoursSummary(_ points: [OverviewHourPoint]) -> Text {
+        let temps = points.compactMap(\.temperature)
+        let peak = points.filter { $0.aqi != nil }.max { ($0.aqi ?? 0) < ($1.aqi ?? 0) }
+        var text = Text("接下来 12 小时")
+        if let low = temps.min(), let high = temps.max() {
+            text = text + Text(verbatim: ", \(WeatherStore.format(low))–\(WeatherStore.format(high))")
+        }
+        if let peak, let aqi = peak.aqi {
+            text = text + Text(",") + Text("AQI 最高 \(aqi)(\(LocalizedContent.time(peak.date)))")
+        }
+        return text
+    }
+
+    /// 底部一行:数据旧了/这次没刷新成功时写更新时间;有天气就挂苹果天气的署名
+    /// (WeatherKit 要求;完整的法律链接在健康页那一组的 footer 里)。
+    @ViewBuilder
+    private var footer: some View {
+        let fetched = [report?.fetchedAt, weather?.fetchedAt].compactMap { $0 }.min()
+        let stale = fetched.map { now.timeIntervalSince($0) > 3600 } ?? false
+        if stale || failure != nil || weather != nil {
+            HStack(spacing: 6) {
+                if let fetched, stale || failure != nil {
+                    Text("更新于 \(LocalizedContent.time(fetched))")
+                }
+                Spacer(minLength: 0)
+                if weather != nil {
+                    Text(verbatim: "\u{F8FF}Weather")
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .lineLimit(1)
         }
     }
 }

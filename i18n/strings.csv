@@ -1883,3 +1883,51 @@ ios_view.contacts_import_count,已导入 %lld 位,Imported %lld,ios_view,人脉�
 ios_view.contacts_import_skipped,",跳过 %lld 位重复",", skipped %lld duplicates",ios_view,人脉页从通讯录导入
 ios_view.travel_map_current_location,当前位置,Current location,ios_view,旅行地图右下角定位按钮
 ios_view.travel_map_location_failed,没能取到当前位置。请在系统设置里允许 Lodo 使用位置后再试。,Couldn't get your current location. Allow Lodo to use your location in Settings and try again.,ios_view,旅行地图定位失败提示
+overview.backlog,积压提醒,Backlog,ios_view,总览页
+overview.trip,旅行中,Trip,ios_view,总览页
+overview.sleep_recovery,睡眠与恢复,Sleep & Recovery,ios_view,总览页
+overview.routine_status,例行状态,Routine Status,ios_view,总览页
+overview.lld_of_today_passed,今天已过 %lld%%,%lld%% of today passed,ios_view,总览页
+overview.none_today,今日暂无,None today,ios_view,总览页
+overview.no_data,暂无数据,no data,ios_view,总览页
+overview.today_s_tasks,今天的任务,Today's tasks,ios_view,总览页
+overview.set_up_ai_to_see_health_tips,配置 AI 后显示健康提示,Set up AI to see health tips,ios_view,总览页
+overview.set_up_ai_to_see_a_summary_of_today_s_sa,配置 AI 后显示今天收藏的总结,Set up AI to see a summary of today's saves,ios_view,总览页
+overview.couldn_t_load_pull_to_refresh,"暂时没取到,下拉刷新重试",Couldn't load. Pull to refresh.,ios_view,总览页
+overview.location_unavailable_pull_to_refresh,"拿不到位置,下拉刷新重试",Location unavailable. Pull to refresh.,ios_view,总览页
+overview.couldn_t_generate_pull_to_refresh,"这次没生成出来,下拉刷新重试",Couldn't generate. Pull to refresh.,ios_view,总览页
+overview.last_wk,上周,Last wk,ios_view,总览页
+overview.lld_wk_ago,%lld 周前,%lld wk ago,ios_view,总览页
+overview.same_as_last_week_so_far,和上周同期持平,Same as last week so far,ios_view,总览页
+overview.vs_last_week_so_far,比上周同期 %@,%@ vs. last week so far,ios_view,总览页
+overview.lld_in_4_weeks_same_as_last_week_so_far,近 4 周 %lld 件 · 和上周同期持平,%lld in 4 weeks · same as last week so far,ios_view,总览页
+overview.lld_in_4_weeks_vs_last_week_so_far,近 4 周 %lld 件 · 比上周同期 %@,%lld in 4 weeks · %@ vs. last week so far,ios_view,总览页
+overview.upcoming,还没到,Upcoming,ios_view,总览页
+overview.no_data_yet_today,今天还没有数据,No data yet today,ios_view,总览页
+overview.data_on_2_lld_of_1_lld_days_avg_3_steps,%lld 天里 %lld 天有数据 · 日均 %@ 步,Data on %2$lld of %1$lld days · avg %3$@ steps,ios_view,总览页
+overview.hrv_7_day_avg_ms,心率变异性 7 天平均 %@ 毫秒,HRV 7-day avg %@ ms,ios_view,总览页
+overview.no_sleep_or_heart_rate_data,暂无睡眠和心率数据,No sleep or heart rate data,ios_view,总览页
+overview.no_overdue_reminders,没有积压的提醒,No overdue reminders,ios_view,总览页
+overview.all_from_today,都是今天的,All from today,ios_view,总览页
+overview.oldest_lld_days,最久拖了 %lld 天,Oldest: %lld days,ios_view,总览页
+overview.lld_overdue,积压 %lld 件,%lld overdue,ios_view,总览页
+overview.oldest_1_2_lld_days,拖得最久:「%@」%lld 天,"Oldest: “%1$@”, %2$lld days",ios_view,总览页
+overview.1_3_days,1–3 天,1–3 days,ios_view,总览页
+overview.4_7_days,4–7 天,4–7 days,ios_view,总览页
+overview.older,更早,Older,ios_view,总览页
+overview.day_lld_of_lld,第 %lld/%lld 天,Day %lld of %lld,ios_view,总览页
+overview.tonight,今晚住 %@,Tonight: %@,ios_view,总览页
+overview.no_upcoming_trips,近期没有旅行,No upcoming trips,ios_view,总览页
+overview.lld_failed,失败 %lld 次,%lld failed,ios_view,总览页
+overview.lld_failed_in_7_days,近 7 天失败 %lld 次,%lld failed in 7 days,ios_view,总览页
+overview.all_succeeded_in_7_days,近 7 天都成功了,All succeeded in 7 days,ios_view,总览页
+overview.last_7_days_lld_succeeded_lld_failed,"近 7 天成功 %lld 天,失败 %lld 天","Last 7 days: %lld succeeded, %lld failed",ios_view,总览页
+overview.no_active_routines,没有启用的定时任务,No active routines,ios_view,总览页
+overview.free,空档 %@–%@,Free %@–%@,ios_view,总览页
+overview.booked_for_the_rest_of_today,今天剩下的时间都排满了,Booked for the rest of today,ios_view,总览页
+overview.today_s_events_are_over,今天的日程都结束了,Today's events are over,ios_view,总览页
+overview.lld_ended,已结束 %lld 项,%lld ended,ios_view,总览页
+overview.today_s_timeline_lld_events_lld_tasks,"今日时间轴:%lld 个日程,%lld 件任务","Today's timeline: %lld events, %lld tasks",ios_view,总览页
+overview.complete,完成「%@」,Complete “%@”,ios_view,总览页
+overview.next_12_hours,接下来 12 小时,Next 12 hours,ios_view,总览页
+overview.aqi_peaks_at_lld,AQI 最高 %lld(%@),AQI peaks at %lld (%@),ios_view,总览页

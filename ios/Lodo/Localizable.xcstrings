@@ -33,6 +33,38 @@
         }
       }
     },
+    "%lld 周前" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld wk ago"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 周前"
+          }
+        }
+      }
+    },
+    "%lld 天里 %lld 天有数据 · 日均 %@ 步" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data on %2$lld of %1$lld days · avg %3$@ steps"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 天里 %lld 天有数据 · 日均 %@ 步"
+          }
+        }
+      }
+    },
     ",跳过 %lld 位重复" : {
       "localizations" : {
         "en" : {
@@ -45,6 +77,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : ",跳过 %lld 位重复"
+          }
+        }
+      }
+    },
+    "1–3 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1–3 days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1–3 天"
+          }
+        }
+      }
+    },
+    "4–7 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4–7 days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4–7 天"
+          }
+        }
+      }
+    },
+    "AQI 最高 %lld(%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AQI peaks at %lld (%@)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AQI 最高 %lld(%@)"
           }
         }
       }
@@ -1966,6 +2046,22 @@
         }
       }
     },
+    "上周" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last wk"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上周"
+          }
+        }
+      }
+    },
     "上次更新:%@。保存一次就算核对过了。" : {
       "localizations" : {
         "en" : {
@@ -2155,6 +2251,390 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不健康"
+          }
+        }
+      }
+    },
+    "今天剩下的时间都排满了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Booked for the rest of today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天剩下的时间都排满了"
+          }
+        }
+      }
+    },
+    "今天已过 %lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%% of today passed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天已过 %lld%%"
+          }
+        }
+      }
+    },
+    "今天的任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天的任务"
+          }
+        }
+      }
+    },
+    "今天的日程都结束了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's events are over"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天的日程都结束了"
+          }
+        }
+      }
+    },
+    "今天还没有数据" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data yet today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天还没有数据"
+          }
+        }
+      }
+    },
+    "今日时间轴:%lld 个日程,%lld 件任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's timeline: %lld events, %lld tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日时间轴:%lld 个日程,%lld 件任务"
+          }
+        }
+      }
+    },
+    "今日暂无" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日暂无"
+          }
+        }
+      }
+    },
+    "今晚住 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tonight: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今晚住 %@"
+          }
+        }
+      }
+    },
+    "例行状态" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Routine Status"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "例行状态"
+          }
+        }
+      }
+    },
+    "和上周同期持平" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as last week so far"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "和上周同期持平"
+          }
+        }
+      }
+    },
+    "失败 %lld 次" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失败 %lld 次"
+          }
+        }
+      }
+    },
+    "完成「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成「%@」"
+          }
+        }
+      }
+    },
+    "已结束 %lld 项" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ended"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已结束 %lld 项"
+          }
+        }
+      }
+    },
+    "心率变异性 7 天平均 %@ 毫秒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HRV 7-day avg %@ ms"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "心率变异性 7 天平均 %@ 毫秒"
+          }
+        }
+      }
+    },
+    "拖得最久:「%@」%lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oldest: “%1$@”, %2$lld days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖得最久:「%@」%lld 天"
+          }
+        }
+      }
+    },
+    "拿不到位置,下拉刷新重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location unavailable. Pull to refresh."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拿不到位置,下拉刷新重试"
+          }
+        }
+      }
+    },
+    "接下来 12 小时" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next 12 hours"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接下来 12 小时"
+          }
+        }
+      }
+    },
+    "旅行中" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trip"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旅行中"
+          }
+        }
+      }
+    },
+    "暂无数据" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无数据"
+          }
+        }
+      }
+    },
+    "暂无睡眠和心率数据" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sleep or heart rate data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无睡眠和心率数据"
+          }
+        }
+      }
+    },
+    "暂时没取到,下拉刷新重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't load. Pull to refresh."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时没取到,下拉刷新重试"
+          }
+        }
+      }
+    },
+    "更早" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Older"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更早"
+          }
+        }
+      }
+    },
+    "最久拖了 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oldest: %lld days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最久拖了 %lld 天"
+          }
+        }
+      }
+    },
+    "比上周同期 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ vs. last week so far"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比上周同期 %@"
           }
         }
       }
@@ -17659,6 +18139,22 @@
         }
       }
     },
+    "没有启用的定时任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No active routines"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有启用的定时任务"
+          }
+        }
+      }
+    },
     "没有地图位置" : {
       "localizations" : {
         "en" : {
@@ -17815,6 +18311,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有标记时按参考范围自动判断高低。"
+          }
+        }
+      }
+    },
+    "没有积压的提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No overdue reminders"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有积压的提醒"
           }
         }
       }
@@ -19048,6 +19560,22 @@
         }
       }
     },
+    "睡眠与恢复" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep & Recovery"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "睡眠与恢复"
+          }
+        }
+      }
+    },
     "石墨" : {
       "localizations" : {
         "en" : {
@@ -19227,6 +19755,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "确认新建"
+          }
+        }
+      }
+    },
+    "积压 %lld 件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld overdue"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "积压 %lld 件"
+          }
+        }
+      }
+    },
+    "积压提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backlog"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "积压提醒"
+          }
+        }
+      }
+    },
+    "空档 %@–%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free %@–%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空档 %@–%@"
+          }
+        }
+      }
+    },
+    "第 %lld/%lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day %lld of %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld/%lld 天"
           }
         }
       }
@@ -22562,6 +23154,102 @@
         }
       }
     },
+    "近 4 周 %lld 件 · 和上周同期持平" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld in 4 weeks · same as last week so far"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 4 周 %lld 件 · 和上周同期持平"
+          }
+        }
+      }
+    },
+    "近 4 周 %lld 件 · 比上周同期 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld in 4 weeks · %@ vs. last week so far"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 4 周 %lld 件 · 比上周同期 %@"
+          }
+        }
+      }
+    },
+    "近 7 天失败 %lld 次" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld failed in 7 days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 7 天失败 %lld 次"
+          }
+        }
+      }
+    },
+    "近 7 天成功 %lld 天,失败 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last 7 days: %lld succeeded, %lld failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 7 天成功 %lld 天,失败 %lld 天"
+          }
+        }
+      }
+    },
+    "近 7 天都成功了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All succeeded in 7 days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 7 天都成功了"
+          }
+        }
+      }
+    },
+    "近期没有旅行" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No upcoming trips"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近期没有旅行"
+          }
+        }
+      }
+    },
     "近期没有日程" : {
       "localizations" : {
         "en" : {
@@ -22862,6 +23550,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还款日前一天提醒"
+          }
+        }
+      }
+    },
+    "还没到" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upcoming"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没到"
           }
         }
       }
@@ -23923,6 +24627,22 @@
         }
       }
     },
+    "这次没生成出来,下拉刷新重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't generate. Pull to refresh."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没生成出来,下拉刷新重试"
+          }
+        }
+      }
+    },
     "这趟还想去哪？" : {
       "localizations" : {
         "en" : {
@@ -24571,6 +25291,22 @@
         }
       }
     },
+    "都是今天的" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All from today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "都是今天的"
+          }
+        }
+      }
+    },
     "都是可选的,照车票上的填。" : {
       "localizations" : {
         "en" : {
@@ -24615,6 +25351,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "都读完了。"
+          }
+        }
+      }
+    },
+    "配置 AI 后显示今天收藏的总结" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up AI to see a summary of today's saves"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配置 AI 后显示今天收藏的总结"
+          }
+        }
+      }
+    },
+    "配置 AI 后显示健康提示" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up AI to see health tips"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配置 AI 后显示健康提示"
           }
         }
       }
@@ -25268,6 +26036,22 @@
     },
     "隐藏金额" : {
 
+    },
+    "静息心率" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resting HR"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静息心率"
+          }
+        }
+      }
     },
     "静音自动停止:%lld 秒" : {
       "localizations" : {

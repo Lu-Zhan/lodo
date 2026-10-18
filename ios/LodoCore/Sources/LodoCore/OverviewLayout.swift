@@ -40,6 +40,14 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     case news
     /// 空气质量:所在地此刻的美标 AQI(健康页开了空气质量才有,见 `AirQuality`)。
     case airQuality
+    /// 积压提醒:原定时间已过、还没完成的任务按拖了多久分档。
+    case backlog
+    /// 旅行中:进行中的旅行第几天、接下来去哪;没有就报最近一次出发。
+    case trip
+    /// 睡眠与恢复:最近 7 天睡眠和静息心率(健康开关开着才有)。
+    case recovery
+    /// 例行状态:定时任务最近 7 天跑得怎么样、下一次什么时候。
+    case routineStatus
 
     public var title: String {
         switch self {
@@ -60,6 +68,10 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .countUp: return "正数日"
         case .news: return "三条要闻"
         case .airQuality: return "空气质量"
+        case .backlog: return "积压提醒"
+        case .trip: return "旅行中"
+        case .recovery: return "睡眠与恢复"
+        case .routineStatus: return "例行状态"
         }
     }
 
@@ -82,6 +94,10 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .countUp: return "calendar.badge.checkmark"
         case .news: return "newspaper"
         case .airQuality: return "aqi.medium"
+        case .backlog: return "tray.full"
+        case .trip: return "airplane"
+        case .recovery: return "bed.double"
+        case .routineStatus: return "clock.arrow.2.circlepath"
         }
     }
 
@@ -92,7 +108,7 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
         case .clock: return [.small]
         case .nextUp, .today, .agenda, .countdown, .countUp,
              .activityRings, .taskProgress, .weeklyDone, .stepsTrend,
-             .airQuality: return [.small, .large]
+             .airQuality, .backlog, .trip, .recovery, .routineStatus: return [.small, .large]
         case .due, .routines, .suggestion, .memories, .health, .news: return [.large]
         }
     }
@@ -100,7 +116,8 @@ public enum OverviewWidgetKind: String, CaseIterable, Codable, Sendable {
     public var defaultSize: OverviewWidgetSize {
         switch self {
         case .clock, .nextUp, .countdown, .countUp,
-             .activityRings, .taskProgress, .weeklyDone, .stepsTrend, .airQuality: return .small
+             .activityRings, .taskProgress, .weeklyDone, .stepsTrend, .airQuality,
+             .backlog, .recovery, .routineStatus: return .small
         default: return .large
         }
     }
@@ -139,12 +156,14 @@ public struct OverviewLayout: Equatable, Sendable {
     /// AI 生成的几段放在后面——它们要等网络,放前面会让首屏跳动。
     public static let `default` = OverviewLayout(items: [
         .init(kind: .clock), .init(kind: .nextUp),
-        .init(kind: .due), .init(kind: .today), .init(kind: .agenda),
+        .init(kind: .due), .init(kind: .backlog), .init(kind: .today), .init(kind: .agenda),
+        .init(kind: .trip),
         .init(kind: .countdown), .init(kind: .countUp), .init(kind: .taskProgress),
         .init(kind: .weeklyDone), .init(kind: .activityRings),
         .init(kind: .routines, size: .large),
         .init(kind: .suggestion), .init(kind: .memories),
-        .init(kind: .stepsTrend), .init(kind: .airQuality), .init(kind: .health), .init(kind: .news),
+        .init(kind: .stepsTrend), .init(kind: .recovery), .init(kind: .airQuality), .init(kind: .health),
+        .init(kind: .routineStatus), .init(kind: .news),
     ])
 
     /// 从存储的 JSON 恢复。容错:解不开 → 默认布局;重复的种类只留第一个;
@@ -262,8 +281,9 @@ public enum OverviewTime {
 
     /// 今天过去了多少(0...1)。
     public static func dayProgress(at now: Date, calendar: Calendar = .current) -> Double {
-        let start = calendar.startOfDay(for: now)
-        return min(1, max(0, now.timeIntervalSince(start) / 86400))
+        // 按日历算这一天有多长:夏令时切换那天是 23 或 25 小时。
+        guard let day = calendar.dateInterval(of: .day, for: now), day.duration > 0 else { return 0 }
+        return min(1, max(0, now.timeIntervalSince(day.start) / day.duration))
     }
 
     /// 从今天零点数到 `date` 那天零点隔了几天:今天 0、明天 1,过去的为负。
