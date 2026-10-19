@@ -575,6 +575,8 @@ struct AssetsView: View {
         let month = monthly
         Section {
             monthlySummaryRow([("每月收入", month.income, LodoColor.positive)])
+        } footer: {
+            monthlyCaveats(month, showsIrregular: true)
         }
         if entries(.income).isEmpty {
             addHintSection("还没有记收入", systemImage: "arrow.down.circle") {
@@ -594,6 +596,8 @@ struct AssetsView: View {
                 ("固定支出", month.expense, LodoColor.critical),
                 ("每月支出", month.expense + month.spending, .primary),
             ])
+        } footer: {
+            monthlyCaveats(month, showsIrregular: false)
         }
         if spendingEntries.isEmpty {
             addHintSection("还没有估计每月消费", systemImage: "cart") {
@@ -648,6 +652,23 @@ struct AssetsView: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture(perform: toggleReveal)
+    }
+
+    /// 收入/支出两档合计下面的说明:和「全部」总览卡同一口径——换不出汇率的币种
+    /// 如实说少算了,不定期收入没有折进每月(否则列表金额加起来和顶上对不上)。
+    @ViewBuilder
+    private func monthlyCaveats(_ month: FinancePlan.MonthlyTotal, showsIrregular: Bool) -> some View {
+        let missing = month.missingCurrencies.sorted()
+        if !missing.isEmpty || (showsIrregular && month.irregularCount > 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                if showsIrregular, month.irregularCount > 0 {
+                    Text("另有 \(month.irregularCount) 项不定期的没有折算进每月。")
+                }
+                if !missing.isEmpty {
+                    Text("以下币种暂时换不到汇率,没有计入:\(missing.joined(separator: "、"))")
+                }
+            }
+        }
     }
 
     /// 某一档还没有内容时的一行:说明 + 直接新建。

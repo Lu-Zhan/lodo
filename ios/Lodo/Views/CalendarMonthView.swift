@@ -11,20 +11,28 @@ struct CalendarMonthView: View {
     let onOpenDay: (Date) -> Void
     let onOpen: (CalendarEvent) -> Void
     let convertToTask: ((CalendarEvent) -> Void)?
+    /// 左右滑翻月。只挂在月格上:下面那天的日程列表行有左滑「转为任务」,
+    /// 挂整页的话滑一行会顺带把月份翻走。
+    var isActive = true
+    var onPage: (Int) -> Void = { _ in }
 
     @Environment(\.lodoAccent) private var accent
     private let calendar = Calendar.current
 
     var body: some View {
         VStack(spacing: 0) {
-            weekdayHeader
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 2) {
-                ForEach(CalendarViewPlan.monthGrid(for: month, calendar: calendar), id: \.self) { day in
-                    cell(day)
+            VStack(spacing: 0) {
+                weekdayHeader
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 2) {
+                    ForEach(CalendarViewPlan.monthGrid(for: month, calendar: calendar), id: \.self) { day in
+                        cell(day)
+                    }
                 }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 8)
-            .padding(.bottom, 8)
+            .contentShape(Rectangle())
+            .pagingSwipe(isActive: isActive, onPage: onPage)
             Divider()
             dayList
         }

@@ -113,6 +113,22 @@
         }
       }
     },
+    "AI 写了一句(你刚改过备注,没有直接替换):%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI suggested (not applied since you edited the note): %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 写了一句(你刚改过备注,没有直接替换):%@"
+          }
+        }
+      }
+    },
     "AQI 最高 %lld(%@)" : {
       "localizations" : {
         "en" : {
@@ -1933,6 +1949,22 @@
         }
       }
     },
+    "「%@」没能加进来" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” couldn't be added"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」没能加进来"
+          }
+        }
+      }
+    },
     "一位成员" : {
       "localizations" : {
         "en" : {
@@ -2255,6 +2287,22 @@
         }
       }
     },
+    "不用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不用"
+          }
+        }
+      }
+    },
     "今天剩下的时间都排满了" : {
       "localizations" : {
         "en" : {
@@ -2399,6 +2447,22 @@
         }
       }
     },
+    "另外 %lld 个全天日程" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld more all-day events"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另外 %lld 个全天日程"
+          }
+        }
+      }
+    },
     "和上周同期持平" : {
       "localizations" : {
         "en" : {
@@ -2443,6 +2507,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "完成「%@」"
+          }
+        }
+      }
+    },
+    "已完成「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成「%@」"
           }
         }
       }
@@ -2523,6 +2603,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接下来 12 小时"
+          }
+        }
+      }
+    },
+    "撤销完成「%@」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo completing “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销完成「%@」"
           }
         }
       }
@@ -2619,6 +2715,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最久拖了 %lld 天"
+          }
+        }
+      }
+    },
+    "正在读取 %lld 张照片…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading %lld photos…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取 %lld 张照片…"
+          }
+        }
+      }
+    },
+    "有 %lld 张照片没读出来,可以重新选一次。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld photos couldn't be loaded. Try selecting them again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 张照片没读出来,可以重新选一次。"
+          }
+        }
+      }
+    },
+    "有 %lld 张照片没加进来,可以再选一次" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld photos weren't added. Try selecting them again"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 张照片没加进来,可以再选一次"
+          }
+        }
+      }
+    },
+    "有 %lld 个文件没能加进来:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files couldn't be added: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 个文件没能加进来:%@"
           }
         }
       }
@@ -18427,6 +18587,22 @@
         }
       }
     },
+    "没能打开选择的文件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't open the selected files"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没能打开选择的文件"
+          }
+        }
+      }
+    },
     "泰铢" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -19395,6 +19571,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用右下角的 + 添加,比如每天早上让 AI 总结今天的任务。"
+          }
+        }
+      }
+    },
+    "用这句替换" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use This"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用这句替换"
           }
         }
       }
@@ -24639,6 +24831,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这次没生成出来,下拉刷新重试"
+          }
+        }
+      }
+    },
+    "这次没能刷新分析,上面是之前的结果。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't refresh the analysis. Showing the previous one."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没能刷新分析,上面是之前的结果。"
+          }
+        }
+      }
+    },
+    "这次没能生成分析,可能是网络或 AI 服务暂时出错。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't generate the analysis. The network or AI service may be having trouble."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没能生成分析,可能是网络或 AI 服务暂时出错。"
           }
         }
       }

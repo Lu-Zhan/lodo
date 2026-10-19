@@ -128,7 +128,7 @@ enum MemoryPipeline {
         let item = MemoryItem(
             kind: .text, title: trimmedTitle, summary: note, tags: tags,
             sourceText: MemorySearch.truncate(note), status: .ready, assetValue: value,
-            assetCurrency: value != nil ? currency : nil,
+            assetCurrency: value != nil || liability != nil ? currency : nil,
             assetLiability: liability, assetInterestRate: interestRate)
         item.assetUpdatedAt = Date()
         item.recordAssetHistory()

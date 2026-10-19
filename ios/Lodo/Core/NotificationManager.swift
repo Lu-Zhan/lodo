@@ -29,6 +29,54 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// 与 LodoIntents.swift 里 Siri 的 agent handoff 是同一种模式。
     static let pendingRescheduleUUIDKey = "pendingRescheduleUUID"
     static let rescheduleHandoff = Notification.Name("LodoRescheduleHandoff")
+    /// 点通知本体:进到这条通知说的那件事(任务/定时任务 → 任务页并定位到那一行,
+    /// 每日汇总 → 任务页,倒数日 → 倒数日页,空气质量 → 健康页)。冷启动时
+    /// 外壳还没起来,先记进 UserDefaults(`route|uuid`),外壳 onAppear/回前台时消费。
+    static let pendingOpenKey = "pendingNotificationOpen"
+    static let openHandoff = Notification.Name("LodoNotificationOpenHandoff")
+
+    /// 外壳认的去处。
+    struct OpenRoute: Equatable {
+        enum Page: String { case todo, countdown, health }
+        let page: Page
+        /// 任务页里要定位的事项/定时任务。
+        var item: UUID?
+
+        var encoded: String { [page.rawValue, item?.uuidString ?? ""].joined(separator: "|") }
+
+        init(page: Page, item: UUID? = nil) {
+            self.page = page
+            self.item = item
+        }
+
+        init?(encoded: String) {
+            let parts = encoded.split(separator: "|", omittingEmptySubsequences: false)
+            guard let first = parts.first, let page = Page(rawValue: String(first)) else { return nil }
+            self.page = page
+            item = parts.count > 1 ? UUID(uuidString: String(parts[1])) : nil
+        }
+    }
+
+    /// 这条通知该去哪儿;nil = 不认识的通知(只打开 app)。
+    static func openRoute(identifier: String, userInfo: [AnyHashable: Any]) -> OpenRoute? {
+        if userInfo["route"] as? String == "health" { return OpenRoute(page: .health) }
+        if let uuid = (userInfo["uuid"] as? String).flatMap(UUID.init(uuidString:)) {
+            return OpenRoute(page: .todo, item: uuid)
+        }
+        if let uuid = (userInfo["routineUUID"] as? String).flatMap(UUID.init(uuidString:)) {
+            return OpenRoute(page: .todo, item: uuid)
+        }
+        if userInfo["countdownUUID"] != nil { return OpenRoute(page: .countdown) }
+        if identifier.hasPrefix(digestID) { return OpenRoute(page: .todo) }
+        return nil
+    }
+
+    @MainActor
+    private static func handOff(_ route: OpenRoute) {
+        UserDefaults.standard.set(route.encoded, forKey: pendingOpenKey)
+        NotificationCenter.default.post(name: openHandoff, object: nil,
+                                        userInfo: ["route": route.encoded])
+    }
 
     private var container: ModelContainer?
 
@@ -363,20 +411,6 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     ) {
         let userInfo = response.notification.request.content.userInfo
         let actionID = response.actionIdentifier
-        // 空气质量提醒:进健康页(走和小组件同一个深链)。
-        if userInfo["route"] as? String == "health" {
-            Task { @MainActor in
-                if let url = URL(string: "lodo://health") {
-                    #if os(iOS)
-                    await UIApplication.shared.open(url)
-                    #elseif os(macOS)
-                    NSWorkspace.shared.open(url)
-                    #endif
-                }
-                completionHandler()
-            }
-            return
-        }
         // 聊天室新消息:进到那个房间(外壳切到 AI 页,AI 页 push 进去)。
         if let room = (userInfo["chatRoom"] as? String).flatMap(UUID.init(uuidString:)) {
             Task { @MainActor in
@@ -387,7 +421,22 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
         guard let uuidString = userInfo["uuid"] as? String,
               let uuid = UUID(uuidString: uuidString) else {
-            completionHandler()
+            // 不是任务提醒:点通知本体就进到它说的那一页(倒数日/定时任务/汇总/空气质量)。
+            let route = actionID == UNNotificationDefaultActionIdentifier
+                ? Self.openRoute(identifier: response.notification.request.identifier, userInfo: userInfo)
+                : nil
+            Task { @MainActor in
+                if let route { Self.handOff(route) }
+                completionHandler()
+            }
+            return
+        }
+        // 点任务提醒本体:进任务页、定位到这一条(就算它已经在别处被完成了也照样过去)。
+        if actionID == UNNotificationDefaultActionIdentifier {
+            Task { @MainActor in
+                Self.handOff(OpenRoute(page: .todo, item: uuid))
+                completionHandler()
+            }
             return
         }
         Task { @MainActor in
@@ -410,7 +459,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 NotificationCenter.default.post(name: Self.rescheduleHandoff, object: nil,
                                                 userInfo: ["uuid": uuidString])
             default:
-                break  // 点通知本体:打开 app,不改状态
+                break
             }
         }
     }

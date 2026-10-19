@@ -126,9 +126,22 @@ struct CalendarTimelineView: View {
                             eventChip(event)
                         }
                         if perDay[index].count > 2 {
-                            Text("+\(perDay[index].count - 2)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            // 多出来的收进菜单:点「+N」列出那几条,点一条打开详情。
+                            Menu {
+                                ForEach(perDay[index].dropFirst(2), id: \.occurrenceKey) { event in
+                                    Button(event.title) { onOpen(event) }
+                                }
+                            } label: {
+                                Text(verbatim: "+\(perDay[index].count - 2)")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 2)
+                                    .contentShape(Rectangle())
+                            }
+                            .menuStyle(.button)
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel(Text("另外 \(perDay[index].count - 2) 个全天日程"))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .top)

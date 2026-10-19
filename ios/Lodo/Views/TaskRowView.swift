@@ -12,6 +12,7 @@ struct TaskRowView: View {
     var onEdit: () -> Void
 
     @Environment(\.modelContext) private var context
+    @Environment(\.taskCompletionHandler) private var completionHandler
     @State private var rescheduleLoading = false
     @State private var rescheduleCandidates: [(label: String, date: Date)]?
     @State private var rescheduleError: String?
@@ -134,11 +135,20 @@ struct TaskRowView: View {
                 }
             }
         }
-        // 长按:置顶(逾期那一排滑动按钮已经四个了,置顶只在这里和没逾期时的滑动里)。
+        // 长按:置顶、编辑、删除(逾期那一排滑动按钮已经四个了,置顶和删除
+        // 在逾期时只能从这里找到——不然一件已经没意义的逾期任务就删不掉了)。
         .contextMenu {
             pinButton
             Button(action: onEdit) {
                 Label("编辑", systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                Haptics.impact()
+                withAnimation(.lodoAware(.snappy)) {
+                    TaskActions.delete(task, context: context)
+                }
+            } label: {
+                Label("删除", systemImage: "trash")
             }
         }
     }
@@ -159,8 +169,10 @@ struct TaskRowView: View {
     }
 
     private func complete() {
+        let title = task.title
         withAnimation(.lodoAware(.snappy)) {
-            TaskActions.complete(task, context: context)
+            let undo = TaskActions.completeUndoably(task, context: context)
+            completionHandler?(title, undo)
         }
     }
 
@@ -186,5 +198,19 @@ struct TaskRowView: View {
         Haptics.success()
         TaskActions.applyReschedule(task, to: date, context: context)
         withAnimation(.lodoAware(.snappy)) { rescheduleCandidates = nil }
+    }
+}
+
+
+/// 完成了一条任务时通知外层(任务页拿它挂一条「已完成 · 撤销」)。
+/// 走 Environment 而不是 init 参数:TaskRowView 有好几个调用方,不需要撤销的不用管。
+private struct TaskCompletionHandlerKey: EnvironmentKey {
+    static let defaultValue: ((String, TaskActions.CompletionUndo) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var taskCompletionHandler: ((String, TaskActions.CompletionUndo) -> Void)? {
+        get { self[TaskCompletionHandlerKey.self] }
+        set { self[TaskCompletionHandlerKey.self] = newValue }
     }
 }

@@ -27,6 +27,8 @@ struct CalendarView: View {
     /// 月视图里选中的那天(下方列表显示它)。
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
     @State private var events: [CalendarEvent] = []
+    /// 「今天」点一次 +1,所有视图那张列表据此重新滚到今天。
+    @State private var todayToken = 0
     @State private var authorized = CalendarBridge.isAuthorized
     @State private var denied = CalendarBridge.isDenied
     @State private var openedEvent: OpenedEvent?
@@ -207,8 +209,8 @@ struct CalendarView: View {
                     anchor = day
                     modeRaw = CalendarViewMode.day.rawValue
                 },
-                onOpen: open, convertToTask: convertToTask)
-            .pagingSwipe(isActive: sectionIsActive) { shift(by: $0) }
+                onOpen: open, convertToTask: convertToTask,
+                isActive: sectionIsActive) { shift(by: $0) }
         case .year:
             CalendarYearView(year: anchor, events: events) { month in
                 withAnimation(.lodoAware(.lodoQuickFade)) {
@@ -253,6 +255,11 @@ struct CalendarView: View {
             .onChange(of: target) { _, new in
                 guard let new else { return }
                 proxy.scrollTo(new, anchor: .top)
+            }
+            // 「今天」每点一次都滚回去:滚远了以后目标那天没变,上面那条 onChange 不会再触发。
+            .onChange(of: todayToken) { _, _ in
+                guard let target else { return }
+                withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(target, anchor: .top) }
             }
         }
     }
@@ -346,6 +353,7 @@ struct CalendarView: View {
     }
 
     private func goToToday() {
+        todayToken += 1
         withAnimation(.lodoAware(.lodoQuickFade)) {
             anchor = CalendarViewPlan.anchor(for: Date(), mode: mode, calendar: calendar)
             selectedDay = calendar.startOfDay(for: Date())
@@ -442,6 +450,7 @@ extension CalendarViewMode {
 
 extension View {
     /// 左右滑翻页(左滑下一页)。
+    /// 页面不在前台(ZStack 里叠着的其他页)时整个不识别,不和当前页抢手势。
     func pagingSwipe(isActive: Bool, onPage: @escaping (Int) -> Void) -> some View {
         self
             .simultaneousGesture(
@@ -450,7 +459,8 @@ extension View {
                         let dx = value.translation.width
                         guard abs(dx) > abs(value.translation.height) * 1.5, abs(dx) > 60 else { return }
                         onPage(dx < 0 ? 1 : -1)
-                    }
+                    },
+                including: isActive ? .all : .subviews
             )
     }
 }

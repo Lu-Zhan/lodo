@@ -187,6 +187,8 @@ struct AppShellView: View {
     @State private var rescheduleRequestUUID: String?
     /// 非 nil 时切到待办页并弹出预填的新建表单(记忆条目"转为待办")。
     @State private var convertToTodoRequest: ConvertToTodoRequest?
+    /// 点了任务/定时任务的通知:任务页定位到这一条(那一页消费完置回 nil)。
+    @State private var focusTaskRequest: UUID?
     /// 非 nil 时切到记忆页并按这个标签筛选。**当前没有入口**:侧栏那排标签行
     /// 已经去掉(理由见 `AppSidebarView` 文件头),按标签筛选的机制原样留在
     /// `MemoryListView` 里,要恢复入口时把这个 State 接回去即可。
@@ -346,6 +348,7 @@ struct AppShellView: View {
             if phase == .active {
                 consumeAgentHandoff()
                 consumeRescheduleHandoff()
+                consumeNotificationOpen()
             }
         }
         // 接受了资产台账的共享邀请:进资产页。
@@ -384,6 +387,11 @@ struct AppShellView: View {
             routeFromOutside(.overview)
             rescheduleRequestUUID = note.userInfo?["uuid"] as? String
         }
+        // 点通知本体的快路径(app 已在运行时即时跳过去)。
+        .onReceive(NotificationCenter.default.publisher(
+            for: NotificationManager.openHandoff)) { _ in
+            consumeNotificationOpen()
+        }
         // 深链:lodo://add(小组件"+"、锁屏 AI 小组件)/lodo://agent?text=…(Siri Intent 回退)
         // 切到 AI 页;lodo://memory(分享收藏后跳回)切到记忆页;lodo://todo、
         // lodo://countdown(锁屏小组件)切到任务页/倒数日页;lodo://voice、lodo://overview
@@ -414,7 +422,8 @@ struct AppShellView: View {
         case .overview:
             OverviewView(rescheduleRequestUUID: $rescheduleRequestUUID)
         case .todo:
-            TodoListView(convertToTodoRequest: $convertToTodoRequest)
+            TodoListView(convertToTodoRequest: $convertToTodoRequest,
+                         focusTaskRequest: $focusTaskRequest)
         case .countdown:
             CountdownListView()
         case .calendar:
@@ -846,12 +855,33 @@ struct AppShellView: View {
         rescheduleRequestUUID = uuid
     }
 
+    /// 点通知本体留下的去处(冷启动/回前台/运行中的快路径都走这一个)。
+    private func consumeNotificationOpen() {
+        guard let raw = UserDefaults.standard.string(forKey: NotificationManager.pendingOpenKey) else { return }
+        UserDefaults.standard.removeObject(forKey: NotificationManager.pendingOpenKey)
+        guard let route = NotificationManager.OpenRoute(encoded: raw) else { return }
+        switch route.page {
+        case .todo:
+            routeFromOutside(.todo)
+            focusTaskRequest = route.item
+        case .countdown:
+            routeFromOutside(.countdown)
+        case .health:
+            routeFromOutside(.health)
+        }
+    }
+
     #if DEBUG
     /// 截图验证用:simctl 点不了抽屉行,启动参数直接把页面/抽屉摆到位。
     /// 各页面自己那些 --demo-* 参数仍由各页面在 onAppear 里消费,这里只负责
     /// "先切到对的页面",不然那些页面根本没被构建出来。
     private func applyDemoArguments() {
         let args = ProcessInfo.processInfo.arguments
+        // 模拟点了某类通知:`--demo-notification-open countdown|todo|health`。
+        if let i = args.firstIndex(of: "--demo-notification-open"), i + 1 < args.count {
+            UserDefaults.standard.set(args[i + 1], forKey: NotificationManager.pendingOpenKey)
+            consumeNotificationOpen()
+        }
         let sectionFlags: [(AppSection, [String])] = [
             (.overview, ["--demo-overview-tab", "--demo-settings", "--demo-reschedule"]),
             (.assets, ["--demo-assets", "--demo-assets-empty"]),

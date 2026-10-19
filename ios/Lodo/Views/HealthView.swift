@@ -25,6 +25,8 @@ struct HealthView: View {
     @State private var analysis: HealthAnalysis?
     @State private var loadingReport = false
     @State private var loadingAnalysis = false
+    /// 最近一次分析请求失败了(和"没配 AI"分开:配了 AI 的人不该看到"去配置")。
+    @State private var analysisFailed = false
     @State private var chartKind: HealthMetricKind?
     /// 下拉刷新时 +1,空气质量那一组跟着强制重新请求。
     @State private var airRefreshToken = 0
@@ -116,13 +118,17 @@ struct HealthView: View {
             #endif
             .sidebarToolbarButton()
             .askBar(focus: .health)
-            .task {
+            // 开关、回看天数一变就重新读(换 id 时 SwiftUI 会先取消还在跑的那一次——
+            // 关掉开关时正等着 HealthKit 的那次读完也不会再去发 AI 请求)。
+            .task(id: "\(healthEnabled)-\(rangeDays)") {
                 await reload()
-                #if DEBUG
+            }
+            #if DEBUG
+            .task {
                 applyDemoArgumentsIfNeeded()
                 applyCheckupDemoIfNeeded()
-                #endif
             }
+            #endif
             .refreshable {
                 airRefreshToken += 1
                 await reload(force: true)
@@ -157,8 +163,8 @@ struct HealthView: View {
                 Button("开启健康分析") {
                     Task {
                         await HealthKitBridge.requestAuthorization()
+                        // 置开关就会触发上面按开关重读的 task,这里不再手动 reload 一遍。
                         healthEnabled = true
-                        await reload(force: true)
                     }
                 }
                 .glassProminentButton()
@@ -284,11 +290,30 @@ struct HealthView: View {
                     Label(suggestion, systemImage: "checkmark.circle")
                         .font(.body)
                 }
+                if analysisFailed {
+                    retryRow("这次没能刷新分析,上面是之前的结果。")
+                }
+            } else if analysisFailed {
+                retryRow("这次没能生成分析,可能是网络或 AI 服务暂时出错。")
             } else {
                 Text("配置 AI 服务后,这里会给出针对这几天数据的分析和建议。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func retryRow(_ message: LocalizedStringKey) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            Button("重试") {
+                Task { await loadAnalysis(force: true) }
+            }
+            .font(.subheadline.weight(.medium))
+            .buttonStyle(.borderless)
         }
     }
 
@@ -344,22 +369,30 @@ struct HealthView: View {
         guard healthEnabled else {
             report = .empty
             analysis = nil
+            analysisFailed = false
             return
         }
         loadingReport = true
-        report = await HealthKitBridge.report(days: rangeDays)
+        let fresh = await HealthKitBridge.report(days: rangeDays)
         loadingReport = false
+        // 等 HealthKit 的这段时间里开关可能被关掉、回看天数可能变了:过期的结果不要。
+        guard !Task.isCancelled, healthEnabled else { return }
+        report = fresh
+        // 换了回看天数,原来选的指标可能这段时间没有数据了,退回第一条有数据的。
+        if let chartKind, report.series(chartKind) == nil { self.chartKind = nil }
         await loadAnalysis(force: force)
     }
 
     /// 按天缓存(和 OverviewView.loadSuggestion 同一套写法):只在成功时写缓存,
     /// 离线/请求失败不会把当天"钉死"成空。没数据就不请求。
+    /// 缓存键带上回看天数和应用语言:换了 30 天,标题写着「最近 30 天」,分析不能还是 14 天那份。
     private func loadAnalysis(force: Bool = false) async {
-        guard DeepSeekClient.isConfigured, !report.isEmpty else {
+        guard healthEnabled, DeepSeekClient.isConfigured, !report.isEmpty else {
             analysis = nil
+            analysisFailed = false
             return
         }
-        let stamp = Self.dayFormatter.string(from: Date())
+        let stamp = "\(Self.dayFormatter.string(from: Date()))|\(rangeDays)|\(AppSettings.language.rawValue)"
         let defaults = UserDefaults.standard
         // 体检只给本人的(家人的档案不参与健康分析)。报告改过之后当天也重新分析。
         let checkup = CheckupStore.selfPromptSummary(items: memoryItems, entries: checkupEntries)
@@ -369,6 +402,7 @@ struct HealthView: View {
             analysis = HealthAnalysis(
                 analysis: cached,
                 suggestions: defaults.stringArray(forKey: Self.analysisSuggestionsKey) ?? [])
+            analysisFailed = false
             return
         }
         var contextParts: [String] = []
@@ -380,8 +414,15 @@ struct HealthView: View {
         let memoryContext = contextParts.isEmpty ? nil : contextParts.joined(separator: "\n\n")
         loadingAnalysis = true
         defer { loadingAnalysis = false }
-        guard let result = try? await DeepSeekClient.analyzeHealth(
-            summary: report.promptSummary(), memoryContext: memoryContext) else { return }
+        let result = try? await DeepSeekClient.analyzeHealth(
+            summary: report.promptSummary(), memoryContext: memoryContext)
+        // 请求期间开关被关、页面换了参数:结果作废,也不写缓存。
+        guard !Task.isCancelled, healthEnabled else { return }
+        guard let result else {
+            analysisFailed = true
+            return
+        }
+        analysisFailed = false
         defaults.set(stamp, forKey: Self.analysisDayKey)
         defaults.set(result.analysis, forKey: Self.analysisTextKey)
         defaults.set(result.suggestions, forKey: Self.analysisSuggestionsKey)

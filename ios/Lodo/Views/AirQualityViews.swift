@@ -448,72 +448,19 @@ struct OverviewAirQualityWidget: View {
         }
     }
 
-    /// 接下来 12 小时:上面温度折线、下面 AQI 柱子,共用一条时间轴(上下分开画,
-    /// 不做双 Y 轴——两个量纲叠在一起没法读)。AQI 柱子按 EPA 等级上色,只上色块不写字。
+    /// 接下来 12 小时:上面温度曲线、下面 AQI 色带,共用一条时间轴(上下分开画,
+    /// 不做双 Y 轴——两个量纲叠在一起没法读)。图在 `OverviewHourlyForecast`。
     @ViewBuilder
     private var nextHoursChart: some View {
         let points = OverviewCharts.nextHours(
             temperatures: weather?.hourly.map { ($0.date, $0.temperature) } ?? [],
             aqi: report?.hourly.map { ($0.date, $0.aqi) } ?? [],
             now: now)
-        if !points.isEmpty, let first = points.first?.date, let last = points.last?.date {
-            let domain = first...last.addingTimeInterval(3600)
-            let temps = points.compactMap(\.temperature)
-            VStack(spacing: 10) {
-                if !temps.isEmpty {
-                    Chart(points.filter { $0.temperature != nil }) { point in
-                        LineMark(x: .value("时间", point.date, unit: .hour),
-                                 y: .value("温度", point.temperature ?? 0))
-                            .interpolationMethod(.monotone)
-                            .foregroundStyle(Color.orange)
-                        if point.temperature == temps.max() || point.temperature == temps.min() {
-                            PointMark(x: .value("时间", point.date, unit: .hour),
-                                      y: .value("温度", point.temperature ?? 0))
-                                .foregroundStyle(Color.orange)
-                                .symbolSize(18)
-                                .annotation(position: point.temperature == temps.max() ? .top : .bottom, spacing: 2) {
-                                    Text(WeatherStore.format(point.temperature ?? 0))
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
-                        }
-                    }
-                    .chartXScale(domain: domain)
-                    .chartYScale(domain: (temps.min() ?? 0) - 3...(temps.max() ?? 0) + 3)
-                    .chartXAxis(.hidden)
-                    .chartYAxis(.hidden)
-                    .frame(height: 48)
-                }
-                if points.contains(where: { $0.aqi != nil }) {
-                    Chart(points.filter { $0.aqi != nil }) { point in
-                        BarMark(x: .value("时间", point.date, unit: .hour), y: .value("AQI", point.aqi ?? 0))
-                            .foregroundStyle(AQICategory(aqi: point.aqi ?? 0).color)
-                            .cornerRadius(2)
-                    }
-                    .chartXScale(domain: domain)
-                    .chartYAxis(.hidden)
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: .hour, count: 3)) { _ in
-                            AxisValueLabel(format: .dateTime.hour().locale(AppSettings.language.locale))
-                        }
-                    }
-                    .frame(height: 52)
-                } else {
-                    Chart(points.filter { $0.temperature != nil }) { point in
-                        RuleMark(x: .value("时间", point.date, unit: .hour)).opacity(0)
-                    }
-                    .chartXScale(domain: domain)
-                    .chartYAxis(.hidden)
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: .hour, count: 3)) { _ in
-                            AxisValueLabel(format: .dateTime.hour().locale(AppSettings.language.locale))
-                        }
-                    }
-                    .frame(height: 18)
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(nextHoursSummary(points))
+        if !points.isEmpty {
+            OverviewHourlyForecast(points: points)
+                .padding(.top, 4)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(nextHoursSummary(points))
         }
     }
 
@@ -550,6 +497,225 @@ struct OverviewAirQualityWidget: View {
             .foregroundStyle(.tertiary)
             .lineLimit(1)
         }
+    }
+}
+
+/// 总览空气质量大卡里的「接下来 12 小时」。
+///
+/// - 温度:平滑曲线 + 往下渐隐的面积,线色按高低从冷蓝过渡到暖橙;每 3 小时标一个读数,
+///   第一个点(现在)画成实心大点。
+/// - AQI:一条按小时分段的色带(EPA 等级色只上色块,读数用次要色写在上面),
+///   一眼看出接下来哪几个小时空气变差——原来的柱状图在 AQI 都差不多时就是一排等高的黄柱子。
+/// 两张图 x 轴同一个范围、点都落在每小时的正中,上下对得齐。
+struct OverviewHourlyForecast: View {
+    let points: [OverviewHourPoint]
+
+    private static let cool = Color(red: 0.33, green: 0.62, blue: 0.96)
+    private static let warm = Color(red: 1.0, green: 0.55, blue: 0.16)
+
+    private func mid(_ date: Date) -> Date { date.addingTimeInterval(1800) }
+    private var domain: ClosedRange<Date> {
+        let first = points.first?.date ?? .now
+        let last = points.last?.date ?? first
+        return first...last.addingTimeInterval(3600)
+    }
+    /// 标读数/时刻的那几个小时:现在起每 3 小时一个。
+    private var labeled: [OverviewHourPoint] {
+        points.enumerated().filter { $0.offset % 3 == 0 }.map(\.element)
+    }
+    private var temps: [Double] { points.compactMap(\.temperature) }
+    private var aqis: [Int] { points.compactMap(\.aqi) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            legend
+            if !temps.isEmpty {
+                temperatureChart
+                    .frame(height: 74)
+            }
+            if !aqis.isEmpty {
+                aqiStrip
+            } else {
+                axisOnly
+            }
+        }
+    }
+
+    private var legend: some View {
+        HStack(spacing: 14) {
+            Text("接下来 12 小时")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            if let low = temps.min(), let high = temps.max() {
+                HStack(spacing: 5) {
+                    Capsule()
+                        .fill(LinearGradient(colors: [Self.cool, Self.warm],
+                                             startPoint: .leading, endPoint: .trailing))
+                        .frame(width: 14, height: 4)
+                    Text(verbatim: "\(WeatherStore.format(low)) – \(WeatherStore.format(high))")
+                        .monospacedDigit()
+                }
+            }
+            if let low = aqis.min(), let high = aqis.max() {
+                HStack(spacing: 5) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(AQICategory(aqi: high).color)
+                        .frame(width: 10, height: 10)
+                    Text(verbatim: low == high ? "AQI \(high)" : "AQI \(low)–\(high)")
+                        .monospacedDigit()
+                }
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    }
+
+    private var temperatureChart: some View {
+        let low = temps.min() ?? 0
+        let high = temps.max() ?? 0
+        let span = max(high - low, 1)
+        // 上面留出写读数的地方,下面给渐隐的面积留一截底。
+        let floor = low - span * 0.45 - 1
+        let ceiling = high + span * 0.55 + 1
+        let tempPoints = points.filter { $0.temperature != nil }
+        let firstDate = points.first?.date
+        return Chart {
+            ForEach(tempPoints) { point in
+                AreaMark(x: .value("时间", mid(point.date)),
+                         yStart: .value("温度", floor),
+                         yEnd: .value("温度", point.temperature ?? 0),
+                         series: .value("系列", "area"))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(LinearGradient(colors: [Self.warm.opacity(0.22), Self.warm.opacity(0.0)],
+                                                    startPoint: .top, endPoint: .bottom))
+                LineMark(x: .value("时间", mid(point.date)),
+                         y: .value("温度", point.temperature ?? 0),
+                         series: .value("系列", "line"))
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(LinearGradient(colors: [Self.cool, Self.warm],
+                                                    startPoint: .bottom, endPoint: .top))
+            }
+            ForEach(labeled.filter { $0.temperature != nil }) { point in
+                let isNow = point.date == firstDate
+                PointMark(x: .value("时间", mid(point.date)),
+                          y: .value("温度", point.temperature ?? 0))
+                    .symbol {
+                        Circle()
+                            .fill(isNow ? Self.warm : OverviewWidgetCard<EmptyView>.cardFill)
+                            .overlay(Circle().strokeBorder(Self.warm, lineWidth: 2))
+                            .frame(width: isNow ? 9 : 7, height: isNow ? 9 : 7)
+                    }
+            }
+        }
+        // 读数自己按坐标摆:PointMark 的 annotation 在自定义 symbol + 平滑曲线下会漂走(实测)。
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                if let plot = proxy.plotFrame.map({ geo[$0] }) {
+                    ForEach(labeled.filter { $0.temperature != nil }) { point in
+                        if let x = proxy.position(forX: mid(point.date)),
+                           let y = proxy.position(forY: point.temperature ?? 0) {
+                            let isNow = point.date == firstDate
+                            Text(WeatherStore.format(point.temperature ?? 0))
+                                .font(.caption.weight(isNow ? .semibold : .regular).monospacedDigit())
+                                .foregroundStyle(isNow ? .primary : .secondary)
+                                .fixedSize()
+                                .position(x: plot.minX + x, y: plot.minY + y - 13)
+                        }
+                    }
+                }
+            }
+        }
+        .chartXScale(domain: domain)
+        .chartYScale(domain: floor...ceiling)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartLegend(.hidden)
+    }
+
+    private var aqiStrip: some View {
+        // 分段之间留一道细缝(约 4 分钟),一段一小时。
+        let gap: TimeInterval = 240
+        return Chart {
+            ForEach(points.filter { $0.aqi != nil }) { point in
+                RectangleMark(xStart: .value("开始", point.date.addingTimeInterval(gap / 2)),
+                              xEnd: .value("结束", point.date.addingTimeInterval(3600 - gap / 2)),
+                              yStart: .value("AQI", 0),
+                              yEnd: .value("AQI", 1))
+                    .foregroundStyle(AQICategory(aqi: point.aqi ?? 0).color)
+                    .cornerRadius(3)
+            }
+        }
+        .chartXScale(domain: domain)
+        .chartYScale(domain: 0...1)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .frame(height: 12)
+        // 色带上方写读数、下方写时刻,都按同一个坐标换算摆上去(轴标签和 annotation
+        // 的对齐方式在不同系统/外观下不一致,实测"现在"会偏到右边、深色下读数不显示)。
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                if let plot = proxy.plotFrame.map({ geo[$0] }) {
+                    ForEach(labeled) { point in
+                        if let x = proxy.position(forX: mid(point.date)) {
+                            if let aqi = point.aqi {
+                                Text(verbatim: "\(aqi)")
+                                    .font(.caption2.weight(point.id == points.first?.id ? .semibold : .regular)
+                                        .monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize()
+                                    .position(x: plot.minX + x, y: plot.minY - 9)
+                            }
+                            hourLabel(point)
+                                .position(x: plot.minX + x, y: plot.maxY + 12)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.top, 16)
+        .padding(.bottom, 22)
+    }
+
+    /// 没有 AQI 时只画一条时刻轴,温度曲线照样有个参照。
+    private var axisOnly: some View {
+        Chart(points) { point in
+            RuleMark(x: .value("时间", mid(point.date))).opacity(0)
+        }
+        .chartXScale(domain: domain)
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .frame(height: 1)
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                if let plot = proxy.plotFrame.map({ geo[$0] }) {
+                    ForEach(labeled) { point in
+                        if let x = proxy.position(forX: mid(point.date)) {
+                            hourLabel(point)
+                                .position(x: plot.minX + x, y: plot.maxY + 10)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.bottom, 20)
+    }
+
+    @ViewBuilder
+    private func hourLabel(_ point: OverviewHourPoint) -> some View {
+        Group {
+            if point.id == points.first?.id {
+                Text("现在").fontWeight(.semibold).foregroundStyle(.primary)
+            } else {
+                Text(point.date, format: .dateTime.hour().locale(AppSettings.language.locale))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.caption)
+        .fixedSize()
     }
 }
 

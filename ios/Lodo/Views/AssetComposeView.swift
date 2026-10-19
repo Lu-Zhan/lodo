@@ -26,7 +26,7 @@ struct AssetComposeView: View {
     }
 
     private var value: Double? {
-        Double(trimmedValueText)
+        AssetNumber.parse(trimmedValueText) ?? nil
     }
 
     private var trimmedLiabilityText: String {
@@ -34,7 +34,7 @@ struct AssetComposeView: View {
     }
 
     private var liability: Double? {
-        Double(trimmedLiabilityText)
+        AssetNumber.parse(trimmedLiabilityText) ?? nil
     }
 
     private var trimmedInterestRateText: String {
@@ -42,7 +42,7 @@ struct AssetComposeView: View {
     }
 
     private var interestRate: Double? {
-        Double(trimmedInterestRateText)
+        AssetNumber.parse(trimmedInterestRateText) ?? nil
     }
 
     /// 金额框非空但解析不出数字(比如手滑打了几个字母),不能既不提示、

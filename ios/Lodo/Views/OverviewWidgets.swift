@@ -9,18 +9,31 @@ import LodoCore
 // (玻璃不上内容,见 CLAUDE.md 的新系统 API 那条)。
 
 /// 一张 widget 卡的外壳。`action` 非 nil 时整张卡可点(跳去对应页面)。
+///
+/// 卡片内容里常有 Swift Charts / Gauge / TimelineView,它们会自己接住触摸,
+/// 原来整张卡包成 Button 时只有标题行(那颗「›」)点得动、点图表和正文都没反应。
+/// 所以:内容里没有自己的按钮时,内容整块不参与命中测试,点哪儿都是这张卡;
+/// 内容里有按钮(任务行的完成圆圈、「还有 N 项」)时传 `interactiveContent`,
+/// 卡片改用底层的点按手势——里面的按钮先接,点到别处才跳页。
 struct OverviewWidgetCard<Content: View>: View {
     let kind: OverviewWidgetKind
     var trailing: String? = nil
     var action: (() -> Void)? = nil
+    var interactiveContent = false
     @ViewBuilder let content: () -> Content
 
     @Environment(\.lodoAccent) private var accent
 
     var body: some View {
         if let action {
-            Button(action: action) { card }
-                .pressableCard()
+            if interactiveContent {
+                card
+                    .onTapGesture(perform: action)
+                    .accessibilityAction(named: Text(LocalizedStringKey(kind.title)), action)
+            } else {
+                Button(action: action) { card }
+                    .pressableCard()
+            }
         } else {
             card
         }
@@ -48,6 +61,7 @@ struct OverviewWidgetCard<Content: View>: View {
             }
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .allowsHitTesting(action == nil || interactiveContent)
             Spacer(minLength: 0)
         }
         .padding(16)
@@ -172,45 +186,59 @@ struct OverviewNextUpWidget: View {
 
 // MARK: - 任务类
 
-/// widget 里的一行任务:左边完成圆圈,点行编辑;长按稍等/删除。
-/// 卡片里没有 List,系统的 swipeActions 用不上,所以主操作做成那颗圆圈。
+/// widget 里的一行任务:左边圆圈点一下完成、已完成的再点一下撤销;点行编辑;
+/// 长按稍等/删除(卡片里没有 List,系统的 swipeActions 用不上,所以主操作做成那颗圆圈)。
 struct OverviewTaskLine: View {
     let task: TaskItem
     let now: Date
-    let onComplete: () -> Void
+    /// 已完成(今天完成的那几条也留在卡片上,划掉显示,方便点错了改回来)。
+    var isDone = false
+    let onToggle: () -> Void
     let onEdit: () -> Void
     let onSnooze: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
-            Button(action: onComplete) {
-                Image(systemName: "circle")
+            Button(action: onToggle) {
+                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(isDone ? AnyShapeStyle(LodoColor.positive) : AnyShapeStyle(.secondary))
+                    .contentTransition(.symbolEffect(.replace))
                     .hitTarget(visualSize: 24)
             }
             .pressable()
-            .accessibilityLabel(Text("完成「\(task.title)」"))
+            .accessibilityLabel(isDone ? Text("撤销完成「\(task.title)」") : Text("完成「\(task.title)」"))
             Button(action: onEdit) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(task.title)
                         .font(.body)
-                        .foregroundStyle(.primary)
+                        .strikethrough(isDone)
+                        .foregroundStyle(isDone ? .secondary : .primary)
                         .lineLimit(1)
-                    Text(LocalizedContent.taskCaption(task))
-                        .font(.footnote)
-                        .foregroundStyle(task.nextRemindAt <= now ? LodoColor.critical : .secondary)
-                        .lineLimit(1)
+                    if isDone, let doneAt = task.doneAt {
+                        Text("完成于 \(LocalizedContent.time(doneAt))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else {
+                        Text(LocalizedContent.taskCaption(task))
+                            .font(.footnote)
+                            .foregroundStyle(task.nextRemindAt <= now ? LodoColor.critical : .secondary)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .pressableCard()
+            .disabled(isDone)
         }
         .contextMenu {
-            Button(action: onSnooze) { Label("稍等", systemImage: "clock.arrow.circlepath") }
-            Button(role: .destructive, action: onDelete) { Label("删除", systemImage: "trash") }
+            if !isDone {
+                Button(action: onSnooze) { Label("稍等", systemImage: "clock.arrow.circlepath") }
+                Button(role: .destructive, action: onDelete) { Label("删除", systemImage: "trash") }
+            }
         }
     }
 }
@@ -224,7 +252,8 @@ struct OverviewDueWidget: View {
     private let limit = 5
 
     var body: some View {
-        OverviewWidgetCard(kind: .due, trailing: tasks.isEmpty ? nil : "\(tasks.count)") {
+        OverviewWidgetCard(kind: .due, trailing: tasks.isEmpty ? nil : "\(tasks.count)",
+                           action: onMore, interactiveContent: true) {
             if tasks.isEmpty {
                 OverviewEmptyText(text: "没有到期未处理的提醒")
             } else {
@@ -243,17 +272,20 @@ struct OverviewDueWidget: View {
 struct OverviewTodayWidget: View {
     let size: OverviewWidgetSize
     let remaining: [TaskItem]
-    let doneCount: Int
+    /// 今天完成的(最近完成的在前)。大卡上划掉显示,点圆圈撤销。
+    let completed: [TaskItem]
     let now: Date
     let line: (TaskItem) -> OverviewTaskLine
+    let doneLine: (TaskItem) -> OverviewTaskLine
     var onOpen: () -> Void
 
-    private let limit = 4
+    private let limit = 5
+    private var doneCount: Int { completed.count }
     private var total: Int { remaining.count + doneCount }
 
     var body: some View {
         OverviewWidgetCard(kind: .today, trailing: "\(doneCount)/\(total)",
-                           action: size == .small ? onOpen : nil) {
+                           action: onOpen, interactiveContent: size == .large) {
             if size == .small {
                 HStack(spacing: 12) {
                     Gauge(value: Double(doneCount), in: 0...Double(max(total, 1))) {
@@ -288,19 +320,29 @@ struct OverviewTodayWidget: View {
                         }
                     }
                 }
-            } else if remaining.isEmpty {
-                OverviewEmptyText(text: LocalizedStringKey(total == 0
-                                                            ? "今天暂无任务"
-                                                            : "今天的任务都完成了"))
+            } else if total == 0 {
+                OverviewEmptyText(text: "今天暂无任务")
             } else {
+                // 没完成的在前;剩下的位置给今天完成的(划掉显示,点圆圈撤销)。
+                let shownRemaining = Array(remaining.prefix(limit))
+                let shownDone = Array(completed.prefix(max(0, limit - shownRemaining.count)))
+                let hidden = total - shownRemaining.count - shownDone.count
                 VStack(alignment: .leading, spacing: 10) {
                     ProgressView(value: Double(doneCount), total: Double(max(total, 1)))
-                    ForEach(remaining.prefix(limit)) { task in line(task) }
-                    if remaining.count > limit {
-                        Button("还有 \(remaining.count - limit) 项", action: onOpen)
+                    if remaining.isEmpty {
+                        Text("今天的任务都完成了")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(LodoColor.positive)
+                    }
+                    ForEach(shownRemaining) { task in line(task) }
+                    ForEach(shownDone) { task in doneLine(task) }
+                    if hidden > 0 {
+                        Button("还有 \(hidden) 项", action: onOpen)
                             .font(.subheadline)
                     }
                 }
+                .animation(.lodoAware(.snappy), value: remaining.map(\.uuid))
+                .animation(.lodoAware(.snappy), value: completed.map(\.uuid))
             }
         }
     }

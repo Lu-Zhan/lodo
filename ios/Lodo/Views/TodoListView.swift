@@ -71,6 +71,8 @@ struct TodoListView: View {
     /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,
     /// 见 AppShellView)。
     @Binding var convertToTodoRequest: ConvertToTodoRequest?
+    /// 点了任务/定时任务的通知:切到能看到它的那一档、滚过去并闪一下(消费完置回 nil)。
+    @Binding var focusTaskRequest: UUID?
 
     // 以下几个跨 extension 文件(TodoListView+CRUD/+Reschedule)被读写,
     // 不能用 private(Swift 的 private 只对同一文件可见),保持 internal。
@@ -92,9 +94,19 @@ struct TodoListView: View {
            sort: \AIRoutine.createdAt)
     private var routines: [AIRoutine]
     /// 用于查"今天跑过没":按天筛选在 `latestRunToday` 里做,这里只按时间倒序,
-    /// 取第一条命中的就是最新一条。
-    @Query(sort: [SortDescriptor(\AIRoutineRun.createdAt, order: .reverse)])
-    private var routineRuns: [AIRoutineRun]
+    /// 取第一条命中的就是最新一条。只捞最近两天的——运行记录会一直攒下去,
+    /// 每次渲染都把全部历史实例化、逐行线性扫没有意义(窗口在 init 时定,
+    /// 页面开着跨了天也只是多留一点,不会漏掉今天的)。
+    @Query private var routineRuns: [AIRoutineRun]
+
+    init(convertToTodoRequest: Binding<ConvertToTodoRequest?>, focusTaskRequest: Binding<UUID?>) {
+        _convertToTodoRequest = convertToTodoRequest
+        _focusTaskRequest = focusTaskRequest
+        let calendar = Calendar.current
+        let cutoff = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: .now)) ?? .distantPast
+        _routineRuns = Query(filter: #Predicate<AIRoutineRun> { $0.createdAt > cutoff },
+                             sort: [SortDescriptor(\AIRoutineRun.createdAt, order: .reverse)])
+    }
 
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
@@ -106,6 +118,14 @@ struct TodoListView: View {
     /// 通知权限被拒绝(app 内唯一提醒渠道失效)时提示用户去系统设置开启。
     @State private var notificationsDenied = false
     @State private var insight: String?
+    /// 刚滑掉完成的那一条:底部挂几秒「已完成 · 撤销」,手滑完成了能改回来。
+    @State private var lastCompletion: (title: String, undo: TaskActions.CompletionUndo)?
+    @State private var completionToastTask: Task<Void, Never>?
+    /// 刚从通知定位过来的那一行,底色闪一下。
+    @State private var highlightedRow: UUID?
+    /// 定位要等切档后的列表排好再滚,经这个值交给 ScrollViewReader。
+    @State private var scrollTarget: UUID?
+    @Environment(\.lodoAccent) private var lodoAccent
 
     private static let insightWeekKey = "insightWeek"
     private static let insightTextKey = "insightText"
@@ -287,13 +307,17 @@ struct TodoListView: View {
     }
     /// 下一次需要唤醒刷新 `now` 的时刻:最近一个未到期事项或明天零点,取早者。
     private var nextWakeDate: Date {
-        let midnight = Calendar.current.startOfDay(for: now).addingTimeInterval(86400)
+        // 按日历加一天,不是加 86400 秒:夏令时切换那天一天是 23 或 25 小时。
+        let calendar = Calendar.current
+        let midnight = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))
+            ?? calendar.startOfDay(for: now).addingTimeInterval(86400)
         let nextDue = pending.map(\.nextRemindAt).filter { $0 > now }.min()
         return min(nextDue ?? midnight, midnight)
     }
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 if notificationsDenied {
                     notificationDeniedSection
@@ -322,6 +346,16 @@ struct TodoListView: View {
                 dueUUIDs: due.map(\.uuid), filter: filter))
             // 顶部筛选贴近导航栏:分组列表默认在第一个分区上面留一大截空白。
             .contentMargins(.top, 4, for: .scrollContent)
+            .environment(\.taskCompletionHandler) { title, undo in
+                showCompletionToast(title: title, undo: undo)
+            }
+            .overlay(alignment: .bottom) { completionToast }
+            .onChange(of: scrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(target, anchor: .center) }
+                scrollTarget = nil
+            }
+            }
             .pageTitle("任务")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -348,8 +382,14 @@ struct TodoListView: View {
             .onChange(of: convertToTodoRequest) { _, request in
                 consumeConvertToTodo(request)
             }
+            .onChange(of: focusTaskRequest) { _, request in
+                consumeFocus(request)
+            }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { checkNotificationAuthorization() }
+                guard phase == .active else { return }
+                // 后台期间 task 的睡眠不准(可能跨了天),回前台先把 now 对齐。
+                now = Date()
+                checkNotificationAuthorization()
             }
             .onChange(of: filter) { _, new in
                 if new == .done {
@@ -359,6 +399,7 @@ struct TodoListView: View {
             .onAppear {
                 // 冷启动时深链可能先于本视图出现,补一次检查
                 consumeConvertToTodo(convertToTodoRequest)
+                consumeFocus(focusTaskRequest)
                 checkNotificationAuthorization()
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("--demo-seed-data"), pending.isEmpty {
@@ -370,9 +411,110 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-filter-done") {
                     filter = .done
                 }
+                // 截图:模拟滑掉完成第一条(看底部「已完成 · 撤销」)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-complete-toast") {
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_200_000_000)
+                        guard let task = todayTasks.first else { return }
+                        let title = task.title
+                        let undo = TaskActions.completeUndoably(task, context: context)
+                        showCompletionToast(title: title, undo: undo)
+                    }
+                }
+                // 模拟点了最晚那条任务的通知(验证切档 + 滚动 + 闪底色)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-focus-latest") {
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        focusTaskRequest = pending.max { $0.nextRemindAt < $1.nextRemindAt }?.uuid
+                    }
+                }
                 #endif
             }
         }
+    }
+
+    // MARK: - 完成后撤销
+
+    @ViewBuilder
+    private var completionToast: some View {
+        if let lastCompletion {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(LodoColor.positive)
+                Text("已完成「\(lastCompletion.title)」")
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Button("撤销") {
+                    Haptics.impact(.light)
+                    withAnimation(.lodoAware(.snappy)) {
+                        TaskActions.undo(lastCompletion.undo, context: context)
+                        self.lastCompletion = nil
+                    }
+                }
+                .fontWeight(.semibold)
+                .buttonStyle(.borderless)
+            }
+            .font(.subheadline)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .glassBackground(Capsule())
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    private func showCompletionToast(title: String, undo: TaskActions.CompletionUndo) {
+        completionToastTask?.cancel()
+        withAnimation(.lodoAware(.snappy)) { lastCompletion = (title, undo) }
+        completionToastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.lodoAware(.snappy)) { lastCompletion = nil }
+        }
+    }
+
+    // MARK: - 从通知定位
+
+    /// 切到看得见这一条的那一档(今天该做的/逾期的在「今天」,往后的在「全部」,
+    /// 完成了的在「已完成」;置顶的在前三档最上面),等列表排好再滚过去、闪一下底色。
+    /// 没给 uuid(每日汇总)就回到「今天」。
+    private func consumeFocus(_ request: UUID?) {
+        guard focusTaskRequest != nil || request != nil else { return }
+        focusTaskRequest = nil
+        guard let uuid = request else {
+            filter = .today
+            return
+        }
+        let today = Calendar.current.startOfDay(for: now)
+        if let task = pending.first(where: { $0.uuid == uuid }) {
+            filter = task.pinned || effectiveDay(task) == today ? .today : .all
+        } else if let routine = routines.first(where: { $0.uuid == uuid }) {
+            filter = effectiveRoutineDay(routine) == today ? .today : .all
+        } else if doneTasks.contains(where: { $0.uuid == uuid }) {
+            filter = .done
+        } else {
+            return
+        }
+        Task { @MainActor in
+            // 切档的动画走完、新的行排出来之后再滚。
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            scrollTarget = uuid
+            withAnimation(.lodoAware(.easeInOut(duration: 0.25))) { highlightedRow = uuid }
+            var hold: UInt64 = 1_800_000_000
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--demo-focus-latest") { hold = 30_000_000_000 }
+            #endif
+            try? await Task.sleep(nanoseconds: hold)
+            withAnimation(.lodoAware(.easeInOut(duration: 0.6))) {
+                if highlightedRow == uuid { highlightedRow = nil }
+            }
+        }
+    }
+
+    /// 定位过来的那一行垫一层强调色;其余行不改(nil = 系统默认行底色)。
+    private func focusBackground(_ uuid: UUID) -> Color? {
+        highlightedRow == uuid ? lodoAccent.accent.opacity(0.16) : nil
     }
 
     // MARK: - 通知权限
@@ -432,10 +574,14 @@ struct TodoListView: View {
         case .task(let task):
             TaskRowView(task: task, now: now,
                         onEdit: { sheet = .edit(task, nil) })
+                .listRowBackground(focusBackground(task.uuid))
+                .id(task.uuid)
         case .routine(let routine):
             RoutineRowView(routine: routine, now: now,
                           latestRunToday: latestRunToday(routine),
                           onEdit: { sheet = .editRoutine(routine) })
+                .listRowBackground(focusBackground(routine.uuid))
+                .id(routine.uuid)
         }
     }
 
@@ -548,6 +694,8 @@ struct TodoListView: View {
                 Section(dayLabel(group.date)) {
                     ForEach(group.tasks) { task in
                         doneRow(task)
+                            .listRowBackground(focusBackground(task.uuid))
+                            .id(task.uuid)
                     }
                 }
             }

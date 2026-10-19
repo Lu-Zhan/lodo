@@ -146,12 +146,6 @@ struct DoneListView: View {
 
     /// 恢复为待办:回到 start 阶段,提醒时间取原定时间(已过期会直接进到期卡)。
     private func restore(_ task: TaskItem) {
-        task.statusRaw = TaskStatus.pending.rawValue
-        task.phaseRaw = TaskPhase.start.rawValue
-        task.doneAt = nil
-        task.nextRemindAt = task.remindAt
-        task.ignoreStreak = 0
-        try? context.save()
-        NotificationManager.shared.rebuild(for: task)
+        TaskActions.restore(task, context: context)
     }
 }

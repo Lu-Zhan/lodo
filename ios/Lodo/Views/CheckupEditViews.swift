@@ -27,6 +27,10 @@ struct CheckupImportView: View {
     @State private var working = false
     @State private var errorMessage: String?
     @State private var importTask: Task<Void, Never>?
+    /// 相册里选的照片还有几张没读完;读完之前不让开始整理,否则后面几页会漏掉。
+    @State private var loadingPhotos = 0
+    /// 读失败的张数(iCloud 照片没下载下来等),如实说一声。
+    @State private var failedPhotos = 0
 
     private struct Photo: Identifiable {
         let id = UUID()
@@ -74,6 +78,18 @@ struct CheckupImportView: View {
                     #endif
                     PhotosPicker(selection: $photoItems, matching: .images) {
                         Label("从相册选择", systemImage: "photo.on.rectangle")
+                    }
+                    if loadingPhotos > 0 {
+                        HStack(spacing: 10) {
+                            ProgressView().controlSize(.small)
+                            Text("正在读取 \(loadingPhotos) 张照片…")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if failedPhotos > 0 {
+                        Text("有 \(failedPhotos) 张照片没读出来,可以重新选一次。")
+                            .font(.subheadline)
+                            .foregroundStyle(LodoColor.critical)
                     }
                     ForEach(files, id: \.self) { file in
                         Label(file.lastPathComponent, systemImage: "doc.text")
@@ -133,7 +149,7 @@ struct CheckupImportView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     confirmButton("整理") { startImport() }
-                        .disabled(working || !hasInput || !DeepSeekClient.isConfigured)
+                        .disabled(working || loadingPhotos > 0 || !hasInput || !DeepSeekClient.isConfigured)
                 }
             }
             .fileImporter(isPresented: $showFileImporter,
@@ -166,13 +182,24 @@ struct CheckupImportView: View {
         }
     }
 
+    /// 按选的顺序一张张读完再一起放进来(页序就是选的顺序)。
     private func loadPicked(_ items: [PhotosPickerItem]) {
         guard !items.isEmpty else { return }
+        loadingPhotos += items.count
+        failedPhotos = 0
         Task {
+            var loaded: [Photo] = []
+            var failed = 0
             for item in items {
-                guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
-                photos.append(Photo(data: Self.normalized(data)))
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    loaded.append(Photo(data: Self.normalized(data)))
+                } else {
+                    failed += 1
+                }
             }
+            photos.append(contentsOf: loaded)
+            failedPhotos = failed
+            loadingPhotos = max(0, loadingPhotos - items.count)
             photoItems = []
         }
     }

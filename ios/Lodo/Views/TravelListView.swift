@@ -514,6 +514,9 @@ struct TripEditView: View {
     /// 正在让 AI 重写备注。
     @State private var regenerating = false
     @State private var noteError: String?
+    /// 生成期间用户自己改了备注:AI 那句不直接盖上去,先摆在 footer 里让用户决定。
+    @State private var pendingNote: String?
+    @State private var noteTask: Task<Void, Never>?
     @Query private var memoryItems: [MemoryItem]
 
     /// 常用的旅行图标(交通、海岛、雪山、城市、美食……)。
@@ -654,6 +657,19 @@ struct TripEditView: View {
                     if let noteError {
                         Text(noteError)
                             .foregroundStyle(LodoColor.critical)
+                    } else if let pendingNote {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("AI 写了一句(你刚改过备注,没有直接替换):\(pendingNote)")
+                            HStack(spacing: 16) {
+                                Button("用这句替换") {
+                                    notes = pendingNote
+                                    self.pendingNote = nil
+                                }
+                                Button("不用") { self.pendingNote = nil }
+                            }
+                            .font(.footnote.weight(.medium))
+                            .buttonStyle(.borderless)
+                        }
                     } else {
                         Text("这句话会显示在旅行列表的卡片上。")
                     }
@@ -673,6 +689,7 @@ struct TripEditView: View {
                 }
             }
             .onAppear(perform: load)
+            .onDisappear { noteTask?.cancel() }
         }
     }
 
@@ -681,17 +698,28 @@ struct TripEditView: View {
     private func regenerateNote(_ trip: TravelTrip) {
         regenerating = true
         noteError = nil
+        pendingNote = nil
+        let before = notes
         let entries = TravelStore.entries(for: trip.uuid, from: memoryItems)
         let days = TravelTrip(title: title, startDate: start, endDate: end).days
         let summary = TravelPlan.promptSummary(
             tripTitle: title.isEmpty ? trip.title : title, days: days, entries: entries)
-        Task {
+        noteTask?.cancel()
+        noteTask = Task {
+            defer { regenerating = false }
             do {
-                notes = try await DeepSeekClient.suggestTripNote(summary: summary)
+                let suggestion = try await DeepSeekClient.suggestTripNote(summary: summary)
+                guard !Task.isCancelled else { return }
+                // 等结果的这几秒里用户自己动了备注:不覆盖,交给用户选。
+                if notes == before {
+                    notes = suggestion
+                } else {
+                    pendingNote = suggestion
+                }
             } catch {
+                guard !Task.isCancelled else { return }
                 noteError = error.localizedDescription
             }
-            regenerating = false
         }
     }
 

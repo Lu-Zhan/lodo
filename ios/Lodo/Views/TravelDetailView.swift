@@ -884,21 +884,34 @@ struct TravelDetailView: View {
         .travelPanelGroupGlass()
         .fileImporter(isPresented: $importingFiles, allowedContentTypes: [.item],
                       allowsMultipleSelection: true) { result in
-            guard case .success(let urls) = result else { return }
+            guard case .success(let urls) = result else {
+                showNotice(localized("没能打开选择的文件"))
+                return
+            }
+            var failed: [String] = []
             for url in urls {
                 let scoped = url.startAccessingSecurityScopedResource()
-                TravelStore.attachFile(url, to: trip, context: context)
+                if TravelStore.attachFile(url, to: trip, context: context) == nil {
+                    failed.append(url.lastPathComponent)
+                }
                 if scoped { url.stopAccessingSecurityScopedResource() }
             }
+            reportAttachFailures(failed, total: urls.count)
         }
         .photosPicker(isPresented: $pickingPhotos, selection: $photoSelection, matching: .images)
         .onChange(of: photoSelection) { _, selection in
             guard !selection.isEmpty else { return }
             Task {
+                var failed = 0
                 for item in selection {
-                    if let data = try? await item.loadTransferable(type: Data.self) {
-                        TravelStore.attachImage(data, to: trip, context: context)
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       TravelStore.attachImage(data, to: trip, context: context) != nil {
+                        continue
                     }
+                    failed += 1
+                }
+                if failed > 0 {
+                    showNotice(localized("有 \(failed) 张照片没加进来,可以再选一次"))
                 }
                 photoSelection = []
             }
@@ -994,9 +1007,14 @@ struct TravelDetailView: View {
 
     private func moveDropped(_ ids: [String], to day: Date) -> Bool {
         var moved = false
+        let tripID = trip.uuid
         for id in ids {
+            // 只认这次旅行里的:从另一个窗口拖来别的旅行的行程项,不能改了它的日期
+            // 而这一页又看不见。
             guard let uuid = UUID(uuidString: id),
-                  let item = memoryItems.first(where: { $0.uuid == uuid && $0.isTravel }),
+                  let item = memoryItems.first(where: {
+                      $0.uuid == uuid && $0.isTravel && $0.travelTripUUID == tripID
+                  }),
                   item.travelKind?.isTransport != true else { continue }
             TravelStore.move(item, toDay: day, context: context)
             moved = true
@@ -1757,6 +1775,21 @@ struct TravelDetailView: View {
     }
 
     /// 地图顶上的提示。sticky 的一直挂着(进行中/需要用户处理),否则几秒后自己消失。
+    private func localized(_ value: String.LocalizationValue) -> String {
+        String(localized: value, bundle: .appLanguage(), locale: AppSettings.language.locale)
+    }
+
+    /// 选了几个文件、有的没存进来(拷贝失败、格式读不了):成功的照常留着,
+    /// 失败的报出名字。
+    private func reportAttachFailures(_ failed: [String], total: Int) {
+        guard !failed.isEmpty else { return }
+        if failed.count == 1 {
+            showNotice(localized("「\(failed[0])」没能加进来"))
+        } else {
+            showNotice(localized("有 \(failed.count) 个文件没能加进来:\(failed.joined(separator: "、"))"))
+        }
+    }
+
     private func showNotice(_ text: String?, sticky: Bool = false, offersTripEdit: Bool = false,
                             dismissible: Bool = false, pinEntry: UUID? = nil) {
         noticeTask?.cancel()

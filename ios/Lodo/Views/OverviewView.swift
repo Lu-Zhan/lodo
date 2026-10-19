@@ -49,6 +49,8 @@ struct OverviewView: View {
     /// 每分钟刷新一次(「接下来」的倒计时要走),回前台/下拉时也刷新。
     @State private var now = Date()
     @State private var editingTask: TaskItem?
+    /// 在总览里点圆圈完成的,键是卡片上划掉的那一行(一次性事项本身 / 重复事项插入的历史)。
+    @State private var completionUndos: [UUID: TaskActions.CompletionUndo] = [:]
     @State private var suggestion: OverviewAIText = .loading
     @State private var memorySummary: OverviewAIText = .loading
     @State private var newsItems: [NewsDigest.Item] = []
@@ -377,7 +379,8 @@ struct OverviewView: View {
             OverviewDueWidget(tasks: due, now: now, line: taskLine) { chrome?.go(.todo) }
         case .today:
             OverviewTodayWidget(size: item.size, remaining: todayRemaining,
-                                doneCount: doneTodayCount, now: now, line: taskLine) {
+                                completed: doneToday, now: now, line: taskLine,
+                                doneLine: doneTaskLine) {
                 chrome?.go(.todo)
             }
         case .agenda:
@@ -527,14 +530,36 @@ struct OverviewView: View {
     private func taskLine(_ task: TaskItem) -> OverviewTaskLine {
         OverviewTaskLine(
             task: task, now: now,
-            onComplete: {
+            onToggle: {
+                Haptics.success()
                 withAnimation(.lodoAware(.snappy)) {
-                    TaskActions.complete(task, context: context)
+                    let undo = TaskActions.completeUndoably(task, context: context)
+                    // 一次性事项自己变成 done;重复事项顺延,卡片上划掉的是插进来的那条历史。
+                    completionUndos[undo.historyUUID ?? undo.before.uuid] = undo
                 }
             },
             onEdit: { editingTask = task },
             onSnooze: { TaskActions.snooze(task, context: context) },
             onDelete: { TaskActions.delete(task, context: context) })
+    }
+
+    /// 今天完成的那一行:点圆圈撤销。这次打开总览时在这里完成的,用完成前的快照
+    /// 原样改回(重复事项连那条历史一起删);别处完成的没有快照,按已完成列表的
+    /// 「恢复为待办」处理。
+    private func doneTaskLine(_ task: TaskItem) -> OverviewTaskLine {
+        OverviewTaskLine(
+            task: task, now: now, isDone: true,
+            onToggle: {
+                Haptics.impact(.light)
+                withAnimation(.lodoAware(.snappy)) {
+                    if let undo = completionUndos.removeValue(forKey: task.uuid) {
+                        TaskActions.undo(undo, context: context)
+                    } else {
+                        TaskActions.restore(task, context: context)
+                    }
+                }
+            },
+            onEdit: {}, onSnooze: {}, onDelete: {})
     }
 
     // MARK: - 数据
@@ -610,9 +635,11 @@ struct OverviewView: View {
         pending.filter { $0.nextRemindAt <= now || Calendar.current.isDateInToday($0.nextRemindAt) }
     }
 
-    private var doneTodayCount: Int {
-        doneTasks.filter { $0.doneAt.map(Calendar.current.isDateInToday) ?? false }.count
+    private var doneToday: [TaskItem] {
+        doneTasks.filter { $0.doneAt.map(Calendar.current.isDateInToday) ?? false }
     }
+
+    private var doneTodayCount: Int { doneToday.count }
 
     private var todayEvents: [CalendarEvent] {
         CalendarViewPlan.events(upcomingEvents, on: now)
@@ -673,6 +700,19 @@ struct OverviewView: View {
 
     private func applyDemoArguments() {
         let args = ProcessInfo.processInfo.arguments
+        // 截图:在总览里点掉今天的前两件(验证划掉显示),加 `--demo-overview-undo` 再撤销第一件。
+        if args.contains("--demo-overview-complete") {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                for task in todayRemaining.prefix(2) { taskLine(task).onToggle() }
+                if args.contains("--demo-overview-undo") {
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    if let first = doneToday.first(where: { completionUndos[$0.uuid] != nil }) {
+                        doneTaskLine(first).onToggle()
+                    }
+                }
+            }
+        }
         if args.contains("--demo-reschedule"), let first = due.first {
             notificationReschedule = (first, [
                 (label: "今晚 20:00", date: Date().addingTimeInterval(6 * 3600)),

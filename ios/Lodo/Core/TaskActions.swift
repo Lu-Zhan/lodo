@@ -44,6 +44,51 @@ enum TaskActions {
         NotificationManager.shared.complete(task, context: context)
     }
 
+    /// 完成一次、记下撤销所需的快照(总览卡片上点了圆圈、再点一下改回来)。
+    /// 重复事项完成一次是"顺延 + 插一条已完成历史",所以撤销要用完成前的整份快照
+    /// 覆盖回去并删掉那条历史——同 AI 批量撤销的 `UndoOp.completed`。
+    struct CompletionUndo {
+        let before: BackupTask
+        /// 重复事项完成一次插入的历史记录;一次性事项为 nil(它自己变成 done)。
+        let historyUUID: UUID?
+    }
+
+    @discardableResult
+    static func completeUndoably(_ task: TaskItem, context: ModelContext) -> CompletionUndo {
+        let before = task.backup
+        let history = NotificationManager.shared.complete(task, context: context)
+        return CompletionUndo(before: before, historyUUID: history?.uuid)
+    }
+
+    static func undo(_ undo: CompletionUndo, context: ModelContext) {
+        let uuid = undo.before.uuid
+        if let task = (try? context.fetch(FetchDescriptor<TaskItem>(
+            predicate: #Predicate<TaskItem> { $0.uuid == uuid })))?.first {
+            undo.before.apply(to: task)
+            NotificationManager.shared.rebuild(for: task)
+        }
+        if let historyUUID = undo.historyUUID,
+           let history = (try? context.fetch(FetchDescriptor<TaskItem>(
+               predicate: #Predicate<TaskItem> { $0.uuid == historyUUID })))?.first {
+            context.delete(history)
+        }
+        try? context.save()
+        WidgetBridge.sync(context: context)
+        CalendarSync.sync(context: context)
+    }
+
+    /// 已完成的事项恢复成待办:回到 start 阶段,提醒时间取原定时间(已过期会直接进到期卡)。
+    /// 没有完成前快照时用(已完成列表、总览里不是在这次打开时完成的那几条)。
+    static func restore(_ task: TaskItem, context: ModelContext) {
+        task.statusRaw = TaskStatus.pending.rawValue
+        task.phaseRaw = TaskPhase.start.rawValue
+        task.doneAt = nil
+        task.nextRemindAt = task.remindAt
+        task.ignoreStreak = 0
+        try? context.save()
+        NotificationManager.shared.rebuild(for: task)
+    }
+
     static func delete(_ task: TaskItem, context: ModelContext) {
         NotificationManager.shared.cancelChain(for: task.uuid)
         context.delete(task)

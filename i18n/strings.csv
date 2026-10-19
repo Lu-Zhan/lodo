@@ -1931,3 +1931,17 @@ overview.today_s_timeline_lld_events_lld_tasks,"今日时间轴:%lld 个日程,%
 overview.complete,完成「%@」,Complete “%@”,ios_view,总览页
 overview.next_12_hours,接下来 12 小时,Next 12 hours,ios_view,总览页
 overview.aqi_peaks_at_lld,AQI 最高 %lld(%@),AQI peaks at %lld (%@),ios_view,总览页
+ios_view.overview_undo_complete,撤销完成「%@」,Undo completing “%@”,ios_view,
+ios_view.task_completed_toast,已完成「%@」,Completed “%@”,ios_view,
+ios_view.checkup_loading_photos,正在读取 %lld 张照片…,Loading %lld photos…,ios_view,
+ios_view.checkup_photos_failed,"有 %lld 张照片没读出来,可以重新选一次。",%lld photos couldn't be loaded. Try selecting them again.,ios_view,
+ios_view.health_analysis_refresh_failed,"这次没能刷新分析,上面是之前的结果。",Couldn't refresh the analysis. Showing the previous one.,ios_view,
+ios_view.health_analysis_failed,"这次没能生成分析,可能是网络或 AI 服务暂时出错。",Couldn't generate the analysis. The network or AI service may be having trouble.,ios_view,
+ios_view.trip_note_pending,"AI 写了一句(你刚改过备注,没有直接替换):%@",AI suggested (not applied since you edited the note): %@,ios_view,
+ios_view.trip_note_use,用这句替换,Use This,ios_view,
+ios_view.trip_note_discard,不用,Discard,ios_view,
+ios_view.trip_files_open_failed,没能打开选择的文件,Couldn't open the selected files,ios_view,
+ios_view.trip_photos_failed,"有 %lld 张照片没加进来,可以再选一次",%lld photos weren't added. Try selecting them again,ios_view,
+ios_view.trip_file_failed,「%@」没能加进来,“%@” couldn't be added,ios_view,
+ios_view.trip_files_failed,有 %lld 个文件没能加进来:%@,%lld files couldn't be added: %@,ios_view,
+ios_view.calendar_more_all_day,另外 %lld 个全天日程,%lld more all-day events,ios_view,

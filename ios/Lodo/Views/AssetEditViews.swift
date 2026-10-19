@@ -23,11 +23,7 @@ struct AssetEditView: View {
     @State private var didLoad = false
     @State private var confirmingDelete = false
 
-    private func number(_ text: String) -> Double?? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty { return .some(nil) }
-        return Double(trimmed).map { .some($0) } ?? nil
-    }
+    private func number(_ text: String) -> Double?? { AssetNumber.parse(text) }
 
     /// 金额框填了却解析不出数字时挡住保存(同 AssetComposeView)。
     private var canSave: Bool {
@@ -134,9 +130,7 @@ struct AssetEditView: View {
     }
 
     /// 3000000.0 显示成 3000000,不带尾巴上的 .0。
-    static func plain(_ value: Double) -> String {
-        value.rounded() == value ? String(Int(value)) : String(value)
-    }
+    static func plain(_ value: Double) -> String { AssetNumber.plain(value) }
 
     private func save() {
         let value = number(valueText) ?? nil
@@ -144,6 +138,7 @@ struct AssetEditView: View {
         let rate = number(rateText) ?? nil
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let existing else {
+            // 只填了负债(比如一笔美元贷款)也要记下币种,否则按默认币种算错净资产。
             let item = MemoryPipeline.saveAsset(title: trimmedTitle, value: value, currency: currency,
                                                 liability: liability, interestRate: rate,
                                                 category: category == "其他" ? "" : category,
@@ -204,9 +199,7 @@ struct FinanceEntryEditView: View {
     @State private var confirmingDelete = false
 
     private var amount: Double?? {
-        let trimmed = amountText.trimmingCharacters(in: .whitespaces)
-        if trimmed.isEmpty { return .some(nil) }
-        return Double(trimmed).map { .some($0) } ?? nil
+        AssetNumber.parse(amountText)
     }
 
     private var canSave: Bool {
@@ -431,5 +424,31 @@ private extension View {
         #else
         self
         #endif
+    }
+}
+
+
+/// 资产/收支表单里的金额输入。
+enum AssetNumber {
+    /// 超过这个量级的数字多半是粘错了;而且 `Int(Double)` 超出范围会直接崩。
+    static let limit = 1e15
+
+    /// 外层 nil = 填了但不是合理的数字(挡住保存);`.some(nil)` = 没填。
+    /// 容忍千分位逗号(「1,200,000」)。
+    static func parse(_ text: String) -> Double?? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: ",", with: "")
+            .replacingOccurrences(of: "，", with: "")
+        if trimmed.isEmpty { return .some(nil) }
+        guard let value = Double(trimmed), value.isFinite, abs(value) < limit else { return nil }
+        return .some(value)
+    }
+
+    /// 3000000.0 显示成 3000000,不带尾巴上的 .0;老数据里离谱的数也不崩。
+    static func plain(_ value: Double) -> String {
+        guard value.isFinite, abs(value) < limit, value.rounded() == value else {
+            return value.formatted(.number.grouping(.never))
+        }
+        return String(Int(value))
     }
 }
