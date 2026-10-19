@@ -22,8 +22,6 @@ struct MedicationSection: View {
     @State private var now = Date()
     @State private var editing: MedicationEditTarget?
     @State private var confirmHide = false
-    /// 离那一顿还早(超过一小时)时点了大按钮:先问一句再记。
-    @State private var earlySlot: MedicationPlan.Slot?
     @State private var logging = false
     @State private var importing = false
 
@@ -43,9 +41,10 @@ struct MedicationSection: View {
                 introRow
                     .id(Self.anchor)
             } else {
-                ForEach(Array(slots.enumerated()), id: \.offset) { index, slot in
-                    slotRow(slot)
-                        .id(index == 0 ? Self.anchor : "slot-\(index)")
+                ForEach(slots, id: \.stableID) { slot in
+                    MedicationSlotRow(slot: slot, medication: meds.first { $0.uuid == slot.medicationID },
+                                      showsButton: isNextSlot(slot), locale: locale)
+                        .id(slot == slots.first ? Self.anchor : MedicationSlotRow.id(slot))
                 }
                 ForEach(active) { med in
                     NavigationLink {
@@ -103,27 +102,15 @@ struct MedicationSection: View {
                         Label("隐藏用药管理", systemImage: "eye.slash")
                     }
                 } label: {
-                    Image(systemName: "plus")
+                    Text("管理")
+                        .font(.subheadline)
+                        .textCase(nil)
                 }
-                .accessibilityLabel("添加")
             }
             // sheet/task 挂在标题行上:挂在 Section 上会分摊到每一行。
             .sheet(item: $editing) { MedicationEditView(medication: $0.medication) }
             .sheet(isPresented: $logging) { MedicationDoseLogView(preset: nil) }
             .sheet(isPresented: $importing) { MedicationHealthImportView() }
-            .alert("提前记录这一顿?", isPresented: Binding(
-                get: { earlySlot != nil }, set: { if !$0 { earlySlot = nil } }
-            )) {
-                Button("取消", role: .cancel) { earlySlot = nil }
-                Button("记录") {
-                    if let slot = earlySlot { record(slot) }
-                    earlySlot = nil
-                }
-            } message: {
-                if let slot = earlySlot {
-                    Text("离 \(timeText(slot.time)) 那一顿还早,现在记下就算这一顿已经吃了。")
-                }
-            }
             .alert("隐藏用药管理?", isPresented: $confirmHide) {
                 Button("取消", role: .cancel) {}
                 Button("隐藏") { medicationVisible = false }
@@ -165,97 +152,6 @@ struct MedicationSection: View {
         MedicationPlan.nextUnrecordedSlot(of: slot.medicationID, in: slots) == slot
     }
 
-    private func timeText(_ date: Date) -> String {
-        date.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
-    }
-
-    private func slotRow(_ slot: MedicationPlan.Slot) -> some View {
-        let time = timeText(slot.time)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                // 只是状态,不再是按钮:记一顿用下面的大按钮(小圆圈太难点中)。
-                Image(systemName: slotSymbol(slot.state))
-                    .font(.title3)
-                    .foregroundStyle(slotColor(slot.state))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(slot.dosage.isEmpty ? slot.name : "\(slot.name) \(slot.dosage)")
-                        .font(.body.weight(.medium))
-                    Text(slotCaption(slot, time: time))
-                        .font(.footnote)
-                        .foregroundStyle(slot.state == .due ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
-                }
-            }
-            .accessibilityElement(children: .combine)
-            if isNextSlot(slot) {
-                Button {
-                    if MedicationPlan.isEarly(slot, now: Date()) {
-                        earlySlot = slot
-                    } else {
-                        record(slot)
-                    }
-                } label: {
-                    Label("记录已服用", systemImage: "checkmark")
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityLabel(Text("记录已服用 \(slot.name) \(time)"))
-            }
-        }
-        .padding(.vertical, 2)
-    }
-
-    /// 记下这一顿。按库里最新的记录再核对一遍它还是不是"下一顿"(连点、通知那边刚点过完成),
-    /// 不是就不记。
-    private func record(_ slot: MedicationPlan.Slot) {
-        guard let med = meds.first(where: { $0.uuid == slot.medicationID }) else { return }
-        now = Date()
-        if MedicationStore.logNextDose(med, slotTime: slot.time, context: context) {
-            Haptics.success()
-        }
-    }
-
-    private func slotIsDone(_ state: MedicationPlan.SlotState) -> Bool {
-        switch state {
-        case .taken, .skipped: return true
-        case .upcoming, .due: return false
-        }
-    }
-
-    private func slotSymbol(_ state: MedicationPlan.SlotState) -> String {
-        switch state {
-        case .taken: return "checkmark.circle.fill"
-        case .skipped: return "minus.circle.fill"
-        case .upcoming, .due: return "circle"
-        }
-    }
-
-    private func slotColor(_ state: MedicationPlan.SlotState) -> Color {
-        switch state {
-        case .taken: return LodoColor.positive
-        case .skipped: return LodoColor.muted
-        case .due: return LodoColor.critical
-        case .upcoming: return .secondary
-        }
-    }
-
-    private func slotCaption(_ slot: MedicationPlan.Slot, time: String) -> String {
-        let bundle = Bundle.appLanguage()
-        switch slot.state {
-        case .taken(let at):
-            let taken = at.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
-            return String(localized: "\(time) · \(taken) 已服用", bundle: bundle, locale: locale)
-        case .skipped:
-            return String(localized: "\(time) · 已跳过", bundle: bundle, locale: locale)
-        case .due:
-            return String(localized: "\(time) · 还没吃", bundle: bundle, locale: locale)
-        case .upcoming:
-            return time
-        }
-    }
-
     private func medRow(_ med: Medication) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "pills")
@@ -278,6 +174,148 @@ struct MedicationSection: View {
     }
 }
 
+/// 今天的一个服药时间点:状态 + (是这种药的下一顿时)整宽的「记录已服用」大按钮。
+/// 健康页「今天」和「用药管理」两处共用,写入逻辑只有这一份:离那一顿超过一小时先问一句,
+/// 写之前 `MedicationStore.logNextDose` 按库里最新记录再核对它还是不是下一顿。
+struct MedicationSlotRow: View {
+    let slot: MedicationPlan.Slot
+    let medication: Medication?
+    /// 只有每种药今天还没记的第一顿带按钮(记录按先后对上时间点,点后面那顿会算成前面那顿)。
+    let showsButton: Bool
+    let locale: Locale
+    /// 记成功了告诉外面(首页拿它把这一顿留在原位显示「已服用」,再接着给下一顿)。
+    var onRecorded: ((MedicationPlan.Slot) -> Void)? = nil
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.lodoAccent) private var lodoAccent
+    /// 提前确认的那一顿(点按钮那一刻的原定时刻)。只存目标、不存"正在确认":确认框开着时
+    /// 这一顿可能被通知那边记掉,这一行随之变成下一顿——确认时还按原来的目标核对,对不上就不记。
+    @State private var earlyTarget: Date?
+
+    private var time: String { MedicationText.time(slot.time, locale: locale) }
+
+    /// 列表里这一行的稳定标识:药品 + 原定时刻(按位置排的话,记掉一顿后同一行会换成另一顿)。
+    static func id(_ slot: MedicationPlan.Slot) -> String {
+        "\(slot.medicationID.uuidString)-\(slot.time.timeIntervalSince1970)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                // 只是状态,不是按钮:记一顿用下面的大按钮(小圆圈太难点中)。
+                Image(systemName: symbol)
+                    .font(.title3)
+                    .foregroundStyle(color)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: nameText)
+                        .font(.body.weight(.medium))
+                    Text(caption)
+                        .font(.footnote)
+                        .foregroundStyle(slot.state == .due ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
+                }
+            }
+            .accessibilityElement(children: .combine)
+            if showsButton, medication != nil {
+                Button {
+                    if MedicationPlan.isEarly(slot, now: Date()) {
+                        earlyTarget = slot.time
+                    } else {
+                        record(slot.time)
+                    }
+                } label: {
+                    Label("记录已服用", systemImage: "checkmark")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                // 填充上的字用 onFill(暗色下是近黑,白字压在亮橙上读不清,见 LodoPalette)。
+                .foregroundStyle(lodoAccent.onFill)
+                .accessibilityLabel(Text("记录已服用 \(nameText) \(time)"))
+            }
+        }
+        .padding(.vertical, 2)
+        .alert("提前记录这一顿?", isPresented: Binding(
+            get: { earlyTarget != nil }, set: { if !$0 { earlyTarget = nil } }
+        )) {
+            Button("取消", role: .cancel) { earlyTarget = nil }
+            Button("记录") {
+                if let target = earlyTarget { record(target) }
+                earlyTarget = nil
+            }
+        } message: {
+            if let earlyTarget {
+                Text("离 \(MedicationText.time(earlyTarget, locale: locale)) 那一顿还早,现在记下就算这一顿已经吃了。")
+            }
+        }
+    }
+
+    /// 记 `target` 那一顿;`logNextDose` 按库里最新记录核对它还是不是这种药的下一顿。
+    private func record(_ target: Date) {
+        guard let medication else { return }
+        if MedicationStore.logNextDose(medication, slotTime: target, context: context) {
+            Haptics.success()
+            onRecorded?(slot)
+        }
+    }
+
+    private var nameText: String { slot.dosage.isEmpty ? slot.name : "\(slot.name) \(slot.dosage)" }
+
+    private var symbol: String {
+        switch slot.state {
+        case .taken: return "checkmark.circle.fill"
+        case .skipped: return "minus.circle.fill"
+        case .upcoming, .due: return "circle"
+        }
+    }
+
+    private var color: Color {
+        switch slot.state {
+        case .taken: return LodoColor.positive
+        case .skipped: return LodoColor.muted
+        case .due: return LodoColor.critical
+        case .upcoming: return .secondary
+        }
+    }
+
+    private var caption: String {
+        let bundle = Bundle.appLanguage()
+        switch slot.state {
+        case .taken(let at):
+            let taken = MedicationText.time(at, locale: locale)
+            return String(localized: "\(time) · \(taken) 已服用", bundle: bundle, locale: locale)
+        case .skipped:
+            return String(localized: "\(time) · 已跳过", bundle: bundle, locale: locale)
+        case .due:
+            return String(localized: "\(time) · 还没吃", bundle: bundle, locale: locale)
+        case .upcoming:
+            return String(localized: "\(time) · 未到时间", bundle: bundle, locale: locale)
+        }
+    }
+}
+
+extension MedicationPlan.Slot {
+    /// 药品 + 原定时刻:ForEach 的标识(见 `MedicationSlotRow.id`)。
+    var stableID: String { MedicationSlotRow.id(self) }
+}
+
+/// 健康页「健康管理 → 用药管理」:今天的全部时间点、药品、停用的药、服药记录。
+/// 首页「今天」只摆每种药的下一顿(最多两种)。
+struct MedicationManagementView: View {
+    let healthEnabled: Bool
+
+    var body: some View {
+        List {
+            MedicationSection(healthEnabled: healthEnabled)
+        }
+        .pageTitle("用药管理")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+}
+
 /// sheet(item:) 要 Identifiable;nil = 新建。
 struct MedicationEditTarget: Identifiable {
     let id = UUID()
@@ -286,6 +324,10 @@ struct MedicationEditTarget: Identifiable {
 
 enum MedicationText {
     /// 「每天 08:00、20:00 · 1 片」「周一、周五 08:00」「按需服用」。
+    static func time(_ date: Date, locale: Locale) -> String {
+        date.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
+    }
+
     static func schedule(_ med: Medication, locale: Locale) -> String {
         let bundle = Bundle.appLanguage()
         var parts: [String] = []

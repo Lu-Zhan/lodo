@@ -21,9 +21,18 @@ struct WeightSection: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.lodoAccent) private var lodoAccent
     @Query(sort: [SortDescriptor(\WeightRecord.date)]) private var records: [WeightRecord]
     @Query(sort: [SortDescriptor(\FoodRecord.date, order: .reverse)]) private var foods: [FoodRecord]
     @AppStorage(AppSettings.weightGoalKey) private var goalRaw = ""
+
+    /// 一行三格的统计:辅助功能字号下改成上下排(不靠缩字硬挤三列)。
+    private var statLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 0))
+    }
 
     @State private var foodText = ""
     @State private var foodSaveFailed = false
@@ -31,10 +40,6 @@ struct WeightSection: View {
     @FocusState private var foodFocused: Bool
 
     @State private var plan: WeightDietPlan?
-    @State private var loadingPlan = false
-    @State private var planFailed = false
-    /// 每发一次饮食安排请求 +1;只有最新那次的结果能落地(手动刷新连点、改目标时不乱序覆盖)。
-    @State private var planGeneration = 0
     @State private var planTask: Task<Void, Never>?
     @State private var planExpanded = true
     /// 页面上的"现在":回前台时刷新,跨 0 点 / 晚上 8 点后「今日 / 明日」跟着变。
@@ -54,6 +59,11 @@ struct WeightSection: View {
     static let foodAnchor = "weightFoodAnchor"
 
     private var goal: WeightGoal { WeightGoal.decode(goalRaw) }
+    /// 饮食安排在不在生成:看的是进程里那一份(`WeightPlanRequests`),不是这一页自己的——
+    /// 这一组现在在二级页里,退出再进来是新的实例,请求却可能还在跑。
+    private var loadingPlan: Bool { WeightPlanRequests.shared.inFlight }
+    /// 最近一次生成失败了(同样是进程里那一份:退出再进来也看得到这次失败)。
+    private var planFailed: Bool { WeightPlanRequests.shared.failed }
     private var entries: [WeightEntry] {
         WeightPlan.merge(records: records.map(\.entry), health: healthWeights)
     }
@@ -99,12 +109,21 @@ struct WeightSection: View {
                 Text("体重管理")
                 Spacer()
                 if !isEmpty {
-                    Button { importingReport = true } label: { Image(systemName: "doc.viewfinder") }
-                        .accessibilityLabel("上传体重秤记录")
-                    Button { addingRecord = true } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("记一笔")
-                    Button { editingGoal = true } label: { Image(systemName: "target") }
-                        .accessibilityLabel("目标")
+                    Button("记体重") { addingRecord = true }
+                        .font(.subheadline)
+                        .textCase(nil)
+                    Menu {
+                        Button { importingReport = true } label: {
+                            Label("上传体重秤记录", systemImage: "doc.viewfinder")
+                        }
+                        Button { editingGoal = true } label: {
+                            Label("设置目标", systemImage: "target")
+                        }
+                    } label: {
+                        Text("管理")
+                            .font(.subheadline)
+                            .textCase(nil)
+                    }
                 }
             }
             // sheet/task 挂在标题行上:挂在 Section 上会分摊到每一行。
@@ -126,30 +145,36 @@ struct WeightSection: View {
                 now = Date()
                 loadCachedPlan()
             }
+            // 别的实例(退出前发出的那次请求)写了新的安排:这一页跟着换。
+            .onChange(of: WeightPlanRequests.shared.revision) { _, _ in
+                plan = Self.cachedPlan()
+            }
         }
     }
 
     // MARK: - 空态
 
+    /// 空态以记录为先(设目标是可选的,不是开始使用的前提)。
     private var introRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("记录体重和体脂率", systemImage: "scalemass")
+            Label("还没有体重记录", systemImage: "scalemass")
                 .font(.body.weight(.medium))
-            Text("设好目标体重和体脂率后,lodo 会画出变化趋势;AI 可以给一句建议和一份饮食安排,每一餐都能一键加进任务。")
+            Text("可以手动记一笔,也可以上传体重秤截图或报告。记过之后 lodo 会画出变化趋势;设好目标后 AI 还能给建议和一份饮食安排。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             HStack(spacing: 12) {
-                Button("设置目标") { editingGoal = true }
+                Button("记体重") { addingRecord = true }
                     .buttonStyle(.borderedProminent)
-                Button("记一笔") { addingRecord = true }
-                    .buttonStyle(.bordered)
+                    .foregroundStyle(lodoAccent.onFill)
+                Button {
+                    importingReport = true
+                } label: {
+                    Label("上传体重秤记录", systemImage: "doc.viewfinder")
+                }
+                .buttonStyle(.bordered)
             }
-            Button {
-                importingReport = true
-            } label: {
-                Label("上传体重秤记录", systemImage: "doc.viewfinder")
-            }
-            .buttonStyle(.bordered)
+            Button("设置目标") { editingGoal = true }
+                .buttonStyle(.borderless)
         }
         .padding(.vertical, 4)
     }
@@ -218,7 +243,7 @@ struct WeightSection: View {
                 .foregroundStyle(.secondary)
             }
             // 体脂率 / BMI / 去脂体重,一行三格。
-            HStack(alignment: .top, spacing: 0) {
+            statLayout {
                 stat(title: "体脂率",
                      value: fat?.bodyFatPercent.map { "\(WeightPlan.format($0))%" },
                      detail: goal.targetBodyFatPercent.map {
@@ -259,8 +284,8 @@ struct WeightSection: View {
                 Text(verbatim: detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.8)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -392,8 +417,11 @@ struct WeightSection: View {
             Button {
                 generatePlan()
             } label: {
-                Label(planDay.isToday ? "生成今日建议与饮食安排" : "生成明日建议与饮食安排",
-                      systemImage: "sparkles")
+                if planDay.isToday {
+                    Label("生成今日建议与饮食安排", systemImage: "sparkles")
+                } else {
+                    Label("生成明日建议与饮食安排", systemImage: "sparkles")
+                }
             }
             .buttonStyle(.borderless)
             .disabled(summary == nil)
@@ -469,10 +497,15 @@ struct WeightSection: View {
                     }
                 }
                 Spacer(minLength: 4)
-                if task != nil || !stale {
-                    Image(systemName: task != nil ? "checkmark.circle.fill" : "plus.circle")
-                        .font(.title3)
-                        .foregroundStyle(task != nil ? AnyShapeStyle(LodoColor.positive) : AnyShapeStyle(.tint))
+                // 原来是个圆圈「+」,猜不出点了会怎样:写成字。
+                if task?.status == .pending {
+                    Text("移除")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else if task == nil, !stale {
+                    Text("加入任务")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.tint)
                 }
             }
             .contentShape(Rectangle())
@@ -480,7 +513,7 @@ struct WeightSection: View {
         .buttonStyle(.borderless)
         .foregroundStyle(.primary)
         .disabled(stale || task?.status == .done)
-        .accessibilityHint(task != nil ? Text("从任务里移除") : Text("加入任务"))
+        .accessibilityHint(task != nil ? Text("移除这餐的任务") : Text("加入任务"))
     }
 
     private func retryRow(_ message: LocalizedStringKey) -> some View {
@@ -520,7 +553,7 @@ struct WeightSection: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("今日饮食")
                 .font(.body.weight(.semibold))
-            HStack(alignment: .top, spacing: 0) {
+            statLayout {
                 stat(title: "摄入",
                      value: estimated > 0
                         ? String(localized: "\(Int(todayIntake.calories.rounded())) 千卡", bundle: .appLanguage()) : nil,
@@ -568,6 +601,10 @@ struct WeightSection: View {
                 Text("这句描述会发给 AI 服务估算热量和营养素。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } else {
+                Text("可以先记下来,配置 AI 之后再估算热量。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
 
@@ -575,6 +612,9 @@ struct WeightSection: View {
             FoodRecordRow(record: food)
                 .contentShape(Rectangle())
                 .onTapGesture { openFood = food }
+                // 行里还有「估算」那颗按钮,整行不能再套 Button;给旁白和键盘一个打开的动作。
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { openFood = food }
                 .swipeActions(edge: .trailing) {
                     Button("删除", systemImage: "trash", role: .destructive) {
                         context.delete(food)
@@ -600,14 +640,8 @@ struct WeightSection: View {
 
     /// 先落库原文,存成功了再清输入、再去估算(估算失败这一条也留着,可以重试)。
     private func addFood() {
-        let text = foodText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        let record = FoodRecord(text: text)
-        context.insert(record)
-        do {
-            try context.save()
-        } catch {
-            context.delete(record)
+        guard !foodText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard FoodLog.add(foodText, context: context) else {
             foodSaveFailed = true
             return
         }
@@ -615,7 +649,6 @@ struct WeightSection: View {
         foodText = ""
         foodFocused = false
         now = Date()
-        Task { await FoodLog.estimate(record, context: context) }
     }
 
     // MARK: - 建任务
@@ -663,40 +696,41 @@ struct WeightSection: View {
         if let data = try? JSONEncoder().encode(value) {
             UserDefaults.standard.set(data, forKey: Self.planKey)
         }
+        WeightPlanRequests.shared.revision += 1
+    }
+
+    private static func cachedPlan() -> WeightDietPlan? {
+        UserDefaults.standard.data(forKey: planKey)
+            .flatMap { try? JSONDecoder().decode(WeightDietPlan.self, from: $0) }
     }
 
     /// 只读缓存,不发请求:缓存的是最近生成的那一份,过期的日子由 `isStale` 挡住加任务。
     private func loadCachedPlan() {
-        guard plan == nil, !loadingPlan else { return }
-        plan = UserDefaults.standard.data(forKey: Self.planKey)
-            .flatMap { try? JSONDecoder().decode(WeightDietPlan.self, from: $0) }
+        // 生成进行中也照样先把缓存的那份摆出来(新的回来会经 revision 换掉)。
+        guard plan == nil else { return }
+        plan = Self.cachedPlan()
     }
 
     /// 用户点了才生成。新的一次会取消还在跑的上一次,并且只有最新那次能写状态。
     private func generatePlan() {
         guard DeepSeekClient.isConfigured, let summary else { return }
         planTask?.cancel()
-        planGeneration += 1
-        let generation = planGeneration
+        let generation = WeightPlanRequests.shared.begin()
         now = Date()
         let target = planDay
         let todaySummary = todayFoodSummary
         let health = healthSummary
         let language = MenuStore.targetLanguageName(AppSettings.language)
-        loadingPlan = true
-        planFailed = false
         planTask = Task {
             let result = await Task.detached { () -> WeightDietPlan? in
                 try? await DeepSeekClient.weightPlan(
                     summary: summary, healthSummary: health, todaySummary: todaySummary,
                     day: target.day, isToday: target.isToday, language: language)
             }.value
-            guard generation == planGeneration, !Task.isCancelled else { return }
-            loadingPlan = false
-            guard let result else {
-                planFailed = true
-                return
-            }
+            // 只有最新那次能落地:连点刷新、退出再进来又点了一次,旧的都作废。
+            guard WeightPlanRequests.shared.isLatest(generation), !Task.isCancelled else { return }
+            WeightPlanRequests.shared.finish(generation, failed: result == nil)
+            guard let result else { return }
             // 重新生成后菜可能全换了:不沿用旧安排的任务关联(那些任务照旧留在任务列表里)。
             savePlan(result)
             planExpanded = true
@@ -854,6 +888,24 @@ final class FoodLog {
     private(set) var inFlight: Set<UUID> = []
     private(set) var failed: Set<UUID> = []
 
+    /// 记一顿:先落库原文,存成功了再去估算(估算失败这一条也留着,可以重试)。
+    /// 体重页里的输入框和首页「记饮食」共用这一份。返回存没存进去。
+    @discardableResult
+    static func add(_ text: String, context: ModelContext) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let record = FoodRecord(text: trimmed)
+        context.insert(record)
+        do {
+            try context.save()
+        } catch {
+            context.delete(record)
+            return false
+        }
+        Task { await estimate(record, context: context) }
+        return true
+    }
+
     static func estimate(_ record: FoodRecord, context: ModelContext) async {
         let log = shared
         let uuid = record.uuid
@@ -961,6 +1013,8 @@ struct FoodRecordListView: View {
                         FoodRecordRow(record: food)
                             .contentShape(Rectangle())
                             .onTapGesture { open = food }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { open = food }
                             .swipeActions(edge: .trailing) {
                                 Button("删除", systemImage: "trash", role: .destructive) {
                                     context.delete(food)
@@ -1313,5 +1367,120 @@ struct WeightGoalEditView: View {
                 Text(unit).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+// MARK: - 二级页 / 记饮食
+
+/// 健康页「健康管理 → 体重与饮食」:原来首页那一整组(当前/目标、趋势、今日饮食、AI 建议与
+/// 饮食安排、全部记录)原样搬进来,首页只剩一行入口和「今天」里的记体重/记饮食。
+struct WeightManagementView: View {
+    let healthWeights: [HealthDailyPoint]
+    let healthSummary: String?
+    let todayActiveEnergy: Double?
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            List {
+                WeightSection(healthWeights: healthWeights, healthSummary: healthSummary,
+                              todayActiveEnergy: todayActiveEnergy)
+            }
+            #if DEBUG
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("--demo-weight-scroll") else { return }
+                try? await Task.sleep(for: .seconds(1.2))
+                proxy.scrollTo(WeightSection.foodAnchor, anchor: .top)
+            }
+            #endif
+        }
+        .pageTitle("体重与饮食")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+}
+
+/// 首页「今天」里的「记饮食」:一句话描述,存法和体重页的输入框同一份(`FoodLog.add`)。
+struct FoodRecordComposeView: View {
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var saveFailed = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("吃了什么?如:一碗牛肉面加个卤蛋", text: $text, axis: .vertical)
+                        .lineLimit(2...5)
+                        .focused($focused)
+                } footer: {
+                    if saveFailed {
+                        Text("没能保存,请再试一次。").foregroundStyle(LodoColor.critical)
+                    } else if DeepSeekClient.isConfigured {
+                        Text("记下后这句描述会发给 AI 服务估算热量和营养素。")
+                    } else {
+                        Text("可以先记下来,配置 AI 之后再估算热量。")
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .pageTitle("记饮食")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消", role: .cancel) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    confirmButton("记下") {
+                        if FoodLog.add(text, context: context) {
+                            Haptics.success()
+                            dismiss()
+                        } else {
+                            saveFailed = true
+                        }
+                    }
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear { focused = true }
+        }
+        #if os(macOS)
+        .frame(minWidth: 380, minHeight: 240)
+        #endif
+    }
+}
+
+/// 饮食安排请求的进程内记录。原来 generation 是体重那一组自己的 @State;那一组搬进二级页后,
+/// 退出再进来是新实例,旧实例发出的请求回来时照样能通过它自己的检查、覆盖新实例的那份。
+/// 这里只留一份:每次请求领一个号,只有最新的号能写缓存;写了之后 `revision` +1,
+/// 开着的页面据此重读缓存。
+@MainActor
+@Observable
+final class WeightPlanRequests {
+    static let shared = WeightPlanRequests()
+    private(set) var inFlight = false
+    /// 最近一次(最新的号)生成失败了。
+    private(set) var failed = false
+    /// 缓存的安排被改写过几次(开着的页面盯着它重读)。
+    var revision = 0
+    private var latest = 0
+
+    func begin() -> Int {
+        latest += 1
+        inFlight = true
+        failed = false
+        return latest
+    }
+
+    func isLatest(_ generation: Int) -> Bool { generation == latest }
+
+    func finish(_ generation: Int, failed: Bool) {
+        guard generation == latest else { return }
+        inFlight = false
+        self.failed = failed
     }
 }

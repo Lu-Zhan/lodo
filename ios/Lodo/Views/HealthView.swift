@@ -30,7 +30,6 @@ struct HealthView: View {
     @State private var loadingAnalysis = false
     /// 最近一次分析请求失败了(和"没配 AI"分开:配了 AI 的人不该看到"去配置")。
     @State private var analysisFailed = false
-    @State private var chartKind: HealthMetricKind?
     /// AI 分析默认收起,点开才显示(也才发请求);不持久化,每次进来都是收起的。
     @State private var analysisExpanded = false
     /// 下拉刷新时 +1,空气质量那一组跟着强制重新请求。
@@ -39,6 +38,11 @@ struct HealthView: View {
     @State private var openReport: UUID?
     /// 接受了共享邀请的家人档案,push 进去(见 `SharedTripSync.openHealthProfileRequest`)。
     @State private var openProfile: CheckupProfileTarget?
+    /// 首页「上传体检报告」。
+    @State private var importingCheckup = false
+    /// 截图参数直接推进去的二级页(--demo-weight-scroll / --demo-weight-report-live / --demo-medication-page)。
+    @State private var openWeightPage = false
+    @State private var openMedicationPage = false
     #if DEBUG
     /// --demo-health 的临时放行。用 @State 而不是把 healthEnabled 写成 true:
     /// 那是 @AppStorage,会落进 UserDefaults 影响之后不带参数的启动。
@@ -88,49 +92,36 @@ struct HealthView: View {
                             sex: CyclePlan.Sex(rawValue: biologicalSexRaw) ?? .unknown)
     }
 
-    /// 当前画折线的指标:默认第一条有数据的序列。
-    private var shownKind: HealthMetricKind? {
-        chartKind ?? report.series.first?.kind
+    /// 今天的步数:健康库序列最后一点就是今天才算(旧数据不冒充今天)。
+    private var todaySteps: Double? {
+        guard showsData, let last = report.series(.steps)?.points.last,
+              Calendar.current.isDateInToday(last.date) else { return nil }
+        return last.value
+    }
+
+    private var healthWeights: [HealthDailyPoint] {
+        showsData ? (report.series(.bodyMass)?.points ?? []) : []
     }
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
+            // 2026-10 重新设计(方案与 codex 一起定):今天 → 天气 → 健康管理 → 经期 → 健康数据 →
+            // 健康资料 → AI 分析。首页最多七组,体重趋势/饮食流水/用药目录/指标/档案都推进二级页。
             List {
-                // 空气质量排最上面:和健康开关、健康库都无关(Mac 上也能看),自己有开关。
+                // 今天要记的、要吃的:不依赖健康开关(手记就能用,Mac 上也有)。
+                HealthTodaySection(healthWeights: healthWeights, todaySteps: todaySteps,
+                                   healthEnabled: healthEnabled, medicationVisible: medicationVisible)
+                // 空气质量和健康开关、健康库都无关(Mac 上也能看),自己有开关。
                 AirQualitySection(refreshToken: airRefreshToken)
-                // 体重管理不依赖健康库(手记就能用,Mac 上也有);开了健康分析时补上健康库的体重和汇总。
-                WeightSection(
-                    healthWeights: showsData ? (report.series(.bodyMass)?.points ?? []) : [],
+                HealthManageSection(
+                    healthWeights: healthWeights,
                     healthSummary: showsData && !report.isEmpty ? report.promptSummary() : nil,
-                    todayActiveEnergy: showsData ? todayActiveEnergy : nil)
-                // 用药、经期和体重一样不依赖健康开关;开着时再把健康 App 的记录导进来。
-                // 不需要的可以在设置或这一组的菜单里隐藏(提醒照常响,见 medicationVisibleKey)。
-                if medicationVisible {
-                    MedicationSection(healthEnabled: healthEnabled)
-                }
-                if showsCycle {
-                    CycleSection(healthEnabled: healthEnabled, refreshToken: airRefreshToken)
-                }
-                if !HealthKitBridge.isAvailable {
-                    unavailableSection
-                } else if !showsData {
-                    disabledSection
-                } else if loadingReport && report.isEmpty {
-                    Section {
-                        HStack {
-                            ProgressView().controlSize(.small)
-                            Text("正在读取健康数据…").foregroundStyle(.secondary)
-                        }
-                    }
-                } else if report.isEmpty {
-                    noDataSection
-                } else {
-                    metricsSection
-                    chartSection
-                }
-                CheckupSection(memoryItems: memoryItems, openReport: $openReport)
-                memoriesSection
+                    todayActiveEnergy: showsData ? todayActiveEnergy : nil,
+                    healthEnabled: healthEnabled, medicationVisible: medicationVisible,
+                    showsCycle: showsCycle, refreshToken: airRefreshToken)
+                healthDataSection
+                librarySection
                 // AI 健康分析放在整页最下面(用户要求);仍然默认收起,点开才显示、才去要。
                 if HealthKitBridge.isAvailable, showsData, !report.isEmpty {
                     analysisSection
@@ -141,16 +132,35 @@ struct HealthView: View {
                 let args = ProcessInfo.processInfo.arguments
                 if args.contains("--demo-health-records-scroll") {
                     try? await Task.sleep(for: .seconds(1.5))
-                    proxy.scrollTo(MedicationSection.anchor, anchor: .top)
+                    proxy.scrollTo(HealthTodaySection.anchor, anchor: .top)
                     return
                 }
-                guard args.contains("--demo-weight-scroll") else { return }
-                try? await Task.sleep(for: .seconds(1.5))
-                proxy.scrollTo(WeightSection.foodAnchor, anchor: .top)
+                // 体重和饮食现在在二级页:推进去(那一页自己负责滚到「今日饮食」/打开上传)。
+                if args.contains("--demo-weight-scroll") || args.contains("--demo-weight-report-live") {
+                    openWeightPage = true
+                }
+                if args.contains("--demo-medication-page") { openMedicationPage = true }
+                // 滚到下半截(健康管理 → 健康资料 → AI 分析),核对首页后面几组。
+                if args.contains("--demo-health-scroll-lower") {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    proxy.scrollTo(Self.lowerAnchor, anchor: .top)
+                }
             }
             #endif
             }
             .navigationDestination(item: $openReport) { CheckupReportView(reportID: $0) }
+            .navigationDestination(isPresented: $openWeightPage) {
+                WeightManagementView(
+                    healthWeights: healthWeights,
+                    healthSummary: showsData && !report.isEmpty ? report.promptSummary() : nil,
+                    todayActiveEnergy: showsData ? todayActiveEnergy : nil)
+            }
+            .navigationDestination(isPresented: $openMedicationPage) {
+                MedicationManagementView(healthEnabled: healthEnabled)
+            }
+            .sheet(isPresented: $importingCheckup) {
+                CheckupImportView(initialProfile: nil) { openReport = $0.uuid }
+            }
             .navigationDestination(item: $openProfile) { CheckupProfileView(profileID: $0.id) }
             .onChange(of: SharedTripSync.shared.openHealthProfileRequest) { _, _ in consumeProfileRequest() }
             .onAppear { consumeProfileRequest() }
@@ -168,6 +178,13 @@ struct HealthView: View {
             // 关掉开关时正等着 HealthKit 的那次读完也不会再去发 AI 请求)。
             .task(id: "\(healthEnabled)-\(rangeDays)") {
                 await reload()
+            }
+            // 经期:读健康 App 的经期 + 重排提醒,挂在页面根上(不挂在会被懒加载回收的标题上),
+            // 同一组配置读过就不再读,见 `CycleHealthPeriods`。
+            // (读取本身跑在协调器自己的任务上,这里只是按配置发起,页面被推走也不会读到一半丢掉。)
+            .task(id: "\(showsCycle)-\(healthEnabled)-\(airRefreshToken)") {
+                CycleHealthPeriods.shared.refresh(enabled: showsCycle, healthEnabled: healthEnabled,
+                                                  token: airRefreshToken, context: context)
             }
             // 手表完成的用药提醒补记、健康 App 服药记录导入:挂在页面上而不是用药那一组上,
             // 组被隐藏了也照样跑(隐藏只管显示)。
@@ -192,136 +209,101 @@ struct HealthView: View {
         #endif
     }
 
-    // MARK: - 空态
+    // MARK: - 健康数据 / 健康资料(首页各一组入口,内容在二级页)
 
-    /// 这台设备上没有健康库(Mac 一律如此)。读数这一半用不了,但下面「健康资料」
-    /// 那一组(体检报告、病历等记忆条目)照常可以记、可以问 AI。
-    private var unavailableSection: some View {
-        Section {
-            ContentUnavailableView {
-                Label("这台设备没有健康数据", systemImage: "heart.text.square")
-            } description: {
-                Text("步数、睡眠、心率等数据只在 iPhone 和 Apple Watch 上有,请在 iPhone 上的 lodo 里查看趋势和 AI 分析。体检报告、病历这类健康资料仍然可以在这里记录,也能问 AI。")
-            }
+    /// 「健康数据」:一行,按状态写清楚是什么情况,点进去是指标与趋势或完整说明。
+    private var healthDataSection: some View {
+        Section("健康数据") {
+            healthDataLink
+            #if DEBUG
+                .id(Self.lowerAnchor)
+            #endif
         }
     }
 
-    private var disabledSection: some View {
-        Section {
-            ContentUnavailableView {
-                Label("健康分析未开启", systemImage: "heart.text.square")
-            } description: {
-                Text("开启后 lodo 会读取步数、睡眠、心率等数据,在本机汇总成趋势;只有汇总统计会发给 AI,原始记录不会离开这台设备。")
-            } actions: {
-                Button("开启健康分析") {
-                    Task {
-                        await HealthKitBridge.requestAuthorization()
-                        // 置开关就会触发上面按开关重读的 task,这里不再手动 reload 一遍。
-                        healthEnabled = true
+    private var healthDataLink: some View {
+        Group {
+            NavigationLink {
+                HealthDataView(report: report, loading: loadingReport, showsData: showsData) {
+                    await reload(force: true)
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "heart.text.square")
+                        .foregroundStyle(.tint)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        healthDataTitle.font(.body.weight(.medium))
+                        healthDataDetail
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if showsData, loadingReport, report.isEmpty {
+                        Spacer()
+                        ProgressView().controlSize(.small)
                     }
                 }
-                .glassProminentButton()
             }
         }
     }
 
-    /// HealthKit 出于隐私不告诉 app 读权限被拒了,所以"没授权"和"确实没数据"
-    /// 在这里是同一种空态,文案要把两种可能都说到。
-    private var noDataSection: some View {
+    private var healthDataTitle: Text {
+        if !HealthKitBridge.isAvailable { return Text("健康数据") }
+        if !showsData { return Text("健康分析未开启") }
+        if loadingReport && report.isEmpty { return Text("正在读取健康数据…") }
+        if report.isEmpty { return Text("暂无健康数据") }
+        return Text("指标与趋势")
+    }
+
+    private var healthDataDetail: Text {
+        if !HealthKitBridge.isAvailable { return Text("步数、睡眠、心率只在 iPhone 上有") }
+        if !showsData { return Text("了解并开启") }
+        if report.isEmpty { return Text("查看说明") }
+        return Text("最近 \(rangeDays) 天 · \(report.series.count) 项指标")
+    }
+
+    /// 「健康资料」:体检档案、健康记录两个入口 + 上传体检报告。
+    private var librarySection: some View {
         Section {
-            ContentUnavailableView {
-                Label("暂无健康数据", systemImage: "heart.text.square")
-            } description: {
-                Text("可能是还没授权,或者这段时间没有记录。可以到系统「设置 → 隐私与安全性 → 健康」里检查 lodo 的权限。")
-            } actions: {
-                Button("重新请求权限") {
-                    Task {
-                        await HealthKitBridge.requestAuthorization()
-                        await reload(force: true)
-                    }
-                }
-                .glassProminentButton()
+            NavigationLink {
+                CheckupLibraryView(memoryItems: memoryItems, openReport: $openReport)
+            } label: {
+                libraryRow(title: "体检档案", systemImage: "doc.text.magnifyingglass",
+                           detail: checkupCount == 0 ? Text("还没有体检报告") : Text("\(checkupCount) 份报告"))
             }
-        }
-    }
-
-    // MARK: - 指标
-
-    private var metricsSection: some View {
-        Section("最近 \(rangeDays) 天") {
-            ForEach(report.series, id: \.kind) { item in
-                metricRow(item.kind)
+            NavigationLink {
+                HealthMemoryListView(items: healthMemories)
+            } label: {
+                libraryRow(title: "健康记录", systemImage: "heart.text.square",
+                           detail: healthMemories.isEmpty ? Text("病历、过敏这类资料") : Text("\(healthMemories.count) 条记录"))
             }
-        }
-    }
-
-    private func metricRow(_ kind: HealthMetricKind) -> some View {
-        let unit = LocalizedStrings.text(kind.unitKey, language: language)
-        return HStack {
-            Label(LocalizedStrings.text(kind.titleKey, language: language),
-                  systemImage: kind.systemImage)
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                if let latest = report.latest(kind) {
-                    Text("\(kind.format(latest)) \(unit)")
-                        .font(.body.monospacedDigit())
-                }
-                if let average = report.average(kind) {
-                    Text("日均 \(kind.format(average)) \(unit)")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            Button {
+                importingCheckup = true
+            } label: {
+                Label("上传体检报告", systemImage: "doc.badge.plus")
             }
-            trendBadge(kind)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { chartKind = kind }
-    }
-
-    /// 趋势箭头。心率/体重没有"越高越好"的单一方向,只给中性灰。
-    @ViewBuilder
-    private func trendBadge(_ kind: HealthMetricKind) -> some View {
-        if let trend = report.trend(kind), abs(trend) >= 0.01 {
-            let rising = trend > 0
-            Text(Image(systemName: rising ? "arrow.up.right" : "arrow.down.right"))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(kind.higherIsBetter == rising ? LodoColor.positive : Color.secondary)
-                // 用 Text 而不是 String 传旁白标签:String 那个重载是 verbatim 的,
-                // 走不到字符串目录。
-                .accessibilityLabel(rising ? Text("上升") : Text("下降"))
+        } header: {
+            Text("健康资料")
         }
     }
 
-    // MARK: - 趋势图
+    private var checkupCount: Int { memoryItems.filter(\.isCheckup).count }
 
-    /// Swift Charts 是系统框架,和"UI 只用系统控件、不自绘"的约定不冲突——
-    /// 这里**不**开 ContactGraphView 那种 Canvas 自绘的第二个先例。
-    @ViewBuilder
-    private var chartSection: some View {
-        if let kind = shownKind, let series = report.series(kind) {
-            Section("趋势") {
-                Picker("指标", selection: Binding(
-                    get: { kind },
-                    set: { chartKind = $0 }
-                )) {
-                    ForEach(report.series, id: \.kind) { item in
-                        Text(LocalizedStrings.text(item.kind.titleKey, language: language))
-                            .tag(item.kind)
-                    }
-                }
-                .pickerStyle(.menu)
-                Chart(series.points, id: \.date) { point in
-                    LineMark(x: .value("日期", point.date, unit: .day),
-                             y: .value("数值", point.value))
-                    PointMark(x: .value("日期", point.date, unit: .day),
-                              y: .value("数值", point.value))
-                }
-                .chartYScale(domain: .automatic(includesZero: false))
-                .frame(height: 180)
-                .padding(.vertical, 4)
-                .accessibilityLabel(
-                    LocalizedStrings.text(kind.titleKey, language: language)
-                        + LocalizedStrings.text(.ios_core_health_trend_chart_suffix, language: language))
+    #if DEBUG
+    /// --demo-health-scroll-lower 滚到这里(「健康数据」那一行)。
+    private static let lowerAnchor = "healthLowerAnchor"
+    #endif
+
+    private func libraryRow(title: LocalizedStringKey, systemImage: String, detail: Text) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.tint)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body.weight(.medium))
+                detail
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -396,45 +378,6 @@ struct HealthView: View {
         }
     }
 
-    // MARK: - 健康记录(记忆库)
-
-    private var memoriesSection: some View {
-        Section {
-            if healthMemories.isEmpty {
-                Text("还没有健康记录。体检报告、用药、饮食这些跟底下那条「问问 AI」说一句就能记下来,AI 分析时会一并参考。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(healthMemories) { item in
-                    NavigationLink {
-                        MemoryDetailView(item: item)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            // 分开写而不是三元:三元的两支都是 String,会挑到
-                            // Text 的 verbatim 重载,"未命名"就进不了字符串目录。
-                            Group {
-                                if item.title.isEmpty {
-                                    Text("未命名")
-                                } else {
-                                    Text(item.title)
-                                }
-                            }
-                            .font(.body.weight(.medium))
-                            if !item.summary.isEmpty {
-                                Text(item.summary)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
-                        }
-                    }
-                }
-            }
-        } header: {
-            Text("健康记录")
-        }
-    }
-
     /// 页面可能是这时才第一次建出来的(那一下不走 onChange),onAppear 也收一次。
     private func consumeProfileRequest() {
         guard let uuid = SharedTripSync.shared.openHealthProfileRequest else { return }
@@ -459,8 +402,6 @@ struct HealthView: View {
         // 等 HealthKit 的这段时间里开关可能被关掉、回看天数可能变了:过期的结果不要。
         guard !Task.isCancelled, healthEnabled else { return }
         report = fresh
-        // 换了回看天数,原来选的指标可能这段时间没有数据了,退回第一条有数据的。
-        if let chartKind, report.series(chartKind) == nil { self.chartKind = nil }
         // 收起时不发请求;换了天数/下拉刷新时把旧结果清掉,下次点开重新要。
         guard analysisExpanded else {
             analysis = nil

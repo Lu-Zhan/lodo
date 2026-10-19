@@ -50,6 +50,7 @@ struct AirQualitySection: View {
     @State private var failure: AirQualityStore.Failure?
     @State private var loading = false
     @State private var confirmingDisable = false
+    @State private var confirmingEnable = false
     @State private var showsReminders = false
     @AppStorage(AppSettings.airQualityReminderTimesKey) private var reminderTimes = ""
 
@@ -57,7 +58,8 @@ struct AirQualitySection: View {
         Section {
             if !enabled {
                 disabledRow
-            } else if let report {
+            } else if report != nil || weather != nil {
+                // 天气和空气质量各自有就各自显示:哪个请求失败都不拖累另一个。
                 reportRows(report)
             } else if loading {
                 HStack {
@@ -72,34 +74,45 @@ struct AirQualitySection: View {
                 Text("天气与空气质量")
                 Spacer()
                 if enabled {
-                    // 刷新 | 提醒 | 其他,都摆在标题行右上角;刷新请求中换成转圈。
-                    Button { Task { await load(force: true) } } label: {
-                        if loading {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                        }
+                    // 原来是刷新 | 铃铛 | 更多三颗图标,含义难猜:收成一个文字菜单。
+                    // 刷新请求中旁边转个圈(旧内容不清空)。
+                    if loading {
+                        ProgressView().controlSize(.small)
                     }
-                    .disabled(loading)
-                    .accessibilityLabel("刷新")
-                    // 提醒也摆在标题行上(开着时铃铛是实心的),菜单里只剩关闭。
-                    Button { showsReminders = true } label: {
-                        Image(systemName: AirQualityReminderPlan.parseTimes(reminderTimes).isEmpty
-                              ? "bell" : "bell.fill")
-                    }
-                    .accessibilityLabel("提醒设置")
                     Menu {
+                        Button("刷新", systemImage: "arrow.clockwise") {
+                            Task { await load(force: true) }
+                        }
+                        .disabled(loading)
+                        Button(AirQualityReminderPlan.parseTimes(reminderTimes).isEmpty
+                               ? LocalizedStringKey("提醒设置:未开启") : LocalizedStringKey("提醒设置:已开启"),
+                               systemImage: "bell") {
+                            showsReminders = true
+                        }
+                        Divider()
                         Button("关闭天气与空气质量", systemImage: "xmark.circle", role: .destructive) {
                             confirmingDisable = true
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Text("选项")
+                            .font(.subheadline)
+                            .textCase(nil)
                     }
                     .accessibilityLabel("天气与空气质量选项")
                 }
             }
             // sheet/确认框/task 挂在标题行上:挂在 Section 上会分摊到每一行(task 跑好几遍,sheet 弹不出来)。
             .sheet(isPresented: $showsReminders) { AirQualityReminderSettingsView() }
+            // 关闭态只有一行「显示」:点了先说清楚要用位置、发给谁,再开。
+            .alert("显示天气与空气质量?", isPresented: $confirmingEnable) {
+                Button("取消", role: .cancel) {}
+                Button("显示") {
+                    enabled = true
+                    Task { await load(force: true) }
+                }
+            } message: {
+                Text("天气来自苹果天气,空气质量按美国 EPA 标准显示 AQI。会把约 1 公里精度的位置发给苹果天气和 Open-Meteo 查询,不涉及健康数据。")
+            }
             .confirmationDialog("关闭天气与空气质量?", isPresented: $confirmingDisable, titleVisibility: .visible) {
                 Button("关闭", role: .destructive) {
                     enabled = false
@@ -132,10 +145,11 @@ struct AirQualitySection: View {
                 #endif
             }
         } footer: {
-            if enabled, let report {
-                // 一行:左边更新时间,苹果天气标识靠右(用户要求)。
+            if enabled, report != nil || weather != nil {
+                // 一行:左边更新时间(空气质量那份的),苹果天气标识靠右(用户要求);
+                // 只有天气时就只挂署名。
                 HStack(spacing: 8) {
-                    Text("更新于 \(report.fetchedAt.formatted(date: .omitted, time: .shortened))")
+                    updatedText
                     Spacer(minLength: 8)
                     if weather != nil, let attribution {
                         WeatherAttributionView(attribution: attribution)
@@ -145,29 +159,55 @@ struct AirQualitySection: View {
         }
     }
 
-    private var disabledRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("所在地今天的天气与空气质量", systemImage: "cloud.sun")
-                .font(.body.weight(.medium))
-            Text("天气来自苹果天气,空气质量按美国 EPA 标准显示 AQI。会把约 1 公里精度的位置发给苹果天气和 Open-Meteo 查询,不涉及健康数据。")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button("显示天气与空气质量") {
-                enabled = true
-                Task { await load(force: true) }
-            }
-            .buttonStyle(.bordered)
+    /// 更新时间:天气和空气质量各取各的,时间差不多(10 分钟内)时只写一个;不是今天的带上日期。
+    @ViewBuilder
+    private var updatedText: some View {
+        let air = report?.fetchedAt
+        let sky = weather?.fetchedAt
+        if let air, let sky, abs(air.timeIntervalSince(sky)) > 600 {
+            Text("天气 \(Self.stamp(sky)) · 空气质量 \(Self.stamp(air))")
+        } else if let time = air ?? sky {
+            Text("更新于 \(Self.stamp(time))")
         }
-        .padding(.vertical, 4)
+    }
+
+    private static func stamp(_ date: Date) -> String {
+        Calendar.current.isDateInToday(date)
+            ? date.formatted(date: .omitted, time: .shortened)
+            : date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    /// 关着时只占一行(原来是一整张介绍卡):用途和隐私说明放进点「显示」之后的确认框。
+    private var disabledRow: some View {
+        HStack {
+            Label("所在地的天气与空气质量", systemImage: "cloud.sun")
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("显示") { confirmingEnable = true }
+                .buttonStyle(.borderless)
+        }
     }
 
     private func failureRow(_ failure: AirQualityStore.Failure) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(failure == .location ? "无法获取位置" : "空气质量获取失败")
-                .font(.body.weight(.medium))
-            Text(failure == .location ? "在系统设置里允许 lodo 使用位置后重试。" : "检查网络后下拉刷新重试。")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            // 分开写两支 Text:三元的两支都是 String,会挑到 verbatim 重载、进不了字符串目录。
+            Group {
+                if failure == .location {
+                    Text("无法获取位置")
+                } else {
+                    Text("空气质量获取失败")
+                }
+            }
+            .font(.body.weight(.medium))
+            Group {
+                if failure == .location {
+                    Text("在系统设置里允许 lodo 使用位置后重试。")
+                } else {
+                    Text("检查网络后下拉刷新重试。")
+                }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
             Button("重试") { Task { await load(force: true) } }
                 .buttonStyle(.bordered)
         }
@@ -175,18 +215,25 @@ struct AirQualitySection: View {
     }
 
     @ViewBuilder
-    private func reportRows(_ report: AirQualityReport) -> some View {
+    private func reportRows(_ report: AirQualityReport?) -> some View {
         // 第一行:左边天气(温度,下面最高最低),右边空气指数,两边底部对齐(用户要求)。
         HStack(alignment: .bottom) {
             if let weather {
                 WeatherNowView(weather: weather)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 2) {
-                AQIBadge(aqi: report.aqi, font: .system(size: weather == nil ? 44 : 30,
-                                                        weight: .semibold, design: .rounded))
-                Text(AirQualityStore.title(report.category))
-                    .font(.subheadline.weight(.medium))
+            if let report {
+                VStack(alignment: .trailing, spacing: 2) {
+                    AQIBadge(aqi: report.aqi, font: .system(size: weather == nil ? 44 : 30,
+                                                            weight: .semibold, design: .rounded))
+                    Text(AirQualityStore.title(report.category))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+            } else if !loading {
+                // 只拿到了天气:空气质量那一半如实说一声,下拉可以重试。
+                Text("空气质量暂时取不到")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
@@ -204,15 +251,17 @@ struct AirQualitySection: View {
         }
 
         // 第三行:当前的 PM2.5 / PM10 / NO₂。只报此刻,不画逐小时变化(用户要求)。
-        HStack(spacing: 0) {
-            concentration("PM2.5", report.pm2_5)
-                .frame(maxWidth: .infinity)
-            concentration("PM10", report.pm10)
-                .frame(maxWidth: .infinity)
-            concentration("NO₂", report.nitrogenDioxide)
-                .frame(maxWidth: .infinity)
+        if let report {
+            HStack(spacing: 0) {
+                concentration("PM2.5", report.pm2_5)
+                    .frame(maxWidth: .infinity)
+                concentration("PM10", report.pm10)
+                    .frame(maxWidth: .infinity)
+                concentration("NO₂", report.nitrogenDioxide)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 4)
     }
 
     /// 「25 PM2.5」一行(微克每立方米)。
@@ -244,6 +293,9 @@ struct AirQualitySection: View {
             if attribution == nil { attribution = await WeatherStore.attribution() }
         case .failure(let error):
             // 刷新失败时旧数据照样摆着(footer 写着更新时间),没有旧数据才报错。
+            // 空气质量失败不等于天气也失败:天气那份(和它并行取的)照样拿出来显示。
+            weather = WeatherStore.cached() ?? weather
+            if weather != nil, attribution == nil { attribution = await WeatherStore.attribution() }
             if report == nil { failure = error.failure }
         }
     }

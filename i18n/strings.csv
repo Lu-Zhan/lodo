@@ -2177,3 +2177,49 @@ ios_view.health_1019_40,基础代谢 %lld 千卡,BMR %lld kcal,ios_view,健康�
 ios_view.health_1019_41,水分 %@%%,Water %@%%,ios_view,健康页:体重秤导入/用药隐藏与大按钮
 ios_view.health_1019_42,骨量 %@ 公斤,Bone %@ kg,ios_view,健康页:体重秤导入/用药隐藏与大按钮
 ios_view.health_1019_future,"测量时间不能晚于现在,请改一下日期。",The measurement time can't be in the future. Please change the date.,ios_view,健康页:体重秤导入
+ios_view.health_ux_1,提醒设置:未开启,Reminders: Off,ios_view,健康页重新设计
+ios_view.health_ux_2,提醒设置:已开启,Reminders: On,ios_view,健康页重新设计
+ios_view.health_ux_3,经期详情,Period Details,ios_view,健康页重新设计
+ios_view.health_ux_4,健康数据,Health Data,ios_view,健康页重新设计
+ios_view.health_ux_5,指标与趋势,Metrics & Trends,ios_view,健康页重新设计
+ios_view.health_ux_6,步数、睡眠、心率只在 iPhone 上有,"Steps, sleep and heart rate are only on iPhone",ios_view,健康页重新设计
+ios_view.health_ux_7,了解并开启,Learn more and turn on,ios_view,健康页重新设计
+ios_view.health_ux_8,查看说明,See details,ios_view,健康页重新设计
+ios_view.health_ux_9,最近 %lld 天 · %lld 项指标,Last %1$lld days · %2$lld metrics,ios_view,健康页重新设计
+ios_view.health_ux_10,%lld 份报告,%lld reports,ios_view,健康页重新设计
+ios_view.health_ux_11,病历、过敏这类资料,"Medical records, allergies and more",ios_view,健康页重新设计
+ios_view.health_ux_12,健康资料,Health Records,ios_view,健康页重新设计
+ios_view.health_ux_13,管理,Manage,ios_view,健康页重新设计
+ios_view.health_ux_14,记体重,Log Weight,ios_view,健康页重新设计
+ios_view.health_ux_15,体重与饮食,Weight & Diet,ios_view,健康页重新设计
+ios_view.health_ux_16,记下后这句描述会发给 AI 服务估算热量和营养素。,"After saving, this description is sent to the AI service to estimate calories and nutrients.",ios_view,健康页重新设计
+ios_view.health_ux_17,"可以先记下来,配置 AI 之后再估算热量。",You can save it now and estimate calories after setting up AI.,ios_view,健康页重新设计
+ios_view.health_ux_18,记饮食,Log Food,ios_view,健康页重新设计
+ios_view.health_ux_19,今天 · %@,Today · %@,ios_view,健康页重新设计
+ios_view.health_ux_20,今天已记录,Logged today,ios_view,健康页重新设计
+ios_view.health_ux_21,待估算,Not estimated,ios_view,健康页重新设计
+ios_view.health_ux_22,饮食,Food,ios_view,健康页重新设计
+ios_view.health_ux_23,尚未记录,Not logged,ios_view,健康页重新设计
+ios_view.health_ux_24,尚未添加药品,No medications added,ios_view,健康页重新设计
+ios_view.health_ux_25,今天的计划用药都记过了,All of today's scheduled doses are logged,ios_view,健康页重新设计
+ios_view.health_ux_26,今天还有 %lld 顿,%lld more doses today,ios_view,健康页重新设计
+ios_view.health_ux_27,健康管理,Health Management,ios_view,健康页重新设计
+ios_view.health_ux_28,最近 %@ 公斤,Latest %@ kg,ios_view,健康页重新设计
+ios_view.health_ux_29,还没有体重记录,No weight records yet,ios_view,健康页重新设计
+ios_view.health_ux_30,还没有添加药品,No medications yet,ios_view,健康页重新设计
+ios_view.health_ux_31,暂无正在使用的药品,No active medications,ios_view,健康页重新设计
+ios_view.health_ux_32,%lld 种在用,%lld active,ios_view,健康页重新设计
+ios_view.health_ux_33,点一项在下面看它的趋势。,Tap a metric to see its trend below.,ios_view,健康页重新设计
+ios_view.health_ux_34,还没有健康记录,No Health Records Yet,ios_view,健康页重新设计
+ios_view.health_ux_35,"病历、过敏、复查提醒这类资料可以记在这里,也可以跟底下的「问问 AI」说一句。AI 健康分析时会一并参考。","Keep medical records, allergies and follow-up notes here, or just tell Ask AI below. AI health analysis takes them into account.",ios_view,健康页重新设计
+ios_view.health_ux2_1,显示天气与空气质量?,Show Weather & Air Quality?,ios_view,健康页重新设计
+ios_view.health_ux2_2,显示,Show,ios_view,健康页重新设计
+ios_view.health_ux2_3,所在地的天气与空气质量,Local weather & air quality,ios_view,健康页重新设计
+ios_view.health_ux2_4,空气质量暂时取不到,Air quality unavailable,ios_view,健康页重新设计
+ios_view.health_ux2_5,还没有经期记录,No period records yet,ios_view,健康页重新设计
+ios_view.health_ux2_6,%@ · 未到时间,%@ · Not yet due,ios_view,健康页重新设计
+ios_view.health_ux2_7,"可以手动记一笔,也可以上传体重秤截图或报告。记过之后 lodo 会画出变化趋势;设好目标后 AI 还能给建议和一份饮食安排。","Log a weight by hand, or upload a smart scale screenshot or report. Once you have records, lodo charts the trend; set a goal and AI can suggest a meal plan.",ios_view,健康页重新设计
+ios_view.health_ux2_8,移除这餐的任务,Remove this meal's task,ios_view,健康页重新设计
+ios_view.health_ux2_9,今天没有计划用药,No scheduled doses today,ios_view,健康页重新设计
+ios_view.health_ux2_10,"病历、过敏、复查提醒这类资料可以记在这里,AI 健康分析时会一并参考。","Keep medical records, allergies and follow-up notes here. AI health analysis takes them into account.",ios_view,健康页重新设计
+ios_view.health_ux3_1,天气 %@ · 空气质量 %@,Weather %1$@ · Air quality %2$@,ios_view,健康页重新设计

@@ -34,6 +34,7 @@ enum CycleStore {
         }
         context.insert(PeriodRecord(start: today))
         try? context.save()
+        rescheduleFromRecords(context: context)
     }
 
     /// 「经期结束了」:把还开着的那段收在今天。
@@ -44,6 +45,31 @@ enum CycleStore {
             .max(by: { $0.start < $1.start }) else { return }
         open.end = today
         try? context.save()
+        rescheduleFromRecords(context: context)
+    }
+
+    /// 按库里最新的手记 + 已经读来的健康 App 经期(`CycleHealthPeriods`,不再读一次)重排提醒。
+    /// 每个写入点(开始/结束、补记、编辑、删除、切提醒开关)和读完健康数据之后都调它。
+    static func rescheduleFromRecords(context: ModelContext) {
+        guard AppSettings.cycleTrackingEnabled else {
+            cancelReminder()
+            return
+        }
+        // 关提醒不依赖健康数据:马上撤,不等读完。
+        guard AppSettings.cycleReminderEnabled else {
+            cancelReminder()
+            return
+        }
+        // 健康 App 那一半还没读完:先不动已经排好的提醒,读完会再调这里。
+        guard CycleHealthPeriods.shared.ready else {
+            CycleHealthPeriods.shared.ensureLoading(context: context)
+            return
+        }
+        let records = (try? context.fetch(FetchDescriptor<PeriodRecord>())) ?? []
+        let now = Date()
+        let periods = CyclePlan.merge(manual: records.map(\.period),
+                                      health: CycleHealthPeriods.shared.periods, today: now)
+        reschedule(summary: periods.isEmpty ? nil : CyclePlan.summary(periods, today: now))
     }
 
     /// 按最新的预测重排经期提醒(没开、估不准、已在经期里都撤掉)。

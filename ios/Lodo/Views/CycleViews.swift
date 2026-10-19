@@ -9,25 +9,96 @@ import LodoCore
 // 里是女性才开)。和健康开关无关:手记就能用,Mac 上也有;开了健康分析时再把健康 App 里的
 // 经期记录合并进来(手记优先)。经期数据不发给 AI。
 
-struct CycleSection: View {
-    /// 健康分析开着(才去读健康 App 的经期)。
-    let healthEnabled: Bool
-    /// 下拉刷新时 +1,重新读健康 App。
-    var refreshToken = 0
+/// 健康 App 里读来的经期 + 经期提醒的协调器,只有这一份。
+///
+/// - **读**:健康页根节点按配置(经期开关、健康分析开关、下拉刷新次数)调 `refresh`。读取跑在
+///   这里自己持有的任务上,**不随页面消失被取消**(推进二级页时根页面的 `.task` 会被取消,
+///   读到一半丢掉的话,详情页里的改动就只能拿不全的数据去排提醒)。同一组配置读过、或正在读,
+///   就不再读;每次领一个代次,回来时代次不对(又发了新的、开关被关了)就作废。
+/// - **重排提醒**:写入点(开始/结束、补记、编辑、删除、切提醒开关)直接调
+///   `CycleStore.rescheduleFromRecords`;**健康数据还没就绪时那一下不排**(`ready` 为 false),
+///   等这里读完统一按最新数据排一次——不然只看到手记,会把按健康 App 历史排好的提醒撤掉。
+@MainActor
+@Observable
+final class CycleHealthPeriods {
+    static let shared = CycleHealthPeriods()
+    private(set) var periods: [CyclePlan.Period] = []
+    /// `periods` 是不是当前配置下读完的结果(没开健康分析时直接算就绪:健康那一半本来就是空的)。
+    private(set) var ready = false
+    private var loadedKey: String?
+    private var loading: (key: String, task: Task<Void, Never>)?
+    private var generation = 0
+    /// 最近一次的配置,写入点在没人发起过读取时(理论上不会)按它补一次。
+    private var lastToken = 0
 
+    func refresh(enabled: Bool, healthEnabled: Bool, token: Int, context: ModelContext) {
+        lastToken = token
+        guard enabled else {
+            // 经期关了:作废在途的读取,清掉健康那一半(提醒在设置页关开关时已经撤了)。
+            generation += 1
+            loading?.task.cancel()
+            loading = nil
+            periods = []
+            loadedKey = nil
+            ready = false
+            return
+        }
+        let key = "\(healthEnabled)-\(token)"
+        guard key != loadedKey, loading?.key != key else { return }
+        generation += 1
+        let current = generation
+        loading?.task.cancel()
+        loading = nil
+        ready = false
+        guard healthEnabled, HealthKitBridge.isAvailable else {
+            periods = []
+            loadedKey = key
+            ready = true
+            CycleStore.rescheduleFromRecords(context: context)
+            return
+        }
+        let task = Task { @MainActor [weak self] in
+            // 经期的读权限单独问(不在健康分析那张总授权单里),第一次时问一次。
+            let askedKey = "cycleAccessRequested"
+            if !UserDefaults.standard.bool(forKey: askedKey) {
+                UserDefaults.standard.set(true, forKey: askedKey)
+                await HealthKitBridge.requestCycleAuthorization()
+            }
+            let result = await CycleStore.healthPeriods()
+            // 期间又发了新的一次(那一次已经接手了 `loading`):这份不要。
+            guard let self, current == self.generation else { return }
+            // 还是最新的这一次:不管用不用结果,都不再算"正在读",同一配置之后可以重读。
+            self.loading = nil
+            // 读的时候健康分析被关了:这份不要(关掉的那次 refresh 会按手记重排)。
+            guard !Task.isCancelled, AppSettings.healthEnabled else { return }
+            self.periods = result
+            self.loadedKey = key
+            self.ready = true
+            CycleStore.rescheduleFromRecords(context: context)
+        }
+        loading = (key, task)
+    }
+
+    /// 写入点要重排时健康数据还没就绪:没在读就按当前设置补发一次(读完会统一重排)。
+    func ensureLoading(context: ModelContext) {
+        guard !ready, loading == nil else { return }
+        refresh(enabled: AppSettings.cycleTrackingEnabled, healthEnabled: AppSettings.healthEnabled,
+                token: lastToken, context: context)
+    }
+}
+
+/// 状态(今天是经期第几天 / 离下次还有几天)+ 当下能做的那一下(开始了 / 结束了)。
+/// 首页「健康管理」里的精简版和「经期详情」页共用。
+private struct CycleStatusRows: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: [SortDescriptor(\PeriodRecord.start)]) private var records: [PeriodRecord]
-    @AppStorage(AppSettings.cycleReminderEnabledKey) private var reminderEnabled = true
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
-
-    @State private var healthPeriods: [CyclePlan.Period] = []
     @State private var now = Date()
-    @State private var addingPast = false
 
     private var locale: Locale { (AppLanguage(rawValue: languageRaw) ?? .zhHans).locale }
     private var periods: [CyclePlan.Period] {
-        CyclePlan.merge(manual: records.map(\.period), health: healthPeriods, today: now)
+        CyclePlan.merge(manual: records.map(\.period), health: CycleHealthPeriods.shared.periods, today: now)
     }
     private var summary: CyclePlan.Summary { CyclePlan.summary(periods, today: now) }
     private var inPeriod: Bool { summary.periodDay != nil }
@@ -37,80 +108,6 @@ struct CycleSection: View {
     }
 
     var body: some View {
-        Section {
-            if periods.isEmpty {
-                introRow
-            } else {
-                statusRow
-                actionRow
-                Toggle(isOn: $reminderEnabled) {
-                    Label("经期提醒", systemImage: "bell")
-                }
-                NavigationLink {
-                    CycleHistoryView(healthPeriods: healthPeriods)
-                } label: {
-                    HStack {
-                        Text("经期记录")
-                        Spacer()
-                        Text("\(periods.count)").foregroundStyle(.secondary).monospacedDigit()
-                    }
-                }
-            }
-        } header: {
-            HStack {
-                Text("经期")
-                Spacer()
-                Button { addingPast = true } label: { Image(systemName: "plus") }
-                    .accessibilityLabel("补记一次经期")
-            }
-            // sheet/task 挂在标题行上:挂在 Section 上会分摊到每一行。
-            .sheet(isPresented: $addingPast) { PeriodEditView(record: nil) }
-            .task(id: "\(healthEnabled)-\(refreshToken)") {
-                // 经期的读权限单独问(不在健康分析那张总授权单里),第一次显示这组时问一次。
-                let key = "cycleAccessRequested"
-                if healthEnabled, !UserDefaults.standard.bool(forKey: key) {
-                    UserDefaults.standard.set(true, forKey: key)
-                    await HealthKitBridge.requestCycleAuthorization()
-                }
-                healthPeriods = await CycleStore.healthPeriods()
-            }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active { now = Date() }
-            }
-            // 记录、健康数据、开关一变就按新的预测重排提醒。
-            .onChange(of: reminderKey, initial: true) { _, _ in
-                CycleStore.reschedule(summary: summary)
-            }
-        } footer: {
-            Text("预测按最近几个周期的平均长度估算,仅供参考,不能用于避孕。经期记录只存在这台设备和你的 iCloud 里,不会发给 AI。")
-        }
-    }
-
-    /// 影响提醒的那几样拼成一个键。
-    private var reminderKey: String {
-        "\(reminderEnabled)|\(summary.nextStart?.timeIntervalSince1970 ?? 0)|\(inPeriod)|\(summary.estimatedFromDefault)"
-    }
-
-    // MARK: - 行
-
-    private var introRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("记录经期", systemImage: "drop")
-                .font(.body.weight(.medium))
-            Text("来了点一下「经期开始了」,结束时再点「结束了」。记过两次以上,lodo 会估下一次大概哪天来,并提前两天提醒。")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 12) {
-                Button("经期开始了") { CycleStore.startToday(records: records, context: context) }
-                    .buttonStyle(.borderedProminent)
-                Button("补记一次") { addingPast = true }
-                    .buttonStyle(.bordered)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var statusRow: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(headline)
                 .font(.title3.weight(.semibold))
@@ -120,6 +117,10 @@ struct CycleSection: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { now = Date() }
+        }
+        actionRow
     }
 
     private var headline: String {
@@ -172,6 +173,124 @@ struct CycleSection: View {
                 Label("经期开始了", systemImage: "drop.fill")
             }
         }
+    }
+}
+
+/// 健康页首页「健康管理」里的经期:有记录时是状态 + 开始/结束;没记录时一行「还没有经期记录」
+/// + 「经期开始了」。两种都有进「经期详情」的一行(提醒开关、补记、历史、说明都在那里)。
+struct CycleCompactRows: View {
+    let healthEnabled: Bool
+
+    @Environment(\.modelContext) private var context
+    @Query(sort: [SortDescriptor(\PeriodRecord.start)]) private var records: [PeriodRecord]
+
+    private var hasPeriods: Bool {
+        !records.isEmpty || !CycleHealthPeriods.shared.periods.isEmpty
+    }
+
+    var body: some View {
+        if hasPeriods {
+            CycleStatusRows()
+        } else {
+            HStack {
+                Label("还没有经期记录", systemImage: "drop")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("经期开始了") { CycleStore.startToday(records: records, context: context) }
+                    .buttonStyle(.borderless)
+            }
+        }
+        NavigationLink {
+            CycleManagementView(healthEnabled: healthEnabled)
+        } label: {
+            Text("经期详情")
+        }
+    }
+}
+
+/// 「经期详情」页的那一组:状态、开始/结束、提醒开关、经期记录。读健康 App、重排提醒
+/// 不在这里做(`CycleHealthPeriods` 管,写入点直接调重排),这一页只看共享的那份数据。
+struct CycleSection: View {
+    @Environment(\.modelContext) private var context
+    @Environment(\.lodoAccent) private var lodoAccent
+    @Query(sort: [SortDescriptor(\PeriodRecord.start)]) private var records: [PeriodRecord]
+    @AppStorage(AppSettings.cycleReminderEnabledKey) private var reminderEnabled = true
+
+    @State private var addingPast = false
+
+    private var periods: [CyclePlan.Period] {
+        CyclePlan.merge(manual: records.map(\.period), health: CycleHealthPeriods.shared.periods, today: Date())
+    }
+
+    var body: some View {
+        Section {
+            if periods.isEmpty {
+                introRow
+            } else {
+                CycleStatusRows()
+                Toggle(isOn: $reminderEnabled) {
+                    Label("经期提醒", systemImage: "bell")
+                }
+                .onChange(of: reminderEnabled) { _, _ in
+                    CycleStore.rescheduleFromRecords(context: context)
+                }
+                NavigationLink {
+                    CycleHistoryView(healthPeriods: CycleHealthPeriods.shared.periods)
+                } label: {
+                    HStack {
+                        Text("经期记录")
+                        Spacer()
+                        Text("\(periods.count)").foregroundStyle(.secondary).monospacedDigit()
+                    }
+                }
+            }
+        } header: {
+            HStack {
+                Text("经期")
+                Spacer()
+                Button("补记") { addingPast = true }
+                    .font(.subheadline)
+                    .textCase(nil)
+                    .accessibilityLabel("补记一次经期")
+            }
+            // sheet 挂在标题行上:挂在 Section 上会分摊到每一行。
+            .sheet(isPresented: $addingPast) { PeriodEditView(record: nil) }
+        } footer: {
+            Text("预测按最近几个周期的平均长度估算,仅供参考,不能用于避孕。经期记录只存在这台设备和你的 iCloud 里,不会发给 AI。")
+        }
+    }
+
+    private var introRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("记录经期", systemImage: "drop")
+                .font(.body.weight(.medium))
+            Text("来了点一下「经期开始了」,结束时再点「结束了」。记过两次以上,lodo 会估下一次大概哪天来,并提前两天提醒。")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Button("经期开始了") { CycleStore.startToday(records: records, context: context) }
+                    .buttonStyle(.borderedProminent)
+                    .foregroundStyle(lodoAccent.onFill)
+                Button("补记一次") { addingPast = true }
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// 健康页「经期详情」:状态、开始/结束、提醒开关、经期记录、说明。
+struct CycleManagementView: View {
+    let healthEnabled: Bool
+
+    var body: some View {
+        List {
+            CycleSection()
+        }
+        .pageTitle("经期")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 }
 
@@ -268,6 +387,7 @@ struct CycleHistoryView: View {
                     Button(role: .destructive) {
                         context.delete(record)
                         try? context.save()
+                        CycleStore.rescheduleFromRecords(context: context)
                     } label: {
                         Label("删除", systemImage: "trash")
                     }
@@ -320,6 +440,7 @@ struct PeriodEditView: View {
                         Button("删除这次记录", role: .destructive) {
                             context.delete(record)
                             try? context.save()
+                            CycleStore.rescheduleFromRecords(context: context)
                             dismiss()
                         }
                     }
@@ -358,6 +479,7 @@ struct PeriodEditView: View {
         target.end = endDay
         target.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
         try? context.save()
+        CycleStore.rescheduleFromRecords(context: context)
         dismiss()
     }
 }
