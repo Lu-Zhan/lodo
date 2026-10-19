@@ -15,6 +15,7 @@ struct HealthView: View {
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var rangeDays = 14
     @AppStorage(AppSettings.cycleTrackingKey) private var cyclePreferenceRaw = ""
+    @AppStorage(AppSettings.medicationVisibleKey) private var medicationVisible = true
     @AppStorage(AppSettings.biologicalSexKey) private var biologicalSexRaw = ""
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -104,7 +105,10 @@ struct HealthView: View {
                     healthSummary: showsData && !report.isEmpty ? report.promptSummary() : nil,
                     todayActiveEnergy: showsData ? todayActiveEnergy : nil)
                 // 用药、经期和体重一样不依赖健康开关;开着时再把健康 App 的记录导进来。
-                MedicationSection(healthEnabled: healthEnabled, refreshToken: airRefreshToken)
+                // 不需要的可以在设置或这一组的菜单里隐藏(提醒照常响,见 medicationVisibleKey)。
+                if medicationVisible {
+                    MedicationSection(healthEnabled: healthEnabled)
+                }
                 if showsCycle {
                     CycleSection(healthEnabled: healthEnabled, refreshToken: airRefreshToken)
                 }
@@ -122,13 +126,15 @@ struct HealthView: View {
                 } else if report.isEmpty {
                     noDataSection
                 } else {
-                    // AI 分析默认收起(用户要求),点开才显示、才去要。
-                    analysisSection
                     metricsSection
                     chartSection
                 }
                 CheckupSection(memoryItems: memoryItems, openReport: $openReport)
                 memoriesSection
+                // AI 健康分析放在整页最下面(用户要求);仍然默认收起,点开才显示、才去要。
+                if HealthKitBridge.isAvailable, showsData, !report.isEmpty {
+                    analysisSection
+                }
             }
             #if DEBUG
             .task {
@@ -162,6 +168,12 @@ struct HealthView: View {
             // 关掉开关时正等着 HealthKit 的那次读完也不会再去发 AI 请求)。
             .task(id: "\(healthEnabled)-\(rangeDays)") {
                 await reload()
+            }
+            // 手表完成的用药提醒补记、健康 App 服药记录导入:挂在页面上而不是用药那一组上,
+            // 组被隐藏了也照样跑(隐藏只管显示)。
+            .task(id: "\(healthEnabled)-\(airRefreshToken)") {
+                MedicationStore.backfillDosesFromHistory(context: context)
+                await MedicationStore.importHealthDoses(context: context)
             }
             #if DEBUG
             .task {

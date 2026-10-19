@@ -1342,12 +1342,22 @@ public struct BackupWeightRecord: Codable {
     public var bodyFatPercent: Double?
     public var note: String
     public var createdAt: Date
+    // 体重秤报告带来的身体成分:都是可选的,老备份没有这几个 key 时合成的解码按 nil 处理。
+    public var muscleMassKg: Double? = nil
+    public var visceralFatLevel: Double? = nil
+    public var basalMetabolicKcal: Double? = nil
+    public var bodyWaterPercent: Double? = nil
+    public var boneMassKg: Double? = nil
+    public var reportUUID: UUID? = nil
 }
 
 extension WeightRecord {
     public var backup: BackupWeightRecord {
         BackupWeightRecord(uuid: uuid, date: date, weightKg: weightKg,
-                           bodyFatPercent: bodyFatPercent, note: note, createdAt: createdAt)
+                           bodyFatPercent: bodyFatPercent, note: note, createdAt: createdAt,
+                           muscleMassKg: muscleMassKg, visceralFatLevel: visceralFatLevel,
+                           basalMetabolicKcal: basalMetabolicKcal, bodyWaterPercent: bodyWaterPercent,
+                           boneMassKg: boneMassKg, reportUUID: reportUUID)
     }
 }
 
@@ -1359,6 +1369,12 @@ extension BackupWeightRecord {
         record.bodyFatPercent = bodyFatPercent
         record.note = note
         record.createdAt = createdAt
+        record.muscleMassKg = muscleMassKg
+        record.visceralFatLevel = visceralFatLevel
+        record.basalMetabolicKcal = basalMetabolicKcal
+        record.bodyWaterPercent = bodyWaterPercent
+        record.boneMassKg = boneMassKg
+        record.reportUUID = reportUUID
     }
 }
 

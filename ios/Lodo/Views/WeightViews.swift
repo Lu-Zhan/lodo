@@ -42,6 +42,7 @@ struct WeightSection: View {
 
     @State private var addingRecord = false
     @State private var editingGoal = false
+    @State private var importingReport = false
     @State private var chartMetric: Metric = .weight
 
     enum Metric: Hashable { case weight, bodyFat }
@@ -98,6 +99,8 @@ struct WeightSection: View {
                 Text("体重管理")
                 Spacer()
                 if !isEmpty {
+                    Button { importingReport = true } label: { Image(systemName: "doc.viewfinder") }
+                        .accessibilityLabel("上传体重秤记录")
                     Button { addingRecord = true } label: { Image(systemName: "plus") }
                         .accessibilityLabel("记一笔")
                     Button { editingGoal = true } label: { Image(systemName: "target") }
@@ -107,9 +110,13 @@ struct WeightSection: View {
             // sheet/task 挂在标题行上:挂在 Section 上会分摊到每一行。
             .sheet(isPresented: $addingRecord) { WeightRecordEditView(record: nil, defaults: entries) }
             .sheet(isPresented: $editingGoal) { WeightGoalEditView() }
+            .sheet(isPresented: $importingReport) { WeightReportImportView(existing: entries) }
             .sheet(item: $openFood) { FoodRecordDetailView(record: $0) }
             .task {
                 #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--demo-weight-report-live") {
+                    importingReport = true
+                }
                 if applyDemoIfNeeded() { return }
                 #endif
                 loadCachedPlan()
@@ -137,6 +144,12 @@ struct WeightSection: View {
                 Button("记一笔") { addingRecord = true }
                     .buttonStyle(.bordered)
             }
+            Button {
+                importingReport = true
+            } label: {
+                Label("上传体重秤记录", systemImage: "doc.viewfinder")
+            }
+            .buttonStyle(.bordered)
         }
         .padding(.vertical, 4)
     }
@@ -193,6 +206,16 @@ struct WeightSection: View {
             if let progress {
                 ProgressView(value: progress)
                     .accessibilityLabel("目标进度")
+            }
+            // 最近一次体重秤报告里的身体成分(只有导入过才有)。
+            if let latest = records.last(where: \.hasComposition) {
+                Label {
+                    Text(verbatim: WeightReportText.composition(latest))
+                } icon: {
+                    Image(systemName: "figure.arms.open")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
             // 体脂率 / BMI / 去脂体重,一行三格。
             HStack(alignment: .top, spacing: 0) {
@@ -777,6 +800,13 @@ struct WeightRecordListView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                }
+                // 体重秤报告带来的肌肉量、内脏脂肪这些(手记的没有)。
+                if let record = records.first(where: { $0.uuid == entry.id }), record.hasComposition {
+                    Text(verbatim: WeightReportText.composition(record))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
             }
             Spacer()

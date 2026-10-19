@@ -75,3 +75,29 @@ final class MedicationPlanTests: XCTestCase {
         XCTAssertEqual(result.expected, 3)          // 今天 20:00 还没到
     }
 }
+
+extension MedicationPlanTests {
+    // MARK: - 大按钮记的是哪一顿
+
+    func testNextUnrecordedSlotIsFirstOpenOne() {
+        let other = MedicationPlan.Med(id: UUID(), name: "钙片", times: ["07:00"])
+        // 早上那顿漏了、中午记了一笔:算早上那顿,下一顿是晚上。
+        let doses = [MedicationPlan.Dose(medicationID: med.id, takenAt: at(12))]
+        let slots = MedicationPlan.todaySlots([med, other], doses: doses, now: at(13), calendar: calendar)
+        XCTAssertEqual(MedicationPlan.nextUnrecordedSlot(of: med.id, in: slots)?.time, at(20))
+        // 别的药各算各的。
+        XCTAssertEqual(MedicationPlan.nextUnrecordedSlot(of: other.id, in: slots)?.time, at(7))
+        // 跳过也占一顿;都记完了就没有下一顿。
+        let all = doses + [MedicationPlan.Dose(medicationID: med.id, takenAt: at(20, 5), status: .skipped)]
+        let done = MedicationPlan.todaySlots([med], doses: all, now: at(21), calendar: calendar)
+        XCTAssertNil(MedicationPlan.nextUnrecordedSlot(of: med.id, in: done))
+    }
+
+    func testEarlyMeansMoreThanAnHourAhead() {
+        let slots = MedicationPlan.todaySlots([med], doses: [], now: at(7), calendar: calendar)
+        let morning = MedicationPlan.nextUnrecordedSlot(of: med.id, in: slots)!
+        XCTAssertFalse(MedicationPlan.isEarly(morning, now: at(7)))          // 正好一小时
+        XCTAssertTrue(MedicationPlan.isEarly(morning, now: at(6, 59)))
+        XCTAssertFalse(MedicationPlan.isEarly(morning, now: at(9)))          // 已经过点
+    }
+}

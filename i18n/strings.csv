@@ -2134,3 +2134,46 @@ ios_view.task_inbox_2,放进收集,Put in Inbox,ios_view,任务页「收集」
 ios_view.task_inbox_3,"收集里的事不设时间、不提醒,想好什么时候做再定时间。",Inbox items have no time and no reminder. Set a time once you decide when to do it.,ios_view,任务页「收集」
 ios_view.task_inbox_4,收集里还没有东西,Nothing in your inbox yet,ios_view,任务页「收集」
 ios_view.task_inbox_5,"不设时间、不提醒的事先放在这里。想好什么时候做,跟 AI 说一句就能定上时间,比如「做作业设到晚上 10 点」。","Things without a time or reminder go here. Once you decide when, just tell the AI, e.g. ""Set homework for 10 PM tonight.""",ios_view,任务页「收集」
+ios_view.health_1019_1,补记,Log past dose,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_2,隐藏用药管理,Hide Medications,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_3,提前记录这一顿?,Log this dose early?,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_4,"离 %@ 那一顿还早,现在记下就算这一顿已经吃了。",The %@ dose isn't due yet. Logging it now marks that dose as taken.,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_5,隐藏用药管理?,Hide Medications?,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_6,隐藏,Hide,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_7,"药品和服药记录都会保留,已开的用药提醒照常响。可以在「设置 → 健康」里重新显示。","Your medications and dose history are kept, and reminders keep going off. You can show it again in Settings.",ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_8,记录已服用,Mark as Taken,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_9,记录已服用 %@ %@,Mark as taken: %1$@ %2$@,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_10,显示用药管理,Show Medications,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_11,"关掉后健康页不显示用药这一组;药品和服药记录都保留,已开的用药提醒照常响。","When off, the Health page hides Medications. Your medications and dose history are kept, and reminders keep going off.",ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_12,上传体重秤记录,Upload Scale Records,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_13,核对测量,Review Measurements,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_14,第 %lld 张,Image %lld,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_15,"体脂秤 app 的测量详情、历史列表截图或导出的 PDF 都可以。文字在本机识别,发给 AI 的只有识别出来的文字;整理完先给你核对,确认后才记下,原文件留在本机。","Screenshots of a smart scale app's measurement details or history, or an exported PDF, all work. Text is recognized on this device and only that text is sent to the AI. You review the results before anything is saved; the original files stay on this device.",ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_16,正在识别并整理…,Recognizing and organizing…,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_17,"整理要用 AI,先在「设置 → AI 设置」里配置服务商。",Organizing uses AI. Set up a provider in Settings → AI first.,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_18,认出 %lld 次测量,%lld measurements found,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_19,勾上的才会记下。已经记过的默认不勾;截图上看不出日期的要先选好日期。数字不对可以直接改。,Only checked measurements are saved. Ones you've already logged start unchecked; pick a date for any without one. You can fix numbers directly.,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_20,"有 %lld 个读数单位不明或不在合理范围内,没有填进来,需要的话手动补上。",%lld readings had an unclear unit or an implausible value and were left out. Add them by hand if needed.,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_21,这一天已经记过同样的体重,The same weight is already logged for this day,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_22,"截图上没看到日期,请选一下",No date found in the screenshot. Please pick one,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_23,读数,Readings,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_24,肌肉量,Muscle mass,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_25,内脏脂肪,Visceral fat,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_26,级,level,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_27,基础代谢,BMR,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_28,千卡,kcal,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_29,水分,Body water,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_30,骨量,Bone mass,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_31,%,%,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_32,"有读数填得不对:只能填数字,而且要在合理范围内(体重 1–500 公斤、体脂率 1–79%,肌肉量和骨量要小于体重)。","Some readings are invalid. Use numbers in a plausible range (weight 1–500 kg, body fat 1–79%; muscle and bone mass must be less than weight).",ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_33,"没有从文件里认出文字。截图尽量完整、清楚,或者换成 PDF 试试。","No text was recognized. Use a complete, clear screenshot, or try a PDF.",ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_34,没有从这份记录里认出体重或身体成分。,No weight or body composition was found in this record.,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_35,%lld 次测量,%lld measurements,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_36,体重秤记录 %@,Scale records %@,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_37,体脂 %@%%,Body fat %@%%,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_38,肌肉 %@ 公斤,Muscle %@ kg,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_39,内脏脂肪 %@,Visceral fat %@,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_40,基础代谢 %lld 千卡,BMR %lld kcal,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_41,水分 %@%%,Water %@%%,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_42,骨量 %@ 公斤,Bone %@ kg,ios_view,健康页:体重秤导入/用药隐藏与大按钮
+ios_view.health_1019_future,"测量时间不能晚于现在,请改一下日期。",The measurement time can't be in the future. Please change the date.,ios_view,健康页:体重秤导入

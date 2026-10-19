@@ -102,6 +102,25 @@ public enum MedicationPlan {
         return slots.sorted { ($0.time, $0.name) < ($1.time, $1.name) }
     }
 
+    /// 这种药今天还没记的第一顿(没有 = 今天都记过了 / 今天不用吃)。只有这一顿能直接
+    /// 记:当天的记录按先后依次对上时间点(见 `todaySlots`),点后面那顿也会被算成它。
+    public static func nextUnrecordedSlot(of medicationID: UUID, in slots: [Slot]) -> Slot? {
+        slots.first { slot in
+            guard slot.medicationID == medicationID else { return false }
+            switch slot.state {
+            case .taken, .skipped: return false
+            case .upcoming, .due: return true
+            }
+        }
+    }
+
+    /// 离这一顿还早(超过 `earlyWindow`)时,大按钮先问一句再记,免得顺手把还没到的那顿记掉。
+    public static let earlyWindow: TimeInterval = 60 * 60
+
+    public static func isEarly(_ slot: Slot, now: Date) -> Bool {
+        slot.time.timeIntervalSince(now) > earlyWindow
+    }
+
     // MARK: - 提醒任务
 
     /// 提醒任务的重复规则:没选周几 = 每天,选了 = 每周那几天。

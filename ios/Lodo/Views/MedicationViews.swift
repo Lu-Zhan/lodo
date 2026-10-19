@@ -11,16 +11,19 @@ import LodoCore
 
 struct MedicationSection: View {
     let healthEnabled: Bool
-    var refreshToken = 0
 
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: [SortDescriptor(\Medication.createdAt)]) private var meds: [Medication]
     @Query(sort: [SortDescriptor(\MedicationDose.takenAt, order: .reverse)]) private var doses: [MedicationDose]
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
+    @AppStorage(AppSettings.medicationVisibleKey) private var medicationVisible = true
 
     @State private var now = Date()
     @State private var editing: MedicationEditTarget?
+    @State private var confirmHide = false
+    /// 离那一顿还早(超过一小时)时点了大按钮:先问一句再记。
+    @State private var earlySlot: MedicationPlan.Slot?
     @State private var logging = false
     @State private var importing = false
 
@@ -80,9 +83,11 @@ struct MedicationSection: View {
             HStack(spacing: 16) {
                 Text("用药")
                 Spacer()
+                // 今天该吃的那一顿用下面的大按钮记;这里是补记以前的、记一次跳过、按需吃的药。
                 if !meds.isEmpty {
-                    Button { logging = true } label: { Image(systemName: "checkmark.circle") }
-                        .accessibilityLabel("记一笔服药")
+                    Button("补记") { logging = true }
+                        .font(.subheadline)
+                        .textCase(nil)
                 }
                 Menu {
                     Button { editing = MedicationEditTarget(medication: nil) } label: {
@@ -93,6 +98,10 @@ struct MedicationSection: View {
                             Label("从健康 App 导入", systemImage: "heart.text.square")
                         }
                     }
+                    Divider()
+                    Button { confirmHide = true } label: {
+                        Label("隐藏用药管理", systemImage: "eye.slash")
+                    }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -102,9 +111,24 @@ struct MedicationSection: View {
             .sheet(item: $editing) { MedicationEditView(medication: $0.medication) }
             .sheet(isPresented: $logging) { MedicationDoseLogView(preset: nil) }
             .sheet(isPresented: $importing) { MedicationHealthImportView() }
-            .task(id: "\(healthEnabled)-\(refreshToken)") {
-                MedicationStore.backfillDosesFromHistory(context: context)
-                await MedicationStore.importHealthDoses(context: context)
+            .alert("提前记录这一顿?", isPresented: Binding(
+                get: { earlySlot != nil }, set: { if !$0 { earlySlot = nil } }
+            )) {
+                Button("取消", role: .cancel) { earlySlot = nil }
+                Button("记录") {
+                    if let slot = earlySlot { record(slot) }
+                    earlySlot = nil
+                }
+            } message: {
+                if let slot = earlySlot {
+                    Text("离 \(timeText(slot.time)) 那一顿还早,现在记下就算这一顿已经吃了。")
+                }
+            }
+            .alert("隐藏用药管理?", isPresented: $confirmHide) {
+                Button("取消", role: .cancel) {}
+                Button("隐藏") { medicationVisible = false }
+            } message: {
+                Text("药品和服药记录都会保留,已开的用药提醒照常响。可以在「设置 → 健康」里重新显示。")
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { now = Date() }
@@ -135,35 +159,61 @@ struct MedicationSection: View {
         .padding(.vertical, 4)
     }
 
-    /// 每种药今天还没记的第一顿:只有它能点(服药记录按先后依次对上时间点,
-    /// 点后面那顿会被算成前面那顿)。
+    /// 每种药今天还没记的第一顿:只有它带「记录已服用」的大按钮(服药记录按先后依次
+    /// 对上时间点,点后面那顿会被算成前面那顿)。
     private func isNextSlot(_ slot: MedicationPlan.Slot) -> Bool {
-        slots.first { $0.medicationID == slot.medicationID && !slotIsDone($0.state) } == slot
+        MedicationPlan.nextUnrecordedSlot(of: slot.medicationID, in: slots) == slot
+    }
+
+    private func timeText(_ date: Date) -> String {
+        date.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
     }
 
     private func slotRow(_ slot: MedicationPlan.Slot) -> some View {
-        let time = slot.time.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale))
-        return HStack(spacing: 12) {
-            Button {
-                guard !slotIsDone(slot.state),
-                      let med = meds.first(where: { $0.uuid == slot.medicationID }) else { return }
-                Haptics.success()
-                MedicationStore.logDose(med, context: context)
-            } label: {
+        let time = timeText(slot.time)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                // 只是状态,不再是按钮:记一顿用下面的大按钮(小圆圈太难点中)。
                 Image(systemName: slotSymbol(slot.state))
                     .font(.title3)
                     .foregroundStyle(slotColor(slot.state))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(slot.dosage.isEmpty ? slot.name : "\(slot.name) \(slot.dosage)")
+                        .font(.body.weight(.medium))
+                    Text(slotCaption(slot, time: time))
+                        .font(.footnote)
+                        .foregroundStyle(slot.state == .due ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
+                }
             }
-            .pressable()
-            .disabled(!isNextSlot(slot))
-            .accessibilityLabel(slotIsDone(slot.state) ? Text("已记录") : Text("记为已服用"))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(slot.dosage.isEmpty ? slot.name : "\(slot.name) \(slot.dosage)")
-                    .font(.body.weight(.medium))
-                Text(slotCaption(slot, time: time))
-                    .font(.footnote)
-                    .foregroundStyle(slot.state == .due ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
+            .accessibilityElement(children: .combine)
+            if isNextSlot(slot) {
+                Button {
+                    if MedicationPlan.isEarly(slot, now: Date()) {
+                        earlySlot = slot
+                    } else {
+                        record(slot)
+                    }
+                } label: {
+                    Label("记录已服用", systemImage: "checkmark")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .accessibilityLabel(Text("记录已服用 \(slot.name) \(time)"))
             }
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// 记下这一顿。按库里最新的记录再核对一遍它还是不是"下一顿"(连点、通知那边刚点过完成),
+    /// 不是就不记。
+    private func record(_ slot: MedicationPlan.Slot) {
+        guard let med = meds.first(where: { $0.uuid == slot.medicationID }) else { return }
+        now = Date()
+        if MedicationStore.logNextDose(med, slotTime: slot.time, context: context) {
+            Haptics.success()
         }
     }
 

@@ -52,6 +52,9 @@ public enum AppSettings {
     public static let airQualityEnabledKey = "airQualityEnabled"
     /// 健康页「经期」:`CyclePlan.Preference` 的 rawValue(""= 自动,跟随健康 App 里的性别)。存储值别改。
     public static let cycleTrackingKey = "cycleTracking"
+    /// 健康页显示「用药」那一组(默认开)。只管显示:关掉后药品、记录、提醒任务都照旧,
+    /// 用药提醒继续响。本机偏好,不同步。
+    public static let medicationVisibleKey = "medicationVisible"
     /// 最近一次从健康 App 读到的性别(`CyclePlan.Sex` 的 rawValue,"" = 没读到过)。
     public static let biologicalSexKey = "healthBiologicalSex"
     /// 经期提醒(预计开始前 2 天,全天提醒时刻)。**默认开**:只有记过两次以上、预测靠得住才会排。

@@ -154,6 +154,7 @@ final class SpotlightIndexer {
                 // 以及一切健康资料(体检报告、打了「健康」的)。
                 picked = all.filter {
                     !$0.isContact && !$0.isMenu && !$0.isAsset && !$0.isHealth && !$0.isCheckup
+                        && !$0.isWeightReport
                         && $0.travelKind == nil
                 }
             }

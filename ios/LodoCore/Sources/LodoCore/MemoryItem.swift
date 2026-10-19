@@ -281,6 +281,11 @@ public final class MemoryItem {
     /// 保留但不隐藏。本人的报告同时打「健康」,家人的不打(不进健康分析)。
     public static let checkupTagName = "体检报告"
     public var isCheckup: Bool { tags.contains(Self.checkupTagName) }
+    /// 保留标签:一份导入过的体重秤报告(体脂秤 app 截图/PDF;测量落在 `WeightRecord`,
+    /// 靠 `reportUUID` 指回这里)。和「体检报告」同组——保留但不隐藏,原文件随时能对照。
+    /// **不打「健康」**:原文不进 AI 健康分析,健康分析只看体重管理里的汇总。
+    public static let weightReportTagName = "体重秤报告"
+    public var isWeightReport: Bool { tags.contains(Self.weightReportTagName) }
 
     /// 全部保留标签的集合,供 UI 层统一过滤(标签管理页的可管理列表、详情页
     /// 标签编辑器的候选与手输校验都应该引用这一份定义,不要各自维护一份
@@ -290,7 +295,7 @@ public final class MemoryItem {
     /// 两个不同维度——"AI记录"是保留标签但不隐藏,不能共用同一份集合。
     public static let reservedTagNames: Set<String> = [
         assetTagName, contactTagName, autoTagName, healthTagName, travelTagName,
-        menuTagName, checkupTagName,
+        menuTagName, checkupTagName, weightReportTagName,
     ]
     /// 默认从记忆列表/附件选择器隐藏的标签(资产、人脉都是隐私/结构化数据,
     /// 不该跟日常收藏混在一起刷屏)。资产在记忆列表里打开侧栏那行筛选就能看到,

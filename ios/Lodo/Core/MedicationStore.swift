@@ -103,6 +103,22 @@ enum MedicationStore {
         return dose
     }
 
+    /// 健康页大按钮:记下这种药今天 `slotTime` 那一顿。写之前按库里**最新**的记录重算一遍,
+    /// 那一顿已经不是"下一顿"了(连点了两下、通知那边刚点过完成)就什么都不做、返回 false——
+    /// 不然第二下会被记成下一顿。
+    @discardableResult
+    static func logNextDose(_ med: Medication, slotTime: Date, context: ModelContext) -> Bool {
+        let dayStart = Calendar.current.startOfDay(for: Date())
+        let medID = med.uuid
+        let doses = (try? context.fetch(FetchDescriptor<MedicationDose>(
+            predicate: #Predicate { $0.medicationUUID == medID && $0.takenAt >= dayStart }))) ?? []
+        let slots = MedicationPlan.todaySlots([med.entry], doses: doses.map(\.entry), now: Date())
+        guard let next = MedicationPlan.nextUnrecordedSlot(of: medID, in: slots),
+              next.time == slotTime else { return false }
+        logDose(med, context: context)
+        return true
+    }
+
     /// 提醒任务往下一顿走:从**这一顿的原定时间**往后找(提前手记时不能按现在时刻算,
     /// 不然 07:30 记了 08:00 那顿,下一次还是今天 08:00)。不插已完成历史——手记那一笔就是记录。
     private static func advanceReminder(_ task: TaskItem, context: ModelContext) {

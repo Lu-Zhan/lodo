@@ -437,9 +437,9 @@ extension CheckupStore {
                         "2. 转氨酶轻度升高,建议戒酒、控制体重后复查肝功能。"])
     }
 
-    /// 现画一页 A4 PDF(CoreText 写几行字)。
-    private static func demoPDF(lines: [String]) -> URL? {
-        let url = FileManager.default.temporaryDirectory.appending(path: "demo-checkup.pdf")
+    /// 现画一页 A4 PDF(CoreText 写几行字)。体重秤导入的截图参数也用它。
+    static func demoPDF(lines: [String], name: String = "demo-checkup") -> URL? {
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(name).pdf")
         var box = CGRect(x: 0, y: 0, width: 595, height: 842)
         guard let consumer = CGDataConsumer(url: url as CFURL),
               let pdf = CGContext(consumer: consumer, mediaBox: &box, nil) else { return nil }

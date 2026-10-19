@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var healthRangeDays = 14
     @AppStorage(AppSettings.cycleTrackingKey) private var cyclePreferenceRaw = ""
+    @AppStorage(AppSettings.medicationVisibleKey) private var medicationVisible = true
     @AppStorage(AppSettings.biologicalSexKey) private var biologicalSexRaw = ""
     /// nil = 从没设过(默认那几类);用 String? 绑不了 @AppStorage,这里拿 "default" 占位。
     @AppStorage(AppSettings.spotlightCategoriesKey) private var spotlightRaw = SettingsView.spotlightUnset
@@ -235,6 +236,15 @@ struct SettingsView: View {
                 } footer: {
                     Text("「健康」页在本机汇总步数、睡眠、心率等趋势。只有汇总统计会发给 AI 服务商,原始记录不会离开这台设备;关闭后不发任何请求。")
                 }
+                }
+
+                // ---- 用药(不依赖健康开关,Mac 上也有)----
+                Section {
+                    Toggle("显示用药管理", isOn: $medicationVisible)
+                } header: {
+                    Text("用药")
+                } footer: {
+                    Text("关掉后健康页不显示用药这一组;药品和服药记录都保留,已开的用药提醒照常响。")
                 }
 
                 // ---- 经期(不依赖健康开关,Mac 上也有)----

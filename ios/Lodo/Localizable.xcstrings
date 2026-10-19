@@ -18170,6 +18170,694 @@
         }
       }
     },
+    "补记" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log past dose"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "补记"
+          }
+        }
+      }
+    },
+    "隐藏用药管理" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Medications"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏用药管理"
+          }
+        }
+      }
+    },
+    "提前记录这一顿?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log this dose early?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前记录这一顿?"
+          }
+        }
+      }
+    },
+    "离 %@ 那一顿还早,现在记下就算这一顿已经吃了。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The %@ dose isn't due yet. Logging it now marks that dose as taken."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离 %@ 那一顿还早,现在记下就算这一顿已经吃了。"
+          }
+        }
+      }
+    },
+    "隐藏用药管理?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Medications?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏用药管理?"
+          }
+        }
+      }
+    },
+    "隐藏" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏"
+          }
+        }
+      }
+    },
+    "药品和服药记录都会保留,已开的用药提醒照常响。可以在「设置 → 健康」里重新显示。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your medications and dose history are kept, and reminders keep going off. You can show it again in Settings."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "药品和服药记录都会保留,已开的用药提醒照常响。可以在「设置 → 健康」里重新显示。"
+          }
+        }
+      }
+    },
+    "记录已服用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Taken"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录已服用"
+          }
+        }
+      }
+    },
+    "记录已服用 %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as taken: %1$@ %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录已服用 %@ %@"
+          }
+        }
+      }
+    },
+    "显示用药管理" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Medications"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示用药管理"
+          }
+        }
+      }
+    },
+    "关掉后健康页不显示用药这一组;药品和服药记录都保留,已开的用药提醒照常响。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When off, the Health page hides Medications. Your medications and dose history are kept, and reminders keep going off."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关掉后健康页不显示用药这一组;药品和服药记录都保留,已开的用药提醒照常响。"
+          }
+        }
+      }
+    },
+    "上传体重秤记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload Scale Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传体重秤记录"
+          }
+        }
+      }
+    },
+    "核对测量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review Measurements"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核对测量"
+          }
+        }
+      }
+    },
+    "第 %lld 张" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 张"
+          }
+        }
+      }
+    },
+    "体脂秤 app 的测量详情、历史列表截图或导出的 PDF 都可以。文字在本机识别,发给 AI 的只有识别出来的文字;整理完先给你核对,确认后才记下,原文件留在本机。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots of a smart scale app's measurement details or history, or an exported PDF, all work. Text is recognized on this device and only that text is sent to the AI. You review the results before anything is saved; the original files stay on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体脂秤 app 的测量详情、历史列表截图或导出的 PDF 都可以。文字在本机识别,发给 AI 的只有识别出来的文字;整理完先给你核对,确认后才记下,原文件留在本机。"
+          }
+        }
+      }
+    },
+    "正在识别并整理…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recognizing and organizing…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在识别并整理…"
+          }
+        }
+      }
+    },
+    "整理要用 AI,先在「设置 → AI 设置」里配置服务商。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Organizing uses AI. Set up a provider in Settings → AI first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整理要用 AI,先在「设置 → AI 设置」里配置服务商。"
+          }
+        }
+      }
+    },
+    "认出 %lld 次测量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld measurements found"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "认出 %lld 次测量"
+          }
+        }
+      }
+    },
+    "勾上的才会记下。已经记过的默认不勾;截图上看不出日期的要先选好日期。数字不对可以直接改。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only checked measurements are saved. Ones you've already logged start unchecked; pick a date for any without one. You can fix numbers directly."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "勾上的才会记下。已经记过的默认不勾;截图上看不出日期的要先选好日期。数字不对可以直接改。"
+          }
+        }
+      }
+    },
+    "有 %lld 个读数单位不明或不在合理范围内,没有填进来,需要的话手动补上。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld readings had an unclear unit or an implausible value and were left out. Add them by hand if needed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 个读数单位不明或不在合理范围内,没有填进来,需要的话手动补上。"
+          }
+        }
+      }
+    },
+    "这一天已经记过同样的体重" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The same weight is already logged for this day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这一天已经记过同样的体重"
+          }
+        }
+      }
+    },
+    "截图上没看到日期,请选一下" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No date found in the screenshot. Please pick one"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "截图上没看到日期,请选一下"
+          }
+        }
+      }
+    },
+    "读数" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读数"
+          }
+        }
+      }
+    },
+    "肌肉量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muscle mass"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "肌肉量"
+          }
+        }
+      }
+    },
+    "内脏脂肪" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visceral fat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内脏脂肪"
+          }
+        }
+      }
+    },
+    "级" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "level"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "级"
+          }
+        }
+      }
+    },
+    "基础代谢" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BMR"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基础代谢"
+          }
+        }
+      }
+    },
+    "千卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kcal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "千卡"
+          }
+        }
+      }
+    },
+    "水分" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body water"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "水分"
+          }
+        }
+      }
+    },
+    "骨量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bone mass"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "骨量"
+          }
+        }
+      }
+    },
+    "%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%"
+          }
+        }
+      }
+    },
+    "有读数填得不对:只能填数字,而且要在合理范围内(体重 1–500 公斤、体脂率 1–79%,肌肉量和骨量要小于体重)。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some readings are invalid. Use numbers in a plausible range (weight 1–500 kg, body fat 1–79%; muscle and bone mass must be less than weight)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有读数填得不对:只能填数字,而且要在合理范围内(体重 1–500 公斤、体脂率 1–79%,肌肉量和骨量要小于体重)。"
+          }
+        }
+      }
+    },
+    "没有从文件里认出文字。截图尽量完整、清楚,或者换成 PDF 试试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No text was recognized. Use a complete, clear screenshot, or try a PDF."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有从文件里认出文字。截图尽量完整、清楚,或者换成 PDF 试试。"
+          }
+        }
+      }
+    },
+    "没有从这份记录里认出体重或身体成分。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No weight or body composition was found in this record."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有从这份记录里认出体重或身体成分。"
+          }
+        }
+      }
+    },
+    "%lld 次测量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld measurements"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 次测量"
+          }
+        }
+      }
+    },
+    "体重秤记录 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scale records %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重秤记录 %@"
+          }
+        }
+      }
+    },
+    "体脂 %@%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body fat %@%%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体脂 %@%%"
+          }
+        }
+      }
+    },
+    "肌肉 %@ 公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muscle %@ kg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "肌肉 %@ 公斤"
+          }
+        }
+      }
+    },
+    "内脏脂肪 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visceral fat %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内脏脂肪 %@"
+          }
+        }
+      }
+    },
+    "基础代谢 %lld 千卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BMR %lld kcal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基础代谢 %lld 千卡"
+          }
+        }
+      }
+    },
+    "水分 %@%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Water %@%%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "水分 %@%%"
+          }
+        }
+      }
+    },
+    "骨量 %@ 公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bone %@ kg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "骨量 %@ 公斤"
+          }
+        }
+      }
+    },
+    "测量时间不能晚于现在,请改一下日期。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The measurement time can't be in the future. Please change the date."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "测量时间不能晚于现在,请改一下日期。"
+          }
+        }
+      }
+    },
     "未来" : {
       "localizations" : {
         "en" : {

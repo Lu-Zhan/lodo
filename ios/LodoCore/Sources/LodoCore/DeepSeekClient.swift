@@ -1652,6 +1652,39 @@ public enum DeepSeekClient {
         return try parseCheckupPayload(await payload(system: system, user: text, timeout: 180))
     }
 
+    /// 整理一份体重秤报告(体脂秤 app 的截图/PDF 经端上取字得到的文字)。解析与换算在
+    /// `WeightReport.parse`(纯函数,单测入口);这条路径**有确认页**,见那边的注释。
+    public static func parseWeightReport(text: String, now: Date = Date()) async throws -> ParsedWeightReport {
+        let system = """
+        你是体重秤记录整理助手。用户给的是体脂秤 / 健康 app 的截图或导出 PDF 的文字(OCR),\
+        会有断行、串行、错字,按常识理解。把里面的称重测量整理出来。
+
+        只返回 JSON:{"title": "简短的名称,如 小米体脂秤 10 月记录", \
+        "device": "秤或 app 的名字,没写就省略", \
+        "measurements": [测量, ...]},不要任何其他文字。每次测量:
+        {"time": "YYYY-MM-DD HH:MM;只有日期就 YYYY-MM-DD;看不出日期就省略", \
+        "weight": 体重数字, "body_fat": 体脂率百分比数字, "muscle": 肌肉量数字, \
+        "visceral_fat": 内脏脂肪等级数字, "bmr": 基础代谢数字, "water": 水分百分比数字, \
+        "bone": 骨量数字, \
+        "weight_unit": "体重在截图上的单位原样:kg、斤 或 lb", \
+        "muscle_unit": "肌肉量的单位,同上", "bone_unit": "骨量的单位,同上", \
+        "bmr_unit": "kcal 或 kJ"}
+
+        规则:
+        - 只填截图上明确写了的数,看不到的字段整个省略,不要推算、不要补全。
+        - 数字字段只写数字本身(如 62.4),不要带单位、不要写范围;单位写进对应的 *_unit,\
+        每一项按它自己旁边写的单位填(体重写斤、肌肉量写 kg 的就分别填)。
+        - 肌肉率、骨骼肌率这类百分比不是肌肉量,不要填进 muscle;蛋白质、皮下脂肪、身体年龄等\
+        其他项目不用输出。
+        - 截图是历史列表时每一行是一次测量,只填这一行上有的数;不要把详情页的身体成分\
+        复制到别的日期上。同一次测量在多张截图里重复出现时只输出一次。
+        - 年份看不出时按当前日期(\(dateFormatter.string(from: now).prefix(10)))推断最近的那一天。
+        - 姓名、手机号、账号等个人信息一律不要输出。
+        - 一次测量也读不出来时返回 {"measurements": []}。
+        """
+        return try WeightReport.parse(await payload(system: system, user: text, timeout: 120), now: now)
+    }
+
     /// 从 payload 里解析体检报告(单测入口,不发请求)。单项缺名字就跳过那一项,
     /// 不让整份报告白费(同 parseMenuPayload)。
     static func parseCheckupPayload(_ payload: [String: Any]) throws -> ParsedCheckupReport {
