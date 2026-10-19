@@ -148,13 +148,16 @@ struct MemoryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .quickLookPreview($previewURL)
-        .confirmationDialog("删除这条收藏?原始文件会一并删除。",
-                            isPresented: $confirmDelete, titleVisibility: .visible) {
+        // 屏幕正中的系统确认框(alert),和记忆列表左滑删除同一款。
+        .alert("删除这条收藏?", isPresented: $confirmDelete) {
+            Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
                 deleted = true
                 MemoryPipeline.delete(item, context: context)
                 dismiss()
             }
+        } message: {
+            Text("原始文件会一并删除。")
         }
         .onDisappear { commitEdits() }
     }
