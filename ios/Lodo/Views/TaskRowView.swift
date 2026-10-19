@@ -52,9 +52,12 @@ struct TaskRowView: View {
                                 .accessibilityLabel("正在改期")
                         }
                     }
-                    Text(overdue ? dueCaption : LocalizedContent.taskCaption(task))
-                        .font(.footnote)
-                        .foregroundStyle(overdue ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
+                    // 「收集」里的事项没有时间可写,这一行省掉(它本来就在「收集」那一档/那一组里)。
+                    if !task.isInbox {
+                        Text(overdue ? dueCaption : LocalizedContent.taskCaption(task))
+                            .font(.footnote)
+                            .foregroundStyle(overdue ? AnyShapeStyle(LodoColor.critical) : AnyShapeStyle(.secondary))
+                    }
                 }
             }
             .pressableCard()
@@ -145,7 +148,7 @@ struct TaskRowView: View {
         // 在逾期时只能从这里找到——不然一件已经没意义的逾期任务就删不掉了)。
         .contextMenu {
             pinButton
-            if TaskAlarms.isSupported {
+            if TaskAlarms.isSupported, !task.isInbox {
                 Button {
                     Task {
                         if !task.alarm, !(await TaskAlarms.requestAuthorization()) { return }

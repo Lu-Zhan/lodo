@@ -213,8 +213,8 @@ enum WidgetBridge {
         let pinned = pending.filter(\.pinned)
             .sorted { ($0.pinnedAt ?? .distantPast) > ($1.pinnedAt ?? .distantPast) }
             .prefix(5)
-            .map { LockScreenSnapshot.Line(title: $0.title, at: $0.nextRemindAt, end: nil,
-                                           allDay: $0.allDay, isEvent: false) }
+            .map { LockScreenSnapshot.Line(title: $0.title, at: $0.isInbox ? nil : $0.nextRemindAt,
+                                           end: nil, allDay: $0.allDay, isEvent: false) }
 
         // 倒数日:接下来 8 天每天 0 点各算一份(今天那份按现在算)。
         let entries = ((try? context.fetch(FetchDescriptor<CountdownEvent>())) ?? []).map(\.entry)

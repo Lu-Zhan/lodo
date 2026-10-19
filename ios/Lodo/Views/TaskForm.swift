@@ -14,9 +14,13 @@ struct TaskFormModel {
     var project: String
     /// 用闹钟提醒(`TaskItem.alarm`)。
     var alarm: Bool
+    /// 放进「收集」:不设时间、不提醒。打开时下面的重复/日期/时间/闹钟都不用。
+    var inbox: Bool
 
     init(from source: ParsedTask? = nil) {
-        let base = source?.remindAt ?? Date().addingTimeInterval(300)
+        inbox = source?.isInbox ?? false
+        // 收集里的事项没有时间:关掉收集时日期时间从"5 分钟后"起,别露出占位的 4001 年。
+        let base = (source.flatMap { $0.isInbox ? nil : $0.remindAt }) ?? Date().addingTimeInterval(300)
         title = source?.title ?? ""
         repeatType = source?.repeatType ?? .none
         day = base
@@ -30,6 +34,7 @@ struct TaskFormModel {
 
     var isValid: Bool {
         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        if inbox { return true }
         switch repeatType {
         case .none: return true
         case .daily: return !times.isEmpty
@@ -52,6 +57,11 @@ struct TaskFormModel {
             project: trimmedProject.isEmpty ? nil : trimmedProject
         )
         parsed.alarm = alarm
+        if inbox {
+            parsed = parsed.asInbox
+            parsed.alarm = false
+            return parsed
+        }
         if repeatType == .none {
             parsed.remindAt = allDay
                 ? AppSettings.time(AppSettings.allDayTime, on: day)
@@ -75,8 +85,11 @@ struct TaskFormModel {
         title = parsed.title
         repeatType = parsed.repeatType
         allDay = parsed.allDay
-        day = parsed.remindAt
-        time = parsed.remindAt
+        inbox = parsed.isInbox
+        if !parsed.isInbox {
+            day = parsed.remindAt
+            time = parsed.remindAt
+        }
         weekdays = Set(parsed.repeatDays)
         times = parsed.repeatTimes.map { AppSettings.time($0, on: Date()) }
         project = parsed.project ?? ""
@@ -97,12 +110,15 @@ struct TaskFormSections: View {
     var body: some View {
         Section {
             TextField("事项内容", text: $form.title)
-            Picker("重复", selection: $form.repeatType) {
-                Text("不重复").tag(RepeatType.none)
-                Text("每天").tag(RepeatType.daily)
-                Text("每周").tag(RepeatType.weekly)
+            Toggle("放进收集", isOn: $form.inbox)
+            if !form.inbox {
+                Picker("重复", selection: $form.repeatType) {
+                    Text("不重复").tag(RepeatType.none)
+                    Text("每天").tag(RepeatType.daily)
+                    Text("每周").tag(RepeatType.weekly)
+                }
+                .segmentedPickerStyle()
             }
-            .segmentedPickerStyle()
         } header: {
             HStack {
                 if let header { Text(header) }
@@ -110,6 +126,10 @@ struct TaskFormSections: View {
                     Label("AI 已填写", systemImage: "sparkles")
                         .foregroundStyle(.tint)
                 }
+            }
+        } footer: {
+            if form.inbox {
+                Text("收集里的事不设时间、不提醒,想好什么时候做再定时间。")
             }
         }
         .onChange(of: form.repeatType) { _, type in
@@ -119,7 +139,9 @@ struct TaskFormSections: View {
             }
         }
 
-        if form.repeatType == .none {
+        if form.inbox {
+            // 收集:没有时间,下面的日期/时间/闹钟都不显示。
+        } else if form.repeatType == .none {
             Section {
                 DatePicker("日期", selection: $form.day, displayedComponents: .date)
                 Toggle("全天", isOn: $form.allDay)
@@ -166,7 +188,7 @@ struct TaskFormSections: View {
             }
         }
 
-        if TaskAlarms.isSupported {
+        if TaskAlarms.isSupported, !form.inbox {
             Section {
                 Toggle(isOn: $form.alarm) {
                     Label("用闹钟提醒", systemImage: "alarm")

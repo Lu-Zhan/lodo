@@ -40,7 +40,8 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
     func rebuild(for task: TaskItem, chainLength: Int = WatchNotificationManager.chainLength) {
         let center = UNUserNotificationCenter.current()
         cancelChain(for: task.uuid)
-        guard task.status == .pending else { return }
+        // 「收集」里的事项(手机上建的,没有时间)不提醒。
+        guard task.status == .pending, !task.isInbox else { return }
 
         let interval = TimeInterval(AppSettings.snoozeMinutes * 60)
         let now = Date()
@@ -84,7 +85,10 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
         var pending = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" })
         pending.sortBy = [SortDescriptor(\.nextRemindAt)]
-        let tasks = (try? context.fetch(pending)) ?? []
+        let fetched = (try? context.fetch(pending)) ?? []
+        // 收集里的事项不提醒;在手机上刚改成收集的,手表上还挂着原来那串通知,先撤掉。
+        for task in fetched where task.isInbox { cancelChain(for: task.uuid) }
+        let tasks = fetched.filter { !$0.isInbox }
         var budget = Self.chainBudget - tasks.count
         for task in tasks {
             let extra = max(0, min(Self.chainLength - 1, budget))
@@ -117,6 +121,9 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
 
     @MainActor
     func snooze(_ task: TaskItem, context: ModelContext) {
+        // 「收集」里的事项没有提醒可以稍等:稍等会把 nextRemindAt 写成 15 分钟后,
+        // 同步回手机就成了一条马上到期的任务。
+        guard !task.isInbox else { return }
         var d = task.data
         Scheduler.snooze(&d, now: Date(), snoozeMinutes: AppSettings.snoozeMinutes)
         task.apply(d)

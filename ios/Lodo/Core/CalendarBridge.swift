@@ -244,6 +244,8 @@ enum CalendarSync {
             predicate: #Predicate { $0.statusRaw == "pending" })
         let tasks = (try? context.fetch(descriptor)) ?? []
         let mirrors = tasks.compactMap { task -> CalendarTaskMirror? in
+            // 「收集」里的事项没有时间,不进日历;原来镜像过的事件按"任务没了"删掉。
+            guard !task.isInbox else { return nil }
             // `data` 给调度器的时长恒为 0(任务已经没有时长);日历事件的长度
             // 另存在 durationMinutes 里,镜像时补回去,免得把事件压成 30 分钟。
             var data = task.data

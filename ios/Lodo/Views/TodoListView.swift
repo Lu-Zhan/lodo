@@ -66,7 +66,7 @@ enum UndoOp {
 }
 
 /// 任务页(原来叫"待办页"——页面名统一成「任务」,事项本身在文案里仍叫待办/
-/// 事项):顶部 4 个筛选胶囊(今天/未来/全部/已完成)、到期卡片(完成/稍等,
+/// 事项):顶部 4 个筛选胶囊(今天/全部/收集/已完成)、到期卡片(完成/稍等,
 /// 不受筛选影响永远显示)、按筛选态切换的任务/已完成列表。
 struct TodoListView: View {
     /// 非 nil 时弹出"新建事项"表单并预填标题+内容附件(记忆条目"转为待办"交接,
@@ -112,7 +112,7 @@ struct TodoListView: View {
     @AppStorage(AppSettings.insightEnabledKey) private var insightEnabled = true
 
     @State private var now = Date()
-    /// 顶部 4 档筛选(今天/未来/全部/已完成)当前选中的态。
+    /// 顶部 4 档筛选(今天/全部/收集/已完成)当前选中的态。
     @State var filter: TodoFilter = .today
     @State var sheet: SheetMode?
     /// 工具栏"项目视图"菜单的两个入口。
@@ -132,14 +132,16 @@ struct TodoListView: View {
     private static let insightTextKey = "insightText"
 
     /// 顶部筛选的 4 个态;"全部"/"已完成"按日期分 Section,其余两个是平铺列表。
+    /// 「收集」是没有截止时间、不提醒的事(`TaskItem.isInbox`),原来的「未来」去掉了
+    /// (往后的事在「全部」里按天看)。
     enum TodoFilter: CaseIterable {
-        case today, future, all, done
+        case today, all, inbox, done
 
         var title: String {
             switch self {
             case .today: return "今天"
-            case .future: return "未来"
             case .all: return "全部"
+            case .inbox: return "收集"
             case .done: return "已完成"
             }
         }
@@ -197,8 +199,6 @@ struct TodoListView: View {
     }
     /// 没置顶的待办,按日期分组的那几组只看这些。
     private var unpinned: [TaskItem] { pending.filter { !$0.pinned } }
-    /// 尚未到期的待办。
-    private var upcoming: [TaskItem] { unpinned.filter { $0.nextRemindAt > now } }
     /// 待办分组时算作哪一天:到期未处理的(不管原定哪天,含昨天及更早遗漏的)
     /// 一律冒泡算作"今天"——过期的待办不该被埋没在过去的日期分组里没人看见;
     /// 没到期的按 `nextRemindAt` 本身的日期算。行内时间靠这个信号标红,见 taskRow。
@@ -213,11 +213,11 @@ struct TodoListView: View {
         let today = Calendar.current.startOfDay(for: now)
         return unpinned.filter { effectiveDay($0) == today }
     }
-    /// "未来"筛选态的内容:今天以后,平铺不分组(每行自带日期,见 TaskItem.caption)。
-    private var futureTasks: [TaskItem] {
-        upcoming.filter { !Calendar.current.isDateInToday($0.nextRemindAt) }
+    /// 「收集」里的事项(没置顶的),最近收进来的在前。
+    private var inboxTasks: [TaskItem] {
+        unpinned.filter(\.isInbox).sorted { $0.createdAt > $1.createdAt }
     }
-    // MARK: - 定时任务混排(今天/未来/全部三个筛选态;已完成没有定时任务)
+    // MARK: - 定时任务混排(今天/全部两个筛选态;收集和已完成没有定时任务)
 
     /// 待办页 List 行的统一形态:定时任务与待办事项混排、按时间排序。
     /// 定时任务只贡献"下一次触发"这一行(不展开每次历史执行),
@@ -277,19 +277,10 @@ struct TodoListView: View {
         return (taskRows + routineRows).sorted { $0.sortDate < $1.sortDate }
     }
 
-    private var futureRows: [TodoRow] {
-        let today = Calendar.current.startOfDay(for: now)
-        let taskRows = futureTasks.map(taskRow)
-        let routineRows = routines.filter {
-            guard let day = effectiveRoutineDay($0) else { return false }
-            return day > today
-        }.map(routineRow)
-        return (taskRows + routineRows).sorted { $0.sortDate < $1.sortDate }
-    }
-
     private var allRowsGroupedByDay: [(date: Date, rows: [TodoRow])] {
         var byDay: [Date: [TodoRow]] = [:]
-        for task in unpinned {
+        // 收集里的事项没有日子,在「全部」最下面单独一组(见 allSections)。
+        for task in unpinned where !task.isInbox {
             byDay[effectiveDay(task), default: []].append(taskRow(task))
         }
         for routine in routines {
@@ -334,8 +325,8 @@ struct TodoListView: View {
                 // 任务页只显示任务;系统日历里的日程在「日历」页。
                 switch filter {
                 case .today: todaySection
-                case .future: futureSection
                 case .all: allSections
+                case .inbox: inboxSection
                 case .done: doneSections
                 }
             }
@@ -411,6 +402,9 @@ struct TodoListView: View {
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-filter-done") {
                     filter = .done
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-filter-inbox") {
+                    filter = .inbox
                 }
                 // 截图:模拟滑掉完成第一条(看底部「已完成 · 撤销」)。
                 if ProcessInfo.processInfo.arguments.contains("--demo-complete-toast") {
@@ -489,7 +483,7 @@ struct TodoListView: View {
         }
         let today = Calendar.current.startOfDay(for: now)
         if let task = pending.first(where: { $0.uuid == uuid }) {
-            filter = task.pinned || effectiveDay(task) == today ? .today : .all
+            filter = task.pinned || effectiveDay(task) == today ? .today : task.isInbox ? .inbox : .all
         } else if let routine = routines.first(where: { $0.uuid == uuid }) {
             filter = effectiveRoutineDay(routine) == today ? .today : .all
         } else if doneTasks.contains(where: { $0.uuid == uuid }) {
@@ -568,7 +562,7 @@ struct TodoListView: View {
     }
 
     /// 混排行的分支渲染:待办事项走 TaskRowView,定时任务走 RoutineRowView
-    /// (今天/未来/全部三个筛选态共用)。
+    /// (今天/全部/收集三个筛选态共用)。
     @ViewBuilder
     private func todoRow(_ row: TodoRow) -> some View {
         switch row.kind {
@@ -623,7 +617,7 @@ struct TodoListView: View {
         }
     }
 
-    /// 置顶的任务,排在今天/未来/全部三档的最上面。
+    /// 置顶的任务,排在今天/全部/收集三档的最上面。
     private var pinnedSection: some View {
         Section {
             ForEach(pinnedTasks) { task in
@@ -634,17 +628,19 @@ struct TodoListView: View {
         }
     }
 
-    /// "未来"筛选态:明天及以后,平铺一个列表(每行自带日期,见 TaskItem.caption)。
-    private var futureSection: some View {
+    /// 「收集」筛选态:没有截止时间、不提醒的事,平铺一个列表。
+    private var inboxSection: some View {
         Section {
-            if futureRows.isEmpty {
-                Text("没有未来任务").foregroundStyle(.secondary)
+            if inboxTasks.isEmpty {
+                Text("收集里还没有东西").foregroundStyle(.secondary)
             }
-            ForEach(futureRows) { row in
-                todoRow(row)
+            ForEach(inboxTasks) { task in
+                todoRow(taskRow(task))
             }
         } header: {
-            Text("未来任务")
+            Text("收集")
+        } footer: {
+            Text("不设时间、不提醒的事先放在这里。想好什么时候做,跟 AI 说一句就能定上时间,比如「做作业设到晚上 10 点」。")
         }
     }
 
@@ -662,6 +658,13 @@ struct TodoListView: View {
                 Section(dayLabel(group.date)) {
                     ForEach(group.rows) { row in
                         todoRow(row)
+                    }
+                }
+            }
+            if !inboxTasks.isEmpty {
+                Section("收集") {
+                    ForEach(inboxTasks) { task in
+                        todoRow(taskRow(task))
                     }
                 }
             }

@@ -14,6 +14,21 @@ public struct ParsedTask: Codable, Equatable {
     /// 落库时 nil = 不动原来的设置(AI 改个时间不该把用户开的闹钟关掉)。
     public var alarm: Bool? = nil
 
+    /// 放进「收集」:没有截止时间、不提醒。此时 remindAt 恒为 `TaskItem.inboxDate`、
+    /// 不全天、不重复(见 `asInbox`)。
+    public var isInbox: Bool { remindAt >= TaskItem.inboxDate }
+
+    /// 同一件事,改成收集里的样子(清掉时间、全天和重复)。
+    public var asInbox: ParsedTask {
+        var task = self
+        task.remindAt = TaskItem.inboxDate
+        task.allDay = false
+        task.repeatType = .none
+        task.repeatDays = []
+        task.repeatTimes = []
+        return task
+    }
+
     public init(title: String, remindAt: Date, allDay: Bool,
                 repeatType: RepeatType, repeatDays: [Int], repeatTimes: [String],
                 project: String? = nil) {
@@ -40,6 +55,7 @@ extension ParsedTask {
     /// `TaskItem.caption`/`TaskData.repeatLabel` 的格式,但基于 `remindAt` 本身
     /// (新建/修改提案阶段还没有事项实体,没有"下一次触发"这个概念)。
     public var caption: String {
+        if isInbox { return "收集" }
         var parts = [TaskItem.format(remindAt)]
         if repeatType != .none {
             let times = repeatTimes.joined(separator: "/")
@@ -467,7 +483,13 @@ public enum DeepSeekClient {
         feeds: [FeedEntry] = []
     ) -> (system: String, tasks: [(uuid: String, task: ParsedTask)]) {
         // token 预算:调用方按 nextRemindAt 排序传入,只带最近 50 条进 prompt
-        let tasks = Array(allTasks.prefix(50))
+        // 收集里的事项按 nextRemindAt 排在最后,单纯取前 50 条时有排期的一多它们就被
+        // 截掉,用户说"把做作业那条定到晚上 10 点"AI 却看不见那一条。所以给收集留
+        // 最多 20 个位置,剩下的给有排期的;两边都按原顺序。
+        let scheduled = allTasks.filter { !$0.task.isInbox }
+        let inbox = allTasks.filter { $0.task.isInbox }
+        let inboxQuota = min(inbox.count, max(20, 50 - scheduled.count))
+        let tasks = Array(scheduled.prefix(50 - inboxQuota)) + Array(inbox.prefix(inboxQuota))
         let list = tasks.map { entry -> [String: Any] in
             var fields = taskFields(of: entry.task)
             fields["uuid"] = entry.uuid
@@ -1979,13 +2001,15 @@ public enum DeepSeekClient {
     // MARK: - 请求与序列化
 
     private static func taskFields(of task: ParsedTask) -> [String: Any] {
+        // 收集里的事项不给 remind_at:那个占位日期(4001 年)给模型看只会误导它。
         var fields: [String: Any] = [
             "title": task.title,
-            "remind_at": dateFormatter.string(from: task.remindAt),
+            "remind_at": task.isInbox ? "" : dateFormatter.string(from: task.remindAt),
             "all_day": task.allDay,
             "repeat_type": task.repeatType.rawValue,
             "repeat_days": task.repeatDays,
             "repeat_times": task.repeatTimes,
+            "inbox": task.isInbox,
         ]
         if let project = task.project, !project.isEmpty {
             fields["project"] = project
@@ -2319,15 +2343,26 @@ public enum DeepSeekClient {
     /// 从 payload 里解析并校验事项字段;任何字段超出合理范围直接抛错(不做静默
     /// clamp)——AI 返回离谱值通常本身就意味着误解了用户意图,静默改写会产生
     /// "AI 说建的是 A,实际存的是被偷偷改过的 A'"这种不可见偏差,不如报错更安全。
-    private static func parseTask(_ payload: [String: Any]) throws -> ParsedTask {
-        guard let rawTitle = payload["title"] as? String,
-              let remindStr = payload["remind_at"] as? String,
-              let remindAt = dateFormatter.date(from: remindStr) else {
+    static func parseTask(_ payload: [String: Any]) throws -> ParsedTask {
+        guard let rawTitle = payload["title"] as? String else {
             throw DeepSeekError.parse("返回格式异常:\(payload)")
         }
         let title = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
             throw DeepSeekError.parse("返回格式异常:标题为空")
+        }
+        // 放进「收集」:明说 inbox: true。只有 inbox 是 true 才认——没给时间又没说放收集,
+        // 多半是模型漏了字段,照旧按格式异常报错,不悄悄塞进收集。
+        let project = (payload["project"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if payload["inbox"] as? Bool == true {
+            return ParsedTask(title: title, remindAt: TaskItem.inboxDate, allDay: false,
+                              repeatType: .none, repeatDays: [], repeatTimes: [],
+                              project: (project?.isEmpty ?? true) ? nil : project)
+        }
+        guard let remindStr = payload["remind_at"] as? String,
+              let remindAt = dateFormatter.date(from: remindStr) else {
+            throw DeepSeekError.parse("返回格式异常:\(payload)")
         }
 
         let times = (payload["repeat_times"] as? [Any])?.compactMap { $0 as? String } ?? []
@@ -2348,8 +2383,6 @@ public enum DeepSeekClient {
 
         // project 是锦上添花的分类信息(不像 title/remind_at 那样硬校验),值不对
         // 或缺失只取 nil,不拖累整条事项解析失败。
-        let project = (payload["project"] as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedProject = (project?.isEmpty ?? true) ? nil : project
 
         return ParsedTask(

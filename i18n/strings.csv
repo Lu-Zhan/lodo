@@ -2129,3 +2129,8 @@ ios_view.med_44,%lld/%lld,%1$lld/%2$lld,ios_view,
 ios_view.med_45,已停用的药,Paused Medications,ios_view,
 ios_view.med_46,30 分钟后,In 30 minutes,ios_view,
 ios_view.med_47,1 小时后,In 1 hour,ios_view,
+ios_view.task_inbox_1,收集,Inbox,ios_view,任务页「收集」
+ios_view.task_inbox_2,放进收集,Put in Inbox,ios_view,任务页「收集」
+ios_view.task_inbox_3,"收集里的事不设时间、不提醒,想好什么时候做再定时间。",Inbox items have no time and no reminder. Set a time once you decide when to do it.,ios_view,任务页「收集」
+ios_view.task_inbox_4,收集里还没有东西,Nothing in your inbox yet,ios_view,任务页「收集」
+ios_view.task_inbox_5,"不设时间、不提醒的事先放在这里。想好什么时候做,跟 AI 说一句就能定上时间,比如「做作业设到晚上 10 点」。","Things without a time or reminder go here. Once you decide when, just tell the AI, e.g. ""Set homework for 10 PM tonight.""",ios_view,任务页「收集」

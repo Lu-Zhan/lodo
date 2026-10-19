@@ -488,9 +488,9 @@ struct WatchAgentView: View {
     private func describe(_ action: AIAction) -> String {
         switch action {
         case .create(let parsed):
-            return "新建:\(parsed.title)(\(TaskItem.format(parsed.remindAt)))"
+            return "新建:\(parsed.title)(\(when(parsed)))"
         case .update(_, let parsed):
-            return "修改:\(parsed.title)(\(TaskItem.format(parsed.remindAt)))"
+            return "修改:\(parsed.title)(\(when(parsed)))"
         case .complete(let uuid):
             return "完成:\(title(of: uuid) ?? "未知事项")"
         case .delete(let uuid):
@@ -498,6 +498,11 @@ struct WatchAgentView: View {
         default:
             return ""
         }
+    }
+
+    /// 收集里的事项(没有时间)写「收集」,别把占位日期显示出来。
+    private func when(_ parsed: ParsedTask) -> String {
+        parsed.isInbox ? "收集" : TaskItem.format(parsed.remindAt)
     }
 
     private func title(of uuid: String) -> String? {

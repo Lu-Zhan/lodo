@@ -112,7 +112,8 @@ final class SpotlightIndexer {
             descriptor.fetchLimit = limit
             // 用药提醒是健康数据,不进系统搜索。
             return ((try? context.fetch(descriptor)) ?? []).filter { !$0.isMedicationReminder }.map { task in
-                var parts = [LocalizedContent.dateCaption(task.nextRemindAt, language: language)]
+                var parts = [task.isInbox ? LocalizedContent.inboxCaption(language)
+                             : LocalizedContent.dateCaption(task.nextRemindAt, language: language)]
                 if let project = task.project, !project.isEmpty { parts.append("#\(project)") }
                 return item(.task, uuid: task.uuid, title: task.title,
                             description: parts.joined(separator: " · "),

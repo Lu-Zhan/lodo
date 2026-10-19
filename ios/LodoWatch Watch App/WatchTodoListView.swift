@@ -29,7 +29,10 @@ struct WatchTodoListView: View {
                         Button("完成") { complete(task) }.tint(.green)
                     }
                     .swipeActions(edge: .leading) {
-                        Button("稍等") { snooze(task) }.tint(.orange)
+                        // 收集里的事项没有提醒,不给稍等。
+                        if !task.isInbox {
+                            Button("稍等") { snooze(task) }.tint(.orange)
+                        }
                     }
                 }
             }

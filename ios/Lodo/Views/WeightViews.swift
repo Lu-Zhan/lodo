@@ -438,7 +438,7 @@ struct WeightSection: View {
                             if task.status == .done {
                                 Text("任务已完成")
                             } else {
-                                Text("已加入任务 · \(TaskItem.format(task.remindAt))")
+                                Text("已加入任务 · \(task.isInbox ? LocalizedContent.inboxCaption() : TaskItem.format(task.remindAt))")
                             }
                         }
                         .font(.caption)

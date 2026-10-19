@@ -19,7 +19,8 @@ enum TaskActions {
             repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
             repeatTimes: parsed.repeatTimes, project: parsed.project)
         task.attachment = attachment
-        task.alarm = parsed.alarm ?? false
+        // 收集里的事项没有时间,也就没有闹钟。
+        task.alarm = parsed.isInbox ? false : (parsed.alarm ?? false)
         context.insert(task)
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
@@ -35,6 +36,7 @@ enum TaskActions {
         task.repeatTimes = parsed.repeatTimes
         task.project = parsed.project
         if let alarm = parsed.alarm { task.alarm = alarm }
+        if parsed.isInbox { task.alarm = false }
         task.phaseRaw = TaskPhase.start.rawValue
         task.nextRemindAt = parsed.remindAt
         task.ignoreStreak = 0
@@ -145,7 +147,7 @@ enum TaskActions {
 
     /// 应用改期候选:非重复事项连 remindAt 一起改,重复事项只顺延本次。
     static func applyReschedule(_ task: TaskItem, to date: Date, context: ModelContext) {
-        guard task.status == .pending else { return }
+        guard task.status == .pending, !task.isInbox else { return }
         if !task.isRecurring { task.remindAt = date }
         task.nextRemindAt = date
         try? context.save()

@@ -144,8 +144,20 @@ public final class TaskItem {
         ignoreStreak = d.ignoreStreak
     }
 
-    /// 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00"。
+    /// 「收集」里的事项(没有截止时间、不提醒)的提醒时间:`Date.distantFuture`。
+    ///
+    /// 不另加一列标记:收集事项的 remindAt/nextRemindAt 都是这个值,"是不是收集"由它
+    /// 推出来(`isInbox`)。这样 SwiftData/CloudKit/备份/手表都不用改结构,而且没顾及
+    /// 收集的老代码看到的只是"很久以后才到期"——不会到期、不会逾期、不会响,
+    /// 最坏也就是排在最后,不会误提醒。要显示日期、要排通知的地方仍然要显式跳过它。
+    public static let inboxDate = Date.distantFuture
+
+    /// 在「收集」里:没有截止时间,也不提醒。
+    public var isInbox: Bool { remindAt >= Self.inboxDate }
+
+    /// 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00";收集里的事项是「收集」。
     public var caption: String {
+        if isInbox { return "收集" }
         var parts = [Self.format(nextRemindAt)]
         if isRecurring {
             parts.append(data.repeatLabel)

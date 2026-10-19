@@ -109,7 +109,9 @@ struct AddTaskIntent: AppIntent {
             let addedMessage = String(format: LocalizedStrings.text(.ios_core_intent_task_added,
                                                                      language: AppSettings.language),
                                       task.title,
-                                      LocalizedContent.dateCaption(task.nextRemindAt))
+                                      // 没说时间的进了「收集」:报「收集」,别把占位日期读出来。
+                                      task.isInbox ? LocalizedContent.inboxCaption()
+                                          : LocalizedContent.dateCaption(task.nextRemindAt))
             return .result(dialog: IntentDialog(stringLiteral: addedMessage))
         } catch {
             // 解析不了(缺时间/无 key/断网):交接给 app 内 agent,下次打开自动带出

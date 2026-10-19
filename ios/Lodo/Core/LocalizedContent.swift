@@ -6,6 +6,7 @@ import LodoCore
 /// showing the same data in the selected app language.
 enum LocalizedContent {
     static func taskCaption(_ task: TaskItem, language: AppLanguage = AppSettings.language) -> String {
+        if task.isInbox { return inboxCaption(language) }
         var parts = [dateCaption(task.nextRemindAt, language: language)]
         if task.isRecurring {
             parts.append(repeatCaption(type: task.repeatType, days: task.repeatDays,
@@ -20,6 +21,7 @@ enum LocalizedContent {
     }
 
     static func taskCaption(_ task: ParsedTask, language: AppLanguage = AppSettings.language) -> String {
+        if task.isInbox { return inboxCaption(language) }
         var parts = [dateCaption(task.remindAt, language: language)]
         if task.repeatType != .none {
             parts.append(repeatCaption(type: task.repeatType, days: task.repeatDays,
@@ -28,6 +30,11 @@ enum LocalizedContent {
             parts.append(LocalizedStrings.text(.shared_all_day, language: language))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// 「收集」里的事项(没有时间、不提醒)在时间那一格写的字。
+    static func inboxCaption(_ language: AppLanguage = AppSettings.language) -> String {
+        String(localized: "收集", bundle: .appLanguage(language), locale: language.locale)
     }
 
     static func repeatLabel(_ task: TaskItem,

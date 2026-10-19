@@ -912,3 +912,79 @@ final class CanonicalIDTests: XCTestCase {
         XCTAssertEqual(uuid, valid[0], "要换回列表里原样的字符串,app 拿它查 TaskItem")
     }
 }
+
+extension CommandParseTests {
+    // MARK: - 收集(没有时间、不提醒)
+
+    func testCreateInboxTaskWithoutTime() throws {
+        let payload: [String: Any] = ["actions": [[
+            "action": "create", "title": "买牙膏", "remind_at": "", "all_day": true,
+            "repeat_type": "daily", "repeat_days": [], "repeat_times": ["09:00"], "inbox": true,
+        ]]]
+        let result = try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false)
+        guard case .actions(let actions) = result, case .create(let parsed) = actions.first else {
+            return XCTFail("expected create")
+        }
+        XCTAssertTrue(parsed.isInbox)
+        XCTAssertEqual(parsed.remindAt, TaskItem.inboxDate)
+        // 收集里的事项不全天、不重复:模型多给的这些一律清掉。
+        XCTAssertFalse(parsed.allDay)
+        XCTAssertEqual(parsed.repeatType, .none)
+        XCTAssertTrue(parsed.repeatTimes.isEmpty)
+    }
+
+    /// 没给时间又没说放收集:多半是模型漏了字段,照旧报错,不悄悄塞进收集。
+    func testMissingTimeWithoutInboxIsError() {
+        let payload: [String: Any] = ["actions": [[
+            "action": "create", "title": "买牙膏", "remind_at": "",
+            "all_day": false, "repeat_type": "none", "repeat_days": [], "repeat_times": [],
+        ]]]
+        XCTAssertThrowsError(try DeepSeekClient.parseCommand(payload, validUUIDs: [], memoryEnabled: false))
+    }
+
+    /// 收集里的"晚上做作业"定到 22:00:update 带时间、inbox false,出来就不是收集了。
+    func testUpdateInboxTaskToTimed() throws {
+        let uuid = UUID().uuidString
+        var payload = taskPayload(action: "update", uuid: uuid, title: "晚上做作业",
+                                  remindAt: "2026-07-08 22:00")
+        payload["inbox"] = false
+        let result = try DeepSeekClient.parseCommand(["actions": [payload]], validUUIDs: [uuid],
+                                                     memoryEnabled: false)
+        guard case .actions(let actions) = result,
+              case .update(let id, let parsed) = actions.first else { return XCTFail("expected update") }
+        XCTAssertEqual(id, uuid)
+        XCTAssertFalse(parsed.isInbox)
+    }
+
+    /// 反过来:有时间的事项"不用提醒了"→ update 成收集。
+    func testUpdateTimedTaskToInbox() throws {
+        let uuid = UUID().uuidString
+        var payload = taskPayload(action: "update", uuid: uuid)
+        payload["remind_at"] = ""
+        payload["inbox"] = true
+        let result = try DeepSeekClient.parseCommand(["actions": [payload]], validUUIDs: [uuid],
+                                                     memoryEnabled: false)
+        guard case .actions(let actions) = result,
+              case .update(_, let parsed) = actions.first else { return XCTFail("expected update") }
+        XCTAssertTrue(parsed.isInbox)
+    }
+
+    /// 收集里的事项按 nextRemindAt 排在最后:有排期的超过 50 条时也要带进 prompt,
+    /// 而且不给模型看占位日期。
+    func testPromptKeepsInboxTasksAndHidesPlaceholderDate() {
+        let base = Date(timeIntervalSince1970: 1_783_000_000)
+        var tasks: [(uuid: String, task: ParsedTask)] = (0..<60).map { i in
+            (uuid: "s\(i)", task: ParsedTask(title: "排期\(i)", remindAt: base.addingTimeInterval(Double(i) * 60),
+                                         allDay: false, repeatType: .none, repeatDays: [], repeatTimes: []))
+        }
+        let inbox = ParsedTask(title: "晚上做作业", remindAt: Date(), allDay: false,
+                               repeatType: .none, repeatDays: [], repeatTimes: []).asInbox
+        tasks.append((uuid: "inbox-1", task: inbox))
+        let result = DeepSeekClient.commandSystemPrompt(
+            tasks: tasks, capabilities: DeepSeekClient.CommandCapabilities())
+        XCTAssertEqual(result.tasks.count, 50)
+        XCTAssertTrue(result.tasks.contains { $0.uuid == "inbox-1" })
+        XCTAssertTrue(result.system.contains("\"inbox\":true"))
+        XCTAssertFalse(result.system.contains("4001"))
+    }
+}

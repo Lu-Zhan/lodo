@@ -80,7 +80,8 @@ enum TaskAlarms {
         if tasks.isEmpty && existing.isEmpty { return }
         guard manager.authorizationState == .authorized else { return }
 
-        let candidates = tasks.map {
+        // 「收集」里的事项没有时间,不排闹钟。
+        let candidates = tasks.filter { !$0.isInbox }.map {
             TaskAlarmPlan.Candidate(id: $0.uuid, title: $0.title, remindAt: $0.remindAt,
                                     pending: $0.status == .pending, alarm: $0.alarm)
         }

@@ -401,7 +401,8 @@ public enum AgentSkillStore {
         "repeat_type": "none",
       "repeat_days": [],
       "repeat_times": [],
-      "project": ""}
+      "project": "",
+      "inbox": true/false}
 
     规则:
     - "今天/明天/后天/周X/X月X日" 等相对时间基于当前时间换算成具体日期。
@@ -412,7 +413,14 @@ public enum AgentSkillStore {
     "每周二四"→ [1, 3],"每个周末"→ [5, 6])。repeat_times 为当天的提醒时间点列表,可以有多个\
     (如"每天9点和21点提醒吃药" → ["09:00", "21:00"]);重复事项 remind_at 填第一次提醒的时间。
     - project 是这件事属于哪个项目/主题(如"装修""考研""带娃"),推断不出来就留空字符串,不要瞎猜。
-    - 无法解析出时间时,返回 {"error": "原因"}。
+    - 「收集」放的是没有截止时间、也不需要提醒的事(想做但没定时间的事,如"买牙膏""有空整理照片"):\
+    用户完全没说时间、日期,也没要你提醒时,inbox 设为 true,remind_at 给空字符串 "",\
+    all_day 为 false、不重复;其余情况 inbox 一律为 false。不要为了凑字段自己编一个时间。
+    - 当前待办列表里 inbox 为 true 的就是收集里的事项。用户给它定了时间/截止时间\
+    (如已有"晚上做作业",用户说"晚上做作业设到 10 点")→ update 这一条,inbox 为 false,\
+    remind_at 填那个时间("到 10 点""10 点前"是截止时间,remind_at 就填当天 22:00);\
+    反过来用户说某件事"不用提醒了/不定时间了/放到收集里"→ update 这一条,inbox 为 true,\
+    remind_at 给空字符串。两种都是修改原事项,不要新建一条再删旧的。
     """
 
     private static let defaultMemory = """

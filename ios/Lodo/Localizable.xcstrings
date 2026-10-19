@@ -18090,6 +18090,86 @@
         }
       }
     },
+    "收集" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inbox"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收集"
+          }
+        }
+      }
+    },
+    "放进收集" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put in Inbox"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放进收集"
+          }
+        }
+      }
+    },
+    "收集里的事不设时间、不提醒,想好什么时候做再定时间。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inbox items have no time and no reminder. Set a time once you decide when to do it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收集里的事不设时间、不提醒,想好什么时候做再定时间。"
+          }
+        }
+      }
+    },
+    "收集里还没有东西" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing in your inbox yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收集里还没有东西"
+          }
+        }
+      }
+    },
+    "不设时间、不提醒的事先放在这里。想好什么时候做,跟 AI 说一句就能定上时间,比如「做作业设到晚上 10 点」。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Things without a time or reminder go here. Once you decide when, just tell the AI, e.g. \"Set homework for 10 PM tonight.\""
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不设时间、不提醒的事先放在这里。想好什么时候做,跟 AI 说一句就能定上时间,比如「做作业设到晚上 10 点」。"
+          }
+        }
+      }
+    },
     "未来" : {
       "localizations" : {
         "en" : {

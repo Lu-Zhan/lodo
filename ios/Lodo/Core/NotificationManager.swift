@@ -132,7 +132,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
         let center = UNUserNotificationCenter.current()
         cancelChain(for: task.uuid)
-        guard task.status == .pending else { return }
+        // 「收集」里的事项没有时间、不提醒。
+        guard task.status == .pending, !task.isInbox else { return }
 
         let interval = TimeInterval(AppSettings.snoozeMinutes * 60)
         let now = Date()
@@ -213,7 +214,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         var pending = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" })
         pending.sortBy = [SortDescriptor(\.nextRemindAt)]
-        let tasks = (try? context.fetch(pending)) ?? []
+        let fetched = (try? context.fetch(pending)) ?? []
+        // 「收集」里的事项不提醒,不占通知预算(残留的旧链顺手撤掉:刚从有时间改成收集的)。
+        for task in fetched where task.isInbox { cancelChain(for: task.uuid) }
+        let tasks = fetched.filter { !$0.isInbox }
 
         // 忽略/超时语义 reconcile:本地通知没有可靠的"用户看了没理会"回调,
         // 只能在每次进前台时把已过期的 nextRemindAt 按时间差批量追平到"如果
@@ -382,6 +386,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     @MainActor
     func snooze(_ task: TaskItem, context: ModelContext) {
+        // 收集里的事项没有提醒可以稍等(稍等会给它排出一个 15 分钟后的提醒)。
+        guard !task.isInbox else { return }
         var d = task.data
         Scheduler.snooze(&d, now: Date(), snoozeMinutes: AppSettings.snoozeMinutes)
         task.apply(d)
@@ -391,6 +397,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     @MainActor
     func ignore(_ task: TaskItem, context: ModelContext) {
+        guard !task.isInbox else { return }
         var d = task.data
         Scheduler.ignore(&d, now: Date(), snoozeMinutes: AppSettings.snoozeMinutes)
         task.apply(d)
