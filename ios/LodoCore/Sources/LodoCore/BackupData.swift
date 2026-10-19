@@ -1149,6 +1149,10 @@ public struct BackupPayload: Codable {
     /// 体检档案:家人档案与报告条目(报告本身在 memoryItems 里)。新增字段,老备份缺 key 时兜底为空。
     public var healthProfiles: [BackupHealthProfile] = []
     public var checkupEntries: [BackupCheckupEntry] = []
+    /// 体重管理:手记的体重/体脂率与目标。新增字段,老备份缺 key 时兜底为空/nil。
+    public var weightRecords: [BackupWeightRecord] = []
+    public var weightGoal: WeightGoal?
+    public var foodRecords: [BackupFoodRecord] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
@@ -1164,7 +1168,10 @@ public struct BackupPayload: Codable {
         packingItems: [BackupPackingItem] = [],
         financeEntries: [BackupFinanceEntry] = [],
         healthProfiles: [BackupHealthProfile] = [],
-        checkupEntries: [BackupCheckupEntry] = []
+        checkupEntries: [BackupCheckupEntry] = [],
+        weightRecords: [BackupWeightRecord] = [],
+        weightGoal: WeightGoal? = nil,
+        foodRecords: [BackupFoodRecord] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -1183,6 +1190,9 @@ public struct BackupPayload: Codable {
         self.financeEntries = financeEntries
         self.healthProfiles = healthProfiles
         self.checkupEntries = checkupEntries
+        self.weightRecords = weightRecords
+        self.weightGoal = weightGoal
+        self.foodRecords = foodRecords
     }
 
     /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
@@ -1217,6 +1227,10 @@ public struct BackupPayload: Codable {
             [BackupHealthProfile].self, forKey: .healthProfiles) ?? []
         checkupEntries = try c.decodeIfPresent(
             [BackupCheckupEntry].self, forKey: .checkupEntries) ?? []
+        weightRecords = try c.decodeIfPresent(
+            [BackupWeightRecord].self, forKey: .weightRecords) ?? []
+        weightGoal = try c.decodeIfPresent(WeightGoal.self, forKey: .weightGoal)
+        foodRecords = try c.decodeIfPresent([BackupFoodRecord].self, forKey: .foodRecords) ?? []
     }
 }
 
@@ -1294,5 +1308,70 @@ extension BackupCheckupEntry {
         entry.date = date
         entry.sortIndex = sortIndex
         entry.createdAt = createdAt
+    }
+}
+
+/// 体重管理里手记的一笔(健康库里的体重不备份,它在健康库里)。
+public struct BackupWeightRecord: Codable {
+    public var uuid: UUID
+    public var date: Date
+    public var weightKg: Double?
+    public var bodyFatPercent: Double?
+    public var note: String
+    public var createdAt: Date
+}
+
+extension WeightRecord {
+    public var backup: BackupWeightRecord {
+        BackupWeightRecord(uuid: uuid, date: date, weightKg: weightKg,
+                           bodyFatPercent: bodyFatPercent, note: note, createdAt: createdAt)
+    }
+}
+
+extension BackupWeightRecord {
+    public func apply(to record: WeightRecord) {
+        record.uuid = uuid
+        record.date = date
+        record.weightKg = weightKg
+        record.bodyFatPercent = bodyFatPercent
+        record.note = note
+        record.createdAt = createdAt
+    }
+}
+
+/// 体重管理里记的一顿饭。
+public struct BackupFoodRecord: Codable {
+    public var uuid: UUID
+    public var date: Date
+    public var text: String
+    public var estimated: Bool
+    public var calories: Double
+    public var proteinG: Double
+    public var fatG: Double
+    public var carbsG: Double
+    public var itemsData: String
+    public var createdAt: Date
+}
+
+extension FoodRecord {
+    public var backup: BackupFoodRecord {
+        BackupFoodRecord(uuid: uuid, date: date, text: text, estimated: estimated, calories: calories,
+                         proteinG: proteinG, fatG: fatG, carbsG: carbsG, itemsData: itemsData,
+                         createdAt: createdAt)
+    }
+}
+
+extension BackupFoodRecord {
+    public func apply(to record: FoodRecord) {
+        record.uuid = uuid
+        record.date = date
+        record.text = text
+        record.estimated = estimated
+        record.calories = calories
+        record.proteinG = proteinG
+        record.fatG = fatG
+        record.carbsG = carbsG
+        record.itemsData = itemsData
+        record.createdAt = createdAt
     }
 }

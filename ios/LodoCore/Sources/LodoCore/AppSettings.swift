@@ -45,6 +45,8 @@ public enum AppSettings {
     public static let openAgentOnLaunchKey = "openAgentOnLaunch"
     public static let healthEnabledKey = "healthEnabled"
     public static let healthRangeDaysKey = "healthRangeDays"
+    /// 体重管理的目标(`WeightGoal.encoded` 的 JSON 串,空串 = 没设)。存储值别改。
+    public static let weightGoalKey = "weightGoal"
     /// 空气质量(健康页/总览/小组件)。**默认关**:要用定位,开了会把约 1 公里精度的
     /// 坐标发给 Open-Meteo——和健康开关分开,它不碰健康数据。
     public static let airQualityEnabledKey = "airQualityEnabled"

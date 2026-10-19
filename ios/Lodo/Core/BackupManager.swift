@@ -61,6 +61,9 @@ enum BackupManager {
         let financeEntries = ((try? context.fetch(FetchDescriptor<FinanceEntry>())) ?? [])
         let healthProfiles = ((try? context.fetch(FetchDescriptor<HealthProfile>())) ?? [])
         let checkupEntries = ((try? context.fetch(FetchDescriptor<CheckupEntry>())) ?? [])
+        let weightRecords = ((try? context.fetch(FetchDescriptor<WeightRecord>())) ?? [])
+        let foodRecords = ((try? context.fetch(FetchDescriptor<FoodRecord>())) ?? [])
+        let weightGoal = WeightGoal.decode(UserDefaults.standard.string(forKey: AppSettings.weightGoalKey) ?? "")
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
             .map { BackupSkillOverride(id: $0.rawValue, content: AgentSkillStore.content(for: $0)) }
@@ -87,7 +90,10 @@ enum BackupManager {
             packingItems: packingItems.map { $0.backup },
             financeEntries: financeEntries.map { $0.backup },
             healthProfiles: healthProfiles.map { $0.backup },
-            checkupEntries: checkupEntries.map { $0.backup })
+            checkupEntries: checkupEntries.map { $0.backup },
+            weightRecords: weightRecords.map { $0.backup },
+            weightGoal: weightGoal.isEmpty ? nil : weightGoal,
+            foodRecords: foodRecords.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -297,6 +303,33 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: entry)
+        }
+        for dto in payload.weightRecords {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<WeightRecord>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let record = existing ?? {
+                let created = WeightRecord(uuid: dto.uuid)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: record)
+        }
+        for dto in payload.foodRecords {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<FoodRecord>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let record = existing ?? {
+                let created = FoodRecord(uuid: dto.uuid)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: record)
+        }
+        // 目标只在本机还没设时恢复,不覆盖用户在这台设备上已经填好的。
+        if let goal = payload.weightGoal,
+           (UserDefaults.standard.string(forKey: AppSettings.weightGoalKey) ?? "").isEmpty {
+            UserDefaults.standard.set(goal.encoded, forKey: AppSettings.weightGoalKey)
         }
 
         // 新闻订阅:只恢复订阅本身,文章下次打开新闻页时重新抓。按 uuid 去重合并。

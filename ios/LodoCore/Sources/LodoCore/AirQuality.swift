@@ -54,7 +54,7 @@ public enum AQICategory: String, CaseIterable, Codable, Sendable {
     public var colorHex: UInt32 {
         switch self {
         case .good: return 0x00E400
-        case .moderate: return 0xFFFF00
+        case .moderate: return 0xE9B824  // 不用 EPA 原版纯黄 #FFFF00:白底上太刺眼(用户要求换柔和的黄)
         case .sensitive: return 0xFF7E00
         case .unhealthy: return 0xFF0000
         case .veryUnhealthy: return 0x8F3F97

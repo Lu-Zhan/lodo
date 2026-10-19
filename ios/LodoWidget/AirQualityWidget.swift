@@ -84,7 +84,7 @@ struct AirQualitySnapshot: Codable {
     }
 
     static func color(_ aqi: Int) -> Color {
-        [Color(red: 0, green: 0.894, blue: 0), Color(red: 1, green: 1, blue: 0),
+        [Color(red: 0, green: 0.894, blue: 0), Color(red: 0.914, green: 0.722, blue: 0.141),
          Color(red: 1, green: 0.494, blue: 0), Color(red: 1, green: 0, blue: 0),
          Color(red: 0.561, green: 0.247, blue: 0.592), Color(red: 0.494, green: 0, blue: 0.137)][categoryIndex(aqi)]
     }

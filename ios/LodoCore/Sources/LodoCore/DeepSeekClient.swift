@@ -1348,6 +1348,54 @@ public enum DeepSeekClient {
         return HealthAnalysis(analysis: analysis, suggestions: Array(suggestions.prefix(3)))
     }
 
+    /// 健康页「体重管理」:一句简短建议 + 某一天的饮食安排(每餐可以点一下建成任务)。
+    /// summary 是 `WeightPlan.promptSummary`,healthSummary 是健康库的汇总(活动量、睡眠),
+    /// 没开健康分析就不传。只发汇总,不发逐条记录。
+    public static func weightPlan(
+        summary: String, healthSummary: String? = nil, todaySummary: String? = nil,
+        day: Date, isToday: Bool, language: String = "中文"
+    ) async throws -> WeightDietPlan {
+        let stamp = String(dateFormatter.string(from: day).prefix(10))
+        let dayText = isToday ? "今天(\(stamp))剩下的时间,现在是 \(dateFormatter.string(from: Date()))" : "明天(\(stamp))"
+        let system = """
+        你是提醒事项应用 lodo 的体重管理助手。根据用户的体重、体脂率、目标和最近的变化,用\(language)给出:
+        1. 一句不超过 40 个字(英文不超过 25 个词)的简短建议:针对最近的变化说一件最该做的事,具体可执行,\
+        不要"保持健康""注意饮食"这类空话;离目标很近或已经达到时就鼓励保持。
+        2. \(dayText)的饮食安排,3 到 5 餐(早餐/午餐/晚餐,需要时加一顿加餐),每餐写具体吃什么和大概分量,\
+        家常、容易买到;按目标决定热量缺口或盈余,减重时每天缺口不超过 500 千卡,不推荐节食、代餐、减肥药。\
+        给今天排时,已经吃过的不要再排,剩下几餐按今天已经摄入的热量和活动消耗调整。
+        你不是医生或营养师:不做诊断;BMI 过低或体重变化异常快时,建议咨询医生。
+        只返回 JSON:{"advice": "一句话", "meals": [{"meal": "早餐", "time": "HH:mm", "food": "吃什么", "calories": 估算千卡整数}]},\
+        不要任何其他文字。\(personaBlock)
+        """
+        var user = summary
+        if let healthSummary, !healthSummary.isEmpty { user += "\n\n最近的健康数据:\n\(healthSummary)" }
+        if isToday, let todaySummary, !todaySummary.isEmpty { user += "\n\n\(todaySummary)" }
+        let result = try await payload(system: system, user: user, timeout: 90)
+        guard let plan = WeightDietPlan.parse(result, day: day) else {
+            throw DeepSeekError.parse("返回格式异常:缺少 advice/meals")
+        }
+        return plan
+    }
+
+    /// 健康页「体重管理」记饮食:用户用文字描述吃了什么,估算每样东西的份量、热量和三大营养素。
+    /// 解析在 `NutritionEstimate.parse`(可离线单测),总量由客户端逐项相加。
+    public static func estimateNutrition(text: String) async throws -> NutritionEstimate {
+        let system = """
+        你是营养估算助手。用户用一句话描述自己吃了什么,把它拆成一样一样的食物/饮品,\
+        按常见做法和常见份量估算每一样的热量(千卡)、蛋白质、脂肪、碳水(克)。\
+        用户写了份量就按写的算,没写就按中国家常的一人份估;饮料、酱料、加的油也算进去。\
+        只是估算,给整数或一位小数即可,不要拒绝、不要反问。
+        只返回 JSON:{"items": [{"name": "牛肉面", "amount": "1 碗", "calories": 550, "protein": 25, "fat": 15, "carbs": 75}]},\
+        不要任何其他文字。
+        """
+        let result = try await payload(system: system, user: text, timeout: 60)
+        guard let estimate = NutritionEstimate.parse(result) else {
+            throw DeepSeekError.parse("返回格式异常:缺少 items")
+        }
+        return estimate
+    }
+
     /// 把一段订单/确认单文本(订票邮件、酒店确认信、行程单,或 PDF 提取出的正文)
     /// 解析成若干行程项。和 `parse`(新建待办)一样是"给一段自然语言、要一份结构化
     /// 字段",区别是一次可能出来好几条(往返机票 + 酒店)。

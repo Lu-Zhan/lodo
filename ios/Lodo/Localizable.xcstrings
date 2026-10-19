@@ -33,6 +33,54 @@
         }
       }
     },
+    "%@ 公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 公斤"
+          }
+        }
+      }
+    },
+    "%@的饮食安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meal Plan for %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@的饮食安排"
+          }
+        }
+      }
+    },
+    "%lld 千卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld kcal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 千卡"
+          }
+        }
+      }
+    },
     "%lld 周前" : {
       "localizations" : {
         "en" : {
@@ -61,6 +109,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 天里 %lld 天有数据 · 日均 %@ 步"
+          }
+        }
+      }
+    },
+    "%lld 条未估算" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld not estimated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 条未估算"
+          }
+        }
+      }
+    },
+    "%lld 条记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld entries"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 条记录"
           }
         }
       }
@@ -113,6 +193,22 @@
         }
       }
     },
+    "AI 健康分析" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Health Analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 健康分析"
+          }
+        }
+      }
+    },
     "AI 写了一句(你刚改过备注,没有直接替换):%@" : {
       "localizations" : {
         "en" : {
@@ -129,6 +225,22 @@
         }
       }
     },
+    "AI 正在安排饮食…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI is planning your meals…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 正在安排饮食…"
+          }
+        }
+      }
+    },
     "AQI 最高 %lld(%@)" : {
       "localizations" : {
         "en" : {
@@ -141,6 +253,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AQI 最高 %lld(%@)"
+          }
+        }
+      }
+    },
+    "BMI" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BMI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BMI"
           }
         }
       }
@@ -2110,6 +2238,22 @@
         }
       }
     },
+    "上次没估算出来" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last estimate failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次没估算出来"
+          }
+        }
+      }
+    },
     "上车点" : {
       "localizations" : {
         "en" : {
@@ -2415,6 +2559,38 @@
         }
       }
     },
+    "今日饮食" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's Meals"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日饮食"
+          }
+        }
+      }
+    },
+    "今日饮食安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's Meal Plan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日饮食安排"
+          }
+        }
+      }
+    },
     "今晚住 %@" : {
       "localizations" : {
         "en" : {
@@ -2427,6 +2603,214 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今晚住 %@"
+          }
+        }
+      }
+    },
+    "从任务里移除" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从任务里移除"
+          }
+        }
+      }
+    },
+    "任务已完成" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task completed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任务已完成"
+          }
+        }
+      }
+    },
+    "估算" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "估算"
+          }
+        }
+      }
+    },
+    "估算营养" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimate Nutrition"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "估算营养"
+          }
+        }
+      }
+    },
+    "体脂率" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body Fat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体脂率"
+          }
+        }
+      }
+    },
+    "体脂率 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body fat %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体脂率 %@"
+          }
+        }
+      }
+    },
+    "体脂率趋势" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body fat trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体脂率趋势"
+          }
+        }
+      }
+    },
+    "体重" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重"
+          }
+        }
+      }
+    },
+    "体重和体脂率至少填一个。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter weight, body fat, or both."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重和体脂率至少填一个。"
+          }
+        }
+      }
+    },
+    "体重目标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weight Goal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重目标"
+          }
+        }
+      }
+    },
+    "体重管理" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重管理"
+          }
+        }
+      }
+    },
+    "体重记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weight Log"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重记录"
+          }
+        }
+      }
+    },
+    "体重趋势" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weight trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重趋势"
           }
         }
       }
@@ -2447,6 +2831,166 @@
         }
       }
     },
+    "偏瘦" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Underweight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偏瘦"
+          }
+        }
+      }
+    },
+    "克" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "g"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "克"
+          }
+        }
+      }
+    },
+    "全部体重记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Weight Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部体重记录"
+          }
+        }
+      }
+    },
+    "全部加入任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add All to Tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部加入任务"
+          }
+        }
+      }
+    },
+    "公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "公斤"
+          }
+        }
+      }
+    },
+    "再记一笔就能看到趋势。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log one more entry to see the trend."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再记一笔就能看到趋势。"
+          }
+        }
+      }
+    },
+    "删除这条记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This Record"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这条记录"
+          }
+        }
+      }
+    },
+    "加入任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to tasks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入任务"
+          }
+        }
+      }
+    },
+    "厘米" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "cm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "厘米"
+          }
+        }
+      }
+    },
+    "去脂体重" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lean Mass"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "去脂体重"
+          }
+        }
+      }
+    },
     "另外 %lld 个全天日程" : {
       "localizations" : {
         "en" : {
@@ -2463,6 +3007,54 @@
         }
       }
     },
+    "可不填" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可不填"
+          }
+        }
+      }
+    },
+    "吃了什么" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What you ate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "吃了什么"
+          }
+        }
+      }
+    },
+    "吃了什么?如:一碗牛肉面加个卤蛋" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What did you eat? e.g. a bowl of beef noodles with an egg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "吃了什么?如:一碗牛肉面加个卤蛋"
+          }
+        }
+      }
+    },
     "和上周同期持平" : {
       "localizations" : {
         "en" : {
@@ -2475,6 +3067,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "和上周同期持平"
+          }
+        }
+      }
+    },
+    "填身高后计算" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add height to calculate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填身高后计算"
           }
         }
       }
@@ -2511,6 +3119,22 @@
         }
       }
     },
+    "已加入任务 · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added to tasks · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已加入任务 · %@"
+          }
+        }
+      }
+    },
     "已完成「%@」" : {
       "localizations" : {
         "en" : {
@@ -2539,6 +3163,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已结束 %lld 项"
+          }
+        }
+      }
+    },
+    "已达到目标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goal reached"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已达到目标"
+          }
+        }
+      }
+    },
+    "开启健康分析后读取" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on health analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启健康分析后读取"
           }
         }
       }
@@ -2591,6 +3247,22 @@
         }
       }
     },
+    "按你的身高,BMI 正常范围对应 %@–%@ 公斤。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For your height, a normal BMI is %@–%@ kg."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按你的身高,BMI 正常范围对应 %@–%@ 公斤。"
+          }
+        }
+      }
+    },
     "接下来 12 小时" : {
       "localizations" : {
         "en" : {
@@ -2603,6 +3275,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接下来 12 小时"
+          }
+        }
+      }
+    },
+    "摄入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intake"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摄入"
           }
         }
       }
@@ -2623,6 +3311,22 @@
         }
       }
     },
+    "数字看起来不对,请检查一下。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That number doesn't look right. Please check it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数字看起来不对,请检查一下。"
+          }
+        }
+      }
+    },
     "旅行中" : {
       "localizations" : {
         "en" : {
@@ -2635,6 +3339,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "旅行中"
+          }
+        }
+      }
+    },
+    "明日饮食安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomorrow's Meal Plan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明日饮食安排"
           }
         }
       }
@@ -2719,6 +3439,70 @@
         }
       }
     },
+    "未设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not set"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未设置"
+          }
+        }
+      }
+    },
+    "来自健康" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From Health"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自健康"
+          }
+        }
+      }
+    },
+    "来自健康 App" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From the Health app"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自健康 App"
+          }
+        }
+      }
+    },
+    "正在估算…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimating…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在估算…"
+          }
+        }
+      }
+    },
     "正在读取 %lld 张照片…" : {
       "localizations" : {
         "en" : {
@@ -2795,6 +3579,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "比上周同期 %@"
+          }
+        }
+      }
+    },
+    "比如:早上空腹" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Morning, before breakfast"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比如:早上空腹"
           }
         }
       }
@@ -18571,6 +19371,22 @@
         }
       }
     },
+    "没能保存,请再试一次。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't save. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没能保存,请再试一次。"
+          }
+        }
+      }
+    },
     "没能取到当前位置。请在系统设置里允许 Lodo 使用位置后再试。" : {
       "localizations" : {
         "en" : {
@@ -18665,6 +19481,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "活动圆环"
+          }
+        }
+      }
+    },
+    "活动消耗" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active Energy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "活动消耗"
           }
         }
       }
@@ -19101,6 +19933,22 @@
         }
       }
     },
+    "清除目标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Goal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除目标"
+          }
+        }
+      }
+    },
     "清除筛选" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -19476,6 +20324,22 @@
         }
       }
     },
+    "生成今日建议与饮食安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Today's Tip & Meal Plan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成今日建议与饮食安排"
+          }
+        }
+      }
+    },
     "生成今日总结" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -19506,6 +20370,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "生成今日简报"
+          }
+        }
+      }
+    },
+    "生成明日建议与饮食安排" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Tomorrow's Tip & Meal Plan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成明日建议与饮食安排"
           }
         }
       }
@@ -19700,6 +20580,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "目标"
+          }
+        }
+      }
+    },
+    "目标 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goal %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目标 %@"
+          }
+        }
+      }
+    },
+    "目标 %@ 公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goal %@ kg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目标 %@ 公斤"
+          }
+        }
+      }
+    },
+    "目标体脂率" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Target Body Fat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目标体脂率"
+          }
+        }
+      }
+    },
+    "目标体重" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Target Weight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目标体重"
+          }
+        }
+      }
+    },
+    "目标进度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goal progress"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目标进度"
           }
         }
       }
@@ -20011,6 +20971,118 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "第 %lld/%lld 天"
+          }
+        }
+      }
+    },
+    "约 %lld 千卡" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About %lld kcal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "约 %lld 千卡"
+          }
+        }
+      }
+    },
+    "编辑记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Record"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑记录"
+          }
+        }
+      }
+    },
+    "肥胖" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obese"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "肥胖"
+          }
+        }
+      }
+    },
+    "脂肪 %@ 公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fat %@ kg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脂肪 %@ 公斤"
+          }
+        }
+      }
+    },
+    "营养估算" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nutrition Estimate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "营养估算"
+          }
+        }
+      }
+    },
+    "蛋白 %lld 克 · 碳水 %lld 克 · 脂肪 %lld 克" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protein %lldg · Carbs %lldg · Fat %lldg"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蛋白 %lld 克 · 碳水 %lld 克 · 脂肪 %lld 克"
+          }
+        }
+      }
+    },
+    "蛋白 / 碳水 / 脂肪" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protein / Carbs / Fat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蛋白 / 碳水 / 脂肪"
           }
         }
       }
@@ -22083,6 +23155,22 @@
         }
       }
     },
+    "记一笔" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记一笔"
+          }
+        }
+      }
+    },
     "记一笔资产" : {
       "localizations" : {
         "en" : {
@@ -22111,6 +23199,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记一项资产"
+          }
+        }
+      }
+    },
+    "记下" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记下"
           }
         }
       }
@@ -22159,6 +23263,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记录"
+          }
+        }
+      }
+    },
+    "记录体重和体脂率" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Track weight and body fat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录体重和体脂率"
           }
         }
       }
@@ -22246,6 +23366,22 @@
         }
       }
     },
+    "设好目标体重和体脂率后,lodo 会画出变化趋势;AI 可以给一句建议和一份饮食安排,每一餐都能一键加进任务。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a target weight and body fat, and lodo charts your progress. AI can give a tip and a meal plan, and you can add any meal to your tasks with one tap."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设好目标体重和体脂率后,lodo 会画出变化趋势;AI 可以给一句建议和一份饮食安排,每一餐都能一键加进任务。"
+          }
+        }
+      }
+    },
     "设置" : {
       "localizations" : {
         "en" : {
@@ -22274,6 +23410,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置开关"
+          }
+        }
+      }
+    },
+    "设置目标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Goal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置目标"
+          }
+        }
+      }
+    },
+    "设置目标体重" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set Target Weight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置目标体重"
           }
         }
       }
@@ -22973,6 +24141,22 @@
         }
       }
     },
+    "超重" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overweight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "超重"
+          }
+        }
+      }
+    },
     "趋势" : {
       "localizations" : {
         "en" : {
@@ -23082,6 +24266,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "身份"
+          }
+        }
+      }
+    },
+    "身高" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Height"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身高"
+          }
+        }
+      }
+    },
+    "身高填 50 到 260 厘米、体重 20 到 500 公斤、体脂率 2 到 80 之间。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Height must be 50–260 cm, weight 20–500 kg, and body fat between 2 and 80."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身高填 50 到 260 厘米、体重 20 到 500 公斤、体脂率 2 到 80 之间。"
           }
         }
       }
@@ -24243,6 +25459,22 @@
         }
       }
     },
+    "还没有记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Records Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有记录"
+          }
+        }
+      }
+    },
     "还没有记收入" : {
       "localizations" : {
         "en" : {
@@ -24355,6 +25587,22 @@
         }
       }
     },
+    "还没记体重" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No weight logged yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没记体重"
+          }
+        }
+      }
+    },
     "还没连上 iCloud" : {
       "localizations" : {
         "en" : {
@@ -24383,6 +25631,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没连上 iCloud,消息暂时只在这台设备上"
+          }
+        }
+      }
+    },
+    "还要减 %@ 公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kg to lose"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还要减 %@ 公斤"
+          }
+        }
+      }
+    },
+    "还要增 %@ 公斤" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kg to gain"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还要增 %@ 公斤"
           }
         }
       }
@@ -24559,6 +25839,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这份档案正在共享:删除会停止共享,其他成员那边留一份不再同步的副本。"
+          }
+        }
+      }
+    },
+    "这句描述会发给 AI 服务,按常见做法和份量估算,仅供参考。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This description is sent to the AI service, which estimates from typical recipes and portions. For reference only."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这句描述会发给 AI 服务,按常见做法和份量估算,仅供参考。"
+          }
+        }
+      }
+    },
+    "这句描述会发给 AI 服务估算热量和营养素。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This description is sent to the AI service to estimate calories and nutrients."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这句描述会发给 AI 服务估算热量和营养素。"
           }
         }
       }
@@ -24835,6 +26147,22 @@
         }
       }
     },
+    "这次没能刷新,上面是之前的安排。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't refresh. Showing the previous plan."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没能刷新,上面是之前的安排。"
+          }
+        }
+      }
+    },
     "这次没能刷新分析,上面是之前的结果。" : {
       "localizations" : {
         "en" : {
@@ -24863,6 +26191,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这次没能生成分析,可能是网络或 AI 服务暂时出错。"
+          }
+        }
+      }
+    },
+    "这次没能生成饮食安排,可能是网络或 AI 服务暂时出错。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't create a meal plan. The network or AI service may be having trouble."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次没能生成饮食安排,可能是网络或 AI 服务暂时出错。"
           }
         }
       }
@@ -25515,6 +26859,22 @@
         }
       }
     },
+    "都可以不填。填了身高会计算 BMI,并给出健康体重范围。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All optional. Add your height to see your BMI and a healthy weight range."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "都可以不填。填了身高会计算 BMI,并给出健康体重范围。"
+          }
+        }
+      }
+    },
     "都是今天的" : {
       "localizations" : {
         "en" : {
@@ -25643,6 +27003,22 @@
         }
       }
     },
+    "配置 AI 服务后,这里可以生成建议和饮食安排。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up an AI service to get tips and a meal plan here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配置 AI 服务后,这里可以生成建议和饮食安排。"
+          }
+        }
+      }
+    },
     "配置后 AI 助手能在需要最新信息或回答一般问题时联网搜索;免费在 tavily.com 注册获取 API Key,不填则不启用联网搜索。" : {
       "localizations" : {
         "en" : {
@@ -25738,6 +27114,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重复"
+          }
+        }
+      }
+    },
+    "重新估算" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-estimate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新估算"
           }
         }
       }
@@ -26499,6 +27891,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "飞行时长"
+          }
+        }
+      }
+    },
+    "饮食记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Food Log"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "饮食记录"
           }
         }
       }

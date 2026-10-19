@@ -6,7 +6,7 @@ import LodoCore
 // 空气质量(美标 AQI,Open-Meteo):健康页的一组 + 总览的一个模块。取数在 AirQualityStore。
 
 extension AQICategory {
-    /// EPA 等级色。只用在色块/圆点/柱子上,**不拿来写字**——「良」那档是纯黄,白底上读不清。
+    /// EPA 等级色。只用在色块/圆点/柱子上,**不拿来写字**——「良」那档就算换成了柔和的黄,白底上当字色仍然读不清。
     var color: Color {
         Color(red: Double((colorHex >> 16) & 0xFF) / 255,
               green: Double((colorHex >> 8) & 0xFF) / 255,
@@ -203,20 +203,14 @@ struct AirQualitySection: View {
             .padding(.vertical, 4)
         }
 
-        // 第三行:今天逐小时的 AQI,右边 PM2.5 / PM10 / NO₂。
-        HStack(alignment: .center, spacing: 12) {
-            if !report.todayHourly(now: .now).isEmpty {
-                AirQualityHourlyChart(hourly: report.todayHourly(now: .now))
-                    .frame(height: 80)
-            } else {
-                Spacer()
-            }
-            VStack(alignment: .trailing, spacing: 4) {
-                concentration("PM2.5", report.pm2_5)
-                concentration("PM10", report.pm10)
-                concentration("NO₂", report.nitrogenDioxide)
-            }
-            .fixedSize()
+        // 第三行:当前的 PM2.5 / PM10 / NO₂。只报此刻,不画逐小时变化(用户要求)。
+        HStack(spacing: 0) {
+            concentration("PM2.5", report.pm2_5)
+                .frame(maxWidth: .infinity)
+            concentration("PM10", report.pm10)
+                .frame(maxWidth: .infinity)
+            concentration("NO₂", report.nitrogenDioxide)
+                .frame(maxWidth: .infinity)
         }
         .padding(.vertical, 4)
     }
@@ -231,7 +225,6 @@ struct AirQualitySection: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize()
-                .frame(minWidth: 40, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
         .accessibilityHint("微克每立方米")
@@ -361,28 +354,6 @@ struct WeatherAttributionView: View {
             Link("数据来源", destination: attribution.legalPage)
                 .font(.footnote)
         }
-    }
-}
-
-/// 今天逐小时的 AQI 柱子,按等级上色,「现在」那根下面一条竖线。
-struct AirQualityHourlyChart: View {
-    let hourly: [AirQualityReport.HourPoint]
-    var showsAxis = true
-
-    var body: some View {
-        Chart {
-            ForEach(hourly, id: \.date) { point in
-                BarMark(x: .value("时间", point.date, unit: .hour), y: .value("AQI", point.aqi))
-                    .foregroundStyle(AQICategory(aqi: point.aqi).color)
-                    .cornerRadius(2)
-            }
-            RuleMark(x: .value("现在", Date.now, unit: .hour))
-                .foregroundStyle(.secondary.opacity(0.5))
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-        }
-        .chartXAxis(showsAxis ? .automatic : .hidden)
-        .chartYAxis(showsAxis ? .automatic : .hidden)
-        .accessibilityLabel("今天逐小时空气质量")
     }
 }
 

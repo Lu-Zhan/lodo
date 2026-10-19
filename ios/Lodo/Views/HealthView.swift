@@ -28,6 +28,8 @@ struct HealthView: View {
     /// 最近一次分析请求失败了(和"没配 AI"分开:配了 AI 的人不该看到"去配置")。
     @State private var analysisFailed = false
     @State private var chartKind: HealthMetricKind?
+    /// AI 分析默认收起,点开才显示(也才发请求);不持久化,每次进来都是收起的。
+    @State private var analysisExpanded = false
     /// 下拉刷新时 +1,空气质量那一组跟着强制重新请求。
     @State private var airRefreshToken = 0
     /// 刚上传整理完的体检报告,直接 push 进它的详情。
@@ -70,6 +72,13 @@ struct HealthView: View {
         memoryItems.filter { $0.isHealth && !$0.isCheckup }
     }
 
+    /// 今天的活动能量(Apple Watch 记的那一圈),健康库里今天还没有就是 nil。
+    private var todayActiveEnergy: Double? {
+        guard let last = report.series(.activeEnergy)?.points.last,
+              Calendar.current.isDateInToday(last.date) else { return nil }
+        return last.value
+    }
+
     /// 当前画折线的指标:默认第一条有数据的序列。
     private var shownKind: HealthMetricKind? {
         chartKind ?? report.series.first?.kind
@@ -77,9 +86,15 @@ struct HealthView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 // 空气质量排最上面:和健康开关、健康库都无关(Mac 上也能看),自己有开关。
                 AirQualitySection(refreshToken: airRefreshToken)
+                // 体重管理不依赖健康库(手记就能用,Mac 上也有);开了健康分析时补上健康库的体重和汇总。
+                WeightSection(
+                    healthWeights: showsData ? (report.series(.bodyMass)?.points ?? []) : [],
+                    healthSummary: showsData && !report.isEmpty ? report.promptSummary() : nil,
+                    todayActiveEnergy: showsData ? todayActiveEnergy : nil)
                 if !HealthKitBridge.isAvailable {
                     unavailableSection
                 } else if !showsData {
@@ -94,15 +109,21 @@ struct HealthView: View {
                 } else if report.isEmpty {
                     noDataSection
                 } else {
-                    // AI 分析排在最前:它是这一页真正要看的结论,指标格子和
-                    // 折线图是支撑它的原始数据,读的顺序该是"先看结论,再往下
-                    // 核对数据",不是反过来滑到底才看到一句话。
+                    // AI 分析默认收起(用户要求),点开才显示、才去要。
                     analysisSection
                     metricsSection
                     chartSection
                 }
                 CheckupSection(memoryItems: memoryItems, openReport: $openReport)
                 memoriesSection
+            }
+            #if DEBUG
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("--demo-weight-scroll") else { return }
+                try? await Task.sleep(for: .seconds(1.5))
+                proxy.scrollTo(WeightSection.foodAnchor, anchor: .top)
+            }
+            #endif
             }
             .navigationDestination(item: $openReport) { CheckupReportView(reportID: $0) }
             .navigationDestination(item: $openProfile) { CheckupProfileView(profileID: $0.id) }
@@ -277,29 +298,55 @@ struct HealthView: View {
 
     @ViewBuilder
     private var analysisSection: some View {
-        Section("AI 分析") {
-            if loadingAnalysis {
+        Section {
+            Button {
+                withAnimation(.lodoAware(.snappy)) { analysisExpanded.toggle() }
+                if analysisExpanded, analysis == nil, !loadingAnalysis {
+                    Task { await loadAnalysis() }
+                }
+            } label: {
                 HStack {
-                    ProgressView().controlSize(.small)
-                    Text("正在分析…").foregroundStyle(.secondary)
+                    Label("AI 健康分析", systemImage: "sparkles")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(analysisExpanded ? 90 : 0))
                 }
-            } else if let analysis {
-                Label(analysis.analysis, systemImage: "sparkles")
-                    .font(.body)
-                ForEach(analysis.suggestions, id: \.self) { suggestion in
-                    Label(suggestion, systemImage: "checkmark.circle")
-                        .font(.body)
-                }
-                if analysisFailed {
-                    retryRow("这次没能刷新分析,上面是之前的结果。")
-                }
-            } else if analysisFailed {
-                retryRow("这次没能生成分析,可能是网络或 AI 服务暂时出错。")
-            } else {
-                Text("配置 AI 服务后,这里会给出针对这几天数据的分析和建议。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
+            .accessibilityValue(analysisExpanded ? Text("已展开") : Text("已收起"))
+            if analysisExpanded {
+                analysisContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var analysisContent: some View {
+        if loadingAnalysis {
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("正在分析…").foregroundStyle(.secondary)
+            }
+        } else if let analysis {
+            Text(analysis.analysis)
+                .font(.body)
+            ForEach(analysis.suggestions, id: \.self) { suggestion in
+                Label(suggestion, systemImage: "checkmark.circle")
+                    .font(.body)
+            }
+            if analysisFailed {
+                retryRow("这次没能刷新分析,上面是之前的结果。")
+            }
+        } else if analysisFailed {
+            retryRow("这次没能生成分析,可能是网络或 AI 服务暂时出错。")
+        } else if !DeepSeekClient.isConfigured {
+            Text("配置 AI 服务后,这里会给出针对这几天数据的分析和建议。")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -380,6 +427,12 @@ struct HealthView: View {
         report = fresh
         // 换了回看天数,原来选的指标可能这段时间没有数据了,退回第一条有数据的。
         if let chartKind, report.series(chartKind) == nil { self.chartKind = nil }
+        // 收起时不发请求;换了天数/下拉刷新时把旧结果清掉,下次点开重新要。
+        guard analysisExpanded else {
+            analysis = nil
+            analysisFailed = false
+            return
+        }
         await loadAnalysis(force: force)
     }
 
@@ -509,6 +562,8 @@ struct HealthView: View {
                             9400, 10200, 8700, 11300, 9800, 10500, 11200]),
             series(.sleepHours, [6.4, 7.1, 6.8, 5.9, 7.3, 7.6, 6.9,
                                  7.2, 6.6, 7.4, 7.0, 6.3, 7.5, 7.1]),
+            series(.activeEnergy, [380, 420, 310, 520, 610, 450, 480,
+                                   530, 590, 470, 640, 560, 600, 420]),
             series(.restingHeartRate, [62, 63, 64, 66, 63, 61, 62,
                                        61, 60, 61, 59, 60, 61, 59]),
         ], rangeDays: 14)
