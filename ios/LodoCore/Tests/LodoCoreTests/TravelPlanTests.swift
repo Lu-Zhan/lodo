@@ -512,4 +512,52 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertTrue(trip.isUpcoming(now: date(day: 7, hour: 9)))
         XCTAssertFalse(trip.isUpcoming(now: date(day: 9, hour: 9)))
     }
+
+    // MARK: - 拖动排序
+
+    func testDropKeepsClockTimeWhenItFits() {
+        // 原来 14:00,拖到另一天 10:00 和 16:00 之间:只换日子。
+        let start = TravelPlan.dropStart(original: date(day: 8, hour: 14),
+                                         previous: date(day: 10, hour: 10),
+                                         next: date(day: 10, hour: 16), day: date(day: 10),
+                                         calendar: calendar)
+        XCTAssertEqual(start, date(day: 10, hour: 14))
+    }
+
+    func testDropBetweenTakesMidpoint() {
+        let start = TravelPlan.dropStart(original: date(day: 10, hour: 18),
+                                         previous: date(day: 10, hour: 10),
+                                         next: date(day: 10, hour: 13), day: date(day: 10),
+                                         calendar: calendar)
+        XCTAssertEqual(start, date(day: 10, hour: 11, minute: 30))
+    }
+
+    func testDropAtHeadAndTail() {
+        let head = TravelPlan.dropStart(original: date(day: 10, hour: 18), previous: nil,
+                                        next: date(day: 10, hour: 9, minute: 30),
+                                        day: date(day: 10), calendar: calendar)
+        XCTAssertEqual(head, date(day: 10, hour: 8, minute: 30))
+        let tail = TravelPlan.dropStart(original: date(day: 10, hour: 8), previous: date(day: 10, hour: 20),
+                                        next: nil, day: date(day: 10), calendar: calendar)
+        XCTAssertEqual(tail, date(day: 10, hour: 21))
+        // 前一项已经 23:30:往后加不了一小时,取到当天末尾的中点,仍然在它后面、仍是这一天。
+        let late = TravelPlan.dropStart(original: date(day: 10, hour: 8), previous: date(day: 10, hour: 23, minute: 30),
+                                        next: nil, day: date(day: 10), calendar: calendar)
+        XCTAssertGreaterThan(late, date(day: 10, hour: 23, minute: 30))
+        XCTAssertEqual(calendar.startOfDay(for: late), date(day: 10))
+    }
+
+    func testDropWithoutOriginalUsesNine() {
+        let start = TravelPlan.dropStart(original: nil, previous: nil, next: nil,
+                                         day: date(day: 9), calendar: calendar)
+        XCTAssertEqual(start, date(day: 9, hour: 9))
+    }
+
+    func testDropBetweenCloseNeighborsStaysBetween() {
+        let start = TravelPlan.dropStart(original: nil, previous: date(day: 9, hour: 10),
+                                         next: date(day: 9, hour: 10, minute: 4),
+                                         day: date(day: 9), calendar: calendar)
+        XCTAssertGreaterThan(start, date(day: 9, hour: 10))
+        XCTAssertLessThan(start, date(day: 9, hour: 10, minute: 4))
+    }
 }

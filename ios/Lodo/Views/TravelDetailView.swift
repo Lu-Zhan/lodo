@@ -36,6 +36,10 @@ struct TravelDetailView: View {
     @State private var camera: MapCameraPosition = .automatic
     /// 地图上选中的那个点(`MapPin.id`)。点列表里的行、或者直接点地图上的点都会改它。
     @State private var selectedPin: String?
+    /// 日程里拖动时正悬停在哪一行上(`天|uuid`),那行染一下。
+    @State private var dropTargetRow: String?
+    /// 日程各行的高度,判断放在一行的上半截还是下半截。
+    @State private var dropRowHeights: [UUID: CGFloat] = [:]
     @State private var viewingFlight: MemoryItem?
     @State private var addingItem = false
     @State private var addingDate: Date = .now
@@ -712,13 +716,26 @@ struct TravelDetailView: View {
                             }
                     } else {
                         ForEach(rows) { entry in
-                            draggable(entry) {
+                            let key = "\(day.date.timeIntervalSince1970)|\(entry.id)"
+                            draggable(entry, from: day.date) {
                                 entryRow(entry, group: "day-\(day.date.timeIntervalSince1970)",
-                                         showDate: false)
+                                         showDate: false, dropTargeted: dropTargetRow == key)
                             }
-                            // 拖到这天任意一行上都算放进这一天。
-                            .dropDestination(for: String.self) { ids, _ in
-                                moveDropped(ids, to: day.date)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                                dropRowHeights[entry.id] = $0
+                            }
+                            // 放在这一行的上半截 = 排到它前面,下半截 = 排到它后面;
+                            // 放在当晚住的酒店那行上 = 排到这天最后。
+                            .dropDestination(for: String.self) { ids, location in
+                                let height = dropRowHeights[entry.id] ?? 0
+                                return moveDropped(ids, to: day.date, onto: entry,
+                                                   below: height > 0 && location.y > height / 2)
+                            } isTargeted: { targeted in
+                                if targeted {
+                                    dropTargetRow = key
+                                } else if dropTargetRow == key {
+                                    dropTargetRow = nil
+                                }
                             }
                         }
                     }
@@ -742,7 +759,9 @@ struct TravelDetailView: View {
             let extras = TravelPlan.outOfRange(entries, days: trip.days)
             if !extras.isEmpty {
                 Section {
-                    ForEach(extras) { entry in entryRow(entry, group: "extras") }
+                    ForEach(extras) { entry in
+                        draggable(entry) { entryRow(entry, group: "extras") }
+                    }
                 } header: {
                     Text("行程日期之外")
                 } footer: {
@@ -752,7 +771,10 @@ struct TravelDetailView: View {
             let pending = TravelPlan.unscheduled(entries)
             if !pending.isEmpty {
                 Section("未排期") {
-                    ForEach(pending) { entry in entryRow(entry, group: "unscheduled") }
+                    // 还没定日子的也能直接拖进某一天。
+                    ForEach(pending) { entry in
+                        draggable(entry) { entryRow(entry, group: "unscheduled") }
+                    }
                 }
             }
         }
@@ -992,31 +1014,61 @@ struct TravelDetailView: View {
 
     // MARK: - 拖动改天
 
-    /// 长按拖起一行、放到另一天,就把它挪到那天(几点不变)。
+    /// 长按拖起一行,放到某天的某一行上下 = 排到那个位置(日程按时间排,所以是改
+    /// 时间,见 `TravelPlan.dropStart`);放到某天的标题上 = 挪到那天、几点不变。
     /// 交通类(航班/火车/客车)不给拖:班次时刻是订单上的真实数据,
     /// 拖一下就悄悄改掉太危险,要改走编辑表单。
+    ///
+    /// 拖的内容是 `uuid|这一行所在那天`:住宿每晚都出现一次,挪几天要按拖起的那一晚算。
     @ViewBuilder
-    private func draggable<Row: View>(_ entry: TravelEntry,
+    private func draggable<Row: View>(_ entry: TravelEntry, from day: Date? = nil,
                                       @ViewBuilder row: () -> Row) -> some View {
         if entry.kind.isTransport {
             row()
         } else {
-            row().draggable(entry.id.uuidString)
+            row().draggable(day.map { "\(entry.id.uuidString)|\($0.timeIntervalSince1970)" }
+                            ?? entry.id.uuidString)
         }
     }
 
-    private func moveDropped(_ ids: [String], to day: Date) -> Bool {
+    /// `target` 为 nil(放在标题、空白那天上)时只换日子;否则排到 `target` 前面
+    /// (`below` 时后面)。住宿不参与排位置(恒在一天的最后),一律只换日子。
+    private func moveDropped(_ payloads: [String], to day: Date,
+                             onto target: TravelEntry? = nil, below: Bool = false) -> Bool {
+        dropTargetRow = nil
         var moved = false
         let tripID = trip.uuid
-        for id in ids {
+        for payload in payloads {
+            let parts = payload.split(separator: "|")
+            let sourceDay = parts.count > 1
+                ? Double(parts[1]).map { Date(timeIntervalSince1970: $0) } : nil
             // 只认这次旅行里的:从另一个窗口拖来别的旅行的行程项,不能改了它的日期
             // 而这一页又看不见。
-            guard let uuid = UUID(uuidString: id),
+            guard let first = parts.first, let uuid = UUID(uuidString: String(first)),
                   let item = memoryItems.first(where: {
                       $0.uuid == uuid && $0.isTravel && $0.travelTripUUID == tripID
                   }),
                   item.travelKind?.isTransport != true else { continue }
-            TravelStore.move(item, toDay: day, context: context)
+            if target?.id == uuid { continue }
+            if let target, item.travelKind != .lodging {
+                let rows = (TravelPlan.group(entries, into: trip.days)
+                    .first { $0.date == day }?.entries ?? [])
+                    .filter { $0.kind != .lodging && $0.id != uuid }
+                let index: Int
+                if target.kind != .lodging, let i = rows.firstIndex(where: { $0.id == target.id }) {
+                    index = below ? i + 1 : i
+                } else {
+                    index = rows.count
+                }
+                let start = TravelPlan.dropStart(
+                    original: item.travelStart,
+                    previous: index > 0 ? rows[index - 1].start : nil,
+                    next: index < rows.count ? rows[index].start : nil,
+                    day: day)
+                TravelStore.reschedule(item, start: start, context: context)
+            } else {
+                TravelStore.move(item, toDay: day, from: sourceDay, context: context)
+            }
             moved = true
         }
         return moved
@@ -2237,7 +2289,7 @@ struct TravelDetailView: View {
     /// `group` 标出这一行属于哪一组(哪一天、交通、待安排……),同组的行在列表背后
     /// 共用一整块玻璃,见 `travelPanelRow`。
     private func entryRow(_ entry: TravelEntry, group: String, showDate: Bool = true,
-                          extraLine: String? = nil) -> some View {
+                          extraLine: String? = nil, dropTargeted: Bool = false) -> some View {
         HStack(spacing: 8) {
         Button {
             select(entry)
@@ -2304,7 +2356,8 @@ struct TravelDetailView: View {
             .pressable()
             .accessibilityLabel("详情")
         }
-        .travelPanelRow(group: group, selected: isSelected(entry))
+        // 拖着别的行悬停在这一行上时也染一下,看得出会落在哪儿。
+        .travelPanelRow(group: group, selected: isSelected(entry) || dropTargeted)
         // 行操作一律收在向左滑那一侧(全 app 没有 leading swipeActions,见 CLAUDE.md)。
         .swipeActions(edge: .trailing) {
             if let item = item(for: entry) {

@@ -124,14 +124,16 @@ enum TravelStore {
 
     /// 拖到另一天:日期换成目标那天,**几点几分不变**;有结束时间的(住宿退房)
     /// 整体平移同样的天数,时长不变。没有开始时间的(未排期)拖进某天就落在那天 9 点。
-    static func move(_ item: MemoryItem, toDay day: Date, context: ModelContext,
-                     calendar: Calendar = .current) {
+    ///
+    /// `sourceDay` 是被拖起那一行所在的那天:住宿住几晚就在几天里各出现一次,从第三晚
+    /// 那行拖到后一天,是整段往后挪一天,不是把入住日改成那天。
+    static func move(_ item: MemoryItem, toDay day: Date, from sourceDay: Date? = nil,
+                     context: ModelContext, calendar: Calendar = .current) {
         let target = calendar.startOfDay(for: day)
         if let start = item.travelStart {
-            let shift = calendar.startOfDay(for: start).distance(to: target)
-            guard shift != 0 else { return }
-            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: start),
-                                               to: target).day ?? 0
+            let from = calendar.startOfDay(for: sourceDay ?? start)
+            let days = calendar.dateComponents([.day], from: from, to: target).day ?? 0
+            guard days != 0 else { return }
             item.travelStart = calendar.date(byAdding: .day, value: days, to: start)
             if let end = item.travelEnd {
                 item.travelEnd = calendar.date(byAdding: .day, value: days, to: end)
@@ -139,6 +141,21 @@ enum TravelStore {
         } else {
             item.travelStart = calendar.date(byAdding: .hour, value: 9, to: target)
         }
+        MemoryPipeline.finishStructuredSave(item, context: context)
+    }
+
+    /// 「日程」里拖动换位置:开始时间改成 `start`,有结束时间的整体平移、时长不变
+    /// (原来没有开始时间的,结束时间早于新开始就清掉)。新时间由 `TravelPlan.dropStart` 算。
+    static func reschedule(_ item: MemoryItem, start: Date, context: ModelContext) {
+        if let old = item.travelStart {
+            guard old != start else { return }
+            if let end = item.travelEnd {
+                item.travelEnd = end.addingTimeInterval(start.timeIntervalSince(old))
+            }
+        } else if let end = item.travelEnd, end < start {
+            item.travelEnd = nil
+        }
+        item.travelStart = start
         MemoryPipeline.finishStructuredSave(item, context: context)
     }
 

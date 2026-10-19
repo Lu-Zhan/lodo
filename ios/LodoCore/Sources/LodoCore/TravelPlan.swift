@@ -338,6 +338,53 @@ public enum TravelPlan {
         })
     }
 
+    /// 在「日程」里把一项拖到某天两项之间时,它的新开始时间。
+    ///
+    /// 日程是按时间排的,"挪个位置"就是改时间。`previous`/`next` 是落点前后那两项的
+    /// 开始时间(落在这天开头/末尾时对应一头为 nil)。几条规则:
+    /// - 原来的几点几分放在那天正好落在两者之间,就**只换日子、钟点不动**(跨天拖动
+    ///   原来就是这个语义,改动越少越好);没有原时间的按 9 点算。
+    /// - 放不下时:夹在两项之间取中点;放在最前面取后一项前 1 小时;放在最后面取前一项
+    ///   后 1 小时。都对齐到 5 分钟,对齐后不再严格落在两者之间就不对齐。
+    /// - 结果限制在这一天里(0:00–23:59)。
+    public static func dropStart(
+        original: Date?, previous: Date?, next: Date?, day: Date,
+        calendar: Calendar = .current
+    ) -> Date {
+        let dayStart = calendar.startOfDay(for: day)
+        let dayEnd = (calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart)
+            .addingTimeInterval(-60)
+        let lower = max(previous ?? dayStart, dayStart)
+        let upper = min(next ?? dayEnd, dayEnd)
+        func fits(_ time: Date) -> Bool {
+            (previous == nil ? time >= lower : time > lower)
+                && (next == nil ? time <= upper : time < upper)
+        }
+        let clock: Date = {
+            let parts = original.map { calendar.dateComponents([.hour, .minute], from: $0) }
+            return calendar.date(bySettingHour: parts?.hour ?? 9, minute: parts?.minute ?? 0,
+                                 second: 0, of: dayStart) ?? dayStart
+        }()
+        if fits(clock) { return clock }
+        guard upper > lower else { return lower }
+        let raw: Date
+        switch (previous, next) {
+        case (nil, _?):
+            let earlier = upper.addingTimeInterval(-3600)
+            raw = earlier >= lower ? earlier : lower.addingTimeInterval(upper.timeIntervalSince(lower) / 2)
+        case (_?, nil):
+            let later = lower.addingTimeInterval(3600)
+            raw = later <= upper ? later : lower.addingTimeInterval(upper.timeIntervalSince(lower) / 2)
+        default:
+            raw = lower.addingTimeInterval(upper.timeIntervalSince(lower) / 2)
+        }
+        let step: TimeInterval = 300
+        let offset = raw.timeIntervalSince(dayStart)
+        let rounded = dayStart.addingTimeInterval((offset / step).rounded(.down) * step)
+        if fits(rounded) { return rounded }
+        return fits(raw) ? raw : lower
+    }
+
     /// 排序:有时间的按时间升序在前,没时间的按标题排在后面。
     public static func sorted(_ entries: [TravelEntry]) -> [TravelEntry] {
         entries.sorted { lhs, rhs in
