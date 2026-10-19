@@ -101,8 +101,11 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
         let finished = Scheduler.advance(&d, now: Date())
         task.apply(d)
         if finished && d.status == .pending {
-            context.insert(TaskItem(title: d.title, remindAt: Date(),
-                                    status: .done, doneAt: Date()))
+            let history = TaskItem(title: d.title, remindAt: Date(), status: .done, doneAt: Date())
+            // 用药提醒:手表库里没有服药记录表,带上 medicationUUID,手机同步到之后
+            // 按这条历史补记一笔服药(`MedicationStore.backfillDosesFromHistory`)。
+            history.medicationUUID = task.medicationUUID
+            context.insert(history)
         }
         try? context.save()
         if task.status == .done {

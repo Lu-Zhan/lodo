@@ -16,6 +16,10 @@ struct SettingsView: View {
     @AppStorage(AppSettings.calendarWriteEnabledKey) private var calendarWriteEnabled = false
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var healthRangeDays = 14
+    @AppStorage(AppSettings.cycleTrackingKey) private var cyclePreferenceRaw = ""
+    @AppStorage(AppSettings.biologicalSexKey) private var biologicalSexRaw = ""
+    /// nil = 从没设过(默认那几类);用 String? 绑不了 @AppStorage,这里拿 "default" 占位。
+    @AppStorage(AppSettings.spotlightCategoriesKey) private var spotlightRaw = SettingsView.spotlightUnset
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @AppStorage(AppSettings.assetStatsHiddenKey) private var assetStatsHidden = true
     @AppStorage(AppSettings.assetsInSidebarKey) private var assetsInSidebar = true
@@ -39,6 +43,62 @@ struct SettingsView: View {
     @State private var showImportConfirm = false
     @State private var importErrorMessage: String?
     @State private var importSuccessMessage: String?
+
+    static let spotlightUnset = "default"
+
+    private var spotlightEnabled: Set<SpotlightCategory> {
+        SpotlightCategory.decode(spotlightRaw == Self.spotlightUnset ? nil : spotlightRaw)
+    }
+
+    private func spotlightBinding(_ category: SpotlightCategory) -> Binding<Bool> {
+        Binding(
+            get: { spotlightEnabled.contains(category) },
+            set: { on in
+                var set = spotlightEnabled
+                if on { set.insert(category) } else { set.remove(category) }
+                spotlightRaw = SpotlightCategory.encode(set)
+                SpotlightIndexer.shared.settingsChanged()
+            })
+    }
+
+    private func spotlightTitle(_ category: SpotlightCategory) -> LocalizedStringKey {
+        switch category {
+        case .task: return "任务"
+        case .countdown: return "倒数日"
+        case .memory: return "记忆"
+        case .contact: return "人脉"
+        case .trip: return "旅行"
+        case .menu: return "菜单"
+        case .asset: return "资产"
+        }
+    }
+
+    private func spotlightSymbol(_ category: SpotlightCategory) -> String {
+        switch category {
+        case .task: return "checklist"
+        case .countdown: return "hourglass"
+        case .memory: return "bookmark"
+        case .contact: return "person.crop.circle"
+        case .trip: return "airplane"
+        case .menu: return "menucard"
+        case .asset: return "banknote"
+        }
+    }
+
+    /// 「自动」按健康 App 里的性别定;把当前识别结果写出来,用户才知道为什么开/没开。
+    private var cycleFooter: String {
+        let bundle = Bundle.appLanguage()
+        let locale = language.locale
+        let sex: String
+        switch CyclePlan.Sex(rawValue: biologicalSexRaw) ?? .unknown {
+        case .female: sex = String(localized: "女性", bundle: bundle, locale: locale)
+        case .male: sex = String(localized: "男性", bundle: bundle, locale: locale)
+        case .other: sex = String(localized: "其他", bundle: bundle, locale: locale)
+        case .unknown: sex = String(localized: "未读到", bundle: bundle, locale: locale)
+        }
+        return String(localized: "「健康」页的经期记录与预测。自动:健康 App 里的性别是女性时开启,其余关闭(要开启健康分析才读得到性别)。当前识别为:\(sex)。经期数据不会发给 AI。",
+                      bundle: bundle, locale: locale)
+    }
 
     /// 当前强调色预设(设置页自己也要用它渲染色块)。
     private var accentPalette: AccentPalette {
@@ -155,7 +215,10 @@ struct SettingsView: View {
                             // 打开时就把授权弹窗走一遍,免得用户进了健康页
                             // 只看到一句"暂无数据"却不知道去哪授权。
                             guard enabled else { return }
-                            Task { await HealthKitBridge.requestAuthorization() }
+                            Task {
+                                await HealthKitBridge.requestAuthorization()
+                                HealthKitBridge.refreshBiologicalSex()
+                            }
                         }
                     if healthEnabled {
                         Picker("回看天数", selection: $healthRangeDays) {
@@ -172,6 +235,35 @@ struct SettingsView: View {
                 } footer: {
                     Text("「健康」页在本机汇总步数、睡眠、心率等趋势。只有汇总统计会发给 AI 服务商,原始记录不会离开这台设备;关闭后不发任何请求。")
                 }
+                }
+
+                // ---- 经期(不依赖健康开关,Mac 上也有)----
+                Section {
+                    Picker("经期记录", selection: $cyclePreferenceRaw) {
+                        Text("自动").tag(CyclePlan.Preference.auto.rawValue)
+                        Text("开启").tag(CyclePlan.Preference.on.rawValue)
+                        Text("关闭").tag(CyclePlan.Preference.off.rawValue)
+                    }
+                    .onChange(of: cyclePreferenceRaw) { _, _ in
+                        if !AppSettings.cycleTrackingEnabled { CycleStore.cancelReminder() }
+                    }
+                } header: {
+                    Text("经期")
+                } footer: {
+                    Text(cycleFooter)
+                }
+
+                // ---- 系统搜索(Spotlight)----
+                Section {
+                    ForEach(SpotlightCategory.allCases) { category in
+                        Toggle(isOn: spotlightBinding(category)) {
+                            Label(spotlightTitle(category), systemImage: spotlightSymbol(category))
+                        }
+                    }
+                } header: {
+                    Text("系统搜索")
+                } footer: {
+                    Text("打开的几类可以在 iPhone 下拉搜索(Spotlight)里直接搜到,点结果进到 lodo 里那一条。资产默认不显示;体检、用药、经期这些健康数据不会出现在系统搜索里。")
                 }
 
                 // ---- 通用 ----

@@ -33,6 +33,54 @@
         }
       }
     },
+    "%@ · %@ 已服用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · Taken at %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ 已服用"
+          }
+        }
+      }
+    },
+    "%@ · 已跳过" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · Skipped"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 已跳过"
+          }
+        }
+      }
+    },
+    "%@ · 还没吃" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · Not taken yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 还没吃"
+          }
+        }
+      }
+    },
     "%@ 公斤" : {
       "localizations" : {
         "en" : {
@@ -145,6 +193,22 @@
         }
       }
     },
+    "%lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld/%2$lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld/%lld"
+          }
+        }
+      }
+    },
     ",跳过 %lld 位重复" : {
       "localizations" : {
         "en" : {
@@ -161,6 +225,22 @@
         }
       }
     },
+    "1 小时后" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In 1 hour"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 小时后"
+          }
+        }
+      }
+    },
     "1–3 天" : {
       "localizations" : {
         "en" : {
@@ -173,6 +253,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1–3 天"
+          }
+        }
+      }
+    },
+    "30 分钟后" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In 30 minutes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 分钟后"
           }
         }
       }
@@ -2093,6 +2189,22 @@
         }
       }
     },
+    "「健康」页的经期记录与预测。自动:健康 App 里的性别是女性时开启,其余关闭(要开启健康分析才读得到性别)。当前识别为:%@。经期数据不会发给 AI。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period tracking and predictions on the Health page. Automatic: on when the sex in the Health app is female, off otherwise (requires Health Insights to read it). Currently detected: %@. Cycle data is never sent to AI."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「健康」页的经期记录与预测。自动:健康 App 里的性别是女性时开启,其余关闭(要开启健康分析才读得到性别)。当前识别为:%@。经期数据不会发给 AI。"
+          }
+        }
+      }
+    },
     "一位成员" : {
       "localizations" : {
         "en" : {
@@ -2431,6 +2543,22 @@
         }
       }
     },
+    "不填时间点就是按需服用,不提醒。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No times means as needed, with no reminders."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不填时间点就是按需服用,不提醒。"
+          }
+        }
+      }
+    },
     "不用" : {
       "localizations" : {
         "en" : {
@@ -2619,6 +2747,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从任务里移除"
+          }
+        }
+      }
+    },
+    "从健康 App 导入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import from Health"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从健康 App 导入"
           }
         }
       }
@@ -2847,6 +2991,54 @@
         }
       }
     },
+    "停止朗读" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Reading"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止朗读"
+          }
+        }
+      }
+    },
+    "停用(保留记录)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause (Keep History)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停用(保留记录)"
+          }
+        }
+      }
+    },
+    "健康 App 里没有可导入的药,或者还没允许 lodo 读取。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No medications to import from Health, or lodo hasn't been allowed to read them yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "健康 App 里没有可导入的药,或者还没允许 lodo 读取。"
+          }
+        }
+      }
+    },
     "克" : {
       "localizations" : {
         "en" : {
@@ -2927,6 +3119,22 @@
         }
       }
     },
+    "删除药品" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Medication"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除药品"
+          }
+        }
+      }
+    },
     "删除这条记录" : {
       "localizations" : {
         "en" : {
@@ -2943,6 +3151,38 @@
         }
       }
     },
+    "删除这次记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete This Record"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这次记录"
+          }
+        }
+      }
+    },
+    "删除这种药?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this medication?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这种药?"
+          }
+        }
+      }
+    },
     "加入任务" : {
       "localizations" : {
         "en" : {
@@ -2955,6 +3195,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "加入任务"
+          }
+        }
+      }
+    },
+    "单位:天。只算最近 6 个周期,明显漏记的(短于 15 天或长于 60 天)不计入。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In days. Uses the last 6 cycles; cycles shorter than 15 or longer than 60 days are treated as missed entries and skipped."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单位:天。只算最近 6 个周期,明显漏记的(短于 15 天或长于 60 天)不计入。"
           }
         }
       }
@@ -2991,6 +3247,22 @@
         }
       }
     },
+    "取消闹钟提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn Off Alarm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消闹钟提醒"
+          }
+        }
+      }
+    },
     "另外 %lld 个全天日程" : {
       "localizations" : {
         "en" : {
@@ -3023,6 +3295,22 @@
         }
       }
     },
+    "可选" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选"
+          }
+        }
+      }
+    },
     "吃了什么" : {
       "localizations" : {
         "en" : {
@@ -3051,6 +3339,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "吃了什么?如:一碗牛肉面加个卤蛋"
+          }
+        }
+      }
+    },
+    "周期 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld-day cycle"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周期 %lld 天"
+          }
+        }
+      }
+    },
+    "周期波动" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cycle Variation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周期波动"
+          }
+        }
+      }
+    },
+    "周期第 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cycle day %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周期第 %lld 天"
           }
         }
       }
@@ -3103,6 +3439,22 @@
         }
       }
     },
+    "女性" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Female"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "女性"
+          }
+        }
+      }
+    },
     "完成「%@」" : {
       "localizations" : {
         "en" : {
@@ -3115,6 +3467,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "完成「%@」"
+          }
+        }
+      }
+    },
+    "完成提醒任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From reminder task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成提醒任务"
+          }
+        }
+      }
+    },
+    "完成闹钟提醒的任务" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete Alarm Task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成闹钟提醒的任务"
+          }
+        }
+      }
+    },
+    "导入后,健康 App 里这几种药的服药记录会同步到 lodo。健康 App 不允许其他 app 写入服药记录,所以 lodo 里记的不会出现在健康 App 里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After importing, doses logged in Health for these medications sync to lodo. Health doesn't let other apps write dose records, so doses logged in lodo won't appear in Health."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入后,健康 App 里这几种药的服药记录会同步到 lodo。健康 App 不允许其他 app 写入服药记录,所以 lodo 里记的不会出现在健康 App 里。"
+          }
+        }
+      }
+    },
+    "已停用的药" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused Medications"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已停用的药"
+          }
+        }
+      }
+    },
+    "已关联健康 App" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linked to Health"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已关联健康 App"
           }
         }
       }
@@ -3151,6 +3583,22 @@
         }
       }
     },
+    "已经结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已经结束"
+          }
+        }
+      }
+    },
     "已结束 %lld 项" : {
       "localizations" : {
         "en" : {
@@ -3167,6 +3615,38 @@
         }
       }
     },
+    "已记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logged"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已记录"
+          }
+        }
+      }
+    },
+    "已跳过" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已跳过"
+          }
+        }
+      }
+    },
     "已达到目标" : {
       "localizations" : {
         "en" : {
@@ -3179,6 +3659,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已达到目标"
+          }
+        }
+      }
+    },
+    "平均周期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average Cycle"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均周期"
+          }
+        }
+      }
+    },
+    "平均周期 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avg. cycle %lld days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均周期 %lld 天"
+          }
+        }
+      }
+    },
+    "平均经期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average Period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均经期"
+          }
+        }
+      }
+    },
+    "开了提醒的药会自动建一条重复任务按时提醒,在任务里点完成就记一笔服药。用药记录不会发给 AI。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medications with reminders get a repeating task. Completing the task logs a dose. Medication data is never sent to AI."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开了提醒的药会自动建一条重复任务按时提醒,在任务里点完成就记一笔服药。用药记录不会发给 AI。"
           }
         }
       }
@@ -3215,6 +3759,38 @@
         }
       }
     },
+    "恢复服用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复服用"
+          }
+        }
+      }
+    },
+    "打开的几类可以在 iPhone 下拉搜索(Spotlight)里直接搜到,点结果进到 lodo 里那一条。资产默认不显示;体检、用药、经期这些健康数据不会出现在系统搜索里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turned-on types show up in system search (Spotlight); tap a result to open it in lodo. Assets are off by default; health data such as checkups, medications and cycles never appears in system search."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开的几类可以在 iPhone 下拉搜索(Spotlight)里直接搜到,点结果进到 lodo 里那一条。资产默认不显示;体检、用药、经期这些健康数据不会出现在系统搜索里。"
+          }
+        }
+      }
+    },
     "拖得最久:「%@」%lld 天" : {
       "localizations" : {
         "en" : {
@@ -3247,6 +3823,22 @@
         }
       }
     },
+    "按 28 天估算" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated at 28 days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 28 天估算"
+          }
+        }
+      }
+    },
     "按你的身高,BMI 正常范围对应 %@–%@ 公斤。" : {
       "localizations" : {
         "en" : {
@@ -3263,6 +3855,38 @@
         }
       }
     },
+    "按时提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remind Me"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按时提醒"
+          }
+        }
+      }
+    },
+    "按需服用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As needed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按需服用"
+          }
+        }
+      }
+    },
     "接下来 12 小时" : {
       "localizations" : {
         "en" : {
@@ -3275,6 +3899,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接下来 12 小时"
+          }
+        }
+      }
+    },
+    "提醒任务会一起删掉,已有的服药记录保留。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its reminder task will be deleted too; existing dose records are kept."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒任务会一起删掉,已有的服药记录保留。"
+          }
+        }
+      }
+    },
+    "提醒会自动建成一条重复任务,没完成就按稍等间隔反复提醒;完成任务就记一笔服药。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders become a repeating task that keeps nudging you until done; completing it logs a dose."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒会自动建成一条重复任务,没完成就按稍等间隔反复提醒;完成任务就记一笔服药。"
+          }
+        }
+      }
+    },
+    "提醒已开" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminder on"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒已开"
           }
         }
       }
@@ -3439,6 +4111,150 @@
         }
       }
     },
+    "最近 7 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last 7 Days"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近 7 天"
+          }
+        }
+      }
+    },
+    "服药:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服药:%@"
+          }
+        }
+      }
+    },
+    "服药:%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take: %1$@ %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服药:%@ %@"
+          }
+        }
+      }
+    },
+    "服药时间" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Times"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服药时间"
+          }
+        }
+      }
+    },
+    "服药记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dose History"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服药记录"
+          }
+        }
+      }
+    },
+    "朗读" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Aloud"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "朗读"
+          }
+        }
+      }
+    },
+    "朗读 AI 总结" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read AI Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "朗读 AI 总结"
+          }
+        }
+      }
+    },
+    "朗读全文" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Full Article"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "朗读全文"
+          }
+        }
+      }
+    },
+    "朗读总结" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Summary Aloud"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "朗读总结"
+          }
+        }
+      }
+    },
     "未设置" : {
       "localizations" : {
         "en" : {
@@ -3451,6 +4267,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未设置"
+          }
+        }
+      }
+    },
+    "未读到" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not available"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未读到"
+          }
+        }
+      }
+    },
+    "来了点一下「经期开始了」,结束时再点「结束了」。记过两次以上,lodo 会估下一次大概哪天来,并提前两天提醒。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap \"Period Started\" when it starts and \"Period Ended\" when it ends. After two or more periods, lodo estimates the next one and reminds you two days ahead."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来了点一下「经期开始了」,结束时再点「结束了」。记过两次以上,lodo 会估下一次大概哪天来,并提前两天提醒。"
           }
         }
       }
@@ -3567,6 +4415,54 @@
         }
       }
     },
+    "正在读取健康 App…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading Health…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取健康 App…"
+          }
+        }
+      }
+    },
+    "每天 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天 %@"
+          }
+        }
+      }
+    },
+    "每次用量(如 1 片)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dose (e.g. 1 tablet)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每次用量(如 1 片)"
+          }
+        }
+      }
+    },
     "比上周同期 %@" : {
       "localizations" : {
         "en" : {
@@ -3595,6 +4491,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "比如:早上空腹"
+          }
+        }
+      }
+    },
+    "比预计晚了 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld days later than expected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比预计晚了 %lld 天"
           }
         }
       }
@@ -19355,6 +20267,22 @@
         }
       }
     },
+    "没有闹钟权限,可以到系统「设置 → lodo」里打开「闹钟与计时器」。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No alarm permission. Turn on \"Alarms & Timers\" in Settings → lodo."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有闹钟权限,可以到系统「设置 → lodo」里打开「闹钟与计时器」。"
+          }
+        }
+      }
+    },
     "没有需要合并的检查项" : {
       "localizations" : {
         "en" : {
@@ -19817,6 +20745,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加综合建议"
+          }
+        }
+      }
+    },
+    "添加药品" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Medication"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加药品"
           }
         }
       }
@@ -20455,6 +21399,54 @@
         }
       }
     },
+    "用法" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schedule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用法"
+          }
+        }
+      }
+    },
+    "用药" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medications"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用药"
+          }
+        }
+      }
+    },
+    "用药管理" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medications"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用药管理"
+          }
+        }
+      }
+    },
     "用这句替换" : {
       "localizations" : {
         "en" : {
@@ -20471,6 +21463,22 @@
         }
       }
     },
+    "用闹钟提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use Alarm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用闹钟提醒"
+          }
+        }
+      }
+    },
     "由 %@ 添加" : {
       "localizations" : {
         "en" : {
@@ -20483,6 +21491,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "由 %@ 添加"
+          }
+        }
+      }
+    },
+    "男性" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Male"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "男性"
           }
         }
       }
@@ -20975,6 +21999,22 @@
         }
       }
     },
+    "系统搜索" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Search"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统搜索"
+          }
+        }
+      }
+    },
     "约 %lld 千卡" : {
       "localizations" : {
         "en" : {
@@ -20987,6 +22027,150 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "约 %lld 千卡"
+          }
+        }
+      }
+    },
+    "经期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cycle"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经期"
+          }
+        }
+      }
+    },
+    "经期 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld-day period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经期 %lld 天"
+          }
+        }
+      }
+    },
+    "经期开始了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period Started"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经期开始了"
+          }
+        }
+      }
+    },
+    "经期提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period Reminder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经期提醒"
+          }
+        }
+      }
+    },
+    "经期第 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period day %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经期第 %lld 天"
+          }
+        }
+      }
+    },
+    "经期结束了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period Ended"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经期结束了"
+          }
+        }
+      }
+    },
+    "经期记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Period History"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "经期记录"
+          }
+        }
+      }
+    },
+    "编辑经期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑经期"
+          }
+        }
+      }
+    },
+    "编辑药品" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Medication"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑药品"
           }
         }
       }
@@ -21039,6 +22223,54 @@
         }
       }
     },
+    "自动" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动"
+          }
+        }
+      }
+    },
+    "药品" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medication"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "药品"
+          }
+        }
+      }
+    },
+    "药品名称" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "药品名称"
+          }
+        }
+      }
+    },
     "营养估算" : {
       "localizations" : {
         "en" : {
@@ -21083,6 +22315,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "蛋白 / 碳水 / 脂肪"
+          }
+        }
+      }
+    },
+    "补记一次" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log Past Period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "补记一次"
+          }
+        }
+      }
+    },
+    "补记一次经期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log a Past Period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "补记一次经期"
+          }
+        }
+      }
+    },
+    "补记经期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log Period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "补记经期"
           }
         }
       }
@@ -23171,6 +24451,22 @@
         }
       }
     },
+    "记一笔服药" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log a Dose"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记一笔服药"
+          }
+        }
+      }
+    },
     "记一笔资产" : {
       "localizations" : {
         "en" : {
@@ -23219,6 +24515,22 @@
         }
       }
     },
+    "记下在吃的药和时间,需要提醒时 lodo 会自动建一条任务按时提醒;完成任务或手动记一笔,都会留下服药记录。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add the medications you take and when. With reminders on, lodo creates a task to remind you on time; completing it or logging manually both leave a dose record."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记下在吃的药和时间,需要提醒时 lodo 会自动建一条任务按时提醒;完成任务或手动记一笔,都会留下服药记录。"
+          }
+        }
+      }
+    },
     "记下房子、车子、存款,每月的收入和固定支出,还有信用卡。不用记日常花销,隔几个月回来更新一次就好。" : {
       "localizations" : {
         "en" : {
@@ -23251,6 +24563,22 @@
         }
       }
     },
+    "记为已服用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Taken"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记为已服用"
+          }
+        }
+      }
+    },
     "记录" : {
       "localizations" : {
         "en" : {
@@ -23279,6 +24607,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记录体重和体脂率"
+          }
+        }
+      }
+    },
+    "记录经期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Track Your Period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录经期"
           }
         }
       }
@@ -24169,6 +25513,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "趋势"
+          }
+        }
+      }
+    },
+    "距下次经期约 %lld 天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About %lld days until next period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "距下次经期约 %lld 天"
           }
         }
       }
@@ -25555,6 +26915,22 @@
         }
       }
     },
+    "还没有足够的记录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not enough records yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有足够的记录"
+          }
+        }
+      }
+    },
     "还没有选菜" : {
       "localizations" : {
         "en" : {
@@ -25583,6 +26959,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有配置 AI,去「设置 → AI 设置」里选一个服务商"
+          }
+        }
+      }
+    },
+    "还没结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ongoing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没结束"
           }
         }
       }
@@ -26211,6 +27603,22 @@
         }
       }
     },
+    "这次跳过了" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped This Dose"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这次跳过了"
+          }
+        }
+      }
+    },
     "这趟还想去哪？" : {
       "localizations" : {
         "en" : {
@@ -26529,6 +27937,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择倒数日"
+          }
+        }
+      }
+    },
+    "选择允许读取的药" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Medications to Share"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择允许读取的药"
           }
         }
       }
@@ -26855,6 +28279,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "邮箱(可选)"
+          }
+        }
+      }
+    },
+    "都不选就是每天。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select none for every day."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "都不选就是每天。"
           }
         }
       }
@@ -27343,6 +28783,22 @@
         }
       }
     },
+    "重要的事到点像闹钟一样响一次,静音和专注模式下也会响;之后照常用通知反复提醒。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rings once like an alarm at the due time, even in Silent mode or a Focus; after that, notifications keep reminding you as usual."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重要的事到点像闹钟一样响一次,静音和专注模式下也会响;之后照常用通知反复提醒。"
+          }
+        }
+      }
+    },
     "重试" : {
       "localizations" : {
         "en" : {
@@ -27583,6 +29039,22 @@
         }
       }
     },
+    "闹钟提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alarm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "闹钟提醒"
+          }
+        }
+      }
+    },
     "阅读原文" : {
       "localizations" : {
         "en" : {
@@ -27783,6 +29255,22 @@
         }
       }
     },
+    "预测按最近几个周期的平均长度估算,仅供参考,不能用于避孕。经期记录只存在这台设备和你的 iCloud 里,不会发给 AI。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Predictions use the average of your recent cycles. For reference only — not for contraception. Cycle records stay on this device and in your iCloud and are never sent to AI."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预测按最近几个周期的平均长度估算,仅供参考,不能用于避孕。经期记录只存在这台设备和你的 iCloud 里,不会发给 AI。"
+          }
+        }
+      }
+    },
     "预览" : {
       "localizations" : {
         "en" : {
@@ -27795,6 +29283,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "预览"
+          }
+        }
+      }
+    },
+    "预计 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expected %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预计 %@"
+          }
+        }
+      }
+    },
+    "预计 %lld 天后来月经,记得备好用品。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your period is expected in %lld days. Remember to be prepared."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预计 %lld 天后来月经,记得备好用品。"
+          }
+        }
+      }
+    },
+    "预计今天开始" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expected to start today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预计今天开始"
           }
         }
       }

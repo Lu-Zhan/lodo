@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreSpotlight
 import LodoCore
 
 /// app 的八个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
@@ -198,6 +199,10 @@ struct AppShellView: View {
     /// 非 nil 时切到旅行页并 push 进这次旅行的详情(AI 对话里那条跳转小条)。
     /// 旅行页消费掉之后置回 nil。
     @State private var travelTripRequest: UUID?
+    /// 从系统搜索点进来要打开的人脉 / 菜单(那两页自己 push,消费完置回 nil)。
+    @State private var contactOpenRequest: UUID?
+    @State private var menuOpenRequest: UUID?
+    @Environment(\.modelContext) private var modelContext
     /// 在侧栏里点了「旅行」:正处在某次旅行的日期里时,旅行页直接进那次旅行的详情。
     @State private var travelOpenOngoing = false
 
@@ -397,6 +402,40 @@ struct AppShellView: View {
         // lodo://countdown(锁屏小组件)切到任务页/倒数日页;lodo://voice、lodo://overview
         // (桌面「Chat」小组件)进 AI 页直接开始听 / 进总览。
         .onOpenURL { url in handleDeepLink(url) }
+        // 系统搜索(Spotlight)里点了 lodo 的条目。
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            guard let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
+                  let (category, uuid) = SpotlightCategory.parse(identifier) else { return }
+            openSpotlightItem(category, uuid: uuid)
+        }
+    }
+
+    /// 进到 Spotlight 点中的那一条:任务定位到那一行,记忆/人脉/菜单/旅行 push 进详情,
+    /// 倒数日、资产进那一页。
+    private func openSpotlightItem(_ category: SpotlightCategory, uuid: UUID) {
+        switch category {
+        case .task:
+            routeFromOutside(.todo)
+            focusTaskRequest = uuid
+        case .countdown:
+            routeFromOutside(.countdown)
+        case .asset:
+            routeFromOutside(.assets)
+        case .trip:
+            routeFromOutside(.travel)
+            open(.trip(uuid))
+        case .contact:
+            routeFromOutside(.contact)
+            contactOpenRequest = uuid
+        case .menu:
+            routeFromOutside(.menu)
+            menuOpenRequest = uuid
+        case .memory:
+            var descriptor = FetchDescriptor<MemoryItem>(predicate: #Predicate { $0.uuid == uuid })
+            descriptor.fetchLimit = 1
+            memoryPath = (try? modelContext.fetch(descriptor).first).map { [$0] } ?? []
+            routeFromOutside(.memory)
+        }
     }
 
     // MARK: - 页面
@@ -432,7 +471,7 @@ struct AppShellView: View {
             MemoryListView(onConvertToTodo: convertToTodo,
                            path: $memoryPath, tagFilter: $memoryTagFilter)
         case .contact:
-            ContactListView()
+            ContactListView(openRequest: $contactOpenRequest)
         case .assets:
             AssetsView()
         case .health:
@@ -440,7 +479,7 @@ struct AppShellView: View {
         case .travel:
             TravelListView(openTripRequest: $travelTripRequest, openOngoingRequest: $travelOpenOngoing)
         case .menu:
-            MenuListView()
+            MenuListView(openRequest: $menuOpenRequest)
         case .news:
             NewsListView()
         case .agent:

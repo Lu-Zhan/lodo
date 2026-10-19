@@ -229,7 +229,8 @@ enum RoutineRunner {
             ?? startOfDay.addingTimeInterval(86400)
         var descriptor = FetchDescriptor<TaskItem>()
         descriptor.sortBy = [SortDescriptor(\TaskItem.nextRemindAt)]
-        let all = (try? context.fetch(descriptor)) ?? []
+        // 用药提醒不发给 AI(健康数据)。
+        let all = ((try? context.fetch(descriptor)) ?? []).filter { !$0.isMedicationReminder }
 
         let pending = all.filter { $0.status == .pending && $0.nextRemindAt < endOfToday }
             .prefix(30)

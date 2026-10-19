@@ -96,7 +96,10 @@ struct ContentView: View {
                 if phase == .active {
                     if Date().timeIntervalSince(lastActiveRefresh) > 30 {
                         lastActiveRefresh = Date()
-                        Task { @MainActor in NotificationManager.shared.refreshAll() }
+                        Task { @MainActor in
+                            NotificationManager.shared.refreshAll()
+                            await CycleStore.refreshReminder(context: modelContext)
+                        }
                     }
                     // 定时任务补跑:后台刷新没赶上时(系统不保证唤醒),回前台立刻
                     // 把错过的槽位跑掉。人已经在 app 里了,结果直接显示,不推通知。

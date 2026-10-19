@@ -57,7 +57,8 @@ enum UndoOp {
     case created(uuid: UUID)
     case updated(before: BackupTask)
     /// insertedHistoryUUID:重复事项完成一次时插入的历史记录,撤销要连它一起删掉。
-    case completed(before: BackupTask, insertedHistoryUUID: UUID?)
+    /// completedAt:完成的时刻;用药提醒任务完成时记的那笔服药按它找出来一起删。
+    case completed(before: BackupTask, insertedHistoryUUID: UUID?, completedAt: Date)
     case deleted(before: BackupTask)
     /// 批次里混了 memorize 时新建的记忆条目;撤销把它删掉(连同它的向量分片,
     /// 走 MemoryPipeline.delete 同一套清理)。
@@ -767,7 +768,8 @@ struct TodoListView: View {
             .max(by: { $0.value.count < $1.value.count })?.key {
             stats += ";最常完成时段:\(topHour) 点左右"
         }
-        stats += ";最近完成:" + recent.prefix(5).map(\.title).joined(separator: "、")
+        stats += ";最近完成:" + recent.filter { !$0.isMedicationReminder }.prefix(5).map(\.title)
+            .joined(separator: "、")
         guard let text = try? await DeepSeekClient.weeklyInsight(stats: stats) else { return }
         defaults.set(stamp, forKey: Self.insightWeekKey)
         defaults.set(text, forKey: Self.insightTextKey)

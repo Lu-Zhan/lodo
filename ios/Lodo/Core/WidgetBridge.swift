@@ -129,6 +129,8 @@ enum WidgetBridge {
     @MainActor
     static func sync(context: ModelContext) {
         writeTheme()
+        // 任务数据变了的扇出点:闹钟提醒也在这里对账(自己合并同一轮的多次调用)。
+        TaskAlarms.sync(context: context)
         guard let url = AppGroup.snapshotURL else { return }
         var descriptor = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" },

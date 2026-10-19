@@ -40,6 +40,12 @@ struct TaskRowView: View {
                                 .foregroundStyle(.tint)
                                 .accessibilityLabel("已置顶")
                         }
+                        if task.alarm, TaskAlarms.isSupported {
+                            Image(systemName: "alarm.fill")
+                                .font(.caption)
+                                .foregroundStyle(.tint)
+                                .accessibilityLabel("闹钟提醒")
+                        }
                         if overdue, rescheduleLoading {
                             Spacer()
                             ProgressView().controlSize(.small)
@@ -139,6 +145,17 @@ struct TaskRowView: View {
         // 在逾期时只能从这里找到——不然一件已经没意义的逾期任务就删不掉了)。
         .contextMenu {
             pinButton
+            if TaskAlarms.isSupported {
+                Button {
+                    Task {
+                        if !task.alarm, !(await TaskAlarms.requestAuthorization()) { return }
+                        TaskActions.toggleAlarm(task, context: context)
+                    }
+                } label: {
+                    Label(task.alarm ? "取消闹钟提醒" : "用闹钟提醒",
+                          systemImage: task.alarm ? "alarm.waves.left.and.right" : "alarm")
+                }
+            }
             Button(action: onEdit) {
                 Label("编辑", systemImage: "pencil")
             }

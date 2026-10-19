@@ -103,9 +103,9 @@ enum WatchMemory {
                     isTaskHistory: false)
         }
 
-        let done = (try? context.fetch(FetchDescriptor<TaskItem>(
+        let done = ((try? context.fetch(FetchDescriptor<TaskItem>(
             predicate: #Predicate<TaskItem> { $0.statusRaw == "done" },
-            sortBy: [SortDescriptor(\.doneAt, order: .reverse)]))) ?? []
+            sortBy: [SortDescriptor(\.doneAt, order: .reverse)]))) ?? []).filter { !$0.isMedicationReminder }
         let matched = MemorySearch.matchTaskHistory(
             question: question,
             items: done.enumerated().map { index, task in (index: index, title: task.title) })

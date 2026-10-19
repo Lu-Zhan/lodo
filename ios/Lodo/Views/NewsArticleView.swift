@@ -94,6 +94,9 @@ struct NewsArticleView: View {
             if embedded { trailingSpacer }
             #endif
             ToolbarItem(placement: .primaryAction) {
+                speakControl
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button {
                     showReadingSettings = true
                 } label: {
@@ -119,6 +122,44 @@ struct NewsArticleView: View {
         .onAppear { NewsStore.setRead(article, true, context: context) }
         .task { await loadOnOpen() }
         .onDisappear { summarizeTask?.cancel() }
+    }
+
+    // MARK: - 朗读
+
+    private var fullSpeechID: String { "\(article.uuid.uuidString):full" }
+    private var summarySpeechID: String { "\(article.uuid.uuidString):summary" }
+
+    /// 没在念这篇:菜单里选念全文还是念 AI 总结;正在念:一颗「停止朗读」。
+    @ViewBuilder
+    private var speakControl: some View {
+        let speaker = NewsSpeaker.shared
+        if speaker.isSpeaking(fullSpeechID) || speaker.isSpeaking(summarySpeechID) {
+            Button {
+                speaker.stop()
+            } label: {
+                Label("停止朗读", systemImage: "stop.circle")
+            }
+        } else {
+            Menu {
+                Button {
+                    speaker.speak(id: fullSpeechID, text: NewsSpeech.article(
+                        title: article.title, blocks: content.map(bodyBlocks) ?? [],
+                        fallback: article.summary))
+                } label: {
+                    Label("朗读全文", systemImage: "doc.plaintext")
+                }
+                if let summary = article.aiSummary {
+                    Button {
+                        speaker.speak(id: summarySpeechID,
+                                      text: NewsSpeech.summary(title: article.title, summary: summary))
+                    } label: {
+                        Label("朗读 AI 总结", systemImage: "sparkles")
+                    }
+                }
+            } label: {
+                Label("朗读", systemImage: "speaker.wave.2")
+            }
+        }
     }
 
     #if os(macOS)

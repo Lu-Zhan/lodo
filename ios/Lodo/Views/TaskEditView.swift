@@ -23,7 +23,10 @@ struct TaskEditView: View {
         self.attachment = attachment
         self.onSave = onSave
         let source: ParsedTask? = parsed ?? existing.map { ParsedTask(from: $0) }
-        _form = State(initialValue: TaskFormModel(from: source))
+        var initial = TaskFormModel(from: source)
+        // AI 给的提案不带闹钟设置(nil):编辑已有任务时沿用它原来的。
+        initial.alarm = parsed?.alarm ?? existing?.alarm ?? false
+        _form = State(initialValue: initial)
     }
 
     var body: some View {

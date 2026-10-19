@@ -382,7 +382,9 @@ struct WatchAgentView: View {
     /// 一轮请求(含最多 3 次 ReAct 查记忆),结果直接追加到 `entries`;
     /// 返回这一轮回复的文字版,存进多轮上下文。
     private func route(_ text: String, history: [(role: String, content: String)]) async throws -> String {
-        let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
+        // 用药提醒不进 AI 上下文(同手机)。
+        let taskContext = pending.filter { !$0.isMedicationReminder }
+            .map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         var reasoningHistory = history
         var currentText = text
         for _ in 0..<3 {

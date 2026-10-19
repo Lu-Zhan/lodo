@@ -95,7 +95,9 @@ enum HealthKitBridge {
     }
 
     private static func readTypes() -> Set<HKObjectType> {
-        var types: Set<HKObjectType> = [HKCategoryType(.sleepAnalysis)]
+        // 性别只用来决定「经期」默认开不开(`CyclePlan.isEnabled`),不出这台设备。
+        var types: Set<HKObjectType> = [HKCategoryType(.sleepAnalysis),
+                                        HKCharacteristicType(.biologicalSex)]
         for kind in HealthMetricKind.availableKinds() {
             if let spec = quantitySpec(for: kind) { types.insert(spec.type) }
         }
@@ -150,5 +152,150 @@ enum HealthKitBridge {
             hoursByDay[day, default: 0] += hours
         }
         return hoursByDay.map { HealthDailyPoint(date: $0.key, value: $0.value) }
+    }
+
+    // MARK: - 性别(决定经期默认开关)
+
+    /// 健康 App 里填的性别。没授权/没填/读失败一律 unknown。读到就记进 UserDefaults
+    /// (`biologicalSexKey`),设置页和健康页按它判断「自动」时经期开不开——Mac 和没开
+    /// 健康分析时读不到,就停在上次记下的值(从没读到过就是 unknown,经期默认关)。
+    static func refreshBiologicalSex() {
+        guard isAvailable, let object = try? store.biologicalSex() else { return }
+        let sex: CyclePlan.Sex
+        switch object.biologicalSex {
+        case .female: sex = .female
+        case .male: sex = .male
+        case .other: sex = .other
+        default: sex = .unknown
+        }
+        UserDefaults.standard.set(sex.rawValue, forKey: AppSettings.biologicalSexKey)
+    }
+
+    // MARK: - 经期
+
+    /// 经期的读权限单独请求:不放进上面那张总授权单里,免得没用这个功能的人也被问一遍经期。
+    @discardableResult
+    static func requestCycleAuthorization() async -> Bool {
+        guard isAvailable else { return false }
+        do {
+            try await store.requestAuthorization(toShare: [], read: [HKCategoryType(.menstrualFlow)])
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// 最近 days 天里健康 App 记过经期流量的日子(「无」那一档不算)。
+    static func menstrualFlowDays(days: Int) async -> [Date] {
+        guard isAvailable, days > 0 else { return [] }
+        let end = Date()
+        guard let start = Calendar.current.date(byAdding: .day, value: -days, to: end) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.categorySample(type: HKCategoryType(.menstrualFlow), predicate: predicate)],
+            sortDescriptors: [])
+        guard let samples = try? await descriptor.result(for: store) else { return [] }
+        // 「无」那一档:iOS 18 起叫 HKCategoryValueVaginalBleeding.none,之前是
+        // HKCategoryValueMenstrualFlow.none,两者原始值相同。
+        let none: Int
+        if #available(iOS 18.0, macOS 15.0, *) {
+            none = HKCategoryValueVaginalBleeding.none.rawValue
+        } else {
+            none = HKCategoryValueMenstrualFlow.none.rawValue
+        }
+        return samples.filter { $0.value != none }.map(\.startDate)
+    }
+
+    // MARK: - 用药(iOS 26+,只读)
+
+    /// 健康 App「用药」里的一种药。
+    struct HealthMedication: Identifiable, Equatable {
+        /// `HKMedicationConcept.identifier` 的字符串形式,和 `Medication.healthConceptID` 对。
+        let id: String
+        let name: String
+        let archived: Bool
+    }
+
+    /// 健康 App 里的一条服药记录(只取「已服用」「已跳过」两种)。
+    struct HealthDoseEvent: Equatable {
+        let sampleID: String
+        let conceptID: String
+        let date: Date
+        let taken: Bool
+        let quantity: Double?
+    }
+
+    /// `HKHealthConceptIdentifier` 没有对外的字符串形式,只遵循 NSSecureCoding——
+    /// 归档成 base64 当键(同一个系统上同一种药归档结果一致,足够拿来对上服药记录)。
+    @available(iOS 26.0, macOS 26.0, *)
+    private static func conceptKey(_ identifier: HKHealthConceptIdentifier) -> String {
+        let data = try? NSKeyedArchiver.archivedData(withRootObject: identifier, requiringSecureCoding: true)
+        return data?.base64EncodedString() ?? ""
+    }
+
+    static var medicationsSupported: Bool {
+        if #available(iOS 26.0, macOS 26.0, *) { return isAvailable }
+        return false
+    }
+
+    /// 用药是**按药授权**的:系统弹一张单子让用户逐种勾选给不给 lodo 看。
+    /// 只读——健康 App 不开放第三方写服药记录(HKMedicationDoseEvent 没有构造器)。
+    @discardableResult
+    static func requestMedicationAuthorization() async -> Bool {
+        guard medicationsSupported else { return false }
+        if #available(iOS 26.0, macOS 26.0, *) {
+            do {
+                try await store.requestPerObjectReadAuthorization(
+                    for: HKObjectType.userAnnotatedMedicationType(), predicate: nil)
+                return true
+            } catch {
+                return false
+            }
+        }
+        return false
+    }
+
+    static func medications() async -> [HealthMedication] {
+        guard medicationsSupported else { return [] }
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let descriptor = HKUserAnnotatedMedicationQueryDescriptor()
+            guard let items = try? await descriptor.result(for: store) else { return [] }
+            return items.map { item in
+                let nickname = item.nickname?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return HealthMedication(
+                    id: conceptKey(item.medication.identifier),
+                    name: nickname.isEmpty ? item.medication.displayText : nickname,
+                    archived: item.isArchived)
+            }
+        }
+        return []
+    }
+
+    /// 最近 days 天的服药记录。
+    static func doseEvents(days: Int) async -> [HealthDoseEvent] {
+        guard medicationsSupported, days > 0 else { return [] }
+        if #available(iOS 26.0, macOS 26.0, *) {
+            let end = Date()
+            guard let start = Calendar.current.date(byAdding: .day, value: -days, to: end) else { return [] }
+            let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+            let descriptor = HKSampleQueryDescriptor(
+                predicates: [.sample(type: HKObjectType.medicationDoseEventType(), predicate: predicate)],
+                sortDescriptors: [])
+            guard let samples = try? await descriptor.result(for: store) else { return [] }
+            return samples.compactMap { sample -> HealthDoseEvent? in
+                guard let event = sample as? HKMedicationDoseEvent else { return nil }
+                let taken: Bool
+                switch event.logStatus {
+                case .taken: taken = true
+                case .skipped: taken = false
+                default: return nil
+                }
+                return HealthDoseEvent(sampleID: event.uuid.uuidString,
+                                       conceptID: conceptKey(event.medicationConceptIdentifier),
+                                       date: event.startDate, taken: taken,
+                                       quantity: event.doseQuantity)
+            }
+        }
+        return []
     }
 }

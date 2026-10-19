@@ -63,6 +63,9 @@ enum BackupManager {
         let checkupEntries = ((try? context.fetch(FetchDescriptor<CheckupEntry>())) ?? [])
         let weightRecords = ((try? context.fetch(FetchDescriptor<WeightRecord>())) ?? [])
         let foodRecords = ((try? context.fetch(FetchDescriptor<FoodRecord>())) ?? [])
+        let periodRecords = ((try? context.fetch(FetchDescriptor<PeriodRecord>())) ?? [])
+        let medications = ((try? context.fetch(FetchDescriptor<Medication>())) ?? [])
+        let medicationDoses = ((try? context.fetch(FetchDescriptor<MedicationDose>())) ?? [])
         let weightGoal = WeightGoal.decode(UserDefaults.standard.string(forKey: AppSettings.weightGoalKey) ?? "")
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
@@ -93,7 +96,10 @@ enum BackupManager {
             checkupEntries: checkupEntries.map { $0.backup },
             weightRecords: weightRecords.map { $0.backup },
             weightGoal: weightGoal.isEmpty ? nil : weightGoal,
-            foodRecords: foodRecords.map { $0.backup })
+            foodRecords: foodRecords.map { $0.backup },
+            periodRecords: periodRecords.map { $0.backup },
+            medications: medications.map { $0.backup },
+            medicationDoses: medicationDoses.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -325,6 +331,40 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: record)
+        }
+        for dto in payload.periodRecords {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<PeriodRecord>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let record = existing ?? {
+                let created = PeriodRecord(uuid: dto.uuid, start: dto.start)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: record)
+        }
+        for dto in payload.medications {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<Medication>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let med = existing ?? {
+                let created = Medication(uuid: dto.uuid, name: dto.name)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: med)
+        }
+        for dto in payload.medicationDoses {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<MedicationDose>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let dose = existing ?? {
+                let created = MedicationDose(uuid: dto.uuid, medicationUUID: dto.medicationUUID,
+                                             name: dto.name, takenAt: dto.takenAt)
+                context.insert(created)
+                return created
+            }()
+            dto.apply(to: dose)
         }
         // 目标只在本机还没设时恢复,不覆盖用户在这台设备上已经填好的。
         if let goal = payload.weightGoal,

@@ -137,7 +137,8 @@ struct DoneListView: View {
             .max(by: { $0.value.count < $1.value.count })?.key {
             stats += ";最常完成时段:\(topHour) 点左右"
         }
-        stats += ";最近完成:" + recent.prefix(5).map(\.title).joined(separator: "、")
+        stats += ";最近完成:" + recent.filter { !$0.isMedicationReminder }.prefix(5).map(\.title)
+            .joined(separator: "、")
         guard let text = try? await DeepSeekClient.weeklyInsight(stats: stats) else { return }
         defaults.set(stamp, forKey: Self.insightWeekKey)
         defaults.set(text, forKey: Self.insightTextKey)

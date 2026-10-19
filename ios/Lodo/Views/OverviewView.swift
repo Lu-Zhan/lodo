@@ -816,7 +816,12 @@ struct OverviewView: View {
         }
         // 已经有一段时只在后台换掉,不把卡片闪回"正在整理"。
         if case .text = suggestion {} else { suggestion = .loading }
-        let summary = items.map { "「\($0.title)」\($0.caption)" }.joined(separator: "、")
+        let summary = items.filter { !$0.isMedicationReminder }
+            .map { "「\($0.title)」\($0.caption)" }.joined(separator: "、")
+        guard !summary.isEmpty else {
+            suggestion = .empty("今天没有需要处理的任务")
+            return
+        }
         do {
             let text = try await DeepSeekClient.suggestTodayHandling(summary: summary)
             guard !Task.isCancelled else { return }

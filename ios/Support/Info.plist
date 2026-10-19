@@ -17,6 +17,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>用于给你标了「用闹钟提醒」的重要任务到点响一次闹钟,静音和专注模式下也会响。</string>
 	<key>CKSharingSupported</key>
 	<true/>
 	<key>UIBackgroundModes</key>

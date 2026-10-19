@@ -10,6 +10,9 @@ public struct ParsedTask: Codable, Equatable {
     public var repeatTimes: [String]
     /// 这件事属于哪个项目/主题;AI 推断不出来或用户没填时为 nil。
     public var project: String?
+    /// 用闹钟提醒(`TaskItem.alarm`)。只有表单会给值;AI 解析出来的恒为 nil,
+    /// 落库时 nil = 不动原来的设置(AI 改个时间不该把用户开的闹钟关掉)。
+    public var alarm: Bool? = nil
 
     public init(title: String, remindAt: Date, allDay: Bool,
                 repeatType: RepeatType, repeatDays: [Int], repeatTimes: [String],

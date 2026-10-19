@@ -50,6 +50,14 @@ public enum AppSettings {
     /// 空气质量(健康页/总览/小组件)。**默认关**:要用定位,开了会把约 1 公里精度的
     /// 坐标发给 Open-Meteo——和健康开关分开,它不碰健康数据。
     public static let airQualityEnabledKey = "airQualityEnabled"
+    /// 健康页「经期」:`CyclePlan.Preference` 的 rawValue(""= 自动,跟随健康 App 里的性别)。存储值别改。
+    public static let cycleTrackingKey = "cycleTracking"
+    /// 最近一次从健康 App 读到的性别(`CyclePlan.Sex` 的 rawValue,"" = 没读到过)。
+    public static let biologicalSexKey = "healthBiologicalSex"
+    /// 经期提醒(预计开始前 2 天,全天提醒时刻)。**默认开**:只有记过两次以上、预测靠得住才会排。
+    public static let cycleReminderEnabledKey = "cycleReminderEnabled"
+    /// Spotlight 里能搜到哪几类(`SpotlightCategory` 的 rawValue 逗号串;没设过 = 默认那几类)。
+    public static let spotlightCategoriesKey = "spotlightCategories"
     /// 空气质量提醒的时间点,"07:00,18:30"(`AirQualityReminderPlan.parseTimes`);空串 = 不提醒。
     public static let airQualityReminderTimesKey = "airQualityReminderTimes"
     /// 只在 AQI 超过「良」(>100)时才提醒。
@@ -87,6 +95,23 @@ public enum AppSettings {
 
     public static var assetsAIIsolated: Bool {
         UserDefaults.standard.object(forKey: assetsAIIsolatedKey) as? Bool ?? true
+    }
+
+    public static var cyclePreference: CyclePlan.Preference {
+        CyclePlan.Preference(rawValue: UserDefaults.standard.string(forKey: cycleTrackingKey) ?? "") ?? .auto
+    }
+
+    public static var biologicalSex: CyclePlan.Sex {
+        CyclePlan.Sex(rawValue: UserDefaults.standard.string(forKey: biologicalSexKey) ?? "") ?? .unknown
+    }
+
+    /// 健康页显不显示「经期」那一组(自动 = 健康 App 里是女性)。
+    public static var cycleTrackingEnabled: Bool {
+        CyclePlan.isEnabled(cyclePreference, sex: biologicalSex)
+    }
+
+    public static var cycleReminderEnabled: Bool {
+        UserDefaults.standard.object(forKey: cycleReminderEnabledKey) as? Bool ?? true
     }
 
     public static var airQualityEnabled: Bool {

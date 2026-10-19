@@ -33,6 +33,8 @@ public struct BackupTask: Codable {
     public var ignoreStreak: Int
     public var pinned: Bool = false
     public var pinnedAt: Date?
+    public var alarm: Bool = false
+    public var medicationUUID: UUID?
 
     public init(
         uuid: UUID, title: String, remindAt: Date, durationMinutes: Int, allDay: Bool,
@@ -42,7 +44,8 @@ public struct BackupTask: Codable {
         attachmentTitle: String?,
         attachmentSummary: String?, attachmentText: String?, attachmentURLString: String?,
         attachmentFileName: String?, ignoreStreak: Int = 0,
-        pinned: Bool = false, pinnedAt: Date? = nil
+        pinned: Bool = false, pinnedAt: Date? = nil,
+        alarm: Bool = false, medicationUUID: UUID? = nil
     ) {
         self.uuid = uuid
         self.title = title
@@ -68,6 +71,8 @@ public struct BackupTask: Codable {
         self.ignoreStreak = ignoreStreak
         self.pinned = pinned
         self.pinnedAt = pinnedAt
+        self.alarm = alarm
+        self.medicationUUID = medicationUUID
     }
 
     /// 手写 init(from:):ignoreStreak 是新增的非可选字段,老格式备份没有这个
@@ -99,6 +104,8 @@ public struct BackupTask: Codable {
         ignoreStreak = try c.decodeIfPresent(Int.self, forKey: .ignoreStreak) ?? 0
         pinned = try c.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
         pinnedAt = try c.decodeIfPresent(Date.self, forKey: .pinnedAt)
+        alarm = try c.decodeIfPresent(Bool.self, forKey: .alarm) ?? false
+        medicationUUID = try c.decodeIfPresent(UUID.self, forKey: .medicationUUID)
     }
 }
 
@@ -113,7 +120,7 @@ extension TaskItem {
             attachmentTitle: attachmentTitle, attachmentSummary: attachmentSummary,
             attachmentText: attachmentText, attachmentURLString: attachmentURLString,
             attachmentFileName: attachmentFileName, ignoreStreak: ignoreStreak,
-            pinned: pinned, pinnedAt: pinnedAt)
+            pinned: pinned, pinnedAt: pinnedAt, alarm: alarm, medicationUUID: medicationUUID)
     }
 }
 
@@ -144,6 +151,8 @@ extension BackupTask {
         item.ignoreStreak = ignoreStreak
         item.pinned = pinned
         item.pinnedAt = pinnedAt
+        item.alarm = alarm
+        item.medicationUUID = medicationUUID
     }
 }
 
@@ -1153,6 +1162,10 @@ public struct BackupPayload: Codable {
     public var weightRecords: [BackupWeightRecord] = []
     public var weightGoal: WeightGoal?
     public var foodRecords: [BackupFoodRecord] = []
+    /// 经期(手记的)、药品与服药记录。新增字段,老备份缺 key 时兜底为空。
+    public var periodRecords: [BackupPeriodRecord] = []
+    public var medications: [BackupMedication] = []
+    public var medicationDoses: [BackupMedicationDose] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
@@ -1171,7 +1184,10 @@ public struct BackupPayload: Codable {
         checkupEntries: [BackupCheckupEntry] = [],
         weightRecords: [BackupWeightRecord] = [],
         weightGoal: WeightGoal? = nil,
-        foodRecords: [BackupFoodRecord] = []
+        foodRecords: [BackupFoodRecord] = [],
+        periodRecords: [BackupPeriodRecord] = [],
+        medications: [BackupMedication] = [],
+        medicationDoses: [BackupMedicationDose] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -1193,6 +1209,9 @@ public struct BackupPayload: Codable {
         self.weightRecords = weightRecords
         self.weightGoal = weightGoal
         self.foodRecords = foodRecords
+        self.periodRecords = periodRecords
+        self.medications = medications
+        self.medicationDoses = medicationDoses
     }
 
     /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
@@ -1231,6 +1250,10 @@ public struct BackupPayload: Codable {
             [BackupWeightRecord].self, forKey: .weightRecords) ?? []
         weightGoal = try c.decodeIfPresent(WeightGoal.self, forKey: .weightGoal)
         foodRecords = try c.decodeIfPresent([BackupFoodRecord].self, forKey: .foodRecords) ?? []
+        periodRecords = try c.decodeIfPresent([BackupPeriodRecord].self, forKey: .periodRecords) ?? []
+        medications = try c.decodeIfPresent([BackupMedication].self, forKey: .medications) ?? []
+        medicationDoses = try c.decodeIfPresent(
+            [BackupMedicationDose].self, forKey: .medicationDoses) ?? []
     }
 }
 
@@ -1373,5 +1396,111 @@ extension BackupFoodRecord {
         record.carbsG = carbsG
         record.itemsData = itemsData
         record.createdAt = createdAt
+    }
+}
+
+/// 手记的一次经期(健康 App 里的经期记录不备份,它在健康库里)。
+public struct BackupPeriodRecord: Codable {
+    public var uuid: UUID
+    public var start: Date
+    public var end: Date?
+    public var note: String
+    public var createdAt: Date
+}
+
+extension PeriodRecord {
+    public var backup: BackupPeriodRecord {
+        BackupPeriodRecord(uuid: uuid, start: start, end: end, note: note, createdAt: createdAt)
+    }
+}
+
+extension BackupPeriodRecord {
+    public func apply(to record: PeriodRecord) {
+        record.uuid = uuid
+        record.start = start
+        record.end = end
+        record.note = note
+        record.createdAt = createdAt
+    }
+}
+
+/// 一种药。提醒任务本身在 tasks 里(靠 taskUUID / TaskItem.medicationUUID 对上)。
+public struct BackupMedication: Codable {
+    public var uuid: UUID
+    public var name: String
+    public var dosage: String
+    public var note: String
+    public var times: [String]
+    public var days: [Int]
+    public var reminderEnabled: Bool
+    public var alarm: Bool
+    public var taskUUID: UUID?
+    public var healthConceptID: String?
+    public var archived: Bool
+    public var createdAt: Date
+}
+
+extension Medication {
+    public var backup: BackupMedication {
+        BackupMedication(uuid: uuid, name: name, dosage: dosage, note: note, times: times, days: days,
+                         reminderEnabled: reminderEnabled, alarm: alarm, taskUUID: taskUUID,
+                         healthConceptID: healthConceptID, archived: archived, createdAt: createdAt)
+    }
+}
+
+extension BackupMedication {
+    public func apply(to med: Medication) {
+        med.uuid = uuid
+        med.name = name
+        med.dosage = dosage
+        med.note = note
+        med.times = times
+        med.days = days
+        med.reminderEnabled = reminderEnabled
+        med.alarm = alarm
+        med.taskUUID = taskUUID
+        med.healthConceptID = healthConceptID
+        med.archived = archived
+        med.createdAt = createdAt
+    }
+}
+
+/// 一笔服药记录(含从健康 App 导入的那些:导入过的不会再从健康库里回来,丢了就补不上)。
+public struct BackupMedicationDose: Codable {
+    public var uuid: UUID
+    public var medicationUUID: UUID?
+    public var name: String
+    public var dosage: String
+    public var takenAt: Date
+    public var statusRaw: String
+    public var sourceRaw: String
+    public var taskUUID: UUID?
+    public var healthSampleID: String?
+    public var note: String
+    public var createdAt: Date
+}
+
+extension MedicationDose {
+    public var backup: BackupMedicationDose {
+        BackupMedicationDose(uuid: uuid, medicationUUID: medicationUUID, name: name, dosage: dosage,
+                             takenAt: takenAt, statusRaw: statusRaw, sourceRaw: sourceRaw,
+                             taskUUID: taskUUID, healthSampleID: healthSampleID, note: note,
+                             createdAt: createdAt)
+    }
+}
+
+extension BackupMedicationDose {
+    public func apply(to dose: MedicationDose) {
+        dose.uuid = uuid
+        dose.medicationUUID = medicationUUID
+        dose.name = name
+        dose.dosage = dosage
+        dose.takenAt = takenAt
+        dose.statusRaw = statusRaw
+        dose.sourceRaw = sourceRaw
+        dose.taskUUID = taskUUID
+        dose.healthSampleID = healthSampleID
+        dose.note = note
+        dose.createdAt = createdAt
     }
 }

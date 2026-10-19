@@ -198,6 +198,16 @@ struct NewsListView: View {
             .sidebarToolbarButton()
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false) {
+                    // 正在朗读(左滑朗读的某篇、「今日」里的某份总结)时给一颗停止键。
+                    if NewsSpeaker.shared.speakingID != nil {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                NewsSpeaker.shared.stop()
+                            } label: {
+                                Label("停止朗读", systemImage: "stop.circle")
+                            }
+                        }
+                    }
                     ToolbarItem(placement: .primaryAction) { toolbarMenu }
                 }
             }
@@ -297,6 +307,19 @@ struct NewsListView: View {
                         #endif
                     }
                     .swipeActions(edge: .trailing) {
+                        Button {
+                            NewsSpeaker.shared.toggle(
+                                id: "\(article.uuid.uuidString):brief",
+                                text: NewsSpeech.brief(title: article.title, aiSummary: article.aiSummary,
+                                                       feedSummary: article.summary))
+                        } label: {
+                            if NewsSpeaker.shared.isSpeaking("\(article.uuid.uuidString):brief") {
+                                Label("停止朗读", systemImage: "stop.circle")
+                            } else {
+                                Label("朗读", systemImage: "speaker.wave.2")
+                            }
+                        }
+                        .tint(.indigo)
                         Button {
                             NewsStore.setRead(article, !article.isRead, context: context)
                         } label: {
@@ -503,6 +526,18 @@ struct NewsListView: View {
                 }
             }
             Spacer()
+            if let value, !value.items.isEmpty || !value.overview.isEmpty {
+                let id = "digest:\(title)"
+                let speaking = NewsSpeaker.shared.isSpeaking(id)
+                Button {
+                    NewsSpeaker.shared.toggle(id: id, text: NewsSpeech.digest(value))
+                } label: {
+                    Image(systemName: speaking ? "stop.circle" : "speaker.wave.2")
+                        .font(.subheadline)
+                }
+                .pressable()
+                .accessibilityLabel(speaking ? Text("停止朗读") : Text("朗读总结"))
+            }
         }
         if let value {
             if !value.overview.isEmpty {

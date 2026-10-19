@@ -14,6 +14,8 @@ struct ContactListView: View {
     @Query(sort: [SortDescriptor(\MemoryItem.title)]) private var allItems: [MemoryItem]
     @Query private var edges: [ContactRelationship]
 
+    /// 从系统搜索点进来:要打开的那一条(消费完置回 nil;@Query 还没取到数据时留着,等数据到了再试)。
+    var openRequest: Binding<UUID?> = .constant(nil)
     @State private var path: [MemoryItem] = []
     @State private var showGraph = false
     @State private var pendingDelete: MemoryItem?
@@ -66,6 +68,9 @@ struct ContactListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .onAppear { consumeOpenRequest() }
+            .onChange(of: openRequest.wrappedValue) { _, _ in consumeOpenRequest() }
+            .onChange(of: contacts.count) { _, _ in consumeOpenRequest() }
             .navigationDestination(for: MemoryItem.self) { contact in
                 ContactDetailView(item: contact)
             }
@@ -307,4 +312,13 @@ struct ContactListView: View {
         try? context.save()
     }
     #endif
+}
+
+extension ContactListView {
+    fileprivate func consumeOpenRequest() {
+        guard let uuid = openRequest.wrappedValue,
+              let item = contacts.first(where: { $0.uuid == uuid }) else { return }
+        openRequest.wrappedValue = nil
+        path = [item]
+    }
 }

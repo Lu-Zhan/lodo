@@ -15,6 +15,8 @@ struct MenuListView: View {
     private var memoryItems: [MemoryItem]
     @Query private var dishes: [MenuDish]
 
+    /// 从系统搜索点进来:要打开的那一条(消费完置回 nil;@Query 还没取到数据时留着,等数据到了再试)。
+    var openRequest: Binding<UUID?> = .constant(nil)
     @State private var path: [MemoryItem] = []
     @State private var pendingDelete: MemoryItem?
 
@@ -52,6 +54,9 @@ struct MenuListView: View {
             #endif
             .sidebarToolbarButton()
             .askBar(focus: .menu, isVisible: path.isEmpty)
+            .onAppear { consumeOpenRequest() }
+            .onChange(of: openRequest.wrappedValue) { _, _ in consumeOpenRequest() }
+            .onChange(of: menus.count) { _, _ in consumeOpenRequest() }
             .navigationDestination(for: MemoryItem.self) { menu in
                 MenuDetailView(menu: menu)
             }
@@ -157,4 +162,13 @@ struct MenuListView: View {
             .joined(separator: "\n"), imageData: nil, language: language, context: context)
     }
     #endif
+}
+
+extension MenuListView {
+    fileprivate func consumeOpenRequest() {
+        guard let uuid = openRequest.wrappedValue,
+              let item = menus.first(where: { $0.uuid == uuid }) else { return }
+        openRequest.wrappedValue = nil
+        path = [item]
+    }
 }

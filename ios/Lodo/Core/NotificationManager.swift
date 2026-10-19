@@ -266,8 +266,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// 无 key/未返回前先用机械文案兜底,AI 成功后重排。
     private func refreshDigest(for todayTasks: [TaskItem]) {
         let titles = todayTasks.map(\.title)
-        // 事项带时间,供模型判断重点
-        let items = todayTasks.map { task in
+        // 事项带时间,供模型判断重点;用药提醒不发给 AI(通知正文的机械兜底里照样列)。
+        let items = todayTasks.filter { !$0.isMedicationReminder }.map { task in
             "\(task.title)(\(LocalizedContent.dateCaption(task.nextRemindAt)))"
         }
         let day = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
@@ -281,7 +281,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             return
         }
         updateDigest(todayTitles: titles)
-        guard AppSettings.digestEnabled, !titles.isEmpty,
+        guard AppSettings.digestEnabled, !titles.isEmpty, !items.isEmpty,
               DeepSeekClient.isConfigured else { return }
         Task {
             guard let summary = try? await DeepSeekClient.summarizeToday(items) else { return }
@@ -355,14 +355,18 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// 返回值:重复事项完成一次时插入的已完成历史记录(非重复时为 nil)。撤销(AgentHostView+Routing.swift 的 undo)靠这个 uuid 把这条
     /// 历史记录也一并删掉,单纯 fire-and-forget 的调用方可以忽略返回值。
     @discardableResult
-    func complete(_ task: TaskItem, context: ModelContext) -> TaskItem? {
+    func complete(_ task: TaskItem, context: ModelContext, logsMedicationDose: Bool = true) -> TaskItem? {
         var d = task.data
         let finished = Scheduler.advance(&d, now: Date())
         task.apply(d)
         var history: TaskItem?
+        // 用药提醒任务:完成一次 = 记一笔服药(所有完成路径——通知按钮、闹钟、列表、AI——都经过这里)。
+        if finished && logsMedicationDose { MedicationStore.logDose(fromTask: task, context: context) }
         if finished && d.status == .pending {
             // 重复事项完成一次:插入一条已完成历史
             history = TaskItem(title: d.title, remindAt: Date(), status: .done, doneAt: Date())
+            // 用药提醒的历史也标上,同样不发给 AI、不进系统搜索。
+            history?.medicationUUID = task.medicationUUID
             context.insert(history!)
         }
         try? context.save()

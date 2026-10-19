@@ -12,6 +12,8 @@ struct TaskFormModel {
     var times: [Date]
     /// 项目名;空字符串代表"未分类",比 Optional 更适合直接绑 TextField。
     var project: String
+    /// 用闹钟提醒(`TaskItem.alarm`)。
+    var alarm: Bool
 
     init(from source: ParsedTask? = nil) {
         let base = source?.remindAt ?? Date().addingTimeInterval(300)
@@ -23,6 +25,7 @@ struct TaskFormModel {
         weekdays = Set(source?.repeatDays ?? [])
         times = (source?.repeatTimes ?? []).map { AppSettings.time($0, on: Date()) }
         project = source?.project ?? ""
+        alarm = source?.alarm ?? false
     }
 
     var isValid: Bool {
@@ -48,6 +51,7 @@ struct TaskFormModel {
             repeatTimes: repeatType == .none ? [] : timeStrings,
             project: trimmedProject.isEmpty ? nil : trimmedProject
         )
+        parsed.alarm = alarm
         if repeatType == .none {
             parsed.remindAt = allDay
                 ? AppSettings.time(AppSettings.allDayTime, on: day)
@@ -88,6 +92,7 @@ struct TaskFormSections: View {
     var aiFilled = false
     /// 当前已用过的项目名,点选即回填 form.project;为空时不显示 chip 行。
     var existingProjects: [String] = []
+    @State private var alarmDenied = false
 
     var body: some View {
         Section {
@@ -157,6 +162,28 @@ struct TaskFormSections: View {
                     form.times.append(AppSettings.time("09:00", on: Date()))
                 } label: {
                     Label("添加时间点", systemImage: "plus")
+                }
+            }
+        }
+
+        if TaskAlarms.isSupported {
+            Section {
+                Toggle(isOn: $form.alarm) {
+                    Label("用闹钟提醒", systemImage: "alarm")
+                }
+                .onChange(of: form.alarm) { _, on in
+                    guard on else { return }
+                    Task {
+                        let granted = await TaskAlarms.requestAuthorization()
+                        alarmDenied = !granted
+                        if !granted { form.alarm = false }
+                    }
+                }
+            } footer: {
+                if alarmDenied {
+                    Text("没有闹钟权限,可以到系统「设置 → lodo」里打开「闹钟与计时器」。")
+                } else {
+                    Text("重要的事到点像闹钟一样响一次,静音和专注模式下也会响;之后照常用通知反复提醒。")
                 }
             }
         }

@@ -30,6 +30,8 @@ struct LodoApp: App {
         // 旅行共享:要在 scene 连上之前配好——冷启动点共享链接进来时,scene delegate
         // 一连上就会调 accept。
         SharedTripSync.shared.configure(container: container)
+        // 系统搜索索引(按设置里选的类别,数据一变合并后重建)。
+        SpotlightIndexer.shared.configure(container: container)
         #if DEBUG
         DemoSeed.populateIfRequested(container)
         DemoSeed.importBackupIfRequested(container)

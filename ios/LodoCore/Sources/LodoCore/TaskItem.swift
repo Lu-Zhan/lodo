@@ -39,6 +39,13 @@ public final class TaskItem {
     public var pinned: Bool = false
     /// 置顶的时间,置顶那组按它从新到旧排。
     public var pinnedAt: Date?
+    /// 到点用系统闹钟(AlarmKit,iOS 26+)响一次:静音和专注模式下也会响、锁屏整屏显示。
+    /// 只响原定时间那一次(`remindAt`),之后照常靠通知链纠缠——稍等/忽略不会再拉一次闹钟。
+    /// 不参与调度(不进 TaskData/Scheduler),闹钟的对账在 app 层 `TaskAlarms`。
+    public var alarm: Bool = false
+    /// 用药提醒自动建出来的任务指向那一种药(`Medication.uuid`);完成这条任务时
+    /// 顺带记一笔服药记录。普通任务为 nil。
+    public var medicationUUID: UUID?
 
     // 记忆"转为待办"携带的内容快照,展平存储(与 attachment 计算属性配套);
     // 直接新建的待办这几个字段都是 nil。同样出于 CloudKit 同步要求,不给默认值
@@ -85,6 +92,10 @@ public final class TaskItem {
     public var status: TaskStatus { TaskStatus(rawValue: statusRaw) ?? .pending }
     public var phase: TaskPhase { TaskPhase(rawValue: phaseRaw) ?? .start }
     public var isRecurring: Bool { repeatType != .none }
+    /// 用药提醒任务(及它完成后留下的历史)。用药属于健康数据:**不发给 AI、不进系统搜索**——
+    /// 凡是把任务列表交给模型的出口(AI 助手、Watch、汇总、处理建议、完成洞察、定时任务、
+    /// 待办历史检索)都按它过滤。
+    public var isMedicationReminder: Bool { medicationUUID != nil }
 
     /// 展平字段 ↔ TaskAttachment 的桥接;nil = 直接新建的待办(无附件)。
     public var attachment: TaskAttachment? {

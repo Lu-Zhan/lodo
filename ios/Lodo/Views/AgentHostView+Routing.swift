@@ -37,7 +37,9 @@ extension AgentHostView {
         defer { AIUsageMonitor.shared.endTurn() }
         AgentSkillLoadLog.shared.beginTurn()
 
-        let taskContext = pending.map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
+        // 用药提醒不进 AI 上下文(健康数据,见 `TaskItem.isMedicationReminder`)。
+        let taskContext = pending.filter { !$0.isMedicationReminder }
+            .map { (uuid: $0.uuid.uuidString, task: ParsedTask(from: $0)) }
         var reasoningHistory = history
         var currentText = text
         let webSearchEnabled = WebSearchClient.isConfigured
@@ -463,9 +465,10 @@ extension AgentHostView {
     private func retrieveTaskHistoryCandidates(
         _ question: String
     ) -> [(uuid: String, title: String, summary: String, tags: [String], excerpt: String, isTaskHistory: Bool)] {
-        let done = (try? context.fetch(FetchDescriptor<TaskItem>(
+        let done = ((try? context.fetch(FetchDescriptor<TaskItem>(
             predicate: #Predicate<TaskItem> { $0.statusRaw == "done" },
-            sortBy: [SortDescriptor(\.doneAt, order: .reverse)]))) ?? []
+            sortBy: [SortDescriptor(\.doneAt, order: .reverse)]))) ?? [])
+            .filter { !$0.isMedicationReminder }
         guard !done.isEmpty else { return [] }
         let matched = MemorySearch.matchTaskHistory(
             question: question,
@@ -606,8 +609,10 @@ extension AgentHostView {
             case .complete(let uuid):
                 if let task = pending.first(where: { $0.uuid.uuidString == uuid }) {
                     let before = task.backup
+                    let completedAt = Date()
                     let history = NotificationManager.shared.complete(task, context: context)
-                    undoOps.append(.completed(before: before, insertedHistoryUUID: history?.uuid))
+                    undoOps.append(.completed(before: before, insertedHistoryUUID: history?.uuid,
+                                              completedAt: completedAt))
                 } else {
                     missingCount += 1
                 }
@@ -684,7 +689,8 @@ extension AgentHostView {
                 guard let task = taskByUUID(before.uuid) else { missingCount += 1; continue }
                 before.apply(to: task)
                 NotificationManager.shared.rebuild(for: task)
-            case .completed(let before, let insertedHistoryUUID):
+            case .completed(let before, let insertedHistoryUUID, let completedAt):
+                MedicationStore.removeDoses(fromTask: before.uuid, since: completedAt, context: context)
                 if let task = taskByUUID(before.uuid) {
                     before.apply(to: task)
                     NotificationManager.shared.rebuild(for: task)

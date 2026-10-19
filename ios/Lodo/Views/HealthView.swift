@@ -14,6 +14,8 @@ struct HealthView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var rangeDays = 14
+    @AppStorage(AppSettings.cycleTrackingKey) private var cyclePreferenceRaw = ""
+    @AppStorage(AppSettings.biologicalSexKey) private var biologicalSexRaw = ""
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
 
@@ -79,6 +81,12 @@ struct HealthView: View {
         return last.value
     }
 
+    /// 「经期」那一组显不显示(设置里选的,自动 = 健康 App 里是女性)。
+    private var showsCycle: Bool {
+        CyclePlan.isEnabled(CyclePlan.Preference(rawValue: cyclePreferenceRaw) ?? .auto,
+                            sex: CyclePlan.Sex(rawValue: biologicalSexRaw) ?? .unknown)
+    }
+
     /// 当前画折线的指标:默认第一条有数据的序列。
     private var shownKind: HealthMetricKind? {
         chartKind ?? report.series.first?.kind
@@ -95,6 +103,11 @@ struct HealthView: View {
                     healthWeights: showsData ? (report.series(.bodyMass)?.points ?? []) : [],
                     healthSummary: showsData && !report.isEmpty ? report.promptSummary() : nil,
                     todayActiveEnergy: showsData ? todayActiveEnergy : nil)
+                // 用药、经期和体重一样不依赖健康开关;开着时再把健康 App 的记录导进来。
+                MedicationSection(healthEnabled: healthEnabled, refreshToken: airRefreshToken)
+                if showsCycle {
+                    CycleSection(healthEnabled: healthEnabled, refreshToken: airRefreshToken)
+                }
                 if !HealthKitBridge.isAvailable {
                     unavailableSection
                 } else if !showsData {
@@ -119,7 +132,13 @@ struct HealthView: View {
             }
             #if DEBUG
             .task {
-                guard ProcessInfo.processInfo.arguments.contains("--demo-weight-scroll") else { return }
+                let args = ProcessInfo.processInfo.arguments
+                if args.contains("--demo-health-records-scroll") {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    proxy.scrollTo(MedicationSection.anchor, anchor: .top)
+                    return
+                }
+                guard args.contains("--demo-weight-scroll") else { return }
                 try? await Task.sleep(for: .seconds(1.5))
                 proxy.scrollTo(WeightSection.foodAnchor, anchor: .top)
             }
@@ -148,6 +167,7 @@ struct HealthView: View {
             .task {
                 applyDemoArgumentsIfNeeded()
                 applyCheckupDemoIfNeeded()
+                HealthRecordsDemo.seedIfRequested(context: context)
             }
             #endif
             .refreshable {
@@ -420,6 +440,8 @@ struct HealthView: View {
             return
         }
         loadingReport = true
+        // 顺带读一下健康 App 里的性别:设置里「经期记录」选「自动」时靠它决定开不开。
+        HealthKitBridge.refreshBiologicalSex()
         let fresh = await HealthKitBridge.report(days: rangeDays)
         loadingReport = false
         // 等 HealthKit 的这段时间里开关可能被关掉、回看天数可能变了:过期的结果不要。

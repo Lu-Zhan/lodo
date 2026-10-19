@@ -19,6 +19,7 @@ enum TaskActions {
             repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
             repeatTimes: parsed.repeatTimes, project: parsed.project)
         task.attachment = attachment
+        task.alarm = parsed.alarm ?? false
         context.insert(task)
         try? context.save()
         NotificationManager.shared.rebuild(for: task)
@@ -33,6 +34,7 @@ enum TaskActions {
         task.repeatDays = parsed.repeatDays
         task.repeatTimes = parsed.repeatTimes
         task.project = parsed.project
+        if let alarm = parsed.alarm { task.alarm = alarm }
         task.phaseRaw = TaskPhase.start.rawValue
         task.nextRemindAt = parsed.remindAt
         task.ignoreStreak = 0
@@ -51,17 +53,21 @@ enum TaskActions {
         let before: BackupTask
         /// 重复事项完成一次插入的历史记录;一次性事项为 nil(它自己变成 done)。
         let historyUUID: UUID?
+        /// 完成的时刻:用药提醒任务这一下记的服药按它找出来,撤销时一起删。
+        var completedAt = Date()
     }
 
     @discardableResult
     static func completeUndoably(_ task: TaskItem, context: ModelContext) -> CompletionUndo {
         let before = task.backup
+        let completedAt = Date()
         let history = NotificationManager.shared.complete(task, context: context)
-        return CompletionUndo(before: before, historyUUID: history?.uuid)
+        return CompletionUndo(before: before, historyUUID: history?.uuid, completedAt: completedAt)
     }
 
     static func undo(_ undo: CompletionUndo, context: ModelContext) {
         let uuid = undo.before.uuid
+        MedicationStore.removeDoses(fromTask: uuid, since: undo.completedAt, context: context)
         if let task = (try? context.fetch(FetchDescriptor<TaskItem>(
             predicate: #Predicate<TaskItem> { $0.uuid == uuid })))?.first {
             undo.before.apply(to: task)
@@ -105,6 +111,13 @@ enum TaskActions {
         WidgetBridge.sync(context: context)
     }
 
+    /// 打开 / 关掉闹钟提醒。只动这个字段,闹钟在 `WidgetBridge.sync` 那一轮里对账。
+    static func toggleAlarm(_ task: TaskItem, context: ModelContext) {
+        task.alarm.toggle()
+        try? context.save()
+        WidgetBridge.sync(context: context)
+    }
+
     static func snooze(_ task: TaskItem, context: ModelContext) {
         NotificationManager.shared.snooze(task, context: context)
     }
@@ -115,7 +128,18 @@ enum TaskActions {
 
     /// 逾期事项的 AI 改期候选(只读,不落库)。
     static func requestReschedule(for task: TaskItem) async throws -> [(label: String, date: Date)] {
-        try await DeepSeekClient.suggestReschedule(
+        // 用药提醒不发给 AI(健康数据):给两个本地候选。
+        if task.isMedicationReminder {
+            let language = AppSettings.language
+            let now = Date()
+            return [
+                (String(localized: "30 分钟后", bundle: .appLanguage(), locale: language.locale),
+                 now.addingTimeInterval(30 * 60)),
+                (String(localized: "1 小时后", bundle: .appLanguage(), locale: language.locale),
+                 now.addingTimeInterval(60 * 60)),
+            ]
+        }
+        return try await DeepSeekClient.suggestReschedule(
             title: task.title, remindAt: task.remindAt, isRecurring: task.isRecurring)
     }
 
