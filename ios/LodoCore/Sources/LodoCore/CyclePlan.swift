@@ -56,7 +56,24 @@ public enum CyclePlan {
     /// 手记 + 健康 App,按开始日从早到晚。两段重叠时手记那段留下、健康那段丢掉。
     public static func merge(manual: [Period], health: [Period], today: Date,
                              calendar: Calendar = .current) -> [Period] {
-        let manualDays = manual.map { normalized($0, calendar: calendar) }
+        // 同一天开始的手记只留一条:有结束日的优先(记得更全);一样完整就按来源 uuid 固定挑一条,
+        // 不受查询顺序影响(不然结束日和预测会跟着取数顺序变)。
+        func key(_ period: Period) -> String {
+            if case .manual(let id) = period.source { return id.uuidString }
+            return ""
+        }
+        var byStart: [Date: Period] = [:]
+        for period in manual.map({ normalized($0, calendar: calendar) }) {
+            guard let kept = byStart[period.start] else {
+                byStart[period.start] = period
+                continue
+            }
+            let better = (kept.end == nil) != (period.end == nil)
+                ? period.end != nil
+                : key(period) < key(kept)
+            if better { byStart[period.start] = period }
+        }
+        let manualDays = byStart.values.sorted { $0.start < $1.start }
         var result = manualDays
         for period in health {
             let candidate = normalized(period, calendar: calendar)

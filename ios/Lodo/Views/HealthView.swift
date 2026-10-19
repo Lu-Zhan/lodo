@@ -43,6 +43,7 @@ struct HealthView: View {
     /// 截图参数直接推进去的二级页(--demo-weight-scroll / --demo-weight-report-live / --demo-medication-page)。
     @State private var openWeightPage = false
     @State private var openMedicationPage = false
+    @State private var openCyclePage = false
     #if DEBUG
     /// --demo-health 的临时放行。用 @State 而不是把 healthEnabled 写成 true:
     /// 那是 @AppStorage,会落进 UserDefaults 影响之后不带参数的启动。
@@ -140,6 +141,7 @@ struct HealthView: View {
                     openWeightPage = true
                 }
                 if args.contains("--demo-medication-page") { openMedicationPage = true }
+                if args.contains("--demo-cycle-page") { openCyclePage = true }
                 // 滚到下半截(健康管理 → 健康资料 → AI 分析),核对首页后面几组。
                 if args.contains("--demo-health-scroll-lower") {
                     try? await Task.sleep(for: .seconds(1.5))
@@ -157,6 +159,9 @@ struct HealthView: View {
             }
             .navigationDestination(isPresented: $openMedicationPage) {
                 MedicationManagementView(healthEnabled: healthEnabled)
+            }
+            .navigationDestination(isPresented: $openCyclePage) {
+                CycleManagementView(healthEnabled: healthEnabled)
             }
             .sheet(isPresented: $importingCheckup) {
                 CheckupImportView(initialProfile: nil) { openReport = $0.uuid }
@@ -197,6 +202,7 @@ struct HealthView: View {
                 applyDemoArgumentsIfNeeded()
                 applyCheckupDemoIfNeeded()
                 HealthRecordsDemo.seedIfRequested(context: context)
+                HealthRecordsDemo.seedCycleIfRequested(context: context)
             }
             #endif
             .refreshable {

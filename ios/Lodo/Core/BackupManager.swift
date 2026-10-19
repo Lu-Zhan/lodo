@@ -66,6 +66,7 @@ enum BackupManager {
         let periodRecords = ((try? context.fetch(FetchDescriptor<PeriodRecord>())) ?? [])
         let medications = ((try? context.fetch(FetchDescriptor<Medication>())) ?? [])
         let medicationDoses = ((try? context.fetch(FetchDescriptor<MedicationDose>())) ?? [])
+        let periodFlowRecords = ((try? context.fetch(FetchDescriptor<PeriodFlowRecord>())) ?? [])
         let weightGoal = WeightGoal.decode(UserDefaults.standard.string(forKey: AppSettings.weightGoalKey) ?? "")
         let skillOverrides = AgentSkillID.allCases
             .filter { AgentSkillStore.isCustomized($0) }
@@ -99,7 +100,8 @@ enum BackupManager {
             foodRecords: foodRecords.map { $0.backup },
             periodRecords: periodRecords.map { $0.backup },
             medications: medications.map { $0.backup },
-            medicationDoses: medicationDoses.map { $0.backup })
+            medicationDoses: medicationDoses.map { $0.backup },
+            periodFlowRecords: periodFlowRecords.map { $0.backup })
 
         let manifest = BackupManifest(
             formatVersion: BackupManifest.currentFormatVersion,
@@ -342,6 +344,19 @@ enum BackupManager {
                 return created
             }()
             dto.apply(to: record)
+        }
+        // 出血量按 uuid 合并(重复导入不加行);同一天几条由读的时候按 updatedAt 归并。
+        for dto in payload.periodFlowRecords {
+            let uuid = dto.uuid
+            let existing = ((try? context.fetch(FetchDescriptor<PeriodFlowRecord>(
+                predicate: #Predicate { $0.uuid == uuid }))) ?? []).first
+            let record = existing ?? {
+                let created = PeriodFlowRecord(uuid: dto.uuid, dayKey: dto.dayKey, level: .none)
+                context.insert(created)
+                return created
+            }()
+            // 本机这条更新过(或一样新)就不拿备份里的盖回去。
+            if existing == nil || dto.updatedAt > record.updatedAt { dto.apply(to: record) }
         }
         for dto in payload.medications {
             let uuid = dto.uuid

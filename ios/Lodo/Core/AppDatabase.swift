@@ -29,6 +29,7 @@ enum AppDatabase {
         NewsFeed.self, NewsArticle.self, CountdownEvent.self, PackingItem.self, FinanceEntry.self,
         ChatProposalApplication.self, HealthProfile.self, CheckupEntry.self, WeightRecord.self,
         FoodRecord.self, PeriodRecord.self, Medication.self, MedicationDose.self,
+        PeriodFlowRecord.self,
     ]
 
     /// 共享聊天室的数据放一个**单独的本地库**,不走 SwiftData 的 iCloud 私有库镜像:

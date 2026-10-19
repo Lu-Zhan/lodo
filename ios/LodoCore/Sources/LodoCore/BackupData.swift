@@ -1166,6 +1166,8 @@ public struct BackupPayload: Codable {
     public var periodRecords: [BackupPeriodRecord] = []
     public var medications: [BackupMedication] = []
     public var medicationDoses: [BackupMedicationDose] = []
+    /// 经期每天的出血量(手记的,含清除的墓碑)。新增字段,老备份缺 key 时兜底为空。
+    public var periodFlowRecords: [BackupPeriodFlowRecord] = []
 
     public init(
         tasks: [BackupTask], memoryItems: [BackupMemoryItem], memoryTags: [BackupMemoryTag],
@@ -1187,7 +1189,8 @@ public struct BackupPayload: Codable {
         foodRecords: [BackupFoodRecord] = [],
         periodRecords: [BackupPeriodRecord] = [],
         medications: [BackupMedication] = [],
-        medicationDoses: [BackupMedicationDose] = []
+        medicationDoses: [BackupMedicationDose] = [],
+        periodFlowRecords: [BackupPeriodFlowRecord] = []
     ) {
         self.tasks = tasks
         self.memoryItems = memoryItems
@@ -1212,6 +1215,7 @@ public struct BackupPayload: Codable {
         self.periodRecords = periodRecords
         self.medications = medications
         self.medicationDoses = medicationDoses
+        self.periodFlowRecords = periodFlowRecords
     }
 
     /// 手写 init(from:):contactRelationships/travelTrips/menuDishes 是新增字段,
@@ -1254,6 +1258,8 @@ public struct BackupPayload: Codable {
         medications = try c.decodeIfPresent([BackupMedication].self, forKey: .medications) ?? []
         medicationDoses = try c.decodeIfPresent(
             [BackupMedicationDose].self, forKey: .medicationDoses) ?? []
+        periodFlowRecords = try c.decodeIfPresent(
+            [BackupPeriodFlowRecord].self, forKey: .periodFlowRecords) ?? []
     }
 }
 
@@ -1436,6 +1442,34 @@ extension BackupPeriodRecord {
         record.start = start
         record.end = end
         record.note = note
+        record.createdAt = createdAt
+    }
+}
+
+/// 经期某一天的出血量(手记的;健康 App 的不备份,它在健康库里)。
+public struct BackupPeriodFlowRecord: Codable {
+    public var uuid: UUID
+    public var dayKey: String
+    public var levelRaw: String
+    public var updatedAt: Date
+    public var isDeleted: Bool
+    public var createdAt: Date
+}
+
+extension PeriodFlowRecord {
+    public var backup: BackupPeriodFlowRecord {
+        BackupPeriodFlowRecord(uuid: uuid, dayKey: dayKey, levelRaw: levelRaw, updatedAt: updatedAt,
+                               isDeleted: isDeleted, createdAt: createdAt)
+    }
+}
+
+extension BackupPeriodFlowRecord {
+    public func apply(to record: PeriodFlowRecord) {
+        record.uuid = uuid
+        record.dayKey = dayKey
+        record.levelRaw = levelRaw
+        record.updatedAt = updatedAt
+        record.isDeleted = isDeleted
         record.createdAt = createdAt
     }
 }

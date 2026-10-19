@@ -2223,3 +2223,95 @@ ios_view.health_ux2_8,移除这餐的任务,Remove this meal's task,ios_view,健
 ios_view.health_ux2_9,今天没有计划用药,No scheduled doses today,ios_view,健康页重新设计
 ios_view.health_ux2_10,"病历、过敏、复查提醒这类资料可以记在这里,AI 健康分析时会一并参考。","Keep medical records, allergies and follow-up notes here. AI health analysis takes them into account.",ios_view,健康页重新设计
 ios_view.health_ux3_1,天气 %@ · 空气质量 %@,Weather %1$@ · Air quality %2$@,ios_view,健康页重新设计
+ios_view.cycle_ux_1,"预计 %@ 可能来月经,记得备好用品。",Your period may start around %@. Remember to get supplies ready.,ios_view,健康页重新设计
+ios_view.cycle_ux_2,无,None,ios_view,健康页重新设计
+ios_view.cycle_ux_3,少,Light,ios_view,健康页重新设计
+ios_view.cycle_ux_4,多,Heavy,ios_view,健康页重新设计
+ios_view.cycle_ux_5,有出血,Bleeding,ios_view,健康页重新设计
+ios_view.cycle_ux_6,未知档位,Unknown,ios_view,健康页重新设计
+ios_view.cycle_ux_7,预测依据较少,Limited data for prediction,ios_view,健康页重新设计
+ios_view.cycle_ux_8,预测依据一般,Some data for prediction,ios_view,健康页重新设计
+ios_view.cycle_ux_9,预测依据较充分,Good data for prediction,ios_view,健康页重新设计
+ios_view.cycle_ux_10,从这次经期开始记录,Start logging with this period,ios_view,健康页重新设计
+ios_view.cycle_ux_11,结束日期待确认,End date to confirm,ios_view,健康页重新设计
+ios_view.cycle_ux_12,预计还有 %lld 天结束,Expected to end in %lld days,ios_view,健康页重新设计
+ios_view.cycle_ux_13,预计今天结束,Expected to end today,ios_view,健康页重新设计
+ios_view.cycle_ux_14,可能这几天结束,May end in the next few days,ios_view,健康页重新设计
+ios_view.cycle_ux_15,"继续记录,了解下次时间",Keep logging to learn your next date,ios_view,健康页重新设计
+ios_view.cycle_ux_16,预计还有 %lld 天到来,Expected in %lld days,ios_view,健康页重新设计
+ios_view.cycle_ux_17,可能这几天到来,May start in the next few days,ios_view,健康页重新设计
+ios_view.cycle_ux_18,已超出预计范围 %lld 天,%lld days past the expected range,ios_view,健康页重新设计
+ios_view.cycle_ux_19,"记下开始和结束,lodo 会慢慢了解你的周期","Log when it starts and ends, and lodo will learn your cycle",ios_view,健康页重新设计
+ios_view.cycle_ux_20,已记录到经期第 %lld 天,Logged through day %lld,ios_view,健康页重新设计
+ios_view.cycle_ux_21,经期第 %lld 天 · %@开始,Day %1$lld · started %2$@,ios_view,健康页重新设计
+ios_view.cycle_ux_22,"上次周期 %lld 天,再记一次就能预测",Last cycle was %lld days. One more log enables prediction,ios_view,健康页重新设计
+ios_view.cycle_ux_23,"再记一两次经期,就能预测下次时间",Log one or two more periods to predict the next one,ios_view,健康页重新设计
+ios_view.cycle_ux_24,可能为 %@,Likely %@,ios_view,健康页重新设计
+ios_view.cycle_ux_25,原预计 %@,Expected %@,ios_view,健康页重新设计
+ios_view.cycle_ux_26,本次经期,Current Period,ios_view,健康页重新设计
+ios_view.cycle_ux_27,下次经期,Next Period,ios_view,健康页重新设计
+ios_view.cycle_ux_28,预计 %@ 结束,Expected to end %@,ios_view,健康页重新设计
+ios_view.cycle_ux_29,"还没记过完整的一次,暂按 5 天估算",No complete period logged yet; assuming 5 days,ios_view,健康页重新设计
+ios_view.cycle_ux_30,预计 %@ 开始,Expected to start %@,ios_view,健康页重新设计
+ios_view.cycle_ux_31,预计结束范围 %@,Expected end %@,ios_view,健康页重新设计
+ios_view.cycle_ux_32,"可能推迟了,也可能漏记了上一次","It may be late, or the last one may not have been logged",ios_view,健康页重新设计
+ios_view.cycle_ux_33,%@ · %lld 个有效周期,%1$@ · %2$lld usable cycles,ios_view,健康页重新设计
+ios_view.cycle_ux_34,补记结束日,Log End Date,ios_view,健康页重新设计
+ios_view.cycle_ux_35,补记以前的经期,Log a Past Period,ios_view,健康页重新设计
+ios_view.cycle_ux_36,补记上一次经期,Log the Last Period,ios_view,健康页重新设计
+ios_view.cycle_ux_37,今天 %@,Today %@,ios_view,健康页重新设计
+ios_view.cycle_ux_38,未记,Not logged,ios_view,健康页重新设计
+ios_view.cycle_ux_39,再点一下已选的那一档就清掉。,Tap the selected level again to clear it.,ios_view,健康页重新设计
+ios_view.cycle_ux_40,本次经期每天,"This period, by day",ios_view,健康页重新设计
+ios_view.cycle_ux_41,上次经期每天,"Last period, by day",ios_view,健康页重新设计
+ios_view.cycle_ux_42,"出血量按天记,没记的日子会留空,不会当成「无」。",Flow is logged by day. Days you skip stay empty and aren't counted as none.,ios_view,健康页重新设计
+ios_view.cycle_ux_43,出血量,Flow,ios_view,健康页重新设计
+ios_view.cycle_ux_44,补记出血量,Log flow for another day,ios_view,健康页重新设计
+ios_view.cycle_ux_45,把今天记为经期开始?,Mark today as the start of a period?,ios_view,健康页重新设计
+ios_view.cycle_ux_46,只记出血量,Just Log Flow,ios_view,健康页重新设计
+ios_view.cycle_ux_47,记为开始,Mark as Start,ios_view,健康页重新设计
+ios_view.cycle_ux_48,今天不在记录的经期里。记为开始会从今天开一次新的经期。,Today isn't inside a logged period. Marking it as the start begins a new period today.,ios_view,健康页重新设计
+ios_view.cycle_ux_49,"这一天健康 App 里有记录;这里记的会优先显示,健康 App 里的不会被改动。",The Health app has data for this day. What you log here takes priority; the Health app data isn't changed.,ios_view,健康页重新设计
+ios_view.cycle_ux_50,清除这一天的记录,Clear This Day,ios_view,健康页重新设计
+ios_view.cycle_ux_51,记出血量,Log Flow,ios_view,健康页重新设计
+ios_view.cycle_ux_52,典型周期,Typical cycle,ios_view,健康页重新设计
+ios_view.cycle_ux_53,典型经期,Typical period,ios_view,健康页重新设计
+ios_view.cycle_ux_54,近期记录较稳定,Recent cycles are fairly regular,ios_view,健康页重新设计
+ios_view.cycle_ux_55,近期波动较大,Recent cycles vary a lot,ios_view,健康页重新设计
+ios_view.cycle_ux_56,近期周期 %lld–%lld 天,Recent cycles %1$lld–%2$lld days,ios_view,健康页重新设计
+ios_view.cycle_ux_57,"有 %lld 段间隔可能漏记,没有用于预测",%lld gaps may be missed logs and weren't used for prediction,ios_view,健康页重新设计
+ios_view.cycle_ux_58,"记过两次以上经期,这里会画出每个周期有多长。","After two or more periods, this shows how long each cycle was.",ios_view,健康页重新设计
+ios_view.cycle_ux_59,%lld 天 · 可能漏记,%lld days · possibly missed,ios_view,健康页重新设计
+ios_view.cycle_ux_60,最近 %lld 个周期的长度,Lengths of the last %lld cycles,ios_view,健康页重新设计
+ios_view.cycle_ux_61,经期天数,Period days,ios_view,健康页重新设计
+ios_view.cycle_ux_62,整个周期,Whole cycle,ios_view,健康页重新设计
+ios_view.cycle_ux_63,全部经期记录,All Periods,ios_view,健康页重新设计
+ios_view.cycle_ux_64,周期变化,Cycle History,ios_view,健康页重新设计
+ios_view.cycle_ux_65,在预计范围开始前 2 天的 %@ 提醒一次。,"You'll get one reminder at %@, 2 days before the expected range.",ios_view,健康页重新设计
+ios_view.cycle_ux_66,记录更多周期、预测稳定之后才会提醒。,Reminders start once there are enough cycles for a steady prediction.,ios_view,健康页重新设计
+ios_view.cycle_ux_67,"预测按最近几个周期估算出一个经验范围,仅供参考,不能用于避孕。经期和出血量只存在这台设备和你的 iCloud 里,不会发给 AI。","Predictions are a rough range based on your recent cycles, for reference only, and can't be used for contraception. Period and flow data stay on this device and in your iCloud and are never sent to AI.",ios_view,健康页重新设计
+ios_view.cycle_ux_68,近期周期,Recent cycles,ios_view,健康页重新设计
+ios_view.cycle_ux_69,单位:天。只用最近 6 个有效周期;短于 15 天、长于 90 天或疑似漏记的间隔不计入。,"In days. Uses the last 6 usable cycles; gaps under 15 or over 90 days, or likely missed logs, are excluded.",ios_view,健康页重新设计
+ios_view.cycle_ux_70,结束未确认,End not confirmed,ios_view,健康页重新设计
+ios_view.cycle_ux_71,当前周期,Current cycle,ios_view,健康页重新设计
+ios_view.cycle_ux_72,"间隔可能漏记了一次,没有用于预测",This gap may include a missed log and wasn't used for prediction,ios_view,健康页重新设计
+ios_view.cycle_ux_73,"间隔太短或太长,没有用于预测",This gap is too short or long and wasn't used for prediction,ios_view,健康页重新设计
+ios_view.cycle_ux_74,已记录出血量 %lld 天,Flow logged for %lld days,ios_view,健康页重新设计
+ios_view.cycle_ux2_1,"有出血,未分档","Bleeding, unspecified",ios_view,健康页重新设计
+ios_view.cycle_ux2_2,%@ · %lld 次完整经期,%1$@ · %2$lld complete periods,ios_view,健康页重新设计
+ios_view.cycle_ux2_3,"近期周期波动较大,范围比较宽","Recent cycles vary a lot, so the range is wide",ios_view,健康页重新设计
+ios_view.cycle_ux2_4,这是新的一次开始,This Is a New Period,ios_view,健康页重新设计
+ios_view.cycle_ux2_5,全部出血量记录,All Flow Records,ios_view,健康页重新设计
+ios_view.cycle_ux2_6,健康 App 里这一天的记录不一致(既有「无」又有出血);这里记的会优先显示。,The Health app has conflicting data for this day (both none and bleeding); what you log here takes priority.,ios_view,健康页重新设计
+ios_view.cycle_ux2_7,"清除后,如果健康 App 里这一天有记录,会改为显示健康 App 的。","After clearing, the Health app's data for this day will be shown if there is any.",ios_view,健康页重新设计
+ios_view.cycle_ux2_8,把这一天记为经期开始?,Mark this day as the start of a period?,ios_view,健康页重新设计
+ios_view.cycle_ux2_9,这一天不在记录的经期里。记为开始会从这一天开一次新的经期。,This day isn't inside a logged period. Marking it as the start begins a new period on this day.,ios_view,健康页重新设计
+ios_view.cycle_ux2_10,经期天数(记了结束日的),Period days (with end date),ios_view,健康页重新设计
+ios_view.cycle_ux2_11,%lld 天 · 未用于预测,%lld days · not used,ios_view,健康页重新设计
+ios_view.cycle_ux2_12,还没有出血量记录,No Flow Records Yet,ios_view,健康页重新设计
+ios_view.cycle_ux2_13,健康 App · 记录不一致,Health app · conflicting,ios_view,健康页重新设计
+ios_view.cycle_ux2_14,出血量记录,Flow Records,ios_view,健康页重新设计
+ios_view.cycle_ux2_15,"只删除这次的起止日期,每天的出血量记录会保留。",Only this period's dates are deleted; daily flow records are kept.,ios_view,健康页重新设计
+ios_view.cycle_ux3_1,"已清除手记,现在显示的是健康 App 里这一天的记录。",Your entry was cleared. The Health app's record for today is shown now.,ios_view,健康页重新设计
+ios_view.cycle_ux3_2,观察到出血 %lld 天,Bleeding observed %lld days,ios_view,健康页重新设计
+ios_view.cycle_ux3_3,删除这次经期?,Delete This Period?,ios_view,健康页重新设计

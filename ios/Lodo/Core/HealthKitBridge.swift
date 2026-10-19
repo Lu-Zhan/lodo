@@ -187,6 +187,11 @@ enum HealthKitBridge {
 
     /// 最近 days 天里健康 App 记过经期流量的日子(「无」那一档不算)。
     static func menstrualFlowDays(days: Int) async -> [Date] {
+        await menstrualFlowSamples(days: days).filter { $0.level.isBleeding }.map(\.date)
+    }
+
+    /// 最近 days 天健康 App 的经期流量样本(日子 + 档位,含「无」)。只读日子和档位,别的不读。
+    static func menstrualFlowSamples(days: Int) async -> [(date: Date, level: CycleFlowLevel)] {
         guard isAvailable, days > 0 else { return [] }
         let end = Date()
         guard let start = Calendar.current.date(byAdding: .day, value: -days, to: end) else { return [] }
@@ -195,15 +200,29 @@ enum HealthKitBridge {
             predicates: [.categorySample(type: HKCategoryType(.menstrualFlow), predicate: predicate)],
             sortDescriptors: [])
         guard let samples = try? await descriptor.result(for: store) else { return [] }
-        // 「无」那一档:iOS 18 起叫 HKCategoryValueVaginalBleeding.none,之前是
-        // HKCategoryValueMenstrualFlow.none,两者原始值相同。
-        let none: Int
+        return samples.map { (date: $0.startDate, level: flowLevel($0.value)) }
+    }
+
+    /// HealthKit 档位 → lodo 档位。iOS 18 起叫 HKCategoryValueVaginalBleeding,之前是
+    /// HKCategoryValueMenstrualFlow,两者原始值相同;按枚举逐个对,不比大小。认不出的当「有出血没分档」。
+    private static func flowLevel(_ value: Int) -> CycleFlowLevel {
         if #available(iOS 18.0, macOS 15.0, *) {
-            none = HKCategoryValueVaginalBleeding.none.rawValue
+            switch HKCategoryValueVaginalBleeding(rawValue: value) {
+            case .none?: return .none
+            case .light?: return .light
+            case .medium?: return .medium
+            case .heavy?: return .heavy
+            default: return .unspecified
+            }
         } else {
-            none = HKCategoryValueMenstrualFlow.none.rawValue
+            switch HKCategoryValueMenstrualFlow(rawValue: value) {
+            case .none?: return .none
+            case .light?: return .light
+            case .medium?: return .medium
+            case .heavy?: return .heavy
+            default: return .unspecified
+            }
         }
-        return samples.filter { $0.value != none }.map(\.startDate)
     }
 
     // MARK: - 用药(iOS 26+,只读)

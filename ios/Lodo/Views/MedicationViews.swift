@@ -791,5 +791,33 @@ enum HealthRecordsDemo {
         try? context.save()
         MedicationStore.syncTask(for: vitamin, context: context)
     }
+
+    /// --demo-cycle:清掉本机的经期和出血量,换成 7 次经期(周期 27–29 天)+ 最近一次每天的出血量,
+    /// 看经期中的样子;再加 --demo-cycle-before 把整串往前挪 12 天、最近一次也记了结束,看「还有几天到来」。
+    static func seedCycleIfRequested(context: ModelContext) {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("--demo-cycle") else { return }
+        UserDefaults.standard.set(CyclePlan.Preference.on.rawValue, forKey: AppSettings.cycleTrackingKey)
+        for record in (try? context.fetch(FetchDescriptor<PeriodRecord>())) ?? [] { context.delete(record) }
+        for record in (try? context.fetch(FetchDescriptor<PeriodFlowRecord>())) ?? [] { context.delete(record) }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let shift = args.contains("--demo-cycle-before") ? -12 : 0
+        let offsets = [-170, -141, -113, -86, -58, -30, -2].map { $0 + shift }
+        for (index, offset) in offsets.enumerated() {
+            guard let start = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
+            let isLast = index == offsets.count - 1
+            let end = isLast && shift == 0 ? nil : calendar.date(byAdding: .day, value: index % 2 == 0 ? 4 : 5, to: start)
+            context.insert(PeriodRecord(start: start, end: end))
+            if isLast {
+                for (day, level) in zip(0..., [CycleFlowLevel.medium, .heavy, .medium, .light, .light]) {
+                    guard let date = calendar.date(byAdding: .day, value: day, to: start), date <= today else { continue }
+                    if shift == 0, date == today { continue }      // 今天留着没记,看「未记」
+                    context.insert(PeriodFlowRecord(dayKey: CycleFlow.dayKey(date), level: level))
+                }
+            }
+        }
+        try? context.save()
+    }
 }
 #endif
