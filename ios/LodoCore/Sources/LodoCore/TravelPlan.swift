@@ -346,7 +346,8 @@ public enum TravelPlan {
     ///   原来就是这个语义,改动越少越好);没有原时间的按 9 点算。
     /// - 放不下时:夹在两项之间取中点;放在最前面取后一项前 1 小时;放在最后面取前一项
     ///   后 1 小时。都对齐到 5 分钟,对齐后不再严格落在两者之间就不对齐。
-    /// - 结果限制在这一天里(0:00–23:59)。
+    /// - 结果限制在这一天里(0:00–23:59),邻项在这一天之外时也一样。
+    /// - 前后两项同一时刻时取那个时刻(同时刻按标题排,见 `sorted`)。
     public static func dropStart(
         original: Date?, previous: Date?, next: Date?, day: Date,
         calendar: Calendar = .current
@@ -354,11 +355,16 @@ public enum TravelPlan {
         let dayStart = calendar.startOfDay(for: day)
         let dayEnd = (calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart)
             .addingTimeInterval(-60)
-        let lower = max(previous ?? dayStart, dayStart)
-        let upper = min(next ?? dayEnd, dayEnd)
+        // 邻项的绝对时间可能落在设备日历的这一天之外(按当地日期归到这天的跨时区航班,
+        // 北京时区下东京次日 00:30 起飞 = 前一天 23:30),边界一律夹回这一天:结果绝不能
+        // 跑到别的日子去。夹过的那一头不再要求"严格在它之外"。
+        let lower = min(max(previous ?? dayStart, dayStart), dayEnd)
+        let upper = max(min(next ?? dayEnd, dayEnd), dayStart)
+        let strictLower = previous.map { $0 >= dayStart && $0 <= dayEnd } ?? false
+        let strictUpper = next.map { $0 >= dayStart && $0 <= dayEnd } ?? false
         func fits(_ time: Date) -> Bool {
-            (previous == nil ? time >= lower : time > lower)
-                && (next == nil ? time <= upper : time < upper)
+            (strictLower ? time > lower : time >= lower)
+                && (strictUpper ? time < upper : time <= upper)
         }
         let clock: Date = {
             let parts = original.map { calendar.dateComponents([.hour, .minute], from: $0) }
@@ -366,6 +372,8 @@ public enum TravelPlan {
                                  second: 0, of: dayStart) ?? dayStart
         }()
         if fits(clock) { return clock }
+        // 没有空隙:前后两项同一时刻(或被夹到同一个边界)。只改被拖的这一项、不去挪
+        // 别的行程项,就只能取那个时刻——同时刻的按标题排,不保证正好夹在两者之间。
         guard upper > lower else { return lower }
         let raw: Date
         switch (previous, next) {

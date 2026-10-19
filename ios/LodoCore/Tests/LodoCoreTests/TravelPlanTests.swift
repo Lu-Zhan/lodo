@@ -560,4 +560,29 @@ final class TravelPlanTests: XCTestCase {
         XCTAssertGreaterThan(start, date(day: 9, hour: 10))
         XCTAssertLessThan(start, date(day: 9, hour: 10, minute: 4))
     }
+
+    func testDropBetweenSameTimeNeighborsTakesThatTime() {
+        let start = TravelPlan.dropStart(original: date(day: 9, hour: 18), previous: date(day: 9, hour: 10),
+                                         next: date(day: 9, hour: 10), day: date(day: 9),
+                                         calendar: calendar)
+        XCTAssertEqual(start, date(day: 9, hour: 10))
+    }
+
+    func testDropStaysInDayWhenNeighborIsOutsideIt() {
+        // 归到 7/10 的航班绝对时间是 7/9 23:30(跨时区):排在它前面也不能跑出 7/10。
+        let before = TravelPlan.dropStart(original: date(day: 9, hour: 18), previous: nil,
+                                          next: date(day: 9, hour: 23, minute: 30),
+                                          day: date(day: 10), calendar: calendar)
+        XCTAssertEqual(calendar.startOfDay(for: before), date(day: 10))
+        // 反向时差:前一项已经在 7/11 了,排在它后面也还是 7/10。
+        let after = TravelPlan.dropStart(original: date(day: 9, hour: 8),
+                                         previous: date(day: 11, hour: 0, minute: 30),
+                                         next: nil, day: date(day: 10), calendar: calendar)
+        XCTAssertEqual(calendar.startOfDay(for: after), date(day: 10))
+        // 前一项在前一天:不再卡住,原来的钟点照用。
+        let kept = TravelPlan.dropStart(original: date(day: 8, hour: 14),
+                                        previous: date(day: 9, hour: 23), next: date(day: 10, hour: 16),
+                                        day: date(day: 10), calendar: calendar)
+        XCTAssertEqual(kept, date(day: 10, hour: 14))
+    }
 }
