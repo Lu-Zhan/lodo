@@ -14,7 +14,8 @@ import LodoCore
 struct MemoryListView: View {
     /// 抽屉推开时要把整条工具栏撤掉(理由同 ☰,见 sidebarToolbarButton 的注释)。
     @Environment(\.sidebarChrome) private var sidebarChrome
-    /// 左滑"转为待办"交接:切到待办页并弹出预填标题+内容附件的新建表单(见 AppShellView)。
+    /// "转为任务"交接:切到任务页并弹出预填标题+内容附件的新建表单(见 AppShellView)。
+    /// 左滑里的「转为任务」已去掉,目前没有调用处,接口留着以后挂回别的入口。
     let onConvertToTodo: (String, TaskAttachment) -> Void
     /// 条目详情的 push 栈。由外壳持有:深链回记忆页时要能弹回根,外壳也要据此
     /// 知道现在在不在二级页(在的话屏幕左边缘归系统返回手势,抽屉的唤出带要让开)。
@@ -168,21 +169,16 @@ struct MemoryListView: View {
                             }
                             // 和 TaskRowView 同一档紧凑内边距(默认竖向 11)。
                             .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
-                            // 全部收在 trailing:向右拖归抽屉(见 TaskRowView 同款注释)。
-                            // "转为待办"排在最靠外当 full swipe,删除挪到里面。
-                            .swipeActions(edge: .trailing) {
+                            // 左滑只留「删除」(用户要求,原来的「转为任务」去掉了)。
+                            // 不给 destructive role、也不许滑到底:那样系统会先把这一行
+                            // 当成已删掉划走,用户在确认框里点取消时它又弹回来。
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button {
-                                    let attachment = MemoryPipeline.makeAttachment(from: item)
-                                    onConvertToTodo(attachment.title, attachment)
-                                } label: {
-                                    Label("转为任务", systemImage: "checklist")
-                                }
-                                .tint(.accentColor)
-                                Button(role: .destructive) {
                                     pendingDelete = item
                                 } label: {
                                     Label("删除", systemImage: "trash")
                                 }
+                                .tint(LodoColor.critical)
                             }
                         }
                     }
@@ -233,11 +229,13 @@ struct MemoryListView: View {
             .sheet(isPresented: $showTagManage) {
                 MemoryTagManageView()
             }
-            .confirmationDialog(
-                "删除这条收藏?原始文件会一并删除。", isPresented: Binding(
+            // 屏幕正中的系统确认框(alert),不用底部弹出的 confirmationDialog。
+            .alert(
+                "删除这条收藏?", isPresented: Binding(
                     get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }
-                ), titleVisibility: .visible
+                )
             ) {
+                Button("取消", role: .cancel) { pendingDelete = nil }
                 Button("删除", role: .destructive) {
                     if let item = pendingDelete {
                         Haptics.warning()
@@ -245,6 +243,8 @@ struct MemoryListView: View {
                     }
                     pendingDelete = nil
                 }
+            } message: {
+                Text("原始文件会一并删除。")
             }
         }
     }

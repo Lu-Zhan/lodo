@@ -1019,6 +1019,8 @@ ios_view.catalog_4c5c1d6fbfda,净资产,Net Worth,ios_view,Xcode 提取的 iOS U
 ios_view.catalog_672b9fb4130a,"删除这位人脉?头像与附件会一并删除,已建立的关系也会一起消失。","Delete this contact? Their photo, attachments, and relationships will also be deleted.",ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_c9106a6243b2,删除这条定时任务?,Delete this routine?,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_7e82bc539e7e,删除这条收藏?原始文件会一并删除。,Delete this saved item? The original file will also be deleted.,ios_view,Xcode 提取的 iOS UI 文案
+ios_view.memory_delete_title,删除这条收藏?,Delete this saved item?,ios_view,记忆左滑删除确认框标题
+ios_view.memory_delete_message,原始文件会一并删除。,The original file will also be deleted.,ios_view,记忆左滑删除确认框说明
 ios_view.catalog_05af3bdbad3b,"利率(可选),年化百分比数值,如 4.5","Annual interest rate (optional), e.g. 4.5",ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_e5ed26c36a25,"利率无法识别为数字,改成数字或清空这一栏才能保存。",The interest rate must be a number. Enter a number or clear this field to save.,ios_view,Xcode 提取的 iOS UI 文案
 ios_view.catalog_1214d633a448,发送,Send,ios_view,Xcode 提取的 iOS UI 文案
