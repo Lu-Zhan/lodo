@@ -48,6 +48,12 @@ struct CountdownListView: View {
 
     private var archivedEvents: [CountdownEvent] { sorted.filter(\.archived) }
 
+    /// 手动添加(右上角「+」、空态按钮、下拉):已经开着表单时不再叠一个。
+    private func startManualCreate() {
+        guard !creating, editing == nil else { return }
+        creating = true
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -58,7 +64,7 @@ struct CountdownListView: View {
                         } description: {
                             Text("考试、搬家、演唱会、放假……点右上角的「+」记下日子,这里会一直告诉你还有几天。")
                         } actions: {
-                            Button("添加倒数日") { creating = true }
+                            Button("添加倒数日") { startManualCreate() }
                                 .buttonStyle(.borderedProminent)
                         }
                         .emptyStateFill()
@@ -113,6 +119,8 @@ struct CountdownListView: View {
                     }
                 }
             }
+            // 下拉 = 添加倒数日(同右上角「+」)。
+            .pullToCreate { startManualCreate() }
             .pageTitle("倒数")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -121,7 +129,7 @@ struct CountdownListView: View {
                 if !(sidebarChrome?.hidesChrome ?? false) {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            creating = true
+                            startManualCreate()
                         } label: {
                             Label("添加倒数日", systemImage: "plus")
                         }

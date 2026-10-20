@@ -342,9 +342,8 @@ struct TodoListView: View {
                 showCompletionToast(title: title, undo: undo)
             }
             .overlay(alignment: .bottom) { completionToast }
-            // 下拉 = 手动新建一条任务(同右上角「+」),拉到触发点时震一下。
-            // 列表都在本机库里,没有要"刷新"的东西,所以这里不等任何异步工作。
-            .refreshable { startManualCreate() }
+            // 下拉 = 手动新建一条任务(同右上角「+」),见 `pullToCreate`。
+            .pullToCreate { startManualCreate() }
             .onChange(of: scrollTarget) { _, target in
                 guard let target else { return }
                 withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(target, anchor: .center) }
@@ -448,7 +447,6 @@ struct TodoListView: View {
     /// 手动新建(下拉 / 右上角「+」):空表单,默认放进收集(见 TaskEditView.init)。
     private func startManualCreate() {
         guard sheet == nil else { return }
-        Haptics.impact(.medium)
         sheet = .create(nil, nil)
     }
 

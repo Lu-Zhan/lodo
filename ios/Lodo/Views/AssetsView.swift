@@ -46,6 +46,8 @@ struct AssetsView: View {
     @State private var demoSharedUI = false
     #endif
     @State private var showingShare = false
+    /// 下拉添加时先弹的「添加什么?」选择框。
+    @State private var choosingAdd = false
     @State private var shareError: String?
     @Environment(\.sectionIsActive) private var isActive
     @Environment(\.scenePhase) private var scenePhase
@@ -132,6 +134,8 @@ struct AssetsView: View {
                     }
                 }
             }
+            // 下拉 = 添加(同右上角「+」):先选添加什么。
+            .pullToCreate { startManualCreate() }
             .pageTitle("资产")
             // 标题在顶部正中(同记忆页),不用大标题——下面紧跟着切换条。
             #if os(iOS)
@@ -156,6 +160,13 @@ struct AssetsView: View {
                 FinanceEntryEditView(kind: sheet.kind, existing: sheet.entry, estimated: sheet.estimated)
                     .tint(lodoAccent.accent)
                     .environment(\.lodoAccent, lodoAccent)
+            }
+            .confirmationDialog("添加什么?", isPresented: $choosingAdd, titleVisibility: .visible) {
+                Button("资产") { editingAsset = AssetSheet(item: nil, category: "其他") }
+                Button("收入") { editingEntry = FinanceSheet(kind: .income, entry: nil) }
+                Button("固定支出") { editingEntry = FinanceSheet(kind: .expense, entry: nil) }
+                Button("月估计消费") { editingEntry = FinanceSheet(kind: .expense, entry: nil, estimated: true) }
+                Button("信用卡") { editingEntry = FinanceSheet(kind: .creditCard, entry: nil) }
             }
             .confirmationDialog("删除这项资产?", isPresented: Binding(
                 get: { pendingDeleteAsset != nil }, set: { if !$0 { pendingDeleteAsset = nil } }),
@@ -299,6 +310,12 @@ struct AssetsView: View {
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
+    }
+
+    /// 下拉添加:表单开着时不再叠一个选择框。
+    private func startManualCreate() {
+        guard editingAsset == nil, editingEntry == nil, !showingShare, !choosingAdd else { return }
+        choosingAdd = true
     }
 
     @ViewBuilder

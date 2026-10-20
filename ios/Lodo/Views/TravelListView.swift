@@ -22,6 +22,11 @@ struct TravelListView: View {
 
     @State private var path: [TravelTrip] = []
     @State private var pendingDelete: TravelTrip?
+    /// 右上角「+」/ 下拉:手动新建一次旅行。
+    @State private var creatingTrip = false
+    /// 刚新建的那次:表单收起之后再 push 进详情(弹窗收起和导航同时动会丢一个)。
+    @State private var createdTrip: TravelTrip?
+    @Environment(\.sidebarChrome) private var sidebarChrome
     @State private var showsPast = false
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
     private var language: AppLanguage { AppLanguage(rawValue: languageRaw) ?? .zhHans }
@@ -52,6 +57,9 @@ struct TravelListView: View {
                             Label("还没有旅行", systemImage: "suitcase.rolling")
                         } description: {
                             Text("在底下那条「问问 AI」里说一句要去哪儿玩几天,AI 会排出行程;航班、住宿、想去的地方都放进去之后,可以按天看,也可以看花了多少。")
+                        } actions: {
+                            Button("新建旅行") { startManualCreate() }
+                                .buttonStyle(.borderedProminent)
                         }
                         .emptyStateFill()
                     }
@@ -82,11 +90,31 @@ struct TravelListView: View {
                     }
                 }
             }
+            .pullToCreate { startManualCreate() }
             .pageTitle("旅行")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .toolbar {
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            startManualCreate()
+                        } label: {
+                            Label("新建旅行", systemImage: "plus")
+                        }
+                    }
+                }
+            }
             .sidebarToolbarButton()
+            .sheet(isPresented: $creatingTrip, onDismiss: {
+                if let trip = createdTrip {
+                    createdTrip = nil
+                    path = [trip]
+                }
+            }) {
+                TripEditView(trip: nil) { createdTrip = $0 }
+            }
             .askBar(focus: .travel, isVisible: path.isEmpty)
             .navigationDestination(for: TravelTrip.self) { trip in
                 TravelDetailView(trip: trip)
@@ -127,6 +155,12 @@ struct TravelListView: View {
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
         #endif
+    }
+
+    /// 手动新建一次旅行(右上角「+」、空态按钮、下拉),只在列表这一层生效。
+    private func startManualCreate() {
+        guard path.isEmpty, !creatingTrip else { return }
+        creatingTrip = true
     }
 
     /// 消费一次"打开某次旅行"的请求。旅行已经被删掉(撤销写入、在别处删了)时

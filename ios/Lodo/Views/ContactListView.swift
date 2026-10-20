@@ -24,6 +24,8 @@ struct ContactListView: View {
     @State private var showPicker = false
     @State private var showImportAllConfirm = false
     @State private var importResultMessage: String?
+    /// 手动记一位人脉(右上角「+」/ 下拉)。
+    @State private var composing = false
 
     private var contacts: [MemoryItem] { allItems.filter(\.isContact) }
 
@@ -37,11 +39,11 @@ struct ContactListView: View {
                         } description: {
                             Text("在底下那条「问问 AI」里说一句要记的人,姓名、联系方式、喜好都能一起记下来;人和人之间的关系连起来还能看关系图谱。")
                         } actions: {
-                            // AI 接不了通讯录导入这一棒,空态里留着这个入口(同新闻页「添加订阅」)。
+                            // 手动记一位 + 通讯录导入(AI 接不了导入这一棒)。
                             Menu {
-                                importMenuItems
+                                addMenuItems
                             } label: {
-                                Text("从通讯录导入")
+                                Text("添加人脉")
                             }
                             .glassProminentButton()
                         }
@@ -64,6 +66,7 @@ struct ContactListView: View {
                     }
                 }
             }
+            .pullToCreate { startManualCreate() }
             .pageTitle("人脉")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -75,17 +78,8 @@ struct ContactListView: View {
                 ContactDetailView(item: contact)
             }
             // 都放右上角:左上角只留 ☰(导航),页面自己的操作一律收在右边。
-            // 「从通讯录导入」没有人脉时也要在(AI 接不了这一棒)。
+            // 从左到右「关系图谱、批量导出、+」;「+」里是手动记一位和通讯录导入。
             .toolbar {
-                if !(sidebarChrome?.hidesChrome ?? false) {
-                    ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            importMenuItems
-                        } label: {
-                            Label("从通讯录导入", systemImage: "person.crop.circle.badge.plus")
-                        }
-                    }
-                }
                 if !(sidebarChrome?.hidesChrome ?? false), !contacts.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
@@ -102,6 +96,18 @@ struct ContactListView: View {
                         }
                     }
                 }
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            addMenuItems
+                        } label: {
+                            Label("添加人脉", systemImage: "plus")
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $composing) {
+                ContactComposeView()
             }
             .sidebarToolbarButton()
             .askBar(focus: .contact, isVisible: path.isEmpty)
@@ -235,6 +241,23 @@ struct ContactListView: View {
     // 两条路:选择导入走系统联系人选择器,只把用户选中的人交给 app,**不需要
     // 通讯录权限**(仅 iOS,macOS 的选择器是挂在按钮上的弹出框,没接);导入全部
     // 要先拿权限。两条都按手机号/邮箱去重,已有的人脉跳过。
+
+    /// 「+」菜单:手动记一位,下面是通讯录导入。
+    @ViewBuilder
+    private var addMenuItems: some View {
+        Button {
+            startManualCreate()
+        } label: {
+            Label("记一位人脉", systemImage: "person.badge.plus")
+        }
+        Divider()
+        importMenuItems
+    }
+
+    private func startManualCreate() {
+        guard path.isEmpty, !composing, !showGraph, !showExportPicker, !showPicker else { return }
+        composing = true
+    }
 
     @ViewBuilder
     private var importMenuItems: some View {

@@ -3,10 +3,9 @@ import SwiftData
 import LodoCore
 
 /// "记忆" tab:AI 整理后的收藏条目列表,筛选靠侧栏的标签/资产行。
-/// 新建入口(粘贴收藏/选文件/输入文字/记一笔资产)已随右下角那颗「+」一起去掉,
-/// 收藏改为说给底下那条「问问 AI」(`memorize`)或从别的 app 分享进来;
-/// `MemoryComposeView`/`AssetComposeView` 原样留着(前者健康页还在用),
-/// 要恢复入口时挂回工具栏即可。
+/// 手动收藏在右上角「+」菜单(输入文字/粘贴/选择文件),下拉直接打开「输入文字」;
+/// 也可以说给底下那条「问问 AI」(`memorize`)或从别的 app 分享进来。
+/// 资产在资产页记,这里不再给入口(`AssetComposeView` 原样留着)。
 ///
 /// **这一页自己没有搜索框**——底下常驻着「问问 AI」那条,找东西说一句就行,
 /// 再摆一个只按标题关键词匹配的本地搜索框是同一件事的两个入口、还弱一档;
@@ -34,6 +33,89 @@ struct MemoryListView: View {
     @State private var showAssets = false
     @State private var showTagManage = false
     @State private var pendingDelete: MemoryItem?
+    /// 手动收藏:输入文字的表单 / 选文件。
+    @State private var composing = false
+    @State private var importingFile = false
+    /// 粘贴或选文件失败时的一句说明。
+    @State private var addError: String?
+
+    // MARK: - 手动收藏
+
+    @ViewBuilder
+    private var addMenuItems: some View {
+        Button {
+            startManualCreate()
+        } label: {
+            Label("输入文字", systemImage: "square.and.pencil")
+        }
+        Button {
+            pasteAndSave()
+        } label: {
+            Label("粘贴收藏", systemImage: "doc.on.clipboard")
+        }
+        Button {
+            importingFile = true
+        } label: {
+            Label("选择文件", systemImage: "folder")
+        }
+    }
+
+    private func startManualCreate() {
+        guard path.isEmpty, !composing, !importingFile else { return }
+        composing = true
+    }
+
+    /// 只在用户点了「粘贴收藏」时才读剪贴板:文字(含链接)按文字收藏,图片按图片收藏。
+    private func pasteAndSave() {
+        #if os(iOS)
+        let pasteboard = UIPasteboard.general
+        if let text = pasteboard.string, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            MemoryPipeline.saveText(text, context: context)
+        } else if let image = pasteboard.image, let data = image.pngData() {
+            MemoryPipeline.saveImageData(data, context: context)
+        } else {
+            addError = String(localized: "剪贴板里没有文字或图片。", bundle: .appLanguage(),
+                              locale: AppSettings.language.locale)
+            return
+        }
+        #else
+        let pasteboard = NSPasteboard.general
+        if let text = pasteboard.string(forType: .string),
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            MemoryPipeline.saveText(text, context: context)
+        } else if let data = pasteboard.data(forType: .png) {
+            MemoryPipeline.saveImageData(data, context: context)
+        } else if let tiff = pasteboard.data(forType: .tiff),
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let data = rep.representation(using: .png, properties: [:]) {
+            MemoryPipeline.saveImageData(data, context: context)
+        } else {
+            addError = String(localized: "剪贴板里没有文字或图片。", bundle: .appLanguage(),
+                              locale: AppSettings.language.locale)
+            return
+        }
+        #endif
+        Haptics.success()
+        clearFilters()
+    }
+
+    private func importFiles(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result else {
+            if case .failure(let error) = result { addError = error.localizedDescription }
+            return
+        }
+        var failed = 0
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            if MemoryPipeline.saveFile(url, context: context) == nil { failed += 1 }
+        }
+        if failed > 0 {
+            addError = String(localized: "有 \(failed) 个文件没能读取。", bundle: .appLanguage(),
+                              locale: AppSettings.language.locale)
+        }
+        if failed < urls.count { clearFilters() }
+    }
 
     /// 普通内容标签(不含"资产""人脉"这两个保留标签——资产有自己独立的显示开关,
     /// 人脉整个独立成页,都不该跟普通标签混在一起,也避免用户把它们当成普通标签删掉)。
@@ -149,6 +231,14 @@ struct MemoryListView: View {
                             Label("还没有收藏", systemImage: "sparkles.rectangle.stack")
                         } description: {
                             Text("在底下那条「问问 AI」里说一句要记的事,或从别的 app 分享到 lodo,AI 会整理成记忆条目。")
+                        } actions: {
+                            Menu {
+                                addMenuItems
+                            } label: {
+                                Text("添加收藏")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .fixedSize()
                         }
                         .emptyStateFill()
                     } else if filtered.isEmpty {
@@ -184,6 +274,8 @@ struct MemoryListView: View {
                     }
                 }
             }
+            // 下拉 = 输入文字收藏(不自动读剪贴板,粘贴要用户自己点)。
+            .pullToCreate { startManualCreate() }
             .pageTitle("记忆")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -211,8 +303,7 @@ struct MemoryListView: View {
             .navigationDestination(for: MemoryItem.self) { item in
                 MemoryDetailView(item: item)
             }
-            // 页面自己的操作收在右上角。「管理标签」不是新建入口,所以它没跟着
-            // 右下角那颗「+」一起去掉(收藏一律说给底下那条「问问 AI」)。
+            // 页面自己的操作收在右上角:「管理标签」、「+」手动收藏。
             .toolbar {
                 if !(sidebarChrome?.hidesChrome ?? false), path.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
@@ -222,7 +313,28 @@ struct MemoryListView: View {
                             Label("管理标签", systemImage: "tag")
                         }
                     }
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            addMenuItems
+                        } label: {
+                            Label("添加收藏", systemImage: "plus")
+                        }
+                    }
                 }
+            }
+            .sheet(isPresented: $composing, onDismiss: clearFilters) {
+                MemoryComposeView()
+            }
+            .fileImporter(isPresented: $importingFile, allowedContentTypes: [.item],
+                          allowsMultipleSelection: true) { result in
+                importFiles(result)
+            }
+            .alert("没能收藏", isPresented: Binding(
+                get: { addError != nil }, set: { if !$0 { addError = nil } }
+            )) {
+                Button("好", role: .cancel) { addError = nil }
+            } message: {
+                Text(addError ?? "")
             }
             .sidebarToolbarButton()
             .askBar(focus: .memory, isVisible: path.isEmpty)

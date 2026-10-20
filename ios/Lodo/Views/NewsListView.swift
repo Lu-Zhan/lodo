@@ -12,7 +12,7 @@ enum NewsRoute: Hashable {
 ///
 /// - 找文章 = 底下那条「问问 AI」(带 `.news` 页面焦点,模型用 `search_news` 在订阅里找),
 ///   和记忆/人脉页一样**不另摆搜索框**。
-/// - 订阅管理、添加订阅、定时推送收在右上角菜单——AI 接不了订阅这一棒,
+/// - 添加订阅是右上角的「+」,订阅管理、定时推送收在旁边的菜单——AI 接不了订阅这一棒,
 ///   这几个入口必须留着(同旅行详情页的「从订单导入」)。
 /// - 定时推送不是另一套机制:就是一条带「带上订阅的新闻」的定时任务
 ///   (`AIRoutine.includeNews`),触发、通知、补跑都走 `RoutineRunner`。
@@ -209,6 +209,14 @@ struct NewsListView: View {
                         }
                     }
                     ToolbarItem(placement: .primaryAction) { toolbarMenu }
+                    // 手动添加订阅单独一颗「+」(下拉在拉新文章,不改成新建)。
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showAddFeed = true
+                        } label: {
+                            Label("添加订阅", systemImage: "plus")
+                        }
+                    }
                 }
             }
             .refreshable { await refresh(force: true) }
@@ -652,11 +660,6 @@ struct NewsListView: View {
 
     private var toolbarMenu: some View {
         Menu {
-            Button {
-                showAddFeed = true
-            } label: {
-                Label("添加订阅", systemImage: "plus")
-            }
             Button {
                 showReadingSettings = true
             } label: {

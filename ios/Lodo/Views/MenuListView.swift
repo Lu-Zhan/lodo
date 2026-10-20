@@ -5,9 +5,8 @@ import LodoCore
 /// "菜单"页:每一行是一张整理过的菜单(打了「菜单」保留标签的记忆条目),
 /// 点进去是菜品清单,勾选后给服务员看。
 ///
-/// 右下角那颗「+」已按"新建一律走 AI"去掉,`MenuImportView`(拍照/截图/贴文字
-/// → 端上 OCR → `parseMenu`)因此**暂时没有入口**:`command` 协议里没有菜单动作,
-/// AI 也接不了这一棒。文件原样留着,要恢复入口时挂回工具栏即可。
+/// 新建菜单走右上角「+」/ 下拉 / 空态按钮 → `MenuImportView`(拍照/截图/贴文字
+/// → 端上 OCR → `parseMenu`):`command` 协议里没有菜单动作,AI 接不了这一棒。
 struct MenuListView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
@@ -19,6 +18,10 @@ struct MenuListView: View {
     var openRequest: Binding<UUID?> = .constant(nil)
     @State private var path: [MemoryItem] = []
     @State private var pendingDelete: MemoryItem?
+    @State private var importing = false
+    /// 刚整理好的那张:导入页收起后再 push 进点菜页(弹窗收起和导航同时动会丢一个)。
+    @State private var createdMenu: MemoryItem?
+    @Environment(\.sidebarChrome) private var sidebarChrome
 
     private var menus: [MemoryItem] { memoryItems.filter(\.isMenu) }
 
@@ -31,6 +34,9 @@ struct MenuListView: View {
                             Label("还没有菜单", systemImage: "menucard")
                         } description: {
                             Text("拍一张菜单或导入截图,AI 会整理出每道菜、翻译外文并补上简介,选好了直接给服务员看。")
+                        } actions: {
+                            Button("导入菜单") { startManualCreate() }
+                                .buttonStyle(.borderedProminent)
                         }
                         .emptyStateFill()
                     }
@@ -48,11 +54,31 @@ struct MenuListView: View {
                     }
                 }
             }
+            .pullToCreate { startManualCreate() }
             .pageTitle("菜单")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .toolbar {
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            startManualCreate()
+                        } label: {
+                            Label("导入菜单", systemImage: "plus")
+                        }
+                    }
+                }
+            }
             .sidebarToolbarButton()
+            .sheet(isPresented: $importing, onDismiss: {
+                if let menu = createdMenu {
+                    createdMenu = nil
+                    path = [menu]
+                }
+            }) {
+                MenuImportView { createdMenu = $0 }
+            }
             .askBar(focus: .menu, isVisible: path.isEmpty)
             .onAppear { consumeOpenRequest() }
             .onChange(of: openRequest.wrappedValue) { _, _ in consumeOpenRequest() }
@@ -81,6 +107,12 @@ struct MenuListView: View {
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
         #endif
+    }
+
+    /// 手动导入一张菜单(右上角「+」、空态按钮、下拉),只在列表这一层生效。
+    private func startManualCreate() {
+        guard path.isEmpty, !importing else { return }
+        importing = true
     }
 
     private func row(_ menu: MemoryItem) -> some View {

@@ -23,6 +23,12 @@ struct HealthView: View {
     @Query(sort: [SortDescriptor(\MemoryItem.createdAt, order: .reverse)])
     private var memoryItems: [MemoryItem]
     @Query private var checkupEntries: [CheckupEntry]
+    /// 右上角「+」→「记体重」的默认值要用(同「今天」那组)。
+    @Query(sort: [SortDescriptor(\WeightRecord.date, order: .reverse)])
+    private var weightRecords: [WeightRecord]
+    @Environment(\.sidebarChrome) private var sidebarChrome
+    /// 右上角「+」菜单打开的表单。
+    @State private var addSheet: HealthAddSheet?
 
     @State private var report: HealthReport = .empty
     @State private var analysis: HealthAnalysis?
@@ -98,6 +104,18 @@ struct HealthView: View {
         guard showsData, let last = report.series(.steps)?.points.last,
               Calendar.current.isDateInToday(last.date) else { return nil }
         return last.value
+    }
+
+    @ViewBuilder
+    private var addMenuItems: some View {
+        Button { addSheet = .weight } label: { Label("记体重", systemImage: "scalemass") }
+        Button { addSheet = .food } label: { Label("记饮食", systemImage: "fork.knife") }
+        if medicationVisible {
+            Button { addSheet = .medication } label: { Label("添加药品", systemImage: "pills") }
+        }
+        Divider()
+        Button { addSheet = .note } label: { Label("记一笔健康资料", systemImage: "square.and.pencil") }
+        Button { importingCheckup = true } label: { Label("上传体检报告", systemImage: "doc.text.viewfinder") }
     }
 
     private var healthWeights: [HealthDailyPoint] {
@@ -177,6 +195,29 @@ struct HealthView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            // 手动记录收在右上角「+」(下拉在刷新数据,不改成新建)。都存进 lodo 自己的库,
+            // 不依赖健康开关、不写健康库。
+            .toolbar {
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            addMenuItems
+                        } label: {
+                            Label("添加记录", systemImage: "plus")
+                        }
+                    }
+                }
+            }
+            .sheet(item: $addSheet) { sheet in
+                switch sheet {
+                case .weight:
+                    WeightRecordEditView(record: nil, defaults: WeightPlan.merge(
+                        records: weightRecords.map(\.entry), health: healthWeights))
+                case .food: FoodRecordComposeView()
+                case .medication: MedicationEditView(medication: nil)
+                case .note: MemoryComposeView(presetTags: [MemoryItem.healthTagName])
+                }
+            }
             .sidebarToolbarButton()
             .askBar(focus: .health)
             // 开关、回看天数一变就重新读(换 id 时 SwiftUI 会先取消还在跑的那一次——
@@ -555,4 +596,10 @@ struct HealthView: View {
         loadingAnalysis = false
     }
     #endif
+}
+
+/// 健康页右上角「+」打开的几张表单。
+private enum HealthAddSheet: String, Identifiable {
+    case weight, food, medication, note
+    var id: String { rawValue }
 }

@@ -2351,3 +2351,12 @@ ios_view.credit_card_27,提醒已开启,Reminder on,ios_view,信用卡账单/还
 ios_view.credit_card_28,免年费,No annual fee,ios_view,信用卡账单/还款/年费提醒
 ios_view.credit_card_29,年费 %@,Annual fee %@,ios_view,信用卡账单/还款/年费提醒
 ios_view.credit_card_30,年费 %@ · %@,Annual fee %@ · %@,ios_view,信用卡账单/还款/年费提醒
+ios_view.manual_add_1,导入菜单,Import Menu,ios_view,各页手动添加入口
+ios_view.manual_add_2,添加收藏,Add to Memory,ios_view,各页手动添加入口
+ios_view.manual_add_3,剪贴板里没有文字或图片。,There's no text or image on the clipboard.,ios_view,各页手动添加入口
+ios_view.manual_add_4,有 %lld 个文件没能读取。,%lld files couldn't be read.,ios_view,各页手动添加入口
+ios_view.manual_add_5,没能收藏,Couldn't Save,ios_view,各页手动添加入口
+ios_view.manual_add_6,添加人脉,Add Contact,ios_view,各页手动添加入口
+ios_view.manual_add_7,添加什么?,What would you like to add?,ios_view,各页手动添加入口
+ios_view.manual_add_8,添加记录,Add Record,ios_view,各页手动添加入口
+ios_view.manual_add_9,记一笔健康资料,Add Health Note,ios_view,各页手动添加入口
