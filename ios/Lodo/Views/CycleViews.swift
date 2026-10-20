@@ -118,7 +118,8 @@ struct CycleModel {
     init(records: [PeriodRecord], flowRecords: [PeriodFlowRecord], now: Date) {
         let shared = CycleHealthPeriods.shared
         periods = CyclePlan.merge(manual: records.map(\.period), health: shared.periods, today: now)
-        prediction = CyclePrediction.predict(periods, today: now)
+        prediction = CyclePrediction.predict(periods, today: now,
+                                             confirmations: CycleConfirmations.shared.value)
         flows = CycleFlow.resolve(manual: flowRecords.map(\.entry), health: shared.flows)
         let today = Calendar.current.startOfDay(for: now)
         if let current = periods.last(where: { $0.start <= today }), current.end == nil,
@@ -280,6 +281,9 @@ enum CycleText {
             guard let next = p.nextStart else { return nil }
             return String(localized: "可能为 \(range(next.lower, next.upper, locale: locale))", bundle: bundle, locale: locale)
         case .late:
+            if p.startRevised, let next = p.nextStart {
+                return String(localized: "可能为 \(range(next.lower, next.upper, locale: locale))", bundle: bundle, locale: locale)
+            }
             guard let next = p.nextStart else { return nil }
             return String(localized: "原预计 \(range(next.lower, next.upper, locale: locale))", bundle: bundle, locale: locale)
         }
@@ -335,6 +339,9 @@ private struct CycleHeroCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                if p.endRevised {
+                    Text("已按「今天还没结束」重新估计").foregroundStyle(.secondary)
+                }
                 if p.periodLengthIsDefault {
                     Text("还没记过完整的一次,暂按 5 天估算").foregroundStyle(.secondary)
                 } else if let evidence = CycleText.evidence(p.endEvidence, locale: locale) {
@@ -346,6 +353,10 @@ private struct CycleHeroCard: View {
                 }
                 if let end = p.nextEnd {
                     Text("预计结束范围 \(CycleText.range(end.lower, end.upper, locale: locale))")
+                        .foregroundStyle(.secondary)
+                }
+                if p.startRevised, let original = p.originalNextStart {
+                    Text("已按「今天还没来」重新估计 · 原预计 \(CycleText.range(original.lower, original.upper, locale: locale))")
                         .foregroundStyle(.secondary)
                 }
                 if case .late = p.phase {
@@ -376,19 +387,23 @@ private struct CycleHeroCard: View {
                 CycleStore.startToday(records: records, context: context)
             }
             .buttonStyle(.borderless)
+            stillGoing
         } else if let open = model.openRecord, model.inPeriod {
             primary("经期结束了", systemImage: "checkmark.circle") {
                 CycleStore.endToday(records: [open], context: context)
             }
+            stillGoing
         } else if model.inPeriod, let health = model.lastHealthPeriod {
             // 这次经期只在健康 App 里:结束时补一条手记盖住它(健康 App 里的不改)。
             primary("经期结束了", systemImage: "checkmark.circle") {
                 CycleStore.endHealthPeriod(start: health.start, context: context)
             }
+            stillGoing
         } else if !model.inPeriod {
             primary("经期开始了", systemImage: "drop.fill") {
                 CycleStore.startToday(records: records, context: context)
             }
+            notYet
             if case .noRecords = p.phase {
                 Button("补记以前的经期") { onAddPast() }
                     .buttonStyle(.borderless)
@@ -396,6 +411,56 @@ private struct CycleHeroCard: View {
                 Button("补记上一次经期") { onAddPast() }
                     .buttonStyle(.borderless)
             }
+        }
+    }
+
+    /// 「今天还没结束」:到了或过了预计结束的日子还在经期里时给(还早的时候点了也没有新信息)。
+    /// 今天已经确认过就换成一行说明 + 撤销。
+    @ViewBuilder
+    private var stillGoing: some View {
+        if p.endRevised, let d = CycleConfirmations.shared.ongoingThrough,
+           Calendar.current.isDateInToday(d) {
+            confirmedNote("已确认今天还没结束")
+        } else if let end = p.currentEnd, Calendar.current.startOfDay(for: Date()) >= end.lower {
+            Button("今天还没结束") {
+                Haptics.success()
+                CycleStore.confirmOngoing(context: context)
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    /// 「今天还没来」:已经在预计范围里或超出范围时给,下次开始按它往后重新估计。
+    @ViewBuilder
+    private var notYet: some View {
+        if p.startRevised, let d = CycleConfirmations.shared.notStartedThrough,
+           Calendar.current.isDateInToday(d) {
+            confirmedNote("已确认今天还没来")
+        } else if isDueOrLate {
+            Button("今天还没来") {
+                Haptics.success()
+                CycleStore.confirmNotStarted(context: context)
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private var isDueOrLate: Bool {
+        switch p.phase {
+        case .inWindow, .late: return true
+        default: return false
+        }
+    }
+
+    private func confirmedNote(_ text: LocalizedStringKey) -> some View {
+        HStack(spacing: 8) {
+            Label(text, systemImage: "checkmark")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Button("撤销") { CycleStore.clearConfirmations(context: context) }
+                .buttonStyle(.borderless)
+                .font(.subheadline)
         }
     }
 

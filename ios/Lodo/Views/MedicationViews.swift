@@ -802,20 +802,34 @@ enum HealthRecordsDemo {
         for record in (try? context.fetch(FetchDescriptor<PeriodFlowRecord>())) ?? [] { context.delete(record) }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let shift = args.contains("--demo-cycle-before") ? -12 : 0
+        // --demo-cycle-due:挪到预计范围里(看「今天还没来」);--demo-cycle-ending:这次到了第 6 天还开着
+        // (看「今天还没结束」)。
+        let ending = args.contains("--demo-cycle-ending")
+        let shift = args.contains("--demo-cycle-before") ? -12
+            : (args.contains("--demo-cycle-due") ? -26 : (ending ? -3 : 0))
         let offsets = [-170, -141, -113, -86, -58, -30, -2].map { $0 + shift }
         for (index, offset) in offsets.enumerated() {
             guard let start = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
             let isLast = index == offsets.count - 1
-            let end = isLast && shift == 0 ? nil : calendar.date(byAdding: .day, value: index % 2 == 0 ? 4 : 5, to: start)
+            let end = isLast && (shift == 0 || ending) ? nil : calendar.date(byAdding: .day, value: index % 2 == 0 ? 4 : 5, to: start)
             context.insert(PeriodRecord(start: start, end: end))
             if isLast {
                 for (day, level) in zip(0..., [CycleFlowLevel.medium, .heavy, .medium, .light, .light]) {
                     guard let date = calendar.date(byAdding: .day, value: day, to: start), date <= today else { continue }
-                    if shift == 0, date == today { continue }      // 今天留着没记,看「未记」
+                    if shift == 0 || ending, date == today { continue }      // 今天留着没记,看「未记」
                     context.insert(PeriodFlowRecord(dayKey: CycleFlow.dayKey(date), level: level))
                 }
             }
+        }
+        // --demo-cycle-confirm:当成已经点过「今天还没来 / 今天还没结束」,看重新估计后的样子。
+        UserDefaults.standard.removeObject(forKey: CycleConfirmations.notStartedKey)
+        UserDefaults.standard.removeObject(forKey: CycleConfirmations.ongoingKey)
+        if args.contains("--demo-cycle-confirm") {
+            CycleConfirmations.shared.notStartedThrough = ending ? nil : today
+            CycleConfirmations.shared.ongoingThrough = ending ? today : nil
+        } else {
+            CycleConfirmations.shared.notStartedThrough = nil
+            CycleConfirmations.shared.ongoingThrough = nil
         }
         try? context.save()
     }

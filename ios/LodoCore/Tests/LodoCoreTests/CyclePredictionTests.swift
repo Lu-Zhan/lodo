@@ -250,3 +250,110 @@ extension CyclePredictionTests {
     }
 }
 
+
+// MARK: - 用户确认「还没来 / 还没结束」后重新估计
+
+extension CyclePredictionTests {
+    private func predict(_ periods: [CyclePlan.Period], today: Date,
+                         confirmations: CyclePrediction.Confirmations) -> CyclePrediction.Result {
+        CyclePrediction.predict(periods, today: today, confirmations: confirmations, calendar: calendar)
+    }
+
+    func testNotStartedTodayMovesWindowPastToday() {
+        // 周期 27–31 天;上次 6/10 开始。
+        let history = periods(from: day(1, 1), lengths: [28, 30, 27, 31, 29, 28], period: 5)
+        let last = history.last!.start
+        let base = predict(history, today: day(7, 8))
+        guard let original = base.nextStart else { return XCTFail() }
+        let today = original.center
+        XCTAssertEqual(predict(history, today: today).phase, .inWindow)
+        let revised = predict(history, today: today, confirmations: .init(notStartedThrough: today))
+        XCTAssertTrue(revised.startRevised)
+        XCTAssertEqual(revised.originalNextStart, original)
+        guard let next = revised.nextStart else { return XCTFail() }
+        XCTAssertEqual(next.lower, add(1, to: today))
+        XCTAssertGreaterThan(next.center, today)
+        XCTAssertGreaterThanOrEqual(next.upper, original.upper)
+        XCTAssertEqual(revised.phase, .before)
+        XCTAssertGreaterThan(revised.daysUntilStart ?? 0, 0)
+        XCTAssertFalse(revised.canRemind)
+        XCTAssertGreaterThan(revised.nextEnd!.lower, today)
+        // 新中心只看比已经过去的天数更长的那几个周期。
+        let elapsed = calendar.dateComponents([.day], from: last, to: today).day!
+        XCTAssertGreaterThan(calendar.dateComponents([.day], from: last, to: next.center).day!, elapsed)
+    }
+
+    func testNotStartedPastAllHistoryStaysLateWithNewRange() {
+        let history = periods(from: day(1, 1), lengths: [28, 29, 28, 30, 28, 29], period: 5)
+        guard let original = predict(history, today: day(7, 8)).nextStart else { return XCTFail() }
+        let today = add(3, to: original.upper)
+        let revised = predict(history, today: today, confirmations: .init(notStartedThrough: today))
+        XCTAssertEqual(revised.phase, .late(days: 3))
+        XCTAssertEqual(revised.nextStart?.lower, add(1, to: today))
+        XCTAssertGreaterThan(revised.nextStart!.upper, add(1, to: today))
+    }
+
+    func testNotStartedConfirmationIgnoredBeforeWindowOrAfterNewStart() {
+        let history = periods(from: day(1, 1), lengths: [28, 29, 28, 30, 28, 29], period: 5)
+        let base = predict(history, today: day(7, 8))
+        let early = predict(history, today: day(7, 8), confirmations: .init(notStartedThrough: day(7, 8)))
+        if case .before = base.phase {
+            XCTAssertFalse(early.startRevised)
+            XCTAssertEqual(early.nextStart, base.nextStart)
+        }
+        // 确认日在最近一次开始之前:新的一次已经来了,确认作废。
+        let stale = predict(history, today: day(7, 8),
+                            confirmations: .init(notStartedThrough: add(-1, to: history.last!.start)))
+        XCTAssertFalse(stale.startRevised)
+    }
+
+    func testOngoingTodayExtendsEnd() {
+        // 经期一直 5 天;这次 7/1 开始、没点结束,今天第 7 天(过了范围 → 待确认)。
+        var history = periods(from: day(1, 1), lengths: [28, 29, 28, 30, 28, 30], period: 5)
+        let start = history.last!.start
+        history[history.count - 1].end = nil
+        let today = add(6, to: start)
+        if case .endUnconfirmed = predict(history, today: today).phase {} else { XCTFail() }
+        let revised = predict(history, today: today, confirmations: .init(ongoingThrough: today))
+        XCTAssertEqual(revised.phase, .inPeriod(day: 7))
+        XCTAssertTrue(revised.endRevised)
+        XCTAssertEqual(revised.currentEnd?.lower, add(1, to: today))
+        XCTAssertEqual(revised.daysUntilEnd, 1)
+    }
+
+    func testOngoingUsesLongerPeriods() {
+        // 经期 4、4、7、7 天交替;这次第 5 天确认还没结束 → 只看 7 天那几次。
+        var history: [CyclePlan.Period] = []
+        var s = day(1, 1)
+        for length in [4, 7, 4, 7, 4] {
+            history.append(CyclePlan.Period(start: s, end: add(length - 1, to: s), source: .manual(UUID())))
+            s = add(29, to: s)
+        }
+        history.append(CyclePlan.Period(start: s, end: nil, source: .manual(UUID())))
+        let today = add(4, to: s)
+        let revised = predict(history, today: today, confirmations: .init(ongoingThrough: today))
+        XCTAssertEqual(revised.currentEnd?.center, add(6, to: s))
+        XCTAssertEqual(revised.daysUntilEnd, 2)
+    }
+
+    func testOngoingIgnoredWhenEndConfirmed() {
+        let history = periods(from: day(1, 1), lengths: [28, 29, 28], period: 5)
+        let today = add(2, to: history.last!.start)
+        let base = predict(history, today: today)
+        let revised = predict(history, today: today, confirmations: .init(ongoingThrough: today))
+        XCTAssertFalse(revised.endRevised)
+        XCTAssertEqual(revised.currentEnd, base.currentEnd)
+    }
+
+    func testOngoingKeepsHealthPeriodInProgress() {
+        // 健康 App 那段最后一笔出血是 3 天前;用户说今天还没结束 → 仍是经期中。
+        var history = periods(from: day(1, 1), lengths: [28, 29, 28, 30], period: 5)
+        let start = history.last!.start
+        history[history.count - 1] = CyclePlan.Period(start: start, end: add(1, to: start), source: .health)
+        let today = add(4, to: start)
+        XCTAssertNotEqual(predict(history, today: today).phase, .inPeriod(day: 5))
+        let revised = predict(history, today: today, confirmations: .init(ongoingThrough: today))
+        XCTAssertEqual(revised.phase, .inPeriod(day: 5))
+        XCTAssertEqual(revised.currentEnd?.lower, add(1, to: today))
+    }
+}

@@ -88,6 +88,20 @@ public enum CyclePrediction {
         case late(days: Int)
     }
 
+    /// 用户亲口确认过的两件事,用来重新估计:
+    /// - `notStartedThrough`:到这天为止还没来(「今天还没来」)——下次开始只能在这天之后。
+    /// - `ongoingThrough`:到这天为止还没结束(「今天还没结束」)——这次结束只能在这天之后。
+    /// 都只对最近一次开始之后、今天及以前的日子生效;新的一次开始后自然失效。
+    public struct Confirmations: Equatable, Sendable {
+        public var notStartedThrough: Date?
+        public var ongoingThrough: Date?
+
+        public init(notStartedThrough: Date? = nil, ongoingThrough: Date? = nil) {
+            self.notStartedThrough = notStartedThrough
+            self.ongoingThrough = ongoingThrough
+        }
+    }
+
     public struct Result: Equatable, Sendable {
         public var phase: Phase
         /// 最近一次开始(含正在进行的这次)。
@@ -126,12 +140,18 @@ public enum CyclePrediction {
         public var lastIntervalLength: Int?
         /// 能不能排经期提醒(依据不为「较少」、至少 3 个有效周期、范围不超过 7 天)。
         public var canRemind: Bool
+        /// 下次开始按「还没来」重新估计过(`nextStart` 是新的范围,`originalNextStart` 是原来的)。
+        public var startRevised = false
+        public var originalNextStart: Window?
+        /// 这次结束按「还没结束」重新估计过。
+        public var endRevised = false
     }
 
     // MARK: 计算
 
     /// `periods` 是合并好的全部经期(手记 + 健康 App,`CyclePlan.merge`)。
     public static func predict(_ periods: [CyclePlan.Period], today: Date,
+                               confirmations: Confirmations = Confirmations(),
                                calendar: Calendar = .current) -> Result {
         let todayStart = calendar.startOfDay(for: today)
         let past = periods
@@ -220,12 +240,28 @@ public enum CyclePrediction {
         var currentEnd: Window?
         var daysUntilEnd: Int?
         let sinceStart = days(from: last.start, to: todayStart, calendar: calendar)
-        let predictedEnd: Window = {
+        var predictedEnd: Window = {
             let center = add(periodLength - 1, to: last.start, calendar: calendar)
             let lower = add(max(1, periodLength - periodSpread) - 1, to: last.start, calendar: calendar)
             let upper = add(periodLength + periodSpread - 1, to: last.start, calendar: calendar)
             return Window(center: center, lower: min(lower, center), upper: max(upper, center))
         }()
+        // 「今天还没结束」:结束只能在确认那天之后。手记确认过结束日的那段不改(以结束日为准)。
+        var endRevised = false
+        var ongoingThrough: Date?
+        if let d = confirmations.ongoingThrough.map({ calendar.startOfDay(for: $0) }),
+           d >= last.start, d <= todayStart, last.fromHealth || last.end == nil {
+            ongoingThrough = d
+            // 已经过了几天(含确认那天);只看比这更长的那几次经期,取它们的加权中位数。
+            let elapsed = days(from: last.start, to: d, calendar: calendar) + 1
+            let lower = add(1, to: d, calendar: calendar)
+            let longer = periodLengths.filter { $0 > elapsed }
+            let center = longer.isEmpty ? lower
+                : max(lower, add(weightedMedian(longer) - 1, to: last.start, calendar: calendar))
+            let upper = max(predictedEnd.upper, center, longer.isEmpty ? add(1, to: lower, calendar: calendar) : center)
+            predictedEnd = Window(center: center, lower: lower, upper: upper)
+            endRevised = true
+        }
         if !last.fromHealth {
             if let end = last.end {
                 // 手记确认过结束日:今天还没过结束日就是经期中,结束日就是它。
@@ -243,12 +279,13 @@ public enum CyclePrediction {
                 phase = .endUnconfirmed(day: sinceStart + 1)
                 currentEnd = predictedEnd
             }
-        } else if let observed = last.end,
+        } else if let observed = [last.end, ongoingThrough].compactMap({ $0 }).max(),
                   todayStart <= add(1, to: observed, calendar: calendar), todayStart <= predictedEnd.upper {
             // 健康 App 的:最后一天有出血记录是今天或昨天、又还在预计结束范围里,当作还在经期中。
             phase = .inPeriod(day: sinceStart + 1)
             currentEnd = predictedEnd
         }
+        if endRevised, phase == nil { endRevised = false }
         if case .inPeriod = phase {
             daysUntilEnd = currentEnd.map { days(from: todayStart, to: $0.center, calendar: calendar) }
         }
@@ -291,9 +328,44 @@ public enum CyclePrediction {
             canRemind = valid.count >= 3 && startEvidence != .low && w <= maxRemindWindow
         }
 
+        // 「今天还没来」:下次开始只能在确认那天之后。只看比已经过去的天数更长的那几个周期,
+        // 取它们的加权中位数当新中心;一个都没有(比以往哪次都晚了)就从明天起给一小段范围。
+        // 范围上界只往后延、不往前收。
+        let originalNextStart = nextStart
+        var startRevised = false
+        if phase == nil, let original = nextStart,
+           let d = confirmations.notStartedThrough.map({ calendar.startOfDay(for: $0) }),
+           d > last.start, d <= todayStart, d >= original.lower {
+            let elapsed = days(from: last.start, to: d, calendar: calendar)
+            let lower = add(1, to: d, calendar: calendar)
+            let longer = valid.filter { $0 > elapsed }
+            let center: Date
+            let upper: Date
+            if longer.isEmpty {
+                let w = max(2, min(spread(valid, center: cycleLength ?? elapsed, floor: 2), maxRemindWindow))
+                upper = max(original.upper, add(w, to: lower, calendar: calendar))
+                center = add(w / 2, to: lower, calendar: calendar)
+            } else {
+                center = max(lower, add(weightedMedian(longer), to: last.start, calendar: calendar))
+                upper = max(original.upper, center)
+            }
+            let revised = Window(center: center, lower: lower, upper: upper)
+            nextStart = revised
+            let endLower = max(1, periodLength - periodSpread)
+            nextEnd = Window(center: add(periodLength - 1, to: center, calendar: calendar),
+                             lower: add(endLower - 1, to: lower, calendar: calendar),
+                             upper: add(periodLength + periodSpread - 1, to: upper, calendar: calendar))
+            startRevised = true
+            // 范围已经被用户的确认推过一次,原来那条「下界前 2 天」的提醒不再补排。
+            canRemind = false
+        }
+
         if phase == nil {
             if let nextStart {
-                if todayStart > nextStart.upper {
+                if startRevised, let original = originalNextStart, todayStart > original.upper {
+                    // 已经超出原来的范围:照实说晚了几天,新的范围放在下面那行。
+                    phase = .late(days: days(from: original.upper, to: todayStart, calendar: calendar))
+                } else if todayStart > nextStart.upper {
                     phase = .late(days: days(from: nextStart.upper, to: todayStart, calendar: calendar))
                 } else if todayStart >= nextStart.lower {
                     phase = .inWindow
@@ -316,7 +388,8 @@ public enum CyclePrediction {
             cycleRange: valid.isEmpty ? nil : valid.min()!...valid.max()!,
             skippedCount: skippedCount, intervals: intervals.reversed(),
             lastIntervalLength: intervals.count == 1 ? intervals[0].length : nil,
-            canRemind: canRemind)
+            canRemind: canRemind,
+            startRevised: startRevised, originalNextStart: originalNextStart, endRevised: endRevised)
     }
 
     /// 经期提醒:下次开始范围的下界前 `reminderDaysBefore` 天的 `time`("HH:MM")。

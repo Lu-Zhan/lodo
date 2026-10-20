@@ -2315,3 +2315,9 @@ ios_view.cycle_ux2_15,"只删除这次的起止日期,每天的出血量记录�
 ios_view.cycle_ux3_1,"已清除手记,现在显示的是健康 App 里这一天的记录。",Your entry was cleared. The Health app's record for today is shown now.,ios_view,健康页重新设计
 ios_view.cycle_ux3_2,观察到出血 %lld 天,Bleeding observed %lld days,ios_view,健康页重新设计
 ios_view.cycle_ux3_3,删除这次经期?,Delete This Period?,ios_view,健康页重新设计
+ios_view.cycle_confirm_1,今天还没来,Not Started Today,ios_view,经期确认还没来/还没结束
+ios_view.cycle_confirm_2,今天还没结束,Still Going Today,ios_view,经期确认还没来/还没结束
+ios_view.cycle_confirm_3,已确认今天还没来,Confirmed: not started today,ios_view,经期确认还没来/还没结束
+ios_view.cycle_confirm_4,已确认今天还没结束,Confirmed: still going today,ios_view,经期确认还没来/还没结束
+ios_view.cycle_confirm_5,已按「今天还没结束」重新估计,Re-estimated because it's still going today,ios_view,经期确认还没来/还没结束
+ios_view.cycle_confirm_6,已按「今天还没来」重新估计 · 原预计 %@,Re-estimated because it hasn't started · originally %@,ios_view,经期确认还没来/还没结束

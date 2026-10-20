@@ -20122,6 +20122,102 @@
         }
       }
     },
+    "今天还没来" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Started Today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天还没来"
+          }
+        }
+      }
+    },
+    "今天还没结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still Going Today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今天还没结束"
+          }
+        }
+      }
+    },
+    "已确认今天还没来" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmed: not started today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已确认今天还没来"
+          }
+        }
+      }
+    },
+    "已确认今天还没结束" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmed: still going today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已确认今天还没结束"
+          }
+        }
+      }
+    },
+    "已按「今天还没结束」重新估计" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-estimated because it's still going today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已按「今天还没结束」重新估计"
+          }
+        }
+      }
+    },
+    "已按「今天还没来」重新估计 · 原预计 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-estimated because it hasn't started · originally %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已按「今天还没来」重新估计 · 原预计 %@"
+          }
+        }
+      }
+    },
     "补记结束日" : {
       "localizations" : {
         "en" : {

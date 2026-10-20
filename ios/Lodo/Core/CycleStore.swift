@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import SwiftData
 import UserNotifications
 import LodoCore
@@ -13,6 +14,24 @@ enum CycleStore {
     /// 健康 App 往回读多少天(够算 6 个周期)。
     static let healthLookbackDays = 400
     static let reminderDaysBefore = 2
+
+    /// 用户点「今天还没来 / 今天还没结束」:记下确认的那天,预测按它重新估计并重排提醒。
+    static func confirmNotStarted(context: ModelContext) {
+        CycleConfirmations.shared.notStartedThrough = Calendar.current.startOfDay(for: Date())
+        rescheduleFromRecords(context: context)
+    }
+
+    static func confirmOngoing(context: ModelContext) {
+        CycleConfirmations.shared.ongoingThrough = Calendar.current.startOfDay(for: Date())
+        rescheduleFromRecords(context: context)
+    }
+
+    /// 撤销刚才的确认(按错了)。
+    static func clearConfirmations(context: ModelContext) {
+        CycleConfirmations.shared.notStartedThrough = nil
+        CycleConfirmations.shared.ongoingThrough = nil
+        rescheduleFromRecords(context: context)
+    }
 
     /// 健康 App 里的经期(健康分析关着、这台设备没有健康库时为空)。
     static func healthPeriods() async -> [CyclePlan.Period] {
@@ -151,7 +170,8 @@ enum CycleStore {
         let now = Date()
         let periods = CyclePlan.merge(manual: records.map(\.period),
                                       health: CycleHealthPeriods.shared.periods, today: now)
-        reschedule(prediction: periods.isEmpty ? nil : CyclePrediction.predict(periods, today: now))
+        reschedule(prediction: periods.isEmpty ? nil : CyclePrediction.predict(
+            periods, today: now, confirmations: CycleConfirmations.shared.value))
     }
 
     /// 按最新的预测重排经期提醒:预计范围下界前 2 天的全天提醒时刻。没开、依据不足
@@ -190,5 +210,46 @@ enum CycleStore {
     /// 关掉经期功能时撤掉提醒。
     static func cancelReminder() {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [reminderID])
+    }
+}
+
+/// 「今天还没来 / 今天还没结束」的确认日(`CyclePrediction.Confirmations`)。
+///
+/// 存本机 UserDefaults(公历 "yyyy-MM-dd"),**不进 SwiftData、不同步、不备份**:它只在这几天里
+/// 有意义,新的一次开始 / 记了结束日之后预测自己就不再认它(`CyclePrediction.predict` 里按最近
+/// 一次开始核对),用不着清理。`@Observable` 让开着的页面跟着变。
+@MainActor
+@Observable
+final class CycleConfirmations {
+    static let shared = CycleConfirmations()
+    static let notStartedKey = "cycleNotStartedThrough"
+    static let ongoingKey = "cycleOngoingThrough"
+
+    var notStartedThrough: Date? {
+        didSet { Self.store(notStartedThrough, key: Self.notStartedKey) }
+    }
+    var ongoingThrough: Date? {
+        didSet { Self.store(ongoingThrough, key: Self.ongoingKey) }
+    }
+
+    var value: CyclePrediction.Confirmations {
+        CyclePrediction.Confirmations(notStartedThrough: notStartedThrough, ongoingThrough: ongoingThrough)
+    }
+
+    private init() {
+        notStartedThrough = Self.load(Self.notStartedKey)
+        ongoingThrough = Self.load(Self.ongoingKey)
+    }
+
+    private static func load(_ key: String) -> Date? {
+        UserDefaults.standard.string(forKey: key).flatMap { CycleFlow.date(fromKey: $0) }
+    }
+
+    private static func store(_ date: Date?, key: String) {
+        if let date {
+            UserDefaults.standard.set(CycleFlow.dayKey(date), forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 }
