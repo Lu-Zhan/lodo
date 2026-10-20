@@ -2360,3 +2360,12 @@ ios_view.manual_add_6,添加人脉,Add Contact,ios_view,各页手动添加入口
 ios_view.manual_add_7,添加什么?,What would you like to add?,ios_view,各页手动添加入口
 ios_view.manual_add_8,添加记录,Add Record,ios_view,各页手动添加入口
 ios_view.manual_add_9,记一笔健康资料,Add Health Note,ios_view,各页手动添加入口
+ios_view.body_archive_1,身体档案,Body Records,ios_view,健康资料:身体档案
+ios_view.body_archive_2,上传身体档案,Upload Body Record,ios_view,健康资料:身体档案
+ios_view.body_archive_3,还没有身体档案,No Body Records Yet,ios_view,健康资料:身体档案
+ios_view.body_archive_4,体重、体脂率等体重秤报告,"Scale reports with weight, body fat, and more",ios_view,健康资料:身体档案
+ios_view.body_archive_5,%lld 份档案,%lld records,ios_view,健康资料:身体档案
+ios_view.body_archive_6,上传于 %@ · %lld 次测量,Uploaded %1$@ · %2$lld measurements,ios_view,健康资料:身体档案
+ios_view.body_archive_7,上传于 %@,Uploaded %@,ios_view,健康资料:身体档案
+ios_view.body_archive_8,"上传的身体档案核对后会记进体重管理,体重、体脂率等变化在那里看。",Body records you upload are added to Weight Management after review. See changes in weight and body fat there.,ios_view,健康资料:身体档案
+ios_view.body_archive_9,"体脂秤 app 的测量详情、历史截图或导出的 PDF 都可以上传,体重、体脂率等读数核对后记进体重管理。","Upload measurement details, history screenshots, or exported PDFs from your smart scale app. Weight, body fat, and other readings are added to Weight Management after you review them.",ios_view,健康资料:身体档案

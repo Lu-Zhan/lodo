@@ -4,7 +4,7 @@ import PhotosUI
 import UniformTypeIdentifiers
 import LodoCore
 
-// MARK: - 上传体重秤记录
+// MARK: - 上传身体档案
 
 /// 上传体脂秤 app 的截图/PDF/拍照 → 端上取字、AI 整理 → **确认页**逐条核对、勾选 → 落库。
 /// 选文件这一半照抄体检报告的 `CheckupImportView`;确认页是这边多出来的一步,理由见
@@ -78,7 +78,7 @@ struct WeightReportImportView: View {
             }
             .formStyle(.grouped)
             .disabled(working)
-            .pageTitle(prepared == nil ? "上传体重秤记录" : "核对测量")
+            .pageTitle(prepared == nil ? "上传身体档案" : "核对测量")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

@@ -33319,6 +33319,150 @@
           }
         }
       }
+    },
+    "身体档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身体档案"
+          }
+        }
+      }
+    },
+    "上传身体档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload Body Record"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传身体档案"
+          }
+        }
+      }
+    },
+    "还没有身体档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Body Records Yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有身体档案"
+          }
+        }
+      }
+    },
+    "体重、体脂率等体重秤报告" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scale reports with weight, body fat, and more"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体重、体脂率等体重秤报告"
+          }
+        }
+      }
+    },
+    "%lld 份档案" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 份档案"
+          }
+        }
+      }
+    },
+    "上传于 %@ · %lld 次测量" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploaded %1$@ · %2$lld measurements"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传于 %@ · %lld 次测量"
+          }
+        }
+      }
+    },
+    "上传于 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploaded %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传于 %@"
+          }
+        }
+      }
+    },
+    "上传的身体档案核对后会记进体重管理,体重、体脂率等变化在那里看。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Body records you upload are added to Weight Management after review. See changes in weight and body fat there."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传的身体档案核对后会记进体重管理,体重、体脂率等变化在那里看。"
+          }
+        }
+      }
+    },
+    "体脂秤 app 的测量详情、历史截图或导出的 PDF 都可以上传,体重、体脂率等读数核对后记进体重管理。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload measurement details, history screenshots, or exported PDFs from your smart scale app. Weight, body fat, and other readings are added to Weight Management after you review them."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体脂秤 app 的测量详情、历史截图或导出的 PDF 都可以上传,体重、体脂率等读数核对后记进体重管理。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

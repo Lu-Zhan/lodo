@@ -83,3 +83,94 @@ struct HealthMemoryListView: View {
         }
     }
 }
+
+/// 身体档案:上传过的体重秤报告(体脂秤 app 的截图/PDF,含体重、体脂率等)。
+/// 「上传身体档案」走体重管理同一个导入页(`WeightReportImportView`),核对后每次测量记成一条
+/// `WeightRecord`,所以这里的内容就是体重管理里那条趋势的来源;最上面一行直接进体重管理。
+/// 删报告(在条目详情里)不删已经记下的测量,同 `WeightReportStore`。
+struct BodyArchiveView: View {
+    let reports: [MemoryItem]
+    let weightRecords: [WeightRecord]
+    let healthWeights: [HealthDailyPoint]
+    let healthSummary: String?
+    let todayActiveEnergy: Double?
+
+    @State private var importing = false
+
+    private var entries: [WeightEntry] {
+        WeightPlan.merge(records: weightRecords.map(\.entry), health: healthWeights)
+    }
+
+    var body: some View {
+        List {
+            Section {
+                NavigationLink {
+                    WeightManagementView(healthWeights: healthWeights, healthSummary: healthSummary,
+                                         todayActiveEnergy: todayActiveEnergy)
+                } label: {
+                    Label("体重与饮食", systemImage: "scalemass")
+                }
+            } footer: {
+                Text("上传的身体档案核对后会记进体重管理,体重、体脂率等变化在那里看。")
+            }
+            if reports.isEmpty {
+                ContentUnavailableView {
+                    Label("还没有身体档案", systemImage: "figure.stand")
+                } description: {
+                    Text("体脂秤 app 的测量详情、历史截图或导出的 PDF 都可以上传,体重、体脂率等读数核对后记进体重管理。")
+                } actions: {
+                    Button("上传身体档案") { importing = true }
+                        .glassProminentButton()
+                }
+            } else {
+                Section {
+                    ForEach(reports) { item in
+                        NavigationLink {
+                            MemoryDetailView(item: item)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Group {
+                                    if item.title.isEmpty {
+                                        Text("未命名")
+                                    } else {
+                                        Text(item.title)
+                                    }
+                                }
+                                .font(.body.weight(.medium))
+                                Text(caption(for: item))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .pageTitle("身体档案")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            if !reports.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        importing = true
+                    } label: {
+                        Label("上传身体档案", systemImage: "doc.badge.plus")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $importing) { WeightReportImportView(existing: entries) }
+    }
+
+    /// 「上传于 10月3日 · 3 次测量」。
+    private func caption(for item: MemoryItem) -> String {
+        let date = item.createdAt.formatted(.dateTime.month().day().locale(AppSettings.language.locale))
+        let count = weightRecords.filter { $0.reportUUID == item.uuid }.count
+        return count > 0
+            ? String(localized: "上传于 \(date) · \(count) 次测量", bundle: .appLanguage(),
+                     locale: AppSettings.language.locale)
+            : String(localized: "上传于 \(date)", bundle: .appLanguage(), locale: AppSettings.language.locale)
+    }
+}

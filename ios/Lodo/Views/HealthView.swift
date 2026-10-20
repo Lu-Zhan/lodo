@@ -44,7 +44,7 @@ struct HealthView: View {
     @State private var openReport: UUID?
     /// 接受了共享邀请的家人档案,push 进去(见 `SharedTripSync.openHealthProfileRequest`)。
     @State private var openProfile: CheckupProfileTarget?
-    /// 首页「上传体检报告」。
+    /// 右上角「+」里的「上传体检报告」。
     @State private var importingCheckup = false
     /// 截图参数直接推进去的二级页(--demo-weight-scroll / --demo-weight-report-live / --demo-medication-page)。
     @State private var openWeightPage = false
@@ -309,7 +309,7 @@ struct HealthView: View {
         return Text("最近 \(rangeDays) 天 · \(report.series.count) 项指标")
     }
 
-    /// 「健康资料」:体检档案、健康记录两个入口 + 上传体检报告。
+    /// 「健康资料」:体检档案、健康记录、身体档案三个入口(上传体检报告在体检档案里和右上角「+」)。
     private var librarySection: some View {
         Section {
             NavigationLink {
@@ -324,10 +324,15 @@ struct HealthView: View {
                 libraryRow(title: "健康记录", systemImage: "heart.text.square",
                            detail: healthMemories.isEmpty ? Text("病历、过敏这类资料") : Text("\(healthMemories.count) 条记录"))
             }
-            Button {
-                importingCheckup = true
+            NavigationLink {
+                BodyArchiveView(
+                    reports: bodyReports, weightRecords: weightRecords, healthWeights: healthWeights,
+                    healthSummary: showsData && !report.isEmpty ? report.promptSummary() : nil,
+                    todayActiveEnergy: showsData ? todayActiveEnergy : nil)
             } label: {
-                Label("上传体检报告", systemImage: "doc.badge.plus")
+                libraryRow(title: "身体档案", systemImage: "figure.stand",
+                           detail: bodyReports.isEmpty ? Text("体重、体脂率等体重秤报告")
+                                                       : Text("\(bodyReports.count) 份档案"))
             }
         } header: {
             Text("健康资料")
@@ -335,6 +340,8 @@ struct HealthView: View {
     }
 
     private var checkupCount: Int { memoryItems.filter(\.isCheckup).count }
+    /// 身体档案 = 上传过的体重秤报告(记忆条目,打「体重秤报告」标签)。
+    private var bodyReports: [MemoryItem] { memoryItems.filter(\.isWeightReport) }
 
     #if DEBUG
     /// --demo-health-scroll-lower 滚到这里(「健康数据」那一行)。

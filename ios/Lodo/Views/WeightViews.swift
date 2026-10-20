@@ -114,7 +114,7 @@ struct WeightSection: View {
                         .textCase(nil)
                     Menu {
                         Button { importingReport = true } label: {
-                            Label("上传体重秤记录", systemImage: "doc.viewfinder")
+                            Label("上传身体档案", systemImage: "doc.viewfinder")
                         }
                         Button { editingGoal = true } label: {
                             Label("设置目标", systemImage: "target")
@@ -169,7 +169,7 @@ struct WeightSection: View {
                 Button {
                     importingReport = true
                 } label: {
-                    Label("上传体重秤记录", systemImage: "doc.viewfinder")
+                    Label("上传身体档案", systemImage: "doc.viewfinder")
                 }
                 .buttonStyle(.bordered)
             }
