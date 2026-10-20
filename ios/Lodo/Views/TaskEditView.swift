@@ -26,6 +26,9 @@ struct TaskEditView: View {
         var initial = TaskFormModel(from: source)
         // AI 给的提案不带闹钟设置(nil):编辑已有任务时沿用它原来的。
         initial.alarm = parsed?.alarm ?? existing?.alarm ?? false
+        // 任务页手动新建(下拉 / 右上角「+」)什么都没预填:默认放进收集,
+        // 只写个标题就保存的事不设时间、不提醒;要定时间把「放进收集」关掉。
+        if existing == nil, parsed == nil { initial.inbox = true }
         _form = State(initialValue: initial)
     }
 

@@ -342,6 +342,9 @@ struct TodoListView: View {
                 showCompletionToast(title: title, undo: undo)
             }
             .overlay(alignment: .bottom) { completionToast }
+            // 下拉 = 手动新建一条任务(同右上角「+」),拉到触发点时震一下。
+            // 列表都在本机库里,没有要"刷新"的东西,所以这里不等任何异步工作。
+            .refreshable { startManualCreate() }
             .onChange(of: scrollTarget) { _, target in
                 guard let target else { return }
                 withAnimation(.lodoAware(.snappy)) { proxy.scrollTo(target, anchor: .center) }
@@ -352,9 +355,19 @@ struct TodoListView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            // 右上角现在什么都不放:「并行时间线」和「按项目查看」先后去掉了,
-            // 左上角只剩 ☰。项目字段本身还在(表单里能填、AI 也会填),只是
-            // 暂时没有按项目浏览的入口(`ProjectListView` 原样留着)。
+            // 右上角只有一颗「+」手动新建(和下拉同一个入口);「并行时间线」和
+            // 「按项目查看」先后去掉了,`ProjectListView` 原样留着、暂时没有入口。
+            .toolbar {
+                if !(sidebarChrome?.hidesChrome ?? false) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            startManualCreate()
+                        } label: {
+                            Label("新建事项", systemImage: "plus")
+                        }
+                    }
+                }
+            }
             .sidebarToolbarButton()
             .askBar(focus: .todo)
             // 剩下的三个 sheet 目的地都是叠在待办列表上的卡片型表单
@@ -406,6 +419,10 @@ struct TodoListView: View {
                 if ProcessInfo.processInfo.arguments.contains("--demo-filter-inbox") {
                     filter = .inbox
                 }
+                // 截图:打开手动新建表单(同下拉 / 右上角「+」)。
+                if ProcessInfo.processInfo.arguments.contains("--demo-task-new") {
+                    sheet = .create(nil, nil)
+                }
                 // 截图:模拟滑掉完成第一条(看底部「已完成 · 撤销」)。
                 if ProcessInfo.processInfo.arguments.contains("--demo-complete-toast") {
                     Task { @MainActor in
@@ -426,6 +443,13 @@ struct TodoListView: View {
                 #endif
             }
         }
+    }
+
+    /// 手动新建(下拉 / 右上角「+」):空表单,默认放进收集(见 TaskEditView.init)。
+    private func startManualCreate() {
+        guard sheet == nil else { return }
+        Haptics.impact(.medium)
+        sheet = .create(nil, nil)
     }
 
     // MARK: - 完成后撤销
