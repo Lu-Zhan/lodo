@@ -439,6 +439,13 @@ public enum SharedAssetMapping {
     /// 收入/支出/信用卡。**还款提醒的防重复标记(`reminderCycle`/`reminderTaskUUID`)
     /// 不同步**——提醒任务是每台设备各自生成的,uuid 传过去只会指向一条不存在的任务;
     /// `remindEnabled` 照常同步,成员那边也会各自收到还款提醒。
+    /// 键排好序:同样的设置每次编出同一个串,对账时不会被当成改动。
+    private static let cardSettingsEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return encoder
+    }()
+
     public static func snapshot(of entry: FinanceEntry) -> SharedRecordSnapshot {
         var f = SharedFields()
         f["kindRaw"] = .string(entry.kindRaw)
@@ -453,6 +460,14 @@ public enum SharedAssetMapping {
         f["notes"] = .string(entry.notes)
         f["remindEnabled"] = .bool(entry.remindEnabled)
         if entry.estimated { f["estimated"] = .bool(true) }
+        // 账单/还款提前天数、账单与年费提醒、年费资料整份放进一个字段:老版本的客户端
+        // 不认识这些字段,推上来的记录里没有这个键——读的时候"没有这个键"当作"没动",
+        // 不能当作"清空了",否则一台没升级的设备改一下额度就把年费资料冲掉。
+        if entry.kind == .creditCard,
+           let data = try? cardSettingsEncoder.encode(entry.cardSettings),
+           let json = String(data: data, encoding: .utf8) {
+            f["cardSettings"] = .string(json)
+        }
         f["sortIndex"] = .int(entry.sortIndex)
         f["updatedAt"] = .date(entry.updatedAt)
         f["createdAt"] = .date(entry.createdAt)
@@ -472,6 +487,12 @@ public enum SharedAssetMapping {
         entry.notes = f.string("notes") ?? ""
         entry.remindEnabled = f.bool("remindEnabled") ?? true
         entry.estimated = f.bool("estimated") ?? false
+        if let json = f.string("cardSettings"), let data = json.data(using: .utf8),
+           var settings = try? JSONDecoder().decode(CreditCardSettings.self, from: data) {
+            // 还款提醒的开关仍以 `remindEnabled` 那个老字段为准(老版本只改得了它)。
+            settings.repaymentRemind = entry.remindEnabled
+            entry.cardSettings = settings
+        }
         entry.sortIndex = f.int("sortIndex") ?? 0
         entry.updatedAt = f.date("updatedAt") ?? entry.updatedAt
         entry.createdAt = f.date("createdAt") ?? entry.createdAt

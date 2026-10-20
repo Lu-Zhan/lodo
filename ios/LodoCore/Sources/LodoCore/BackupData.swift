@@ -988,6 +988,17 @@ public struct BackupFinanceEntry: Codable {
     public var sortIndex: Int
     public var updatedAt: Date
     public var createdAt: Date
+    /// 信用卡的账单/还款/年费提醒设置与年费资料(老备份没有,按默认值)。
+    public var repaymentLeadDays: Int = 1
+    public var statementRemindEnabled: Bool = false
+    public var statementLeadDays: Int = 0
+    public var annualFeeAmount: Double?
+    public var annualFeeBasisRaw: String = AnnualFeeBasis.unknown.rawValue
+    public var annualFeeMonth: Int?
+    public var annualFeeDay: Int?
+    public var annualFeeWaiver: String = ""
+    public var annualFeeRemindEnabled: Bool = false
+    public var annualFeeLeadDays: Int = 30
 
     public init(uuid: UUID, kindRaw: String, title: String, amount: Double?, currency: String,
                 cadenceRaw: String, dayOfMonth: Int?, statementDay: Int?, institution: String,
@@ -1031,17 +1042,39 @@ public struct BackupFinanceEntry: Codable {
         sortIndex = try c.decodeIfPresent(Int.self, forKey: .sortIndex) ?? 0
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
+        repaymentLeadDays = try c.decodeIfPresent(Int.self, forKey: .repaymentLeadDays) ?? 1
+        statementRemindEnabled = try c.decodeIfPresent(Bool.self, forKey: .statementRemindEnabled) ?? false
+        statementLeadDays = try c.decodeIfPresent(Int.self, forKey: .statementLeadDays) ?? 0
+        annualFeeAmount = try c.decodeIfPresent(Double.self, forKey: .annualFeeAmount)
+        annualFeeBasisRaw = try c.decodeIfPresent(String.self, forKey: .annualFeeBasisRaw)
+            ?? AnnualFeeBasis.unknown.rawValue
+        annualFeeMonth = try c.decodeIfPresent(Int.self, forKey: .annualFeeMonth)
+        annualFeeDay = try c.decodeIfPresent(Int.self, forKey: .annualFeeDay)
+        annualFeeWaiver = try c.decodeIfPresent(String.self, forKey: .annualFeeWaiver) ?? ""
+        annualFeeRemindEnabled = try c.decodeIfPresent(Bool.self, forKey: .annualFeeRemindEnabled) ?? false
+        annualFeeLeadDays = try c.decodeIfPresent(Int.self, forKey: .annualFeeLeadDays) ?? 30
     }
 }
 
 extension FinanceEntry {
     public var backup: BackupFinanceEntry {
-        BackupFinanceEntry(uuid: uuid, kindRaw: kindRaw, title: title, amount: amount,
-                           currency: currency, cadenceRaw: cadenceRaw, dayOfMonth: dayOfMonth,
-                           statementDay: statementDay, institution: institution, endDate: endDate,
-                           notes: notes, remindEnabled: remindEnabled, estimated: estimated,
-                           sortIndex: sortIndex,
-                           updatedAt: updatedAt, createdAt: createdAt)
+        var b = BackupFinanceEntry(uuid: uuid, kindRaw: kindRaw, title: title, amount: amount,
+                                   currency: currency, cadenceRaw: cadenceRaw, dayOfMonth: dayOfMonth,
+                                   statementDay: statementDay, institution: institution, endDate: endDate,
+                                   notes: notes, remindEnabled: remindEnabled, estimated: estimated,
+                                   sortIndex: sortIndex,
+                                   updatedAt: updatedAt, createdAt: createdAt)
+        b.repaymentLeadDays = repaymentLeadDays
+        b.statementRemindEnabled = statementRemindEnabled
+        b.statementLeadDays = statementLeadDays
+        b.annualFeeAmount = annualFeeAmount
+        b.annualFeeBasisRaw = annualFeeBasisRaw
+        b.annualFeeMonth = annualFeeMonth
+        b.annualFeeDay = annualFeeDay
+        b.annualFeeWaiver = annualFeeWaiver
+        b.annualFeeRemindEnabled = annualFeeRemindEnabled
+        b.annualFeeLeadDays = annualFeeLeadDays
+        return b
     }
 }
 
@@ -1063,6 +1096,16 @@ extension BackupFinanceEntry {
         entry.sortIndex = sortIndex
         entry.updatedAt = updatedAt
         entry.createdAt = createdAt
+        entry.repaymentLeadDays = repaymentLeadDays
+        entry.statementRemindEnabled = statementRemindEnabled
+        entry.statementLeadDays = statementLeadDays
+        entry.annualFeeAmount = annualFeeAmount
+        entry.annualFeeBasisRaw = annualFeeBasisRaw
+        entry.annualFeeMonth = annualFeeMonth
+        entry.annualFeeDay = annualFeeDay
+        entry.annualFeeWaiver = annualFeeWaiver
+        entry.annualFeeRemindEnabled = annualFeeRemindEnabled
+        entry.annualFeeLeadDays = annualFeeLeadDays
     }
 }
 

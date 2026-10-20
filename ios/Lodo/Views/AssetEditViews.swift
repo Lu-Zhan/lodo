@@ -194,6 +194,9 @@ struct FinanceEntryEditView: View {
     @State private var hasEndDate = false
     @State private var endDate = Calendar.current.date(byAdding: .year, value: 10, to: .now) ?? .now
     @State private var remindEnabled = true
+    /// 信用卡的账单/年费提醒与年费资料;还款提醒开关仍是上面的 `remindEnabled`。
+    @State private var card = CreditCardSettings()
+    @State private var annualFeeText = ""
     @State private var notes = ""
     @State private var didLoad = false
     @State private var confirmingDelete = false
@@ -202,11 +205,27 @@ struct FinanceEntryEditView: View {
         AssetNumber.parse(amountText)
     }
 
+    private var annualFee: Double?? {
+        guard let value = AssetNumber.parse(annualFeeText) else { return nil }
+        // 年费不会是负数;填了负数当作不合理,挡住保存。
+        if let v = value, v < 0 { return nil }
+        return value
+    }
+
     private var canSave: Bool {
         let named = !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || (kind == .creditCard && !institution.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        return named && amount != nil
+        return named && amount != nil && (kind != .creditCard || annualFee != nil)
     }
+
+    /// 年费的日子填全了(开得了年费提醒)。
+    private var annualFeeDateKnown: Bool {
+        var s = card
+        s.annualFeeAmount = annualFee ?? nil
+        return CreditCardPlan.annualFeeRule(s) != nil
+    }
+
+    private var annualFeeFree: Bool { (annualFee ?? nil) == 0 }
 
     private var navigationTitle: LocalizedStringKey {
         switch kind {
@@ -251,7 +270,7 @@ struct FinanceEntryEditView: View {
                         .disabled(!canSave)
                 }
             }
-            .confirmationDialog(kind == .creditCard ? "删除这张信用卡?还没完成的还款提醒也会一起删掉。" : "删除这一项?",
+            .confirmationDialog(kind == .creditCard ? "删除这张信用卡?还没完成的账单、还款和年费提醒也会一起删掉。" : "删除这一项?",
                                 isPresented: $confirmingDelete, titleVisibility: .visible) {
                 Button("删除", role: .destructive) { delete() }
             }
@@ -318,12 +337,93 @@ struct FinanceEntryEditView: View {
         }
         Section {
             dayPicker("账单日", selection: $statementDay)
-            dayPicker("还款日", selection: $dayOfMonth)
-            Toggle("还款日前一天提醒", isOn: $remindEnabled)
+            if statementDay != nil {
+                Toggle("账单日提醒", isOn: $card.statementRemind.animation(.lodoAware(.snappy)))
+                if card.statementRemind {
+                    leadPicker(selection: $card.statementLeadDays, choices: CreditCardPlan.monthlyLeadChoices)
+                }
+            }
         } header: {
-            Text("日期")
+            Text("账单")
         } footer: {
-            Text("开着时,每期还款日的前一天会自动生成一条「还信用卡」任务,在全天提醒的时刻响,没点完成会一直提醒。遇到小月,31 号落在月末那天。")
+            Text("出账了提醒你看一眼这期账单,生成一条「查看信用卡账单」任务,看过点完成。")
+        }
+        Section {
+            dayPicker("还款日", selection: $dayOfMonth)
+            if dayOfMonth != nil {
+                Toggle("还款提醒", isOn: $remindEnabled.animation(.lodoAware(.snappy)))
+                if remindEnabled {
+                    leadPicker(selection: $card.repaymentLeadDays, choices: CreditCardPlan.monthlyLeadChoices)
+                }
+            }
+        } header: {
+            Text("还款")
+        } footer: {
+            Text("开着时,每期会自动生成一条「还信用卡」任务,在全天提醒的时刻响,没点完成会一直提醒。遇到小月,31 号落在月末那天。")
+        }
+        annualFeeSection
+    }
+
+    @ViewBuilder
+    private var annualFeeSection: some View {
+        Section {
+            HStack {
+                Text("年费")
+                TextField("没填", text: $annualFeeText)
+                    .multilineTextAlignment(.trailing)
+                    .decimalKeyboard()
+                Text(currency).foregroundStyle(.secondary)
+            }
+            if !annualFeeFree {
+                Picker("收取时间", selection: $card.annualFeeBasis.animation(.lodoAware(.snappy))) {
+                    Text("不清楚").tag(AnnualFeeBasis.unknown)
+                    Text("每年固定日期").tag(AnnualFeeBasis.fixedDate)
+                    Text("按开卡月份").tag(AnnualFeeBasis.openingMonth)
+                }
+                if card.annualFeeBasis != .unknown {
+                    Picker(card.annualFeeBasis == .openingMonth ? "开卡月份" : "月份",
+                           selection: $card.annualFeeMonth) {
+                        Text("不填").tag(Int?.none)
+                        ForEach(1...12, id: \.self) { month in
+                            Text("\(month) 月").tag(Int?.some(month))
+                        }
+                    }
+                }
+                if card.annualFeeBasis == .fixedDate {
+                    dayPicker("日期", selection: $card.annualFeeDay)
+                }
+                TextField("免年费条件(可选),如 每年刷满 6 次免次年年费",
+                          text: $card.annualFeeWaiver, axis: .vertical)
+                    .lineLimit(1...4)
+                if annualFeeDateKnown {
+                    Toggle("年费提醒", isOn: $card.annualFeeRemind.animation(.lodoAware(.snappy)))
+                    if card.annualFeeRemind {
+                        leadPicker(selection: $card.annualFeeLeadDays, choices: CreditCardPlan.annualLeadChoices)
+                    }
+                }
+            }
+        } header: {
+            Text("年费")
+        } footer: {
+            if annualFeeFree {
+                Text("填 0 表示免年费。")
+            } else if card.annualFeeBasis == .openingMonth {
+                Text("只记了开卡月份,按那个月 1 号算,实际收取日期请以银行为准。年费不计入每月支出。")
+            } else if card.annualFeeBasis == .unknown {
+                Text("知道哪天收年费后,可以打开年费提醒,提前核对是否已满足免年费条件。年费不计入每月支出。")
+            } else {
+                Text("提醒会生成一条「核对信用卡年费」任务,留出时间刷够次数或申请减免。年费不计入每月支出。")
+            }
+        }
+    }
+
+    private func leadPicker(selection: Binding<Int>, choices: [Int]) -> some View {
+        Picker("提醒时间", selection: selection) {
+            // 老数据或别的设备存了不在选项里的天数时也显示出来,不至于选不中。
+            ForEach(choices.contains(selection.wrappedValue) ? choices
+                        : (choices + [selection.wrappedValue]).sorted(), id: \.self) { days in
+                Text(days == 0 ? "当天" : "提前 \(days) 天").tag(days)
+            }
         }
     }
 
@@ -370,6 +470,8 @@ struct FinanceEntryEditView: View {
             endDate = end
         }
         remindEnabled = existing.remindEnabled
+        card = existing.cardSettings
+        annualFeeText = existing.annualFeeAmount.map(AssetEditView.plain) ?? ""
         notes = existing.notes
     }
 
@@ -389,7 +491,15 @@ struct FinanceEntryEditView: View {
         if kind == .creditCard {
             entry.dayOfMonth = dayOfMonth
             entry.statementDay = statementDay
-            entry.remindEnabled = remindEnabled
+            var settings = card
+            settings.repaymentRemind = remindEnabled
+            settings.annualFeeAmount = annualFee ?? nil
+            // 免年费 / 不清楚日子时提醒排不出来,开关一并关上,免得以后填了日子突然响。
+            if settings.isFeeWaivedOrFree || CreditCardPlan.annualFeeRule(settings) == nil {
+                settings.annualFeeRemind = false
+            }
+            if statementDay == nil { settings.statementRemind = false }
+            entry.cardSettings = settings
         } else if entry.estimated {
             entry.cadence = .monthly
             entry.dayOfMonth = nil
@@ -402,7 +512,7 @@ struct FinanceEntryEditView: View {
         // 保存一次就算核对过(资产页"上次更新"的口径)。
         entry.updatedAt = Date()
         try? context.save()
-        if kind == .creditCard { FinanceReminders.sync(context: context) }
+        if kind == .creditCard { FinanceReminders.sync(context: context, edited: [entry.uuid]) }
         dismiss()
     }
 

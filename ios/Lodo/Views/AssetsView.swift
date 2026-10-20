@@ -759,7 +759,7 @@ struct AssetsView: View {
                 }
             } footer: {
                 if kind == .creditCard {
-                    Text("开了提醒的卡,会在还款日前一天自动生成一条还款任务。")
+                    Text("开了提醒的卡,会在账单日、还款日、收年费前自动生成提醒任务。")
                 }
             }
         }
@@ -775,7 +775,9 @@ struct AssetsView: View {
                    // 月估计消费是估个大概,不催着核对。
                    stale: !entry.estimated
                        && FinancePlan.monthsSince(entry.updatedAt, now: now) >= FinancePlan.staleMonths,
-                   reminding: entry.kind == .creditCard && entry.remindEnabled && entry.dayOfMonth != nil,
+                   reminding: CardReminderKind.allCases.contains {
+                       CreditCardPlan.isActive(entry.snapshot, kind: $0)
+                   },
                    shared: marksShared(entry.ledgerUUID))
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
@@ -818,6 +820,7 @@ struct AssetsView: View {
                 let date = due.formatted(.dateTime.month().day().locale(AppSettings.language.locale))
                 parts.append(days == 0 ? localized("今天还款") : localized("\(date) 还款 · 还有 \(days) 天"))
             }
+            if let fee = annualFeeText(entry) { parts.append(fee) }
         case .income, .expense:
             if entry.cadence == .monthly, let day = entry.dayOfMonth {
                 parts.append(localized("每月 \(day) 号"))
@@ -834,6 +837,18 @@ struct AssetsView: View {
             parts.append(localized("由 \(name) 添加"))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// 「年费 ¥480」「免年费」;离收年费 60 天以内时带上日子(「年费 ¥480 · 11月1日」)。
+    private func annualFeeText(_ entry: FinanceEntry) -> String? {
+        let settings = entry.cardSettings
+        guard let fee = settings.annualFeeAmount else { return nil }
+        if fee == 0 { return localized("免年费") }
+        let money = AssetFormat.currency(fee, code: entry.currency)
+        guard let date = CreditCardPlan.nextAnnualFeeDate(settings, onOrAfter: now),
+              FinancePlan.daysUntil(date, from: now) <= 60 else { return localized("年费 \(money)") }
+        let day = date.formatted(.dateTime.month().day().locale(AppSettings.language.locale))
+        return localized("年费 \(money) · \(day)")
     }
 
     private func updatedText(_ date: Date) -> String {
@@ -895,6 +910,14 @@ struct AssetsView: View {
                 FinanceEntry(kind: .creditCard, title: "Visa 白金", amount: 50_000, dayOfMonth: 8,
                              statementDay: 18, institution: "中信银行", sortIndex: 5),
             ]
+            // 两张卡:一张有年费(下个月 1 号收、开着账单与年费提醒),一张免年费。
+            let feeMonth = Calendar.current.component(.month,
+                from: Calendar.current.date(byAdding: .month, value: 1, to: .now) ?? .now)
+            samples[6].cardSettings = CreditCardSettings(
+                statementRemind: true, annualFeeAmount: 300, annualFeeBasis: .fixedDate,
+                annualFeeMonth: feeMonth, annualFeeDay: 1, annualFeeWaiver: "每年刷满 6 次免次年年费",
+                annualFeeRemind: true)
+            samples[7].annualFeeAmount = 0
             samples.forEach(context.insert)
             try? context.save()
             FinanceReminders.sync(context: context)
@@ -1004,7 +1027,7 @@ private struct FinanceRow: View {
                         Image(systemName: "bell.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .accessibilityLabel("还款提醒已开启")
+                            .accessibilityLabel("提醒已开启")
                     }
                 }
                 HStack(spacing: 4) {

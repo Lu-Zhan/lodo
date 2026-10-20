@@ -1517,6 +1517,8 @@ final class SharedTripSync {
         var zones = SharedTripLedger.zones
         var reindex: [MemoryItem] = []
         var financeChanged = false
+        /// 别的成员改了提醒的日子/提前天数的卡:当期提醒按新设置重排(同在表单里保存)。
+        var retimedCards: Set<UUID> = []
         /// 本地每个文件路径归哪一条记忆(第一次用到时才建,见 claimFiles)。
         var filePaths: [String: UUID]?
         for record in records {
@@ -1617,8 +1619,12 @@ final class SharedTripSync {
                     context.insert(new)
                 case .update(let fields):
                     if let entry {
+                        let before = (entry.cardSettings, entry.dayOfMonth, entry.statementDay)
                         SharedAssetMapping.apply(fields, to: entry)
                         entry.ledgerUUID = zone.containerUUID
+                        if before != (entry.cardSettings, entry.dayOfMonth, entry.statementDay) {
+                            retimedCards.insert(uuid)
+                        }
                     }
                 case .skipDeletedLocally:
                     break
@@ -1761,7 +1767,7 @@ final class SharedTripSync {
         answeredRooms = []
         for roomUUID in answered { ChatAskCoordinator.shared.check(roomUUID: roomUUID) }
         // 别人加的信用卡:这台设备也各自生成还款提醒(防重复标记不同步,见 SharedAssetMapping)。
-        if financeChanged { FinanceReminders.sync(context: context) }
+        if financeChanged { FinanceReminders.sync(context: context, edited: retimedCards) }
         if !reindex.isEmpty {
             Task { await MemoryPipeline.reindexAll(reindex, context: context) }
         }

@@ -2321,3 +2321,33 @@ ios_view.cycle_confirm_3,已确认今天还没来,Confirmed: not started today,i
 ios_view.cycle_confirm_4,已确认今天还没结束,Confirmed: still going today,ios_view,经期确认还没来/还没结束
 ios_view.cycle_confirm_5,已按「今天还没结束」重新估计,Re-estimated because it's still going today,ios_view,经期确认还没来/还没结束
 ios_view.cycle_confirm_6,已按「今天还没来」重新估计 · 原预计 %@,Re-estimated because it hasn't started · originally %@,ios_view,经期确认还没来/还没结束
+ios_view.credit_card_1,查看信用卡账单:%@,Check credit card statement: %@,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_2,核对信用卡年费:%@,Check credit card annual fee: %@,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_3,删除这张信用卡?还没完成的账单、还款和年费提醒也会一起删掉。,"Delete this credit card? Its unfinished statement, payment and annual fee reminders will be deleted too.",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_4,"开了提醒的卡,会在账单日、还款日、收年费前自动生成提醒任务。","Cards with reminders turned on get a reminder task before the statement date, the payment due date and the annual fee.",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_5,账单,Statement,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_6,账单日提醒,Statement Reminder,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_7,"出账了提醒你看一眼这期账单,生成一条「查看信用卡账单」任务,看过点完成。","When the statement is out, a ""Check credit card statement"" task reminds you to take a look. Mark it done once you have.",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_8,还款,Payment,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_9,还款提醒,Payment Reminder,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_10,"开着时,每期会自动生成一条「还信用卡」任务,在全天提醒的时刻响,没点完成会一直提醒。遇到小月,31 号落在月末那天。","When on, each cycle gets a ""Pay credit card"" task that rings at the all-day reminder time and keeps reminding until you mark it done. In shorter months, the 31st falls on the last day of the month.",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_11,年费,Annual Fee,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_12,没填,Not set,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_13,收取时间,Charged On,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_14,不清楚,Not Sure,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_15,每年固定日期,Fixed Date Each Year,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_16,按开卡月份,Card Opening Month,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_17,开卡月份,Opening Month,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_18,月份,Month,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_19,%lld 月,Month %lld,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_20,"免年费条件(可选),如 每年刷满 6 次免次年年费","Fee waiver condition (optional), e.g. 6 purchases a year waives next year's fee",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_21,年费提醒,Annual Fee Reminder,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_22,填 0 表示免年费。,Enter 0 if there's no annual fee.,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_23,"只记了开卡月份,按那个月 1 号算,实际收取日期请以银行为准。年费不计入每月支出。","Only the opening month is recorded, so the 1st of that month is used. Check with your bank for the actual date. The annual fee isn't counted in monthly expenses.",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_24,"知道哪天收年费后,可以打开年费提醒,提前核对是否已满足免年费条件。年费不计入每月支出。","Once you know when the fee is charged, turn on the annual fee reminder to check ahead of time whether you've met the waiver condition. The annual fee isn't counted in monthly expenses.",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_25,"提醒会生成一条「核对信用卡年费」任务,留出时间刷够次数或申请减免。年费不计入每月支出。","The reminder creates a ""Check credit card annual fee"" task, leaving time to meet the waiver condition or ask for a waiver. The annual fee isn't counted in monthly expenses.",ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_26,当天,On the Day,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_27,提醒已开启,Reminder on,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_28,免年费,No annual fee,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_29,年费 %@,Annual fee %@,ios_view,信用卡账单/还款/年费提醒
+ios_view.credit_card_30,年费 %@ · %@,Annual fee %@ · %@,ios_view,信用卡账单/还款/年费提醒

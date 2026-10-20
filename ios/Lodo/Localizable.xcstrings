@@ -32695,6 +32695,486 @@
           }
         }
       }
+    },
+    "查看信用卡账单:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check credit card statement: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看信用卡账单:%@"
+          }
+        }
+      }
+    },
+    "核对信用卡年费:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check credit card annual fee: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核对信用卡年费:%@"
+          }
+        }
+      }
+    },
+    "删除这张信用卡?还没完成的账单、还款和年费提醒也会一起删掉。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this credit card? Its unfinished statement, payment and annual fee reminders will be deleted too."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这张信用卡?还没完成的账单、还款和年费提醒也会一起删掉。"
+          }
+        }
+      }
+    },
+    "开了提醒的卡,会在账单日、还款日、收年费前自动生成提醒任务。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cards with reminders turned on get a reminder task before the statement date, the payment due date and the annual fee."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开了提醒的卡,会在账单日、还款日、收年费前自动生成提醒任务。"
+          }
+        }
+      }
+    },
+    "账单" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statement"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账单"
+          }
+        }
+      }
+    },
+    "账单日提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statement Reminder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账单日提醒"
+          }
+        }
+      }
+    },
+    "出账了提醒你看一眼这期账单,生成一条「查看信用卡账单」任务,看过点完成。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When the statement is out, a \"Check credit card statement\" task reminds you to take a look. Mark it done once you have."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出账了提醒你看一眼这期账单,生成一条「查看信用卡账单」任务,看过点完成。"
+          }
+        }
+      }
+    },
+    "还款" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款"
+          }
+        }
+      }
+    },
+    "还款提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment Reminder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款提醒"
+          }
+        }
+      }
+    },
+    "开着时,每期会自动生成一条「还信用卡」任务,在全天提醒的时刻响,没点完成会一直提醒。遇到小月,31 号落在月末那天。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When on, each cycle gets a \"Pay credit card\" task that rings at the all-day reminder time and keeps reminding until you mark it done. In shorter months, the 31st falls on the last day of the month."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开着时,每期会自动生成一条「还信用卡」任务,在全天提醒的时刻响,没点完成会一直提醒。遇到小月,31 号落在月末那天。"
+          }
+        }
+      }
+    },
+    "年费" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annual Fee"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "年费"
+          }
+        }
+      }
+    },
+    "没填" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not set"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没填"
+          }
+        }
+      }
+    },
+    "收取时间" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charged On"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收取时间"
+          }
+        }
+      }
+    },
+    "不清楚" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Sure"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不清楚"
+          }
+        }
+      }
+    },
+    "每年固定日期" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed Date Each Year"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每年固定日期"
+          }
+        }
+      }
+    },
+    "按开卡月份" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Card Opening Month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按开卡月份"
+          }
+        }
+      }
+    },
+    "开卡月份" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening Month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开卡月份"
+          }
+        }
+      }
+    },
+    "月份" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月份"
+          }
+        }
+      }
+    },
+    "%lld 月" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 月"
+          }
+        }
+      }
+    },
+    "免年费条件(可选),如 每年刷满 6 次免次年年费" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fee waiver condition (optional), e.g. 6 purchases a year waives next year's fee"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免年费条件(可选),如 每年刷满 6 次免次年年费"
+          }
+        }
+      }
+    },
+    "年费提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annual Fee Reminder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "年费提醒"
+          }
+        }
+      }
+    },
+    "填 0 表示免年费。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter 0 if there's no annual fee."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填 0 表示免年费。"
+          }
+        }
+      }
+    },
+    "只记了开卡月份,按那个月 1 号算,实际收取日期请以银行为准。年费不计入每月支出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the opening month is recorded, so the 1st of that month is used. Check with your bank for the actual date. The annual fee isn't counted in monthly expenses."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只记了开卡月份,按那个月 1 号算,实际收取日期请以银行为准。年费不计入每月支出。"
+          }
+        }
+      }
+    },
+    "知道哪天收年费后,可以打开年费提醒,提前核对是否已满足免年费条件。年费不计入每月支出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once you know when the fee is charged, turn on the annual fee reminder to check ahead of time whether you've met the waiver condition. The annual fee isn't counted in monthly expenses."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "知道哪天收年费后,可以打开年费提醒,提前核对是否已满足免年费条件。年费不计入每月支出。"
+          }
+        }
+      }
+    },
+    "提醒会生成一条「核对信用卡年费」任务,留出时间刷够次数或申请减免。年费不计入每月支出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The reminder creates a \"Check credit card annual fee\" task, leaving time to meet the waiver condition or ask for a waiver. The annual fee isn't counted in monthly expenses."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒会生成一条「核对信用卡年费」任务,留出时间刷够次数或申请减免。年费不计入每月支出。"
+          }
+        }
+      }
+    },
+    "当天" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the Day"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当天"
+          }
+        }
+      }
+    },
+    "提醒已开启" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminder on"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒已开启"
+          }
+        }
+      }
+    },
+    "免年费" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No annual fee"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免年费"
+          }
+        }
+      }
+    },
+    "年费 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annual fee %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "年费 %@"
+          }
+        }
+      }
+    },
+    "年费 %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annual fee %@ · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "年费 %@ · %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -121,6 +121,19 @@ enum AgentReferenceRenderer {
         ])
     }
 
+    /// 「年费:480 CNY(每年 11 月 1 日)」;免年费写「年费:免」。喂给模型的格式,不随应用语言变。
+    private static func annualFeeLine(_ entry: FinanceEntry) -> String? {
+        let s = entry.cardSettings
+        guard let fee = s.annualFeeAmount else { return nil }
+        if fee == 0 { return "年费:免" }
+        let money = amount(fee, entry.currency) ?? ""
+        switch (s.annualFeeBasis, CreditCardPlan.annualFeeRule(s)) {
+        case (.fixedDate, let rule?): return "年费:\(money)(每年 \(rule.month) 月 \(rule.day) 日)"
+        case (.openingMonth, let rule?): return "年费:\(money)(开卡月份 \(rule.month) 月)"
+        default: return "年费:" + money
+        }
+    }
+
     private static func renderFinance(_ entry: FinanceEntry) -> String {
         let kind: String = switch entry.kind {
         case .income: "收入"
@@ -140,6 +153,8 @@ enum AgentReferenceRenderer {
             entry.statementDay.map { "账单日:每月 \($0) 号" },
             entry.dayOfMonth.map { entry.kind == .creditCard ? "还款日:每月 \($0) 号" : "日期:每月 \($0) 号" },
             entry.endDate.map { "截止:" + dayFormatter.string(from: $0) },
+            entry.kind == .creditCard ? annualFeeLine(entry) : nil,
+            entry.kind == .creditCard && !entry.annualFeeWaiver.isEmpty ? "免年费条件:" + entry.annualFeeWaiver : nil,
             entry.notes.isEmpty ? nil : "备注:" + entry.notes,
         ])
     }

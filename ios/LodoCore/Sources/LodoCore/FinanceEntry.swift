@@ -41,6 +41,29 @@ public final class FinanceEntry {
     /// 最近一次生成的还款提醒是哪一期(还款日 yyyy-MM-dd)和那条任务,防止重复生成。
     public var reminderCycle: String = ""
     public var reminderTaskUUID: UUID?
+    /// 还款提醒提前几天(默认 1 = 还款日前一天,老数据就是这个口径)。`remindEnabled` 是还款提醒的开关。
+    public var repaymentLeadDays: Int = 1
+    /// 账单日提醒(出账了去看一眼账单),默认关;提前几天,默认 0 = 账单日当天。
+    public var statementRemindEnabled: Bool = false
+    public var statementLeadDays: Int = 0
+    /// 年费金额(币种同卡的 `currency`):nil = 没填,0 = 免年费。不计入每月支出。
+    public var annualFeeAmount: Double?
+    /// 年费按什么日子收:`AnnualFeeBasis` 的存储值(unknown / fixedDate / openingMonth),**别改**。
+    public var annualFeeBasisRaw: String = AnnualFeeBasis.unknown.rawValue
+    /// 收年费的月份(固定日期 / 开卡月份都用),1–12。
+    public var annualFeeMonth: Int?
+    /// 固定日期的那一天,1–31(小月落月末,2/29 平年落 2/28)。
+    public var annualFeeDay: Int?
+    /// 免年费条件(「每年刷满 6 次免次年年费」),只记文字,不追踪进度。
+    public var annualFeeWaiver: String = ""
+    /// 年费提醒,默认关;提前几天,默认 30(留出刷够次数或打电话申请减免的时间)。
+    public var annualFeeRemindEnabled: Bool = false
+    public var annualFeeLeadDays: Int = 30
+    /// 账单日 / 年费提醒的防重复标记,同 `reminderCycle`/`reminderTaskUUID`(不备份、不共享)。
+    public var statementReminderCycle: String = ""
+    public var statementReminderTaskUUID: UUID?
+    public var annualFeeReminderCycle: String = ""
+    public var annualFeeReminderTaskUUID: UUID?
     public var sortIndex: Int = 0
     /// 最近一次改动金额/额度的时间("上次更新 3 个月前")。
     public var updatedAt: Date = Date.now
@@ -89,7 +112,54 @@ public final class FinanceEntry {
         FinanceSnapshot(id: uuid, kind: kind, title: title, amount: amount, currency: currency,
                         cadence: cadence, dayOfMonth: dayOfMonth, statementDay: statementDay,
                         institution: institution, endDate: endDate, estimated: estimated,
-                        updatedAt: updatedAt)
+                        updatedAt: updatedAt, card: cardSettings)
+    }
+
+    /// 信用卡的提醒与年费设置(三种提醒的开关/提前天数 + 年费资料),读写一整份。
+    public var cardSettings: CreditCardSettings {
+        get {
+            CreditCardSettings(
+                repaymentRemind: remindEnabled, repaymentLeadDays: repaymentLeadDays,
+                statementRemind: statementRemindEnabled, statementLeadDays: statementLeadDays,
+                annualFeeAmount: annualFeeAmount,
+                annualFeeBasis: AnnualFeeBasis(rawValue: annualFeeBasisRaw) ?? .unknown,
+                annualFeeMonth: annualFeeMonth, annualFeeDay: annualFeeDay,
+                annualFeeWaiver: annualFeeWaiver,
+                annualFeeRemind: annualFeeRemindEnabled, annualFeeLeadDays: annualFeeLeadDays)
+        }
+        set {
+            remindEnabled = newValue.repaymentRemind
+            repaymentLeadDays = newValue.repaymentLeadDays
+            statementRemindEnabled = newValue.statementRemind
+            statementLeadDays = newValue.statementLeadDays
+            annualFeeAmount = newValue.annualFeeAmount
+            // 认不出的存储值(以后的新版本写的)原样留着,不因为这台设备没改年费就冲掉。
+            if AnnualFeeBasis(rawValue: annualFeeBasisRaw) != nil || newValue.annualFeeBasis != .unknown {
+                annualFeeBasisRaw = newValue.annualFeeBasis.rawValue
+            }
+            annualFeeMonth = newValue.annualFeeMonth
+            annualFeeDay = newValue.annualFeeDay
+            annualFeeWaiver = newValue.annualFeeWaiver
+            annualFeeRemindEnabled = newValue.annualFeeRemind
+            annualFeeLeadDays = newValue.annualFeeLeadDays
+        }
+    }
+
+    /// 某种提醒的防重复标记(哪一期 + 那条任务)。
+    public func reminderMark(_ kind: CardReminderKind) -> (cycle: String, task: UUID?) {
+        switch kind {
+        case .repayment: return (reminderCycle, reminderTaskUUID)
+        case .statement: return (statementReminderCycle, statementReminderTaskUUID)
+        case .annualFee: return (annualFeeReminderCycle, annualFeeReminderTaskUUID)
+        }
+    }
+
+    public func setReminderMark(_ kind: CardReminderKind, cycle: String, task: UUID?) {
+        switch kind {
+        case .repayment: reminderCycle = cycle; reminderTaskUUID = task
+        case .statement: statementReminderCycle = cycle; statementReminderTaskUUID = task
+        case .annualFee: annualFeeReminderCycle = cycle; annualFeeReminderTaskUUID = task
+        }
     }
 }
 
@@ -127,11 +197,15 @@ public struct FinanceSnapshot: Equatable, Sendable, Identifiable {
     /// 月估计消费(见 `FinanceEntry.estimated`)。
     public let estimated: Bool
     public let updatedAt: Date
+    /// 信用卡的提醒与年费设置;收入/支出用不上。
+    public let card: CreditCardSettings
 
     public init(id: UUID = UUID(), kind: FinanceKind, title: String, amount: Double? = nil,
                 currency: String = "CNY", cadence: FinanceCadence = .monthly,
                 dayOfMonth: Int? = nil, statementDay: Int? = nil, institution: String = "",
-                endDate: Date? = nil, estimated: Bool = false, updatedAt: Date = .now) {
+                endDate: Date? = nil, estimated: Bool = false, updatedAt: Date = .now,
+                card: CreditCardSettings = CreditCardSettings()) {
+        self.card = card
         self.id = id
         self.kind = kind
         self.title = title
@@ -227,30 +301,11 @@ public enum FinancePlan {
                                 to: calendar.startOfDay(for: date)).day ?? 0
     }
 
-    /// 一期还款提醒:哪一期(还款日)、提醒时刻(还款日前一天的全天提醒时刻)。
-    public struct CardReminder: Equatable, Sendable {
-        public let cardID: UUID
-        public let dueDate: Date
-        public let remindAt: Date
-        /// 这一期的标识(还款日 yyyy-MM-dd),存在卡上防重复。
-        public let cycle: String
-    }
-
-    /// 这张卡下一期的还款提醒。"到期前一天变成一条提醒任务":提醒时刻是还款日前一天的
-    /// `allDayTime`("HH:MM",设置里的全天提醒时刻)。**任务提前建好、到那一刻才响**——
-    /// 不能等到前一天才去生成:那天 app 没打开就漏了,而通知链是预排的,不需要 app 在跑。
-    /// 前一天的提醒时刻已经过了(新加的卡、还款日就是今天明天)时提醒时刻取 `now`,
-    /// 还款日当天也照样提醒一次——漏了还款比多响一次代价大得多。
+    /// 这张卡下一期的还款提醒(兼容老调用方,等同 `CreditCardPlan.reminder(for:kind: .repayment …)`)。
     public static func reminder(for card: FinanceSnapshot, allDayTime: String, now: Date,
                                 calendar: Calendar = .current) -> CardReminder? {
-        guard let due = nextDueDate(card, now: now, calendar: calendar) else { return nil }
-        let parts = allDayTime.split(separator: ":").compactMap { Int($0) }
-        let hour = parts.count == 2 ? parts[0] : 9
-        let minute = parts.count == 2 ? parts[1] : 0
-        let eve = calendar.date(byAdding: .day, value: -1, to: due) ?? due
-        let at = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: eve) ?? eve
-        return CardReminder(cardID: card.id, dueDate: due, remindAt: max(at, now),
-                            cycle: cycleKey(due, calendar: calendar))
+        CreditCardPlan.reminder(for: card, kind: .repayment, allDayTime: allDayTime, now: now,
+                                calendar: calendar)
     }
 
     public static func cycleKey(_ date: Date, calendar: Calendar = .current) -> String {
