@@ -15,7 +15,9 @@ enum WatchMemory {
                            excerpt: String, isTaskHistory: Bool)
 
     /// 用户明确说「记一下…」。返回落库条目的标题(给回执用)。
-    static func save(_ text: String, context: ModelContext) async -> String? {
+    /// 整理途中被取消(用户点了取消 / 关掉了助手)抛 `CancellationError`,**不落库**——
+    /// 原来把取消当成整理失败、拿原文兜底照样存了一条。
+    static func save(_ text: String, context: ModelContext) async throws -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let item = MemoryItem(kind: .text, sourceText: MemorySearch.truncate(trimmed), status: .ready)
@@ -26,9 +28,12 @@ enum WatchMemory {
             item.title = entry.title
             item.summary = entry.summary
             item.tags = entry.tags
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             item.title = String(trimmed.prefix(20))
         }
+        try Task.checkCancellation()
         context.insert(item)
         try? context.save()
         return item.title
@@ -86,8 +91,12 @@ enum WatchMemory {
     }
 
     static func retrieve(_ question: String, context: ModelContext) -> [Candidate] {
-        let items = (try? context.fetch(FetchDescriptor<MemoryItem>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? []
+        // 「AI 与资产隔离」(默认开)同手机:资产条目不进检索,否则会被当成摘录发给模型。
+        // 手表上没有这个设置界面,读的是手表本机的值(没设过 = 开)。
+        let excludesAssets = AppSettings.assetsAIIsolated
+        let items = ((try? context.fetch(FetchDescriptor<MemoryItem>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]))) ?? [])
+            .filter { !(excludesAssets && $0.isAsset) }
         let ranked = MemorySearch.rank(
             question: question,
             items: items.enumerated().map { index, item in

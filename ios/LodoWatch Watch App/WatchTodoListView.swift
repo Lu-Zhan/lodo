@@ -18,6 +18,12 @@ struct WatchTodoListView: View {
     /// "今天"的基准。过 0 点、回前台时刷新,否则手表一直亮着的那页会停在昨天。
     @State private var now = Date.now
 
+    /// 待办里和提醒有关的内容。它一变(含 CloudKit 从手机同步过来的新增/改期/完成/删除/改成收集)
+    /// 就重新对账一遍通知链——原来只在首页第一次出现时排一次,之后手机上的改动手表上不会重排。
+    private var reminderKey: [String] {
+        pending.map { "\($0.uuid.uuidString)|\($0.remindAt.timeIntervalSince1970)|\($0.nextRemindAt.timeIntervalSince1970)|\($0.title)" }
+    }
+
     private var todayTasks: [TaskItem] {
         pending.filter {
             WatchToday.includesTask(isInbox: $0.isInbox, createdAt: $0.createdAt, remindAt: $0.remindAt,
@@ -28,6 +34,11 @@ struct WatchTodoListView: View {
     var body: some View {
         NavigationStack {
             List {
+                if WatchDatabase.isTemporary {
+                    Text("数据库打不开,这次的改动不会保存。重启手表上的 Lodo 再试。")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
                 Section("今天") {
                     if todayTasks.isEmpty {
                         Text("今天没有任务").foregroundStyle(.secondary)
@@ -74,7 +85,9 @@ struct WatchTodoListView: View {
                 now = .now
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { now = .now }
+                guard phase == .active else { return }
+                now = .now
+                WatchNotificationManager.shared.refreshAll()
             }
             // 停在首页跨过 0 点时主动换天:NSCalendarDayChanged 不保证准时到。
             .task(id: Calendar.current.startOfDay(for: now)) {
@@ -84,6 +97,11 @@ struct WatchTodoListView: View {
             }
             .task {
                 WatchNotificationManager.shared.configure(container: context.container)
+            }
+            // 第一次出现时排一次;之后待办一变就合并 0.5 秒再对账(同步常常一次进来好几条)。
+            .task(id: reminderKey) {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
                 WatchNotificationManager.shared.refreshAll()
             }
         }

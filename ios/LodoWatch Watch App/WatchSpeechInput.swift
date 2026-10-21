@@ -14,6 +14,8 @@ import LodoCore
 final class WatchSpeechInput {
     enum State: Equatable {
         case idle
+        /// 在等麦克风权限 / 起音频会话。界面上和 idle 一样,但不许再点一次重入。
+        case starting
         case recording
         /// 录音已停、转写请求还在路上。
         case transcribing
@@ -26,6 +28,10 @@ final class WatchSpeechInput {
     private var recorder: AVAudioRecorder?
     private var fileURL: URL?
     private var levelTask: Task<Void, Never>?
+    private var transcribeTask: Task<Void, Never>?
+    /// 每次 start / cancel 都换一个代次:取消后再开始的新一轮,不会被上一轮迟到的
+    /// 权限结果或转写结果串进来(旧的那一轮回来时核对代次,对不上就丢掉)。
+    private var generation = 0
     private var lastActivityAt = Date()
     /// 一直没出声就自动停的上限,免得抬腕误触后录个没完。
     private static let maxDuration: TimeInterval = 60
@@ -48,7 +54,14 @@ final class WatchSpeechInput {
         guard QwenASRClient.isConfigured else {
             return QwenASRError.noKey.localizedDescription
         }
-        guard await AVAudioApplication.requestRecordPermission() else {
+        generation += 1
+        let round = generation
+        state = .starting
+        let granted = await AVAudioApplication.requestRecordPermission()
+        // 等权限期间被取消(关掉了助手、又开了新的一轮):什么都不做,也不报错。
+        guard round == generation, state == .starting else { return nil }
+        guard granted else {
+            state = .idle
             return LocalizedStrings.text(.ios_core_microphone_permission_denied,
                                          language: AppSettings.language)
         }
@@ -133,25 +146,33 @@ final class WatchSpeechInput {
             return
         }
         state = .transcribing
-        Task {
+        let round = generation
+        transcribeTask = Task {
             defer {
                 try? FileManager.default.removeItem(at: url)
-                if self.state == .transcribing { self.state = .idle }
+                if round == self.generation {
+                    if self.state == .transcribing { self.state = .idle }
+                    self.transcribeTask = nil
+                }
             }
+            let result: Result<String, Error>
             do {
                 let data = try Data(contentsOf: url)
-                let text = try await QwenASRClient.transcribe(wavData: data)
-                guard self.state == .transcribing else { return }
-                onFinish(.success(text))
+                result = .success(try await QwenASRClient.transcribe(wavData: data))
             } catch {
-                guard self.state == .transcribing else { return }
-                onFinish(.failure(error))
+                result = .failure(error)
             }
+            // 取消过(或已经开始了下一轮)的结果一律丢掉。
+            guard !Task.isCancelled, round == self.generation, self.state == .transcribing else { return }
+            onFinish(result)
         }
     }
 
     /// 取消:丢掉录音,不转写;转写中取消则丢掉结果。
     func cancel() {
+        generation += 1
+        transcribeTask?.cancel()
+        transcribeTask = nil
         if let url = fileURL { try? FileManager.default.removeItem(at: url) }
         recorder?.stop()
         teardown()

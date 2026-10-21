@@ -20,6 +20,10 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
     private static let chainBudget = 48
 
     private var container: ModelContainer?
+    /// 每次重排/撤销通知链 +1。对账拿到的是系统的异步快照,快照取得之后又重排过的话,
+    /// 同一个标识可能已经换成了新一次发生的通知,按旧快照删会把新的删掉——版本变了就放弃这一轮。
+    /// 只在主线程读写(rebuild/cancelChain/对账都在主线程)。
+    private var chainVersion = 0
 
     func configure(container: ModelContainer) {
         self.container = container
@@ -36,6 +40,9 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
 
     // MARK: - 通知链
 
+    /// 关掉「反复提醒」时到期只响一次(同手机):链缩成 1 条,也不追平——
+    /// 原定时间已经过了就不再排。读的是手表本机的设置(手表上没有这个开关,没设过 = 开),
+    /// 手机上的设置目前不会同步过来。
     @MainActor
     func rebuild(for task: TaskItem, chainLength: Int = WatchNotificationManager.chainLength) {
         let center = UNUserNotificationCenter.current()
@@ -43,14 +50,17 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
         // 「收集」里的事项(手机上建的,没有时间)不提醒。
         guard task.status == .pending, !task.isInbox else { return }
 
+        let repeats = AppSettings.repeatReminderEnabled
         let interval = TimeInterval(AppSettings.snoozeMinutes * 60)
         let now = Date()
         var anchor = task.nextRemindAt
         if anchor <= now {
+            guard repeats else { return }
             let missed = (now.timeIntervalSince(anchor) / interval).rounded(.down) + 1
             anchor = anchor.addingTimeInterval(missed * interval)
         }
-        for i in 0..<min(chainLength, Self.chainLength) {
+        let length = repeats ? min(chainLength, Self.chainLength) : 1
+        for i in 0..<length {
             let fire = anchor.addingTimeInterval(interval * Double(i))
             guard fire > now else { continue }
             let content = UNMutableNotificationContent()
@@ -58,11 +68,14 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
             content.body = Self.reminderBody(isEnd: task.phase == .end)
             content.sound = .default
             content.categoryIdentifier = Self.nagCategory
-            content.userInfo = ["uuid": task.uuid.uuidString]
+            // occurrence:这条通知属于哪一次发生。重复事项完成一次后 remindAt 顺延,
+            // 通知中心里还留着的旧通知再点「完成」就对不上了,直接忽略(否则多记一笔完成历史)。
+            content.userInfo = ["uuid": task.uuid.uuidString,
+                                "occurrence": task.remindAt.timeIntervalSince1970]
             let trigger = UNTimeIntervalNotificationTrigger(
                 timeInterval: fire.timeIntervalSince(now), repeats: false)
             center.add(UNNotificationRequest(
-                identifier: "watch-task-\(task.uuid.uuidString)-nag-\(i)",
+                identifier: Self.identifier(task.uuid, index: i),
                 content: content, trigger: trigger))
         }
     }
@@ -72,20 +85,42 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
         return "到时间了"
     }
 
+    private static let identifierPrefix = "watch-task-"
+
+    private static func identifier(_ uuid: UUID, index: Int) -> String {
+        "\(identifierPrefix)\(uuid.uuidString)-nag-\(index)"
+    }
+
+    /// 从通知标识里取回任务 uuid(`watch-task-<uuid>-nag-<i>`)。
+    private static func taskUUID(fromIdentifier id: String) -> String? {
+        guard id.hasPrefix(identifierPrefix), let range = id.range(of: "-nag-") else { return nil }
+        return String(id[id.index(id.startIndex, offsetBy: identifierPrefix.count)..<range.lowerBound])
+    }
+
     func cancelChain(for uuid: UUID) {
-        let ids = (0..<Self.chainLength).map { "watch-task-\(uuid.uuidString)-nag-\($0)" }
+        chainVersion += 1
+        let ids = (0..<Self.chainLength).map { Self.identifier(uuid, index: $0) }
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
     }
 
-    /// 重排全部待办的通知链(app 启动/回到前台时调用);按全局预算分配,
-    /// 避免 8 条 × N 任务撞系统上限导致后续提醒静默丢失。
+    /// 连通知中心里已经送达的那几条一起撤掉(完成之后不该还能点)。
+    private func removeDelivered(for uuid: UUID) {
+        let ids = (0..<Self.chainLength).map { Self.identifier(uuid, index: $0) }
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
+    }
+
+    /// 重排全部待办的通知链(启动、回前台、任务数据变了——含 CloudKit 从手机同步过来的改动);
+    /// 按全局预算分配,避免 8 条 × N 任务撞系统上限导致后续提醒静默丢失。
+    /// 已经不在待办里的(在手机上完成/删除了)查不到,所以另外按系统里排着/送达的通知对账,
+    /// 不属于任何有效待办的一律撤掉。
     @MainActor
     func refreshAll() {
         guard let context = container?.mainContext else { return }
         var pending = FetchDescriptor<TaskItem>(
             predicate: #Predicate { $0.statusRaw == "pending" })
         pending.sortBy = [SortDescriptor(\.nextRemindAt)]
-        let fetched = (try? context.fetch(pending)) ?? []
+        // 读库失败不能当成"没有待办",否则后面的对账会把所有通知都撤掉。
+        guard let fetched = try? context.fetch(pending) else { return }
         // 收集里的事项不提醒;在手机上刚改成收集的,手表上还挂着原来那串通知,先撤掉。
         for task in fetched where task.isInbox { cancelChain(for: task.uuid) }
         let tasks = fetched.filter { !$0.isInbox }
@@ -94,6 +129,53 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
             let extra = max(0, min(Self.chainLength - 1, budget))
             budget -= extra
             rebuild(for: task, chainLength: 1 + extra)
+        }
+        removeOrphans()
+    }
+
+    /// 当前该响的待办:uuid → 这一次发生的 remindAt。在系统回调回到主线程之后才算——
+    /// 不用发起对账那一刻的快照,不然等回调的这段时间里刚重排的通知会被旧快照误删。
+    @MainActor
+    private func currentOccurrences() -> [String: TimeInterval]? {
+        guard let context = container?.mainContext,
+              let tasks = try? context.fetch(FetchDescriptor<TaskItem>(
+                predicate: #Predicate { $0.statusRaw == "pending" })) else { return nil }
+        var map: [String: TimeInterval] = [:]
+        for task in tasks where !task.isInbox {
+            map[task.uuid.uuidString] = task.remindAt.timeIntervalSince1970
+        }
+        return map
+    }
+
+    /// 不属于任何该响的待办,或者属于它已经过去的那一次发生(重复事项在手机上完成过一次),
+    /// 都算孤儿。没带 occurrence 的老通知只按 uuid 判。
+    private static func isOrphan(_ request: UNNotificationRequest, current: [String: TimeInterval]) -> Bool {
+        guard let uuid = taskUUID(fromIdentifier: request.identifier) else { return false }
+        guard let occurrence = current[uuid] else { return true }
+        if let stamped = request.content.userInfo["occurrence"] as? TimeInterval {
+            return abs(stamped - occurrence) > 1
+        }
+        return false
+    }
+
+    @MainActor
+    private func removeOrphans() {
+        let center = UNUserNotificationCenter.current()
+        let version = chainVersion
+        center.getPendingNotificationRequests { requests in
+            Task { @MainActor in
+                guard version == self.chainVersion, let current = self.currentOccurrences() else { return }
+                let ids = requests.filter { Self.isOrphan($0, current: current) }.map(\.identifier)
+                if !ids.isEmpty { center.removePendingNotificationRequests(withIdentifiers: ids) }
+            }
+        }
+        center.getDeliveredNotifications { notifications in
+            Task { @MainActor in
+                guard version == self.chainVersion, let current = self.currentOccurrences() else { return }
+                let ids = notifications.map(\.request).filter { Self.isOrphan($0, current: current) }
+                    .map(\.identifier)
+                if !ids.isEmpty { center.removeDeliveredNotifications(withIdentifiers: ids) }
+            }
         }
     }
 
@@ -112,6 +194,7 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
             context.insert(history)
         }
         try? context.save()
+        removeDelivered(for: task.uuid)
         if task.status == .done {
             cancelChain(for: task.uuid)
         } else {
@@ -161,6 +244,9 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
             descriptor.fetchLimit = 1
             guard let task = try? context.fetch(descriptor).first,
                   task.status == .pending else { return }
+            // 旧一次发生的通知(重复事项已经完成过这一次、顺延到下一次了)不再生效。
+            if let occurrence = userInfo["occurrence"] as? TimeInterval,
+               abs(task.remindAt.timeIntervalSince1970 - occurrence) > 1 { return }
             switch actionID {
             case Self.doneAction:
                 self.complete(task, context: context)

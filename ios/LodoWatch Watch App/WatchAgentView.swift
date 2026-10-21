@@ -61,7 +61,7 @@ struct WatchAgentView: View {
             case .transcribing:
                 WKInterfaceDevice.current().play(.stop)
                 if thinking == nil { thinking = (Date(), Int.random(in: 0..<Int.max)) }
-            case .idle, .recording:
+            case .idle, .starting, .recording:
                 break
             }
         }
@@ -231,7 +231,7 @@ struct WatchAgentView: View {
             } else {
                 Button {
                     savedSuggestionIDs.insert(id)
-                    Task { _ = await WatchMemory.save(text, context: context) }
+                    Task { _ = try? await WatchMemory.save(text, context: context) }
                 } label: {
                     Label("收藏这条", systemImage: "bookmark")
                 }
@@ -254,7 +254,7 @@ struct WatchAgentView: View {
     @ToolbarContentBuilder
     private var bottomControls: some ToolbarContent {
         ToolbarItemGroup(placement: .bottomBar) {
-            if speech.state == .idle && !isBusy {
+            if (speech.state == .idle || speech.state == .starting) && !isBusy {
                 // 没配语音识别 / 麦克风被拒 / 不方便出声时的退路:系统输入(含随手写、听写)。
                 TextFieldLink(prompt: Text("说点什么…")) {
                     Image(systemName: "keyboard")
@@ -287,7 +287,7 @@ struct WatchAgentView: View {
                 Image(systemName: "xmark")
             }
             .accessibilityLabel("取消")
-        case .idle:
+        case .idle, .starting:
             if isBusy {
                 Button {
                     requestTask?.cancel()
@@ -310,7 +310,8 @@ struct WatchAgentView: View {
         }
     }
 
-    private var isBusy: Bool { thinking != nil || speech.state != .idle }
+    /// 「准备中」(等麦克风权限)不算忙:底下照常是麦克风,点了也不会重入(start 自己挡着)。
+    private var isBusy: Bool { thinking != nil || (speech.state != .idle && speech.state != .starting) }
 
     // MARK: - 语音
 
@@ -318,7 +319,7 @@ struct WatchAgentView: View {
         if let error = await speech.start(onFinish: handleTranscript) {
             entries.append(WatchAgentEntry(kind: .error(error)))
             WKInterfaceDevice.current().play(.failure)
-        } else {
+        } else if speech.state == .recording {
             WKInterfaceDevice.current().play(.start)
         }
     }
@@ -439,23 +440,31 @@ struct WatchAgentView: View {
             return appendReply(quietlySaved ? "好的,记下了。" : "好的。", symbol: "sparkles")
         }
 
-        if actions.count == 1 {
-            switch actions[0] {
+        // 收藏可以有好几条,也可能和任务写操作一起出现:逐条当场存好,不进确认清单。
+        var replies: [String] = []
+        for action in actions {
+            guard case .memorize(let text) = action else { continue }
+            if let title = try await WatchMemory.save(text, context: context) {
+                replies.append(appendReply("已记下:\(title)", symbol: "bookmark.fill"))
+            }
+        }
+        try Task.checkCancellation()
+        actions.removeAll { if case .memorize = $0 { return true } else { return false } }
+
+        // 问答类(解析层已保证不会和写操作混在一起):照单处理。
+        for action in actions {
+            switch action {
             case .answer(let text):
-                return appendReply(text, symbol: "sparkles")
-            case .memorize(let text):
-                guard let title = await WatchMemory.save(text, context: context) else {
-                    return appendReply("收藏失败,内容为空。", symbol: "exclamationmark.circle")
-                }
-                return appendReply("已记下:\(title)", symbol: "bookmark.fill")
+                replies.append(appendReply(text, symbol: "sparkles"))
             case .askMemory(let question):
-                return appendReply(try await WatchMemory.answer(question, context: context),
-                                   symbol: "sparkles")
+                let answer = try await WatchMemory.answer(question, context: context)
+                try Task.checkCancellation()
+                replies.append(appendReply(answer, symbol: "sparkles"))
             case .suggestMemorize(let text):
                 entries.append(WatchAgentEntry(kind: .suggest(text)))
-                return text
+                replies.append(text)
             case .deleteMemory:
-                return appendReply("删除记忆请在 iPhone 上操作,那边能看清删的是哪一条。", symbol: "iphone")
+                replies.append(appendReply("删除记忆请在 iPhone 上操作,那边能看清删的是哪一条。", symbol: "iphone"))
             default:
                 break
             }
@@ -469,6 +478,7 @@ struct WatchAgentView: View {
             }
         }
         guard !taskActions.isEmpty else {
+            if !replies.isEmpty { return replies.joined(separator: "\n") }
             return appendReply("这个要在 iPhone 上处理,手表上还做不了。", symbol: "iphone")
         }
         let lines = taskActions.map(describe)
@@ -476,7 +486,7 @@ struct WatchAgentView: View {
         pendingActions = taskActions
         activeConfirmID = entry.id
         entries.append(entry)
-        return "即将执行:\n" + lines.joined(separator: "\n")
+        return (replies + ["即将执行:"] + lines).joined(separator: "\n")
     }
 
     @discardableResult
@@ -488,9 +498,9 @@ struct WatchAgentView: View {
     private func describe(_ action: AIAction) -> String {
         switch action {
         case .create(let parsed):
-            return "新建:\(parsed.title)(\(when(parsed)))"
+            return "新建:\(parsed.title)(\(when(parsed))\(projectNote(parsed)))"
         case .update(_, let parsed):
-            return "修改:\(parsed.title)(\(when(parsed)))"
+            return "修改:\(parsed.title)(\(when(parsed))\(projectNote(parsed)))"
         case .complete(let uuid):
             return "完成:\(title(of: uuid) ?? "未知事项")"
         case .delete(let uuid):
@@ -498,6 +508,11 @@ struct WatchAgentView: View {
         default:
             return ""
         }
+    }
+
+    private func projectNote(_ parsed: ParsedTask) -> String {
+        guard let project = parsed.project, !project.isEmpty else { return "" }
+        return " · \(project)"
     }
 
     /// 收集里的事项(没有时间)写「收集」,别把占位日期显示出来。
@@ -519,6 +534,7 @@ struct WatchAgentView: View {
                     title: parsed.title, remindAt: parsed.remindAt, allDay: parsed.allDay,
                     repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
                     repeatTimes: parsed.repeatTimes)
+                task.project = parsed.project
                 context.insert(task)
                 WatchNotificationManager.shared.rebuild(for: task)
             case .update(let uuid, let parsed):
@@ -529,6 +545,7 @@ struct WatchAgentView: View {
                 task.repeatTypeRaw = parsed.repeatType.rawValue
                 task.repeatDays = parsed.repeatDays
                 task.repeatTimes = parsed.repeatTimes
+                task.project = parsed.project
                 task.phaseRaw = TaskPhase.start.rawValue
                 task.nextRemindAt = parsed.remindAt
                 WatchNotificationManager.shared.rebuild(for: task)

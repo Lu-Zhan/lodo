@@ -129,10 +129,11 @@ public final class TaskItem {
     }
 
     /// 把调度计算结果写回模型。
+    /// **不写 `durationMinutes`**:`data` 恒给调度器 0(产品层已去掉任务时长),这一列只记
+    /// 日历事件的长度、由日历同步直接赋值;在这里写回会让每次完成/稍等把事件长度清零。
     public func apply(_ d: TaskData) {
         title = d.title
         remindAt = d.remindAt
-        durationMinutes = d.durationMinutes
         allDay = d.allDay
         repeatTypeRaw = d.repeatType.rawValue
         repeatDays = d.repeatDays

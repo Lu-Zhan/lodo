@@ -6,14 +6,25 @@ import LodoCore
 /// 不需要 App Group 迁移那套逻辑——Watch 是独立设备,本来就没有旧的本地数据要迁。
 /// 除了任务还同步记忆条目(`MemoryItem`):手表上「记一下 / 问一下」读写的就是手机那张表。
 /// 只带这两种实体,其余模型(旅行、菜单…)CloudKit 镜像里有也不往手表上拉。
+///
+/// CloudKit 那份打不开时先退到本机库(不同步,但改动不会丢);两者都打不开才用内存库,
+/// 并置 `isTemporary`,首页上明说这次的改动不会保存——不能悄悄让人以为记下了。
 @MainActor
 enum WatchDatabase {
+    private(set) static var isTemporary = false
+
     static let container: ModelContainer = {
         if let container = try? ModelContainer(
             for: TaskItem.self, MemoryItem.self,
             configurations: ModelConfiguration(cloudKitDatabase: .automatic)) {
             return container
         }
+        if let local = try? ModelContainer(
+            for: TaskItem.self, MemoryItem.self,
+            configurations: ModelConfiguration(cloudKitDatabase: .none)) {
+            return local
+        }
+        isTemporary = true
         guard let inMemory = try? ModelContainer(
             for: TaskItem.self, MemoryItem.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)) else {
