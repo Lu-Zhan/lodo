@@ -51,12 +51,13 @@ struct ListenWidgetView: View {
     private var content: some View {
         switch family {
         case .accessoryCorner:
-            Image(systemName: "mic.fill")
+            Image(systemName: "sparkles")
                 .font(.title2)
+                .widgetAccentable()
                 .widgetLabel("Lodo")
         case .accessoryRectangular:
             HStack(spacing: 8) {
-                Image(systemName: "mic.circle.fill")
+                Image(systemName: "sparkles")
                     .font(.title)
                     .widgetAccentable()
                 VStack(alignment: .leading, spacing: 0) {
@@ -70,11 +71,11 @@ struct ListenWidgetView: View {
                 Spacer(minLength: 0)
             }
         case .accessoryInline:
-            Label("对 Lodo 说", systemImage: "mic.fill")
+            Label("对 Lodo 说", systemImage: "sparkles")
         default:
             ZStack {
                 AccessoryWidgetBackground()
-                Image(systemName: "mic.fill")
+                Image(systemName: "sparkles")
                     .font(.title2.weight(.semibold))
                     .widgetAccentable()
             }
