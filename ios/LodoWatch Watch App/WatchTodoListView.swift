@@ -33,6 +33,7 @@ struct WatchTodoListView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List {
                 if WatchDatabase.isTemporary {
                     Text("数据库打不开,这次的改动不会保存。重启手表上的 Lodo 再试。")
@@ -60,6 +61,16 @@ struct WatchTodoListView: View {
                     }
                 }
                 WatchTodayMemoriesSection(dayStart: Calendar.current.startOfDay(for: now), now: now)
+                    .id("memories")
+            }
+            #if DEBUG
+            // 截图核对「今天的记忆」那一组(模拟器上滚不动列表)。
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("--demo-watch-scroll") else { return }
+                try? await Task.sleep(for: .seconds(1))
+                proxy.scrollTo("memories", anchor: .top)
+            }
+            #endif
             }
             .navigationTitle("Lodo")
             .toolbar {
@@ -117,7 +128,7 @@ struct WatchTodoListView: View {
 }
 
 /// 「今天的记忆」:今天记下的条目,点进去看全文。还没整理出标题的(刚在手表上说的)
-/// 标题退回原文开头——那是用户自己刚说的话;健康类按标签不在这里显示(`WatchToday`)。按今天 0 点起查,
+/// 标题退回原文开头——那是用户自己刚说的话。人脉、资产不算(同手机「记忆」页,`WatchToday`)。按今天 0 点起查,
 /// 过 0 点时外面换一个 dayStart,@Query 跟着重建。
 private struct WatchTodayMemoriesSection: View {
     @Query private var items: [MemoryItem]

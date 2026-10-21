@@ -35,6 +35,10 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
             UNNotificationCategory(identifier: Self.nagCategory, actions: [done, snooze],
                                    intentIdentifiers: [], options: []),
         ])
+        #if DEBUG
+        // 截图核对首页时别被授权弹窗挡住(simctl 点不了它)。
+        if ProcessInfo.processInfo.arguments.contains("--demo-watch-today") { return }
+        #endif
         center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 

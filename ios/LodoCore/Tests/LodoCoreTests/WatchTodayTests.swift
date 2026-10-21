@@ -50,11 +50,13 @@ final class WatchTodayTests: XCTestCase {
         XCTAssertTrue(WatchToday.includesMemory(createdAt: date(8, 0), tags: [], now: now, calendar: calendar))
         XCTAssertTrue(WatchToday.includesMemory(createdAt: date(8, 8), tags: ["AI记录", "旅行", "菜单"],
                                                 now: now, calendar: calendar))
+        XCTAssertTrue(WatchToday.includesMemory(createdAt: date(8, 8), tags: ["健康", "体检报告"],
+                                                now: now, calendar: calendar))
         XCTAssertFalse(WatchToday.includesMemory(createdAt: date(7, 23, 59), tags: [], now: now, calendar: calendar))
     }
 
     func testMemoryExcludedTags() {
-        for tag in ["人脉", "资产", "健康", "体检报告", "体重秤报告"] {
+        for tag in ["人脉", "资产"] {
             XCTAssertFalse(WatchToday.includesMemory(createdAt: date(8, 8), tags: [tag], now: now, calendar: calendar),
                            tag)
         }

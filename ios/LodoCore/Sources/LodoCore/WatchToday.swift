@@ -15,8 +15,8 @@ public enum WatchToday {
         return remindAt < nextDayStart(after: now, calendar: calendar)
     }
 
-    /// 一条记忆今天该不该出现:今天记下的,口径同手机记忆列表——人脉、资产不显示;
-    /// 另外体检、体重秤报告、健康资料不在手表首页摊开(抬腕就能被旁人看到)。
+    /// 一条记忆今天该不该出现:今天记下的,口径同手机「记忆」页——人脉、资产不在那一页
+    /// (各有自己的页面),这里也不算;其余(含健康、体检、菜单、旅行)照常显示。
     public static func includesMemory(createdAt: Date, tags: [String],
                                       now: Date, calendar: Calendar = .current) -> Bool {
         guard calendar.isDate(createdAt, inSameDayAs: now) else { return false }
@@ -29,8 +29,5 @@ public enum WatchToday {
         return calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
     }
 
-    static let excludedMemoryTags: Set<String> = [
-        MemoryItem.contactTagName, MemoryItem.assetTagName, MemoryItem.healthTagName,
-        MemoryItem.checkupTagName, MemoryItem.weightReportTagName,
-    ]
+    static let excludedMemoryTags: Set<String> = [MemoryItem.contactTagName, MemoryItem.assetTagName]
 }
