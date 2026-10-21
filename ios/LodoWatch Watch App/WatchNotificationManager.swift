@@ -45,8 +45,8 @@ final class WatchNotificationManager: NSObject, UNUserNotificationCenterDelegate
     // MARK: - 通知链
 
     /// 关掉「反复提醒」时到期只响一次(同手机):链缩成 1 条,也不追平——
-    /// 原定时间已经过了就不再排。读的是手表本机的设置(手表上没有这个开关,没设过 = 开),
-    /// 手机上的设置目前不会同步过来。
+    /// 原定时间已经过了就不再排。读的是手表本机的设置,由手机经 WatchConnectivity 推过来
+    /// (`WatchSettingsSync`;还没收到过 = 开)。
     @MainActor
     func rebuild(for task: TaskItem, chainLength: Int = WatchNotificationManager.chainLength) {
         let center = UNUserNotificationCenter.current()

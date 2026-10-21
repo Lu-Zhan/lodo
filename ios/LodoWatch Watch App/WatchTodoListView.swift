@@ -108,6 +108,7 @@ struct WatchTodoListView: View {
             }
             .task {
                 WatchNotificationManager.shared.configure(container: context.container)
+                WatchSettingsSync.shared.start()
             }
             // 第一次出现时排一次;之后待办一变就合并 0.5 秒再对账(同步常常一次进来好几条)。
             .task(id: reminderKey) {

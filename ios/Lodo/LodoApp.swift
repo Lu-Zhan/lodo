@@ -27,6 +27,10 @@ struct LodoApp: App {
         // 不会被误删,但顺序上先做迁移更清楚。
         AgentHistoryMigration.run(container: container)
         NotificationManager.shared.configure(container: container)
+        #if os(iOS)
+        // 反复提醒开关、稍等间隔推给 Apple Watch(手表的 UserDefaults 不经 CloudKit)。
+        WatchSettingsBridge.shared.start()
+        #endif
         // 旅行共享:要在 scene 连上之前配好——冷启动点共享链接进来时,scene delegate
         // 一连上就会调 accept。
         SharedTripSync.shared.configure(container: container)
