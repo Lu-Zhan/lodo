@@ -14,6 +14,7 @@ import com.lodo.app.ai.DurationMemory
 import com.lodo.app.ai.GeminiNanoClient
 import com.lodo.app.ai.WebSearchClient
 import com.lodo.app.core.CurrentLang
+import com.lodo.app.core.SidebarLayout
 import com.lodo.app.core.Strings
 import com.lodo.app.data.Backup
 import com.lodo.app.data.Settings
@@ -221,6 +222,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setUseBuiltInKey(v: Boolean) = viewModelScope.launch { app.settings.setUseBuiltInKey(v) }
+
+    fun setSidebarLayout(layout: SidebarLayout) = viewModelScope.launch {
+        app.settings.setSidebarLayout(layout.encode())
+    }
 
     fun onApiKeyChange(value: String) {
         apiKey = value

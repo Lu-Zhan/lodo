@@ -68,6 +68,7 @@ import com.lodo.app.LodoApp
 import com.lodo.app.PendingRoute
 import com.lodo.app.ai.AgentFocus
 import com.lodo.app.data.Settings
+import com.lodo.app.core.SidebarLayout
 import com.lodo.app.ui.agent.AgentChat
 import com.lodo.app.ui.agent.AgentViewModel
 import com.lodo.app.ui.assets.AssetsScreen
@@ -269,6 +270,11 @@ private val DRAWER_WIDTH = 300.dp
 
 @Composable
 private fun DrawerBody(section: AppSection, onSelect: (AppSection) -> Unit, onSettings: () -> Unit) {
+    val savedLayout = LocalSettings.current.sidebarLayout
+    val sections = remember(savedLayout) {
+        SidebarLayout.decode(savedLayout, AppSection.entries.map { it.name }).items
+            .filter { it.visible }.map { AppSection.valueOf(it.id) }
+    }
     Column(Modifier.fillMaxSize()) {
         Text(
             "Lodo",
@@ -277,7 +283,7 @@ private fun DrawerBody(section: AppSection, onSelect: (AppSection) -> Unit, onSe
             modifier = Modifier.padding(start = 28.dp, top = 12.dp, bottom = 12.dp),
         )
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            AppSection.entries.forEach { s ->
+            sections.forEach { s ->
                 DrawerItem(s.title, s.icon, selected = section == s) { onSelect(s) }
             }
         }

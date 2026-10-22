@@ -124,6 +124,8 @@ data class Settings(
     val openAgentOnLaunch: Boolean = true,
     /** 总览模块布局:逗号分隔的 "kind:size",空 = 默认布局。 */
     val overviewLayout: String = "",
+    /** 侧边栏顺序与显隐的 JSON,空 = 全部显示、默认顺序。 */
+    val sidebarLayout: String = "",
     /** 日历页上次用的视图:agenda/day/week/month。 */
     val calendarViewMode: String = "agenda",
     /** 新闻阅读:总结语言(app/zh/en/ja/ko/source)、字号档(0..4)、边距档(0..2)。 */
@@ -168,6 +170,7 @@ class SettingsRepository(private val context: Context) {
         val CALENDAR_WRITE_ENABLED = booleanPreferencesKey("calendarWriteEnabled")
         val OPEN_AGENT_ON_LAUNCH = booleanPreferencesKey("openAgentOnLaunch")
         val OVERVIEW_LAYOUT = stringPreferencesKey("overviewLayout")
+        val SIDEBAR_LAYOUT = stringPreferencesKey("sidebarLayout")
         val CALENDAR_VIEW_MODE = stringPreferencesKey("calendarViewMode")
         val NEWS_FONT_SIZE = intPreferencesKey("newsFontSize")
         val NEWS_MARGIN = intPreferencesKey("newsMargin")
@@ -218,6 +221,7 @@ class SettingsRepository(private val context: Context) {
             calendarWriteEnabled = p[Keys.CALENDAR_WRITE_ENABLED] ?: false,
             openAgentOnLaunch = p[Keys.OPEN_AGENT_ON_LAUNCH] ?: true,
             overviewLayout = p[Keys.OVERVIEW_LAYOUT] ?: "",
+            sidebarLayout = p[Keys.SIDEBAR_LAYOUT] ?: "",
             calendarViewMode = p[Keys.CALENDAR_VIEW_MODE] ?: "agenda",
             newsSummaryLanguage = (p[Keys.NEWS_SUMMARY_LANGUAGE] ?: "").let { if (it == "app") "" else it },
             newsDigestTime = p[Keys.NEWS_DIGEST_TIME] ?: "09:00",
@@ -331,6 +335,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setCalendarWriteEnabled(v: Boolean) { context.dataStore.edit { it[Keys.CALENDAR_WRITE_ENABLED] = v } }
     suspend fun setOpenAgentOnLaunch(v: Boolean) { context.dataStore.edit { it[Keys.OPEN_AGENT_ON_LAUNCH] = v } }
     suspend fun setOverviewLayout(v: String) { context.dataStore.edit { it[Keys.OVERVIEW_LAYOUT] = v } }
+    suspend fun setSidebarLayout(v: String) { context.dataStore.edit { it[Keys.SIDEBAR_LAYOUT] = v } }
     suspend fun setCalendarViewMode(v: String) { context.dataStore.edit { it[Keys.CALENDAR_VIEW_MODE] = v } }
     suspend fun setNewsFontSize(v: Int) { context.dataStore.edit { it[Keys.NEWS_FONT_SIZE] = v.coerceIn(0, 4) } }
     suspend fun setNewsSummaryLanguage(v: String) { context.dataStore.edit { it[Keys.NEWS_SUMMARY_LANGUAGE] = v } }

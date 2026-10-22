@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,6 +65,7 @@ import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.aiProviderPresets
 import com.lodo.app.data.personaPresets
 import com.lodo.app.ui.FooterText
+import com.lodo.app.ui.L
 import com.lodo.app.ui.LodoTimePickerDialog
 import com.lodo.app.ui.SectionHeader
 import com.lodo.app.ui.StepperRow
@@ -91,12 +93,17 @@ fun SettingsScreen(
 
     var showSkills by remember { mutableStateOf(false) }
     var showPreferences by remember { mutableStateOf(false) }
+    var showSidebar by remember { mutableStateOf(false) }
     if (showRoutines) {
         RoutineListScreen(onBack = { showRoutines = false })
         return
     }
     if (showSkills) { SkillsScreen(onBack = { showSkills = false }); return }
     if (showPreferences) { PreferencesScreen(onBack = { showPreferences = false }); return }
+    if (showSidebar) {
+        SidebarSettingsScreen(settings.sidebarLayout, vm::setSidebarLayout, onBack = { showSidebar = false })
+        return
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip")
@@ -144,6 +151,15 @@ fun SettingsScreen(
             FooterText(stringResource(R.string.shared_independent_of_the_system_language))
 
             ExtraSettingsSection(onOpenSkills = { showSkills = true }, onOpenPreferences = { showPreferences = true })
+
+            SectionHeader(L("侧边栏", "Sidebar"))
+            Row(
+                Modifier.fillMaxWidth().clickable { showSidebar = true }.padding(vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(L("显示与排序", "Visibility & order"), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronRight, contentDescription = null)
+            }
 
             SectionHeader(stringResource(R.string.shared_reminders))
             Row(
