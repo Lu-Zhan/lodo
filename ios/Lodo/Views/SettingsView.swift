@@ -23,7 +23,6 @@ struct SettingsView: View {
     @AppStorage(AppSettings.spotlightCategoriesKey) private var spotlightRaw = SettingsView.spotlightUnset
     @AppStorage(AppSettings.assetDisplayCurrencyKey) private var assetDisplayCurrency = "CNY"
     @AppStorage(AppSettings.assetStatsHiddenKey) private var assetStatsHidden = true
-    @AppStorage(AppSettings.assetsInSidebarKey) private var assetsInSidebar = true
     @AppStorage(AppSettings.assetsAIIsolatedKey) private var assetsAIIsolated = true
     @Environment(\.itemNavigator) private var itemNavigator
     @Environment(\.openURL) private var openURL
@@ -110,7 +109,7 @@ struct SettingsView: View {
     /// 页面里原有的 NavigationLink { } label: { } 不走这个栈,照常工作。
     @State private var path: [SettingsRoute] = []
 
-    enum SettingsRoute: Hashable { case reminder, syncStatus }
+    enum SettingsRoute: Hashable { case reminder, syncStatus, sidebar }
 
     /// macOS 上设置是独立的「设置」窗口(⌘,),窗口自己有关闭按钮,不再挂「完成」。
     private let isSettingsWindow: Bool
@@ -381,6 +380,12 @@ struct SettingsView: View {
                     Text("独立于系统语言设置;AI 助手的对话内容不受影响,始终为中文。")
                 }
 
+                Section {
+                    NavigationLink(value: SettingsRoute.sidebar) {
+                        Label("侧边栏自定义", systemImage: "sidebar.left")
+                    }
+                }
+
                 // ---- 资产 ----
                 Section {
                     Picker("汇总展示币种", selection: $assetDisplayCurrency) {
@@ -390,7 +395,6 @@ struct SettingsView: View {
                         }
                     }
                     Toggle("隐藏资产统计", isOn: $assetStatsHidden)
-                    Toggle("在侧栏显示资产", isOn: $assetsInSidebar)
                     // 备用入口:侧栏里关掉「资产」之后从这里进。
                     Button {
                         openAssets()
@@ -437,6 +441,7 @@ struct SettingsView: View {
                 switch route {
                 case .reminder: ReminderSettingsView()
                 case .syncStatus: CloudSyncStatusView()
+                case .sidebar: SidebarSettingsView()
                 }
             }
             #if DEBUG
@@ -447,6 +452,9 @@ struct SettingsView: View {
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-sync-status") {
                     path = [.syncStatus]
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-sidebar-settings") {
+                    path = [.sidebar]
                 }
             }
             #endif

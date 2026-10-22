@@ -3,12 +3,24 @@ import SwiftData
 import CoreSpotlight
 import LodoCore
 
-/// app 的八个平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
+/// app 的平级页面。左滑抽屉(`AppSidebarView`)是它们之间唯一的切换入口——
 /// 没有底部标签栏,也没有"AI 是从某个页面弹出来的模态"这回事。
-enum AppSection: Hashable, CaseIterable {
-    case overview, todo, calendar, countdown, memory, contact, assets, health, travel, menu, news, agent
+enum AppSection: String, Hashable, CaseIterable {
+    /// rawValue 与 Android 的 AppSection.name 对齐:这是持久化字符串,别改。
+    case overview = "overview"
+    case todo = "todo"
+    case calendar = "calendar"
+    case countdown = "countdown"
+    case memory = "memory"
+    case contact = "contact"
+    case assets = "assets"
+    case health = "health"
+    case travel = "travel"
+    case menu = "menu"
+    case news = "news"
+    case agent = "agent"
 
-    /// 宽屏系统侧边栏(`SystemSidebarList`)的行,顺序同窄屏抽屉。
+    /// 两种侧栏共用的默认顺序;保存布局时使用 rawValue,不用数组下标。
     static let pages: [AppSection] = [
         .overview, .todo, .calendar, .countdown, .memory, .contact,
         .assets, .health, .travel, .menu, .news, .agent,

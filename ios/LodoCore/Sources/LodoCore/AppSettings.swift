@@ -35,8 +35,10 @@ public enum AppSettings {
     /// 资产页「全部」总览卡的数字(净资产、资产/负债、每月收支结余)用 *** 盖住,点一下
     /// 那张卡才露出来。**默认开**(用户要求,2026-10):在别人面前打开 app 不该一眼看到身家。
     public static let assetStatsHiddenKey = "assetStatsHidden"
-    /// 侧栏里显示「资产」这一行。**默认开**;关掉后从设置 → 资产里那一行进(备用入口)。
+    /// 旧版资产侧栏开关,由侧边栏自定义兼容读取并同步;默认开。
     public static let assetsInSidebarKey = "assetsInSidebar"
+    /// 侧栏页面的顺序与可见性(`SidebarLayout.encoded()` 的 JSON),只存本机。
+    public static let sidebarLayoutKey = "sidebarLayout"
     /// AI 与资产隔离。**默认开**:AI 只能新建资产,读不到也改不了已有的资产
     /// (prompt 里不放资产清单、拒收 update_asset、记忆检索和引用里排除资产条目)。
     public static let assetsAIIsolatedKey = "assetsAIIsolated"

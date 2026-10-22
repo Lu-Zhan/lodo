@@ -24,32 +24,16 @@ struct AppSidebarView: View {
     let onSelect: (AppSection) -> Void
 
     @Environment(\.lodoAccent) private var lodoAccent
-    /// 设置 → 资产 →「在侧栏显示资产」,默认开。
-    @AppStorage(AppSettings.assetsInSidebarKey) private var assetsInSidebar = true
+    @SidebarLayoutStorage private var layout
 
     var body: some View {
         VStack(spacing: 0) {
             header
             List {
-                navRow(.overview, title: "总览", systemImage: "square.stack.3d.up")
-                navRow(.todo, title: "任务", systemImage: "checklist")
-                navRow(.calendar, title: "日历", systemImage: "calendar")
-                navRow(.countdown, title: "倒数", systemImage: "hourglass")
-                navRow(.memory, title: "记忆", systemImage: "sparkles.rectangle.stack")
-                // 人脉/健康/旅行/菜单都是建在记忆库上的功能,紧跟在记忆行后面。
-                navRow(.contact, title: "人脉", systemImage: "person.crop.circle")
-                // 资产:车房存款是打了「资产」标签的记忆条目,收入/支出/信用卡另存。
-                if assetsInSidebar {
-                    navRow(.assets, title: "资产", systemImage: "banknote")
+                ForEach(layout.visibleIDs.compactMap(AppSection.init(rawValue:)), id: \.self) { page in
+                    navRow(page, title: page.title, systemImage: page.systemImage,
+                           tinted: page == .agent)
                 }
-                navRow(.health, title: "健康", systemImage: "heart.text.square")
-                navRow(.travel, title: "旅行", systemImage: "suitcase.rolling")
-                navRow(.menu, title: "菜单", systemImage: "menucard")
-                // 新闻不建在记忆库上,排在那一组后面、AI 助手前面。
-                navRow(.news, title: "新闻", systemImage: "newspaper")
-                // AI 助手也是个平级页面,排在最后一行;图标常驻主题色——
-                // 它是这一排里唯一带色的图标,一眼能找到(见 navRow 的 tinted)。
-                navRow(.agent, title: "Agent", systemImage: "sparkles", tinted: true)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -220,11 +204,11 @@ struct SystemSidebarList: View {
     let onOpenSettings: () -> Void
     /// 「共享与权限」页(设置旁边那颗)。
     var onOpenSharing: () -> Void = {}
-    @AppStorage(AppSettings.assetsInSidebarKey) private var assetsInSidebar = true
+    @SidebarLayoutStorage private var layout
 
     var body: some View {
         List(selection: $selection) {
-            ForEach(AppSection.pages.filter { $0 != .assets || assetsInSidebar }, id: \.self) { page in
+            ForEach(layout.visibleIDs.compactMap(AppSection.init(rawValue:)), id: \.self) { page in
                 NavigationLink(value: page) {
                     Label(page.title, systemImage: page.systemImage)
                 }
