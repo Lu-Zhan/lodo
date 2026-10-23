@@ -15,7 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -74,12 +74,13 @@ fun ContactsScreen(vm: MemoryViewModel = viewModel()) {
         title = L("人脉", "People"),
         focus = AgentFocus(AgentPageFocus.CONTACT),
         askPrompt = L("想起谁了?", "Thinking of someone?"),
+        onPullCreate = { menu = true },
         actions = {
             IconButton(onClick = { vm.showGraph = true }, enabled = contacts.size >= 2) { Icon(Icons.Filled.Hub, L("关系图谱", "Graph")) }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, L("更多", "More")) }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.Add, L("添加人脉", "Add person")) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text(L("新建人脉", "New person")) }, onClick = { menu = false; creating = true })
+                    DropdownMenuItem(text = { Text(L("记一位人脉", "Add a person")) }, onClick = { menu = false; creating = true })
                     DropdownMenuItem(text = { Text(L("从通讯录导入", "Import from Contacts")) }, onClick = { menu = false; pick.launch(null) })
                 }
             }
@@ -87,7 +88,9 @@ fun ContactsScreen(vm: MemoryViewModel = viewModel()) {
     ) { padding ->
         if (contacts.isEmpty()) {
             FullEmpty(Icons.Outlined.People, L("还没有人脉", "No people yet"),
-                L("从右上角导入通讯录,或新建一位。", "Import from Contacts or add someone from the top-right menu."), padding)
+                L("从右上角导入通讯录,或新建一位。", "Import from Contacts or add someone from the top-right menu."), padding) {
+                androidx.compose.material3.Button(onClick = { menu = true }) { Text(L("记一位人脉", "Add a person")) }
+            }
             return@LodoPage
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp,

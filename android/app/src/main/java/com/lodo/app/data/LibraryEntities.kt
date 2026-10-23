@@ -1,5 +1,6 @@
 package com.lodo.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -56,6 +57,21 @@ data class FinanceEntity(
     /** 已经为哪一期(还款日 yyyy-MM-dd)建过提醒任务,防重复。 */
     val reminderCycle: String = "",
     val reminderTaskUuid: String? = null,
+    @ColumnInfo(defaultValue = "0") val estimated: Boolean = false,
+    @ColumnInfo(defaultValue = "1") val repaymentLeadDays: Int = 1,
+    @ColumnInfo(defaultValue = "0") val statementRemindEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val statementLeadDays: Int = 0,
+    val annualFeeAmount: Double? = null,
+    @ColumnInfo(defaultValue = "'unknown'") val annualFeeBasisRaw: String = "unknown",
+    val annualFeeMonth: Int? = null,
+    val annualFeeDay: Int? = null,
+    @ColumnInfo(defaultValue = "''") val annualFeeWaiver: String = "",
+    @ColumnInfo(defaultValue = "0") val annualFeeRemindEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "30") val annualFeeLeadDays: Int = 30,
+    @ColumnInfo(defaultValue = "''") val statementReminderCycle: String = "",
+    val statementReminderTaskUuid: String? = null,
+    @ColumnInfo(defaultValue = "''") val annualFeeReminderCycle: String = "",
+    val annualFeeReminderTaskUuid: String? = null,
     val sortIndex: Int = 0,
     val updatedAtMillis: Long = System.currentTimeMillis(),
     val createdAtMillis: Long = System.currentTimeMillis(),

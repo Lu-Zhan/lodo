@@ -35,8 +35,9 @@ fun MemoryComposeSheet(
     errorText: String?,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
+    initialText: String = "",
 ) {
-    var text by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf(initialText) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

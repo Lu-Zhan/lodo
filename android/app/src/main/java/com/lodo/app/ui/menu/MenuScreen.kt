@@ -138,6 +138,7 @@ fun MenuScreen(vm: MenuViewModel = viewModel()) {
         title = L("菜单", "Menu"),
         focus = AgentFocus(AgentPageFocus.MENU),
         askPrompt = L("在吃什么呀?", "What are we eating?"),
+        onPullCreate = { importing = true },
         actions = { IconButton(onClick = { importing = true }) { Icon(Icons.Filled.Add, L("新菜单", "New menu")) } },
     ) { padding ->
         if (menus.isEmpty()) {

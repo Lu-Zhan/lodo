@@ -29,7 +29,7 @@ class ReminderWidgetProvider : AppWidgetProvider() {
     private fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int) {
         CoroutineScope(Dispatchers.IO).launch {
             val app = context.applicationContext as LodoApp
-            val next = app.database.taskDao().pending().minByOrNull { it.nextRemindAtMillis }
+            val next = app.database.taskDao().pending().filterNot { it.isInbox }.minByOrNull { it.nextRemindAtMillis }
             val views = RemoteViews(context.packageName, R.layout.widget_reminder)
             if (next == null) {
                 views.setTextViewText(R.id.widget_task_title, context.getString(R.string.android_ui_no_upcoming_reminders))

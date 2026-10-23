@@ -6,11 +6,13 @@ import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 import java.util.UUID
 
-/** 记忆条目的内容类型;与 iOS MemoryKind 对齐,这一轮只做 text/link 两种
- * (pdf/image/file 需要文件选择与本地存储基础设施,留待后续跟进)。 */
+/** 记忆条目的内容类型,持久化字符串与 iOS MemoryKind 对齐。 */
 enum class MemoryKind(val raw: String) {
     TEXT("text"),
-    LINK("link");
+    LINK("link"),
+    PDF("pdf"),
+    IMAGE("image"),
+    FILE("file");
 
     companion object {
         fun from(raw: String): MemoryKind = entries.firstOrNull { it.raw == raw } ?: TEXT
@@ -94,6 +96,11 @@ data class MemoryEntity(
     val menuSourceLanguage: String? = null,
     val menuTargetLanguage: String? = null,
     val menuCurrency: String? = null,
+    val originalFileName: String? = null,
+    val relativeFilePath: String? = null,
+    val checkupDateDay: String? = null,
+    val checkupInstitution: String? = null,
+    val checkupProfileUuid: String? = null,
 ) {
     val kindEnum: MemoryKind get() = MemoryKind.from(kind)
     val statusEnum: MemoryStatus get() = MemoryStatus.from(status)
@@ -128,7 +135,9 @@ data class MemoryEntity(
         const val healthTagName = "健康"
         const val autoTagName = "AI记录"
         /** 保留标签:不能改名/删除;资产/人脉默认不在记忆列表里出现。 */
-        val reservedTagNames = setOf(assetTagName, contactTagName, travelTagName, menuTagName, healthTagName, autoTagName)
+        const val checkupTagName = "体检报告"
+        const val weightReportTagName = "体重秤报告"
+        val reservedTagNames = setOf(assetTagName, contactTagName, travelTagName, menuTagName, healthTagName, autoTagName, checkupTagName, weightReportTagName)
 
         fun create(
             kind: MemoryKind,

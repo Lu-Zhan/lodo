@@ -27,7 +27,9 @@ class RoutineRepository(
         prompt: String, remindAt: LocalDateTime,
         repeatType: RepeatType, repeatDays: List<Int>, repeatTimes: List<String>,
     ): RoutineEntity {
-        val entity = RoutineEntity.create(prompt, remindAt, repeatType, repeatDays, repeatTimes)
+        val base = RoutineEntity.create(prompt, remindAt, repeatType, repeatDays, repeatTimes)
+        val next = if (base.isRecurring) Scheduler.nextOccurrence(base.toTaskData(), LocalDateTime.now()) ?: remindAt else remindAt
+        val entity = base.copy(nextRunAtMillis = next.toEpochMillis())
         dao.upsert(entity)
         return entity
     }
@@ -37,13 +39,10 @@ class RoutineRepository(
         repeatType: RepeatType, repeatDays: List<Int>, repeatTimes: List<String>,
     ) {
         val existing = dao.byUuid(uuid) ?: return
-        dao.upsert(
-            existing.copy(
-                prompt = prompt, remindAtMillis = remindAt.toEpochMillis(),
-                repeatType = repeatType.raw, repeatDays = joinIntCsv(repeatDays),
-                repeatTimes = joinCsv(repeatTimes), nextRunAtMillis = remindAt.toEpochMillis(),
-            )
-        )
+        val edited = existing.copy(prompt = prompt, remindAtMillis = remindAt.toEpochMillis(),
+            repeatType = repeatType.raw, repeatDays = joinIntCsv(repeatDays), repeatTimes = joinCsv(repeatTimes))
+        val next = if (edited.isRecurring) Scheduler.nextOccurrence(edited.toTaskData(), LocalDateTime.now()) ?: remindAt else remindAt
+        dao.upsert(edited.copy(nextRunAtMillis = next.toEpochMillis()))
     }
 
     suspend fun setEnabled(uuid: String, enabled: Boolean) {

@@ -93,7 +93,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     sealed interface UndoOp {
         data class Created(val uuid: String) : UndoOp
         data class Updated(val before: TaskEntity) : UndoOp
-        data class Completed(val before: TaskEntity, val historyUuid: String?) : UndoOp
+        data class Completed(val before: TaskEntity, val historyUuid: String?, val startedAtMillis: Long) : UndoOp
         data class Deleted(val before: TaskEntity) : UndoOp
         data class Memorized(val uuid: String) : UndoOp
     }
@@ -190,7 +190,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         val trips = app.travel.allTrips()
         val feeds = app.news.feeds()
         val countdowns = app.countdowns.all()
-        val healthOn = settings.healthEnabled && app.health.isAvailable
+        val healthOn = (settings.healthEnabled && app.health.isAvailable) || app.healthJournal.promptSummary() != null
         return CommandContext(
             tasks = pending.map { it.uuid to it.toParsedTask() },
             caps = CommandCapabilities(
@@ -292,8 +292,9 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         is AITool.ReadHealth -> {
-            val report = app.health.report(tool.days)
-            "[最近 ${tool.days} 天的健康数据]\n" + report.promptSummary().ifEmpty { "没有可用的健康数据(未授权或没有记录)。" }
+            val report = if (app.settings.snapshot().healthEnabled) app.health.report(tool.days).promptSummary() else ""
+            val manual = app.healthJournal.promptSummary()
+            "[最近 ${tool.days} 天的健康数据与手记汇总]\n" + listOfNotNull(report.takeIf { it.isNotBlank() }, manual).joinToString("\n\n").ifEmpty { "没有可用的健康数据(未授权或没有记录)。" }
         }
         is AITool.ReadTrip -> "[读取行程]\n" + app.travel.readTrip(tool.name, includeIds = true)
         // 只有已启用的外部 skill 取得到;取不到如实告诉模型,别让它凭空编内容(同 iOS)。
@@ -513,7 +514,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 is AIAction.Complete -> {
                     val before = app.repository.current(a.uuid)
                     if (before != null && before.statusEnum == TaskStatus.PENDING) {
-                        ops += UndoOp.Completed(before, app.repository.complete(a.uuid)?.uuid)
+                        val startedAt = System.currentTimeMillis()
+                        ops += UndoOp.Completed(before, app.repository.complete(a.uuid)?.uuid, startedAt)
                     } else missing++
                 }
                 is AIAction.Delete -> {
@@ -564,6 +566,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 is UndoOp.Completed -> {
                     if (app.repository.exists(op.before.uuid)) app.repository.restoreSnapshot(op.before) else missing++
                     op.historyUuid?.let { app.repository.removeIfExists(it) }
+                    if (op.before.medicationUuid != null) app.database.healthDao().removeTaskDoses(op.before.uuid, op.startedAtMillis)
                 }
                 is UndoOp.Deleted -> app.repository.restoreSnapshot(op.before)
                 is UndoOp.Memorized -> app.memoryRepository.delete(op.uuid)

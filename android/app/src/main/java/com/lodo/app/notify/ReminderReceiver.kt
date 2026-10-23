@@ -36,7 +36,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
     private suspend fun handleRemind(app: LodoApp, uuid: String) {
         val entity = app.repository.current(uuid) ?: return
-        if (entity.statusEnum != TaskStatus.PENDING) return
+        if (entity.statusEnum != TaskStatus.PENDING || entity.isInbox) return
         val now = LocalDateTime.now()
         val data = entity.toData()
         if (!data.isDue(now)) {
@@ -70,7 +70,7 @@ class ReminderReceiver : BroadcastReceiver() {
         if (!settings.digestEnabled) return
         val tomorrow = LocalDateTime.now().toLocalDate().plusDays(1).atStartOfDay()
         val today = app.database.taskDao().pending()
-            .filter { it.nextRemindAt.isBefore(tomorrow) }
+            .filter { !it.isInbox && it.nextRemindAt.isBefore(tomorrow) }
             .sortedBy { it.nextRemindAtMillis }
         val body = if (today.isEmpty()) {
             Strings.translate("今日暂无任务 🎉", CurrentLang.value)

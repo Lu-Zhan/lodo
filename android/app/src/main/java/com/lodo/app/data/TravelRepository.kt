@@ -31,7 +31,7 @@ fun MemoryEntity.travelEntry(): TravelEntry? {
         price = travelPrice, currency = travelCurrency ?: "CNY", placeName = travelPlaceName,
         originName = travelOriginName, code = travelCode, latitude = travelLatitude, longitude = travelLongitude,
         transport = transport,
-        hasAttachment = kindEnum == MemoryKind.LINK,
+        hasAttachment = kindEnum == MemoryKind.LINK || relativeFilePath != null,
     )
 }
 
@@ -215,7 +215,7 @@ class TravelRepository(private val db: LodoDatabase, private val memories: Memor
             when {
                 m == null -> skipped += L("找不到要删的那一项", "An item to remove wasn't found")
                 m.travelKind == TravelItemKind.FLIGHT.raw -> skipped += L("航班「${m.title}」不能在这里删", "Flight \"${m.title}\" can't be removed here")
-                m.kindEnum == MemoryKind.LINK -> skipped += L("「${m.title}」带附件,没删", "\"${m.title}\" has an attachment, kept")
+                (m.kindEnum == MemoryKind.LINK || m.relativeFilePath != null) -> skipped += L("「${m.title}」带附件,没删", "\"${m.title}\" has an attachment, kept")
                 else -> { removed += m; memories.delete(m.uuid) }
             }
         }

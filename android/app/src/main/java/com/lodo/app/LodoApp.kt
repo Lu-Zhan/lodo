@@ -18,6 +18,8 @@ import com.lodo.app.notify.Notifications
 import com.lodo.app.notify.RoutineCheckWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 import java.util.concurrent.TimeUnit
 
 /** App Shortcuts / 通知"改期"按钮等外部入口要打开的路由,对应 iOS 的
@@ -52,7 +54,8 @@ class LodoApp : Application() {
     val repository: TaskRepository by lazy {
         TaskRepository(this, database, settings, alarms)
     }
-    val memoryRepository: MemoryRepository by lazy { MemoryRepository(database) }
+    val memoryFiles by lazy { com.lodo.app.data.MemoryFiles(this) }
+    val memoryRepository: MemoryRepository by lazy { MemoryRepository(database, memoryFiles, this) }
     val routineRepository: RoutineRepository by lazy { RoutineRepository(this, database, settings) }
     val countdowns by lazy { com.lodo.app.data.CountdownRepository(this, database) }
     val finance by lazy { com.lodo.app.data.FinanceRepository(this, database) }
@@ -61,6 +64,8 @@ class LodoApp : Application() {
     val library by lazy { com.lodo.app.data.LibraryRepository(database, memoryRepository, news) }
     val menus by lazy { com.lodo.app.data.MenuRepository(database) }
     val health by lazy { com.lodo.app.data.HealthRepository(this) }
+    val healthJournal by lazy { com.lodo.app.data.HealthJournal(this) }
+    val checkups by lazy { com.lodo.app.data.CheckupRepository(this) }
     val calendar by lazy { com.lodo.app.data.CalendarRepository(this) }
     val calendarSync by lazy { com.lodo.app.data.CalendarSync(this, this) }
     /** 进程级协程作用域(双向同步这类跟着进程走的监听)。 */
@@ -97,6 +102,10 @@ class LodoApp : Application() {
             com.lodo.app.core.OSMGeocode.toSimplified = { text -> synchronized(hantHans) { hantHans.transliterate(text) } }
         }
         scheduleRoutineCheck()
+        appScope.launch {
+            kotlinx.coroutines.flow.combine(database.healthDao().observePeriods(), healthJournal.settingsRevision, settings.settings) { _, _, _ -> Unit }
+                .collect { runCatching { com.lodo.app.notify.CycleReminder.reschedule(this@LodoApp) } }
+        }
     }
 
     /** 定时任务(AI 例行任务)的周期性检查,15 分钟是 WorkManager 允许的最小

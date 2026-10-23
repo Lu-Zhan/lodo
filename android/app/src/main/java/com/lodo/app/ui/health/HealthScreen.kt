@@ -93,13 +93,14 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
 
     /** 只发汇总统计给 AI(日均/最近一天/环比),逐条样本不出数据层(同 iOS 隐私口径)。 */
     fun analyze() = viewModelScope.launch {
-        val r = report ?: return@launch
+        if (analyzing) return@launch
+        val r = report.takeIf { app.settings.snapshot().healthEnabled }
         analyzing = true
         error = null
         try {
             val notes = app.memoryRepository.all().filter { it.tagsList.contains(MemoryEntity.healthTagName) }.take(8)
                 .joinToString("\n") { "${it.title}:${it.summary}" }.ifBlank { null }
-            analysis = DeepSeekClient.analyzeHealth(app.settings.aiConfig(), r.promptSummary(), notes)
+            analysis = DeepSeekClient.analyzeHealth(app.settings.aiConfig(), listOfNotNull(r?.promptSummary(), app.healthJournal.promptSummary()).joinToString("\n"), notes)
         } catch (e: Exception) {
             error = e.message
         } finally { analyzing = false }
@@ -148,7 +149,7 @@ private fun unit(kind: HealthMetricKind) = when (kind) {
  * 指标卡(日均/最近一天/环比 + 最近 14 天柱状)、AI 分析(只发汇总统计)、「记一笔」进记忆库打「健康」。
  */
 @Composable
-fun HealthScreen(vm: HealthViewModel = viewModel()) {
+fun HealthDataScreen(vm: HealthViewModel = viewModel(), onBack: () -> Unit) {
     val settings = LocalSettings.current
     val context = LocalContext.current
     var granted by remember { mutableStateOf<Set<String>?>(null) }
@@ -165,8 +166,9 @@ fun HealthScreen(vm: HealthViewModel = viewModel()) {
             vm.load()
         }
     }
-    LodoPage(
-        title = L("健康", "Health"),
+    com.lodo.app.ui.LodoSubPage(
+        title = L("指标与趋势", "Metrics & trends"),
+        onBack = onBack,
         focus = AgentFocus(AgentPageFocus.HEALTH),
         askPrompt = L("最近身体怎么样?", "How am I doing lately?"),
         actions = { IconButton(onClick = { compose = true }) { Icon(Icons.Outlined.NoteAdd, L("记一笔", "Add a note")) } },

@@ -44,7 +44,10 @@ fun MemoryDetailSheet(
     onRetry: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    onOpenFile: () -> Unit = {},
+    onShareFile: () -> Unit = {},
 ) {
+    var confirmDelete by remember(item.uuid) { mutableStateOf(false) }
     var title by remember(item.uuid) { mutableStateOf(item.title) }
     var tagsText by remember(item.uuid) { mutableStateOf(item.tagsList.joinToString("、")) }
 
@@ -52,6 +55,20 @@ fun MemoryDetailSheet(
         val tags = tagsText.split("、", ",").map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         onSave(title.trim(), tags)
     }
+
+    if (confirmDelete) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        title = { Text(com.lodo.app.ui.L("删除这条记忆?", "Delete this memory?")) },
+        text = { Text(item.title) },
+        confirmButton = {
+            TextButton(onClick = { confirmDelete = false; onDelete(); onDismiss() }) {
+                Text(com.lodo.app.ui.L("删除", "Delete"), color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { confirmDelete = false }) { Text(com.lodo.app.ui.L("取消", "Cancel")) }
+        },
+    )
 
     ModalBottomSheet(
         onDismissRequest = { commit(); onDismiss() },
@@ -108,6 +125,13 @@ fun MemoryDetailSheet(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
+            if (item.relativeFilePath != null) {
+                Text(item.originalFileName ?: com.lodo.app.ui.L("原文件", "Original file"), style = MaterialTheme.typography.bodyMedium)
+                Row {
+                    OutlinedButton(onClick = onOpenFile) { Text(com.lodo.app.ui.L("查看原文件", "Open original")) }
+                    TextButton(onClick = onShareFile) { Text(com.lodo.app.ui.L("导出原文件", "Export original")) }
+                }
+            }
             if (item.sourceText.isNotBlank()) {
                 HorizontalDivider()
                 Text(stringResource(R.string.android_ui_original_text), style = MaterialTheme.typography.titleSmall)
@@ -123,7 +147,7 @@ fun MemoryDetailSheet(
                     Text(stringResource(R.string.android_ui_save))
                 }
             }
-            TextButton(onClick = { onDelete(); onDismiss() }) {
+            TextButton(onClick = { confirmDelete = true }) {
                 Text(
                     stringResource(R.string.android_ui_delete_this_memory),
                     color = MaterialTheme.colorScheme.error,

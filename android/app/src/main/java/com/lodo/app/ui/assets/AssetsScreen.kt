@@ -80,6 +80,7 @@ import com.lodo.app.data.MemoryEntity
 import com.lodo.app.data.formatAmount
 import com.lodo.app.data.snapshot
 import com.lodo.app.data.toLocalDateTime
+import com.lodo.app.data.toEpochMillis
 import com.lodo.app.ui.FullEmpty
 import com.lodo.app.ui.GroupCard
 import com.lodo.app.ui.L
@@ -122,7 +123,7 @@ class AssetsViewModel(application: Application) : AndroidViewModel(application) 
 fun categoryIcon(category: String): ImageVector = when (category) {
     "房产" -> Icons.Outlined.House
     "车辆" -> Icons.Outlined.DirectionsCar
-    "存款" -> Icons.Outlined.AccountBalance
+    "存款", "公积金" -> Icons.Outlined.AccountBalance
     "投资" -> Icons.Outlined.ShowChart
     "保险" -> Icons.Outlined.HealthAndSafety
     else -> Icons.Outlined.Inventory2
@@ -164,6 +165,7 @@ fun AssetsScreen(vm: AssetsViewModel = viewModel()) {
         title = L("资产", "Assets"),
         focus = AgentFocus(AgentPageFocus.ASSETS),
         askPrompt = L("记一笔资产?", "Update an asset?"),
+        onPullCreate = { menu = true },
         actions = {
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.Add, L("新建", "Add")) }
@@ -178,7 +180,9 @@ fun AssetsScreen(vm: AssetsViewModel = viewModel()) {
     ) { padding ->
         if (assets.isEmpty() && finance.isEmpty()) {
             FullEmpty(Icons.Outlined.AccountBalanceWallet, L("还没有记过资产", "No assets yet"),
-                L("说一句「记一下招行存款 32 万」,或从右上角「+」添加收入、支出和信用卡。", "Tell the AI \"savings at CMB is 320k\", or add income/expenses/cards from +."), padding)
+                L("说一句「记一下招行存款 32 万」,或从右上角「+」添加收入、支出和信用卡。", "Tell the AI \"savings at CMB is 320k\", or add income/expenses/cards from +."), padding) {
+                androidx.compose.material3.Button(onClick = { menu = true }) { Text(L("添加资产", "Add asset")) }
+            }
             return@LodoPage
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp,
@@ -195,6 +199,7 @@ fun AssetsScreen(vm: AssetsViewModel = viewModel()) {
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Stat(L("每月收入", "Income/mo"), formatAmount(monthly.income, display))
                                 Stat(L("固定支出", "Expenses/mo"), formatAmount(monthly.expense, display))
+                                if (monthly.spending > 0) Stat(L("月估计消费", "Spending/mo"), formatAmount(monthly.spending, display))
                                 Stat(L("结余", "Net/mo"), formatAmount(monthly.net, display))
                             }
                             if (monthly.irregularCount > 0) Text(L("另有 ${monthly.irregularCount} 项不定期的没折算", "${monthly.irregularCount} irregular item(s) not included"),
@@ -245,9 +250,12 @@ fun AssetsScreen(vm: AssetsViewModel = viewModel()) {
                                 FinanceKind.CREDIT_CARD -> listOfNotNull(
                                     f.institution.takeIf { it.isNotBlank() },
                                     FinancePlan.nextDueDate(snap, now)?.let { L("下次还款 $it", "Next due $it") },
-                                    if (f.remindEnabled && f.dayOfMonth != null) L("前一天提醒", "Reminds the day before") else null,
+                                    if (f.remindEnabled && f.dayOfMonth != null) L("提前 ${f.repaymentLeadDays} 天提醒还款", "Payment reminder ${f.repaymentLeadDays} days ahead") else null,
+                                    if (f.statementRemindEnabled && f.statementDay != null) L("账单日提前 ${f.statementLeadDays} 天提醒", "Statement reminder ${f.statementLeadDays} days ahead") else null,
+                                    f.annualFeeAmount?.let { if (it == 0.0) L("免年费", "No annual fee") else L("年费 ", "Annual fee ") + formatAmount(it, f.currency) },
+                                    f.annualFeeWaiver.takeIf { it.isNotBlank() },
                                 ).joinToString(" · ")
-                                else -> listOfNotNull(cadenceLabel(snap.cadence), f.dayOfMonth?.let { L("$it 号", "day $it") },
+                                else -> listOfNotNull(if (f.estimated) L("月估计消费", "Estimated monthly spending") else cadenceLabel(snap.cadence), f.dayOfMonth?.let { L("$it 号", "day $it") },
                                     f.institution.takeIf { it.isNotBlank() }).joinToString(" · ")
                             }
                             LodoRow(
@@ -274,6 +282,17 @@ fun AssetsScreen(vm: AssetsViewModel = viewModel()) {
         onSave = { vm.saveFinance(it); editFinance = null; newFinanceKind = null },
         onDelete = { editFinance?.let { vm.deleteFinance(it.uuid) }; editFinance = null },
         onDismiss = { editFinance = null; newFinanceKind = null })
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LeadDayChips(selected: Int, choices: List<Int>, onSelect: (Int) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (choices + selected).distinct().sorted().forEach { days ->
+            FilterChip(selected = selected == days, onClick = { onSelect(days) },
+                label = { Text(if (days == 0) L("当天", "Same day") else L("提前 $days 天", "$days days before")) })
+        }
+    }
 }
 
 @Composable
@@ -358,6 +377,25 @@ private fun FinanceEditSheet(
     var institution by remember { mutableStateOf(existing?.institution ?: "") }
     var remind by remember { mutableStateOf(existing?.remindEnabled ?: true) }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
+    var estimated by remember { mutableStateOf(existing?.estimated ?: false) }
+    var endDate by remember { mutableStateOf(existing?.endDateMillis?.toLocalDateTime()?.toLocalDate()?.toString() ?: "") }
+    var repaymentLead by remember { mutableStateOf(existing?.repaymentLeadDays ?: 1) }
+    var statementRemind by remember { mutableStateOf(existing?.statementRemindEnabled ?: false) }
+    var statementLead by remember { mutableStateOf(existing?.statementLeadDays ?: 0) }
+    var feeAmount by remember { mutableStateOf(existing?.annualFeeAmount.text()) }
+    var feeBasis by remember { mutableStateOf(com.lodo.app.core.AnnualFeeBasis.from(existing?.annualFeeBasisRaw ?: "unknown")) }
+    var feeMonth by remember { mutableStateOf(existing?.annualFeeMonth?.toString() ?: "") }
+    var feeDay by remember { mutableStateOf(existing?.annualFeeDay?.toString() ?: "") }
+    var feeWaiver by remember { mutableStateOf(existing?.annualFeeWaiver ?: "") }
+    var feeRemind by remember { mutableStateOf(existing?.annualFeeRemindEnabled ?: false) }
+    var feeLead by remember { mutableStateOf(existing?.annualFeeLeadDays ?: 30) }
+    fun validDay(text: String) = text.isBlank() || text.toIntOrNull() in 1..31
+    val feeHasDate = feeMonth.toIntOrNull() in 1..12 && (feeBasis == com.lodo.app.core.AnnualFeeBasis.OPENING_MONTH ||
+        (feeBasis == com.lodo.app.core.AnnualFeeBasis.FIXED_DATE && feeDay.toIntOrNull() in 1..31))
+    val canSave = title.isNotBlank() && (amount.isBlank() || amount.toAmount()?.let { it.isFinite() && it >= 0 } == true) &&
+        validDay(day) && validDay(statement) && (endDate.isBlank() || runCatching { java.time.LocalDate.parse(endDate) }.isSuccess) &&
+        (kind != FinanceKind.CREDIT_CARD || ((feeAmount.isBlank() || feeAmount.toAmount()?.let { it.isFinite() && it >= 0 } == true) &&
+            (!feeRemind || (feeHasDate && feeAmount.toAmount() != 0.0))))
     val heading = when (kind) {
         FinanceKind.INCOME -> L("收入", "Income")
         FinanceKind.EXPENSE -> L("固定支出", "Fixed expense")
@@ -365,11 +403,20 @@ private fun FinanceEditSheet(
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SheetHeader(heading, title.isNotBlank(), onDismiss) {
+            SheetHeader(heading, canSave, onDismiss) {
                 onSave((existing ?: FinanceEntity(kind = kind.raw, title = "")).copy(
                     title = title.trim(), amount = amount.toAmount(), currency = currency, cadence = cadence.raw,
-                    dayOfMonth = day.toIntOrNull()?.coerceIn(1, 31), statementDay = statement.toIntOrNull()?.coerceIn(1, 31),
+                    dayOfMonth = day.toIntOrNull(), statementDay = statement.toIntOrNull(),
                     institution = institution.trim(), remindEnabled = remind, notes = notes,
+                    estimated = kind == FinanceKind.EXPENSE && estimated,
+                    endDateMillis = endDate.takeIf { it.isNotBlank() }?.let { java.time.LocalDate.parse(it).atTime(23, 59, 59).toEpochMillis() },
+                    repaymentLeadDays = repaymentLead, statementRemindEnabled = statementRemind, statementLeadDays = statementLead,
+                    annualFeeAmount = feeAmount.toAmount(),
+                    annualFeeBasisRaw = if (feeBasis == com.lodo.app.core.AnnualFeeBasis.UNKNOWN &&
+                        existing?.annualFeeBasisRaw?.let { raw -> com.lodo.app.core.AnnualFeeBasis.entries.none { it.raw == raw } } == true)
+                        existing?.annualFeeBasisRaw ?: feeBasis.raw else feeBasis.raw,
+                    annualFeeMonth = feeMonth.toIntOrNull(), annualFeeDay = feeDay.toIntOrNull(), annualFeeWaiver = feeWaiver.trim(),
+                    annualFeeRemindEnabled = feeRemind, annualFeeLeadDays = feeLead,
                 ))
             }
             OutlinedTextField(title, { title = it }, label = { Text(if (kind == FinanceKind.CREDIT_CARD) L("卡名", "Card name") else L("名称", "Name")) },
@@ -379,7 +426,13 @@ private fun FinanceEditSheet(
             OutlinedTextField(amount, { amount = it }, label = { Text(if (kind == FinanceKind.CREDIT_CARD) L("额度(可选)", "Limit (optional)") else L("金额", "Amount")) },
                 singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
             CurrencyChips(currency) { currency = it }
-            if (kind != FinanceKind.CREDIT_CARD) {
+            if (kind == FinanceKind.EXPENSE) {
+                SwitchRow(L("月估计消费", "Estimated monthly spending"), estimated,
+                    subtitle = L("日常开销的每月估计,不是固定扣款", "Monthly estimate, not a fixed debit")) { estimated = it }
+                OutlinedTextField(endDate, { endDate = it }, label = { Text(L("截止日期(可选,YYYY-MM-DD)", "End date (optional, YYYY-MM-DD)")) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth())
+            }
+            if (kind != FinanceKind.CREDIT_CARD && !estimated) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FinanceCadence.entries.forEach { c -> FilterChip(selected = cadence == c, onClick = { cadence = c }, label = { Text(cadenceLabel(c)) }) }
                 }
@@ -390,7 +443,35 @@ private fun FinanceEditSheet(
             if (kind == FinanceKind.CREDIT_CARD) {
                 OutlinedTextField(statement, { statement = it.filter(Char::isDigit).take(2) }, label = { Text(L("账单日(可选)", "Statement day (optional)")) },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
-                SwitchRow(L("还款提醒", "Payment reminder"), remind, subtitle = L("还款日前一天在全天提醒时刻生成一条任务", "Creates a task the day before the due date")) { remind = it }
+                SwitchRow(L("还款提醒", "Payment reminder"), remind, subtitle = L("按提前天数生成普通任务,未完成会反复提醒", "Creates a regular repeating reminder task")) { remind = it }
+                if (remind) LeadDayChips(repaymentLead, com.lodo.app.core.CreditCardPlan.monthlyLeadChoices) { repaymentLead = it }
+                SwitchRow(L("账单日提醒", "Statement reminder"), statementRemind) { statementRemind = it }
+                if (statementRemind) LeadDayChips(statementLead, com.lodo.app.core.CreditCardPlan.monthlyLeadChoices) { statementLead = it }
+                Text(L("年费资料", "Annual fee"), style = MaterialTheme.typography.titleSmall)
+                OutlinedTextField(feeAmount, { feeAmount = it }, label = { Text(L("年费金额(0 = 免年费)", "Annual fee (0 = free)")) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    com.lodo.app.core.AnnualFeeBasis.entries.forEach { basis ->
+                        FilterChip(selected = feeBasis == basis, onClick = { feeBasis = basis }, label = { Text(when (basis) {
+                            com.lodo.app.core.AnnualFeeBasis.UNKNOWN -> L("不清楚", "Unknown")
+                            com.lodo.app.core.AnnualFeeBasis.FIXED_DATE -> L("固定日期", "Fixed date")
+                            com.lodo.app.core.AnnualFeeBasis.OPENING_MONTH -> L("开卡月份", "Opening month")
+                        }) })
+                    }
+                }
+                if (feeBasis != com.lodo.app.core.AnnualFeeBasis.UNKNOWN) {
+                    OutlinedTextField(feeMonth, { feeMonth = it.filter(Char::isDigit).take(2) }, label = { Text(L("月份(1–12)", "Month (1–12)")) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
+                    if (feeBasis == com.lodo.app.core.AnnualFeeBasis.FIXED_DATE) OutlinedTextField(feeDay, { feeDay = it.filter(Char::isDigit).take(2) },
+                        label = { Text(L("日期(1–31)", "Day (1–31)")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true, modifier = Modifier.fillMaxWidth())
+                    else Text(L("按开卡月份 1 号估计,请以银行为准。", "Estimated on the first day of the opening month; confirm with the bank."), style = MaterialTheme.typography.bodySmall)
+                }
+                OutlinedTextField(feeWaiver, { feeWaiver = it }, label = { Text(L("免年费条件", "Fee waiver conditions")) }, modifier = Modifier.fillMaxWidth())
+                SwitchRow(L("年费核对提醒", "Annual fee review reminder"), feeRemind,
+                    subtitle = L("需填写日期且不是免年费;提醒前 60 天内才建任务", "Requires a date and a non-free card; creates the task within 60 days of the reminder")) { feeRemind = it }
+                if (feeRemind) LeadDayChips(feeLead, com.lodo.app.core.CreditCardPlan.annualLeadChoices) { feeLead = it }
+                Text(L("年费不计入每月支出。", "Annual fees are not included in monthly expenses."), style = MaterialTheme.typography.bodySmall)
             }
             OutlinedTextField(notes, { notes = it }, label = { Text(L("备注", "Notes")) }, modifier = Modifier.fillMaxWidth())
             if (existing != null) TextButton(onClick = onDelete) { Text(L("删除", "Delete"), color = MaterialTheme.colorScheme.error) }

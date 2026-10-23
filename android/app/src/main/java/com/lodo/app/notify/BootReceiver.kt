@@ -20,6 +20,7 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 app.repository.syncAlarms()
                 runCatching { app.countdowns.reschedule() }
+                runCatching { CycleReminder.reschedule(app) }
             } finally {
                 result.finish()
             }

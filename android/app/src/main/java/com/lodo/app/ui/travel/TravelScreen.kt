@@ -156,11 +156,14 @@ fun TravelScreen(vm: TravelViewModel = viewModel()) {
         title = L("旅行", "Travel"),
         focus = AgentFocus(AgentPageFocus.TRAVEL),
         askPrompt = L("想去哪玩?", "Where to next?"),
+        onPullCreate = { creating = true },
         actions = { IconButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, L("新建旅行", "New trip")) } },
     ) { padding ->
         if (trips.isEmpty()) {
             FullEmpty(Icons.Outlined.Flight, L("还没有旅行", "No trips yet"),
-                L("说一句「帮我规划东京四天」,或「记一下:下周五去成都两天」。", "Try \"Plan 4 days in Tokyo\"."), padding)
+                L("说一句「帮我规划东京四天」,或「记一下:下周五去成都两天」。", "Try \"Plan 4 days in Tokyo\"."), padding) {
+                androidx.compose.material3.Button(onClick = { creating = true }) { Text(L("新建旅行", "New trip")) }
+            }
             return@LodoPage
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp,

@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
@@ -239,6 +240,7 @@ fun NewsScreen(vm: NewsViewModel = viewModel()) {
         focus = AgentFocus(AgentPageFocus.NEWS),
         askPrompt = L("最近发生了什么?", "What's new?"),
         actions = {
+            IconButton(onClick = { adding = true }) { Icon(Icons.Filled.Add, L("添加订阅", "Add feed")) }
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, L("更多", "More")) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

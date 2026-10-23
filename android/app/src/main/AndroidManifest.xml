@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 天气仅申请粗略位置,默认关闭;也可手动输入坐标 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 12L 及以下用可被用户撤销的 SCHEDULE_EXACT_ALARM;13+ 用提醒类 app 自动授予的 USE_EXACT_ALARM -->
@@ -92,6 +94,7 @@
             android:name=".notify.ActionReceiver"
             android:exported="false" />
         <!-- 闹钟不跨重启,开机/更新后由 BootReceiver 重排(系统广播可送达未导出组件) -->
+        <receiver android:name=".notify.CycleReminderReceiver" android:exported="false" />
         <receiver
             android:name=".notify.BootReceiver"
             android:exported="false">

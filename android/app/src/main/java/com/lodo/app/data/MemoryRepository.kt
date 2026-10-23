@@ -1,5 +1,7 @@
 package com.lodo.app.data
 
+import androidx.room.withTransaction
+
 import com.lodo.app.ai.AIConfig
 import com.lodo.app.ai.DeepSeekClient
 import com.lodo.app.ai.MemoryCandidate
@@ -19,6 +21,8 @@ import java.util.UUID
  */
 class MemoryRepository(
     private val db: LodoDatabase,
+    private val files: MemoryFiles,
+    private val context: android.content.Context,
 ) {
     private val dao get() = db.memoryDao()
     private val taskDao get() = db.taskDao()
@@ -54,6 +58,59 @@ class MemoryRepository(
         return organized
     }
 
+    /** 先存原件和 processing 条目;OCR/AI 失败也不丢原件。通用文件只整理文件名,不把二进制当文字。 */
+    suspend fun saveFile(config: AIConfig, uri: android.net.Uri, extraTags: List<String> = emptyList()): MemoryEntity {
+        val stored = files.copy(uri)
+        val item = MemoryEntity.create(kind = stored.kind, sourceText = "", title = stored.name)
+            .copy(originalFileName = stored.name, relativeFilePath = stored.relativePath)
+        try { dao.upsert(item) } catch (e: Exception) { files.remove(stored.relativePath); throw e }
+        try {
+            val fileUri = android.net.Uri.fromFile(files.resolve(stored.relativePath))
+            val extracted = when (stored.kind) {
+                MemoryKind.IMAGE -> AttachmentExtractor.image(context, fileUri)
+                MemoryKind.PDF -> AttachmentExtractor.file(context, fileUri)
+                else -> if (com.lodo.app.core.MemoryFilePolicy.extension(stored.name) in setOf("txt", "md", "csv", "json", "log"))
+                    AttachmentExtractor.file(context, fileUri) else ""
+            }
+            val source = item.copy(sourceText = extracted)
+            dao.upsert(source)
+            val organized = if (extracted.isBlank()) source.copy(status = MemoryStatus.READY.raw)
+                else organize(config, source)
+            val result = organized.copy(tags = joinCsv((organized.tagsList + extraTags).distinct()))
+            dao.upsert(result)
+            return result
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { dao.upsert(item.copy(status = MemoryStatus.FAILED.raw, tags = joinCsv(extraTags))) }
+            throw e
+        } catch (e: Exception) {
+            val failed = item.copy(status = MemoryStatus.FAILED.raw, tags = joinCsv(extraTags))
+            dao.upsert(failed)
+            return failed
+        }
+    }
+
+    /** 报告不经过通用记忆摘要:先落原件,再在本地取全文;整理失败可从原件重试。 */
+    suspend fun saveReportFile(uri: android.net.Uri, tags: List<String>): MemoryEntity {
+        val stored = files.copy(uri)
+        val item = MemoryEntity.create(kind = stored.kind, sourceText = "", title = stored.name, tags = tags)
+            .copy(originalFileName = stored.name, relativeFilePath = stored.relativePath)
+        try { dao.upsert(item) } catch (e: Exception) { files.remove(stored.relativePath); throw e }
+        return try { extractReport(item) } catch (e: Exception) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { dao.upsert(item.copy(status = MemoryStatus.FAILED.raw)) }
+            throw e
+        }
+    }
+    suspend fun extractReport(item: MemoryEntity): MemoryEntity {
+        val path = item.relativeFilePath ?: error("报告没有原文件")
+        val text = AttachmentExtractor.report(context, android.net.Uri.fromFile(files.resolve(path)))
+        require(text.isNotBlank()) { "没有从报告中读到文字,原文件已保留" }
+        val result = item.copy(sourceText = text, status = MemoryStatus.READY.raw)
+        dao.upsert(result)
+        return result
+    }
+
+    fun openFile(item: MemoryEntity, share: Boolean = false) = files.open(item, share)
+
     /** auto_memorize:不经 AI 整理直接落成 ready、打「AI记录」;客户端去重——新内容包含已有
      * 某条自动记录且更长时原地更新,被已有摘要包含时跳过(同 iOS saveAutoMemory)。 */
     suspend fun saveAutoMemory(title: String, text: String): MemoryEntity? {
@@ -76,6 +133,7 @@ class MemoryRepository(
     /** 整理失败后重试:原文不变,重新调一次 AI。 */
     suspend fun retry(config: AIConfig, uuid: String) {
         val item = dao.byUuid(uuid) ?: return
+        require(MemoryEntity.checkupTagName !in item.tagsList && MemoryEntity.weightReportTagName !in item.tagsList) { "请到健康页的体检档案或身体档案重新整理报告" }
         dao.upsert(item.copy(status = MemoryStatus.PROCESSING.raw))
         dao.upsert(organize(config, item))
     }
@@ -87,9 +145,11 @@ class MemoryRepository(
             item.copy(
                 title = entry.title,
                 summary = entry.summary,
-                tags = joinCsv(entry.tags),
+                tags = joinCsv((entry.tags + item.tagsList.filter { it in MemoryEntity.reservedTagNames }).distinct()),
                 status = MemoryStatus.READY.raw,
             )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             item.copy(title = fallbackTitle(item), status = MemoryStatus.FAILED.raw)
         }
@@ -100,6 +160,7 @@ class MemoryRepository(
         return when {
             !firstLine.isNullOrEmpty() -> firstLine.take(20)
             item.urlString != null -> item.urlString
+            !item.originalFileName.isNullOrBlank() -> item.originalFileName
             else -> "收藏"
         }
     }
@@ -114,10 +175,16 @@ class MemoryRepository(
     /** 删除记忆条目;是人脉的话联动清掉引用它的关系图谱边(与 iOS
      * MemoryPipeline.delete 一致)。 */
     suspend fun delete(uuid: String) {
-        db.contactRelationshipDao().deleteForContact(uuid)
-        // 删整张菜单时连菜品一起删(同 iOS MemoryPipeline.delete)。
-        db.menuDao().deleteForMenu(uuid)
-        dao.delete(uuid)
+        val original = db.withTransaction {
+            val item = dao.byUuid(uuid)
+            db.contactRelationshipDao().deleteForContact(uuid)
+            db.menuDao().deleteForMenu(uuid)
+            db.healthDao().deleteReportEntries(uuid)
+            dao.delete(uuid)
+            item?.relativeFilePath
+        }
+        // 文件删除在提交之后,事务失败不能把原件删掉。
+        files.remove(original)
     }
 
     /** "记一笔资产":用户直接填结构化字段(标题/金额/币种/可选负债),不需要

@@ -64,6 +64,20 @@ class MemoryViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun saveFile(uri: android.net.Uri) = viewModelScope.launch {
+        if (busy) return@launch
+        busy = true
+        errorText = null
+        try { app.memoryRepository.saveFile(app.settings.aiConfig(), uri) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { errorText = e.message }
+        finally { busy = false }
+    }
+
+    fun openFile(item: MemoryEntity, share: Boolean = false) {
+        runCatching { app.memoryRepository.openFile(item, share) }.onFailure { errorText = it.message }
+    }
+
     fun saveAsset(title: String, value: Double?, currency: String, liability: Double?, interestRate: Double?) =
         viewModelScope.launch {
             app.memoryRepository.saveAsset(title, value, currency, liability, interestRate)
@@ -87,7 +101,12 @@ class MemoryViewModel(application: Application) : AndroidViewModel(application) 
         }
 
     fun retry(uuid: String) = viewModelScope.launch {
-        app.memoryRepository.retry(app.settings.aiConfig(), uuid)
+        if (busy) return@launch
+        busy = true; errorText = null
+        try { app.memoryRepository.retry(app.settings.aiConfig(), uuid) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { errorText = e.message }
+        finally { busy = false }
     }
 
     fun delete(uuid: String) = viewModelScope.launch {

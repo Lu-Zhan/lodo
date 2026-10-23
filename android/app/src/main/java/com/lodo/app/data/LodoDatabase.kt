@@ -210,16 +210,84 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+/** v9→v10:信用卡三种提醒、年费资料与月估计消费,旧卡保留默认还款提醒行为。 */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        listOf(
+            "estimated INTEGER NOT NULL DEFAULT 0", "repaymentLeadDays INTEGER NOT NULL DEFAULT 1",
+            "statementRemindEnabled INTEGER NOT NULL DEFAULT 0", "statementLeadDays INTEGER NOT NULL DEFAULT 0",
+            "annualFeeAmount REAL", "annualFeeBasisRaw TEXT NOT NULL DEFAULT 'unknown'",
+            "annualFeeMonth INTEGER", "annualFeeDay INTEGER", "annualFeeWaiver TEXT NOT NULL DEFAULT ''",
+            "annualFeeRemindEnabled INTEGER NOT NULL DEFAULT 0", "annualFeeLeadDays INTEGER NOT NULL DEFAULT 30",
+            "statementReminderCycle TEXT NOT NULL DEFAULT ''", "statementReminderTaskUuid TEXT",
+            "annualFeeReminderCycle TEXT NOT NULL DEFAULT ''", "annualFeeReminderTaskUuid TEXT",
+        ).forEach { db.execSQL("ALTER TABLE finance_entries ADD COLUMN $it") }
+    }
+}
+
+/** v10→v11:记忆文件原件。 */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE memories ADD COLUMN originalFileName TEXT")
+        db.execSQL("ALTER TABLE memories ADD COLUMN relativeFilePath TEXT")
+    }
+}
+
+/** v11→v12:健康手记独立表,不开 Health Connect 也能使用。 */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE tasks ADD COLUMN medicationUuid TEXT")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS weight_records (uuid TEXT NOT NULL PRIMARY KEY, dateMillis INTEGER NOT NULL,
+            weightKg REAL, bodyFatPercent REAL, note TEXT NOT NULL, muscleMassKg REAL, visceralFatLevel REAL,
+            basalMetabolicKcal REAL, bodyWaterPercent REAL, boneMassKg REAL, reportUuid TEXT, createdAtMillis INTEGER NOT NULL)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS food_records (uuid TEXT NOT NULL PRIMARY KEY, dateMillis INTEGER NOT NULL,
+            text TEXT NOT NULL, estimated INTEGER NOT NULL, calories REAL NOT NULL, proteinG REAL NOT NULL,
+            fatG REAL NOT NULL, carbsG REAL NOT NULL, itemsData TEXT NOT NULL, createdAtMillis INTEGER NOT NULL)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS medications (uuid TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, dosage TEXT NOT NULL,
+            note TEXT NOT NULL, times TEXT NOT NULL, days TEXT NOT NULL, reminderEnabled INTEGER NOT NULL, taskUuid TEXT,
+            archived INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS medication_doses (uuid TEXT NOT NULL PRIMARY KEY, medicationUuid TEXT, name TEXT NOT NULL,
+            dosage TEXT NOT NULL, takenAtMillis INTEGER NOT NULL, status TEXT NOT NULL, source TEXT NOT NULL,
+            taskUuid TEXT, healthSampleId TEXT, note TEXT NOT NULL, createdAtMillis INTEGER NOT NULL)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS period_records (uuid TEXT NOT NULL PRIMARY KEY, startDay TEXT NOT NULL,
+            endDay TEXT, note TEXT NOT NULL, createdAtMillis INTEGER NOT NULL)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS period_flow_records (uuid TEXT NOT NULL PRIMARY KEY, dayKey TEXT NOT NULL, levelRaw TEXT NOT NULL,
+            updatedAtMillis INTEGER NOT NULL, isDeleted INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS health_profiles (uuid TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, relation TEXT NOT NULL,
+            birthday TEXT, notes TEXT NOT NULL, createdAtMillis INTEGER NOT NULL)""")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS checkup_entries (uuid TEXT NOT NULL PRIMARY KEY, reportUuid TEXT NOT NULL, profileUuid TEXT,
+            kind TEXT NOT NULL, category TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, unit TEXT NOT NULL,
+            referenceRange TEXT NOT NULL, flag TEXT NOT NULL, conclusion TEXT NOT NULL, advice TEXT NOT NULL,
+            dateDay TEXT NOT NULL, sortIndex INTEGER NOT NULL, createdAtMillis INTEGER NOT NULL)""")
+    }
+}
+
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE memories ADD COLUMN checkupDateDay TEXT")
+        db.execSQL("ALTER TABLE memories ADD COLUMN checkupInstitution TEXT")
+        db.execSQL("ALTER TABLE memories ADD COLUMN checkupProfileUuid TEXT")
+        db.execSQL("""UPDATE memories SET
+            checkupDateDay = (SELECT dateDay FROM checkup_entries WHERE reportUuid = memories.uuid ORDER BY sortIndex LIMIT 1),
+            checkupProfileUuid = (SELECT profileUuid FROM checkup_entries WHERE reportUuid = memories.uuid ORDER BY sortIndex LIMIT 1)
+            WHERE uuid IN (SELECT reportUuid FROM checkup_entries)""")
+        db.execSQL("UPDATE checkup_entries SET kind = 'advice', name = '' WHERE kind = 'summary'")
+    }
+}
+
 @Database(
     entities = [
         TaskEntity::class, MemoryEntity::class, RoutineEntity::class, RoutineRunEntity::class,
         ContactRelationshipEntity::class, CountdownEntity::class, FinanceEntity::class,
         TripEntity::class, PackingEntity::class, MenuDishEntity::class, NewsFeedEntity::class,
         NewsArticleEntity::class, AgentMessageEntity::class,
+        WeightRecordEntity::class, FoodRecordEntity::class, MedicationEntity::class, MedicationDoseEntity::class,
+        PeriodRecordEntity::class, PeriodFlowEntity::class, HealthProfileEntity::class, CheckupEntryEntity::class,
     ],
-    version = 9, exportSchema = false,
+    version = 13, exportSchema = false,
 )
 abstract class LodoDatabase : RoomDatabase() {
+    abstract fun healthDao(): HealthDao
     abstract fun taskDao(): TaskDao
     abstract fun memoryDao(): MemoryDao
     abstract fun routineDao(): RoutineDao
@@ -241,7 +309,7 @@ abstract class LodoDatabase : RoomDatabase() {
                     context.applicationContext, LodoDatabase::class.java, "lodo.db"
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-                    MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                    MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
                 ).build().also { instance = it }
             }
     }

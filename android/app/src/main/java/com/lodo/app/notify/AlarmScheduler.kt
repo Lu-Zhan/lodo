@@ -34,6 +34,10 @@ class AlarmScheduler(private val context: Context, private val settings: Setting
      * 事项在列表里仍照常显示为"已到期"。
      */
     suspend fun scheduleReminder(uuid: String, at: LocalDateTime) {
+        if (com.lodo.app.core.TaskInbox.contains(at)) {
+            cancelReminder(uuid)
+            return
+        }
         val s = settings.snapshot()
         val adjusted = Scheduler.applyQuietHours(at, s.quietHoursStart, s.quietHoursEnd, s.quietHoursEnabled)
         scheduleAt(reminderIntent(uuid), adjusted.toEpochMillis())

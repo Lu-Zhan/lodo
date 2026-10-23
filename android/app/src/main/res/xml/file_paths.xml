@@ -3,4 +3,5 @@
     <cache-path name="camera" path="camera/" />
     <cache-path name="exports" path="exports/" />
     <cache-path name="skills" path="skills/" />
+    <files-path name="memory" path="Memory/" />
 </paths>

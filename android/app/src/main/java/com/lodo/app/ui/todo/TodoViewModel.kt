@@ -78,11 +78,11 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         // 计算下一次唤醒:最近一个未到期事项,否则 10 分钟兜底
         val nowMillis = System.currentTimeMillis()
         nextWakeDelayMillis = pendingTasks
-            .filter { it.nextRemindAtMillis > nowMillis }
+            .filter { !it.isInbox && it.nextRemindAtMillis > nowMillis }
             .minOfOrNull { it.nextRemindAtMillis - nowMillis + 1_000 }
             ?.coerceIn(1_000L, 600_000L) ?: 600_000L
         TodoUiState(
-            due = pendingTasks.filter { it.toData().isDue(now) },
+            due = pendingTasks.filter { !it.isInbox && it.toData().isDue(now) },
             pending = pendingTasks,
             done = doneTasks,
             snoozeMinutes = settings.snoozeMinutes,
@@ -93,6 +93,12 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             notificationPermissionDenied = settings.notificationPermissionDenied,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodoUiState())
+
+    val routines = app.routineRepository.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    fun updateRoutine(id: String, prompt: String, at: LocalDateTime, type: com.lodo.app.core.RepeatType, days: List<Int>, times: List<String>) = viewModelScope.launch {
+        app.routineRepository.update(id, prompt, at, type, days, times)
+    }
+    fun deleteRoutine(id: String) = viewModelScope.launch { app.routineRepository.delete(id) }
 
     var sheet by mutableStateOf<SheetMode?>(null)
 
@@ -120,7 +126,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
         val config = app.settings.aiConfig()
         var parsed = DeepSeekClient.parse(config, text)
         var suggested: Int? = null
-        if (parsed.durationMinutes == 0) {
+        if (!parsed.isInbox && parsed.durationMinutes == 0) {
             DurationMemory.content(app)?.let { memory ->
                 val minutes = runCatching {
                     DeepSeekClient.suggestDuration(config, text, parsed.title, memory)
@@ -138,9 +144,9 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 完成;仅真正"完成一次"(非两阶段的"开始了")且命中采样时,询问实际用时。 */
     fun completeWithSampling(task: TaskEntity) = viewModelScope.launch {
-        val isFinishing = !(task.phaseEnum == TaskPhase.START && task.durationMinutes > 0)
+        val isFinishing = task.isInbox || !(task.phaseEnum == TaskPhase.START && task.durationMinutes > 0)
         app.repository.complete(task.uuid)
-        if (isFinishing && task.durationMinutes > 0 &&
+        if (isFinishing && !task.isInbox && task.durationMinutes > 0 &&
             DurationMemory.shouldAskActual(app, task.title, task.durationMinutes)
         ) {
             askDurationQueue = askDurationQueue + (task.title to task.durationMinutes)

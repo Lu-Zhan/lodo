@@ -51,7 +51,7 @@ import com.lodo.app.ai.AgentFocus
 
 /**
  * 平级页面的统一外壳:顶栏(左 ☰、右侧页面自己的操作)+ 底部常驻「问问 AI」+ 内容。
- * 页面上不放「+」:新建一律走 AI(同 iOS),只有 AI 接不了的入口才放在右上角。
+ * 手动添加入口与 AI 并存;支持新建的列表可用 onPullCreate 接入带触觉反馈的下拉新建。
  * 顶栏按 M3 规范给一级页面用 Medium 顶栏:大标题,往上滚收成小标题(exitUntilCollapsed),
  * 标题用字阶默认字重,不额外加粗。
  */
@@ -65,8 +65,11 @@ fun LodoPage(
     actions: @Composable RowScope.() -> Unit = {},
     snackbar: SnackbarHostState? = null,
     floatingActionButton: @Composable () -> Unit = {},
+    onPullCreate: (() -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val hapticsEnabled = LocalSettings.current.hapticsEnabled
     val shell = LocalShell.current
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
@@ -86,7 +89,17 @@ fun LodoPage(
         bottomBar = { if (focus != null) AskBar(askPrompt) { shell.askAi(focus) } },
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
         floatingActionButton = floatingActionButton,
-        content = content,
+        content = { padding ->
+            if (onPullCreate == null) content(padding)
+            else androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+                isRefreshing = false,
+                onRefresh = {
+                    if (hapticsEnabled) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    onPullCreate()
+                },
+                modifier = Modifier.fillMaxSize().padding(padding),
+            ) { content(PaddingValues(0.dp)) }
+        },
     )
 }
 

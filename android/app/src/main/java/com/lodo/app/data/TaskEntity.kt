@@ -59,11 +59,13 @@ data class TaskEntity(
     val pinnedAtMillis: Long? = null,
     /** 所属项目/主题,AI 会填,空串 = 没有。 */
     val project: String = "",
+    val medicationUuid: String? = null,
 ) {
     val repeatTypeEnum: RepeatType get() = RepeatType.from(repeatType)
     val statusEnum: TaskStatus get() = TaskStatus.from(status)
     val phaseEnum: TaskPhase get() = TaskPhase.from(phase)
     val isRecurring: Boolean get() = repeatTypeEnum != RepeatType.NONE
+    val isInbox: Boolean get() = remindAtMillis >= com.lodo.app.core.TaskInbox.EPOCH_MILLIS
     val repeatDaysList: List<Int> get() = splitIntCsv(repeatDays)
     val repeatTimesList: List<String> get() = splitCsv(repeatTimes)
     val remindAt: LocalDateTime get() = remindAtMillis.toLocalDateTime()
@@ -103,6 +105,7 @@ data class TaskEntity(
 
     /** 列表行的说明文字,如"今天 21:00 · 每天 07:00/21:00 · 45 分钟"。 */
     fun caption(): String {
+        if (isInbox) return "收集"
         val parts = mutableListOf(TimeFormat.format(nextRemindAt))
         if (isRecurring) {
             parts += toData().repeatLabel

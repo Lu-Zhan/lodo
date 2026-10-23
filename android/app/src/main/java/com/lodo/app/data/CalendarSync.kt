@@ -71,7 +71,7 @@ class CalendarSync(private val context: Context, private val app: com.lodo.app.L
         val now = System.currentTimeMillis()
         val window = (now - 7 * DAY)..(now + 90 * DAY)
         val tasks = app.database.taskDao().pending()
-        val mirrors = tasks.mapNotNull { t ->
+        val mirrors = tasks.filterNot { it.isInbox }.mapNotNull { t ->
             CalendarTaskMirror.from(t.uuid, t.title, true, t.isRecurring, t.remindAtMillis, t.nextRemindAtMillis, t.durationMinutes, t.allDay)
                 ?.let { m ->
                     // 全天事项在日历里按整天存(读回来是本地 0 点到次日 0 点),镜像也按整天比,不然每轮都"变了"。

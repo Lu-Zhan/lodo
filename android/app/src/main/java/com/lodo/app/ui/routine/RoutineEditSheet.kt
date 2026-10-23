@@ -1,50 +1,21 @@
 package com.lodo.app.ui.routine
 
-import com.lodo.app.R
-import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lodo.app.core.RepeatType
-import com.lodo.app.core.TimeFormat
 import com.lodo.app.data.RoutineEntity
-import com.lodo.app.ui.FooterText
-import com.lodo.app.ui.LodoTimePickerDialog
+import com.lodo.app.data.toLocalDateTime
+import com.lodo.app.ui.L
 import com.lodo.app.ui.localizedWeekdayChipLabel
 import java.time.LocalDateTime
+import java.time.LocalTime
 
-/** 新建/编辑定时任务,对应 iOS RoutineEditView 的核心子集:指令原话 + 每天/
- * 每周的触发时间点,不含"不重复"单次任务(大多数例行任务本身就是要反复跑的,
- * 这一轮先覆盖 daily/weekly——与设置页"每日汇总"的时间选择是同一套模式)。 */
+/** 单次/每天/每周,保留一天多个时间点;编辑不会默默丢掉首个时间以外的计划。 */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RoutineEditSheet(
@@ -54,94 +25,46 @@ fun RoutineEditSheet(
     onDismiss: () -> Unit,
 ) {
     var prompt by remember { mutableStateOf(existing?.prompt.orEmpty()) }
-    var repeatType by remember {
-        mutableStateOf(if (existing?.repeatTypeEnum == RepeatType.WEEKLY) RepeatType.WEEKLY else RepeatType.DAILY)
+    var type by remember { mutableStateOf(existing?.repeatTypeEnum ?: RepeatType.DAILY) }
+    var days by remember { mutableStateOf(existing?.repeatDaysList?.toSet() ?: emptySet()) }
+    var timesText by remember { mutableStateOf(existing?.repeatTimesList?.joinToString(", ")?.ifBlank { "09:00" } ?: "09:00") }
+    var singleText by remember { mutableStateOf((existing?.remindAtMillis?.toLocalDateTime() ?: LocalDateTime.now().plusHours(1)).withSecond(0).withNano(0).toString().replace('T', ' ')) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val single = runCatching { LocalDateTime.parse(singleText.trim().replace(' ', 'T')) }.getOrNull()
+    val times = runCatching {
+        timesText.split(',', '，', '、').map { it.trim() }.filter { it.isNotEmpty() }.map {
+            require(it.matches(Regex("[0-9]{2}:[0-9]{2}"))); LocalTime.parse(it).toString()
+        }.distinct().sorted()
+    }.getOrNull()
+    val valid = prompt.isNotBlank() && when (type) {
+        RepeatType.NONE -> single != null
+        RepeatType.DAILY -> !times.isNullOrEmpty()
+        RepeatType.WEEKLY -> !times.isNullOrEmpty() && days.isNotEmpty()
     }
-    var days by remember { mutableStateOf(existing?.repeatDaysList?.toSet() ?: setOf(0)) }
-    var time by remember { mutableStateOf(existing?.repeatTimesList?.firstOrNull() ?: "09:00") }
-    var showTimePicker by remember { mutableStateOf(false) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-    ) {
-        Column(
-            modifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.shared_cancel)) }
-                Text(
-                    stringResource(R.string.android_ui_routine),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                )
-                TextButton(
-                    onClick = {
-                        val repeatDays = if (repeatType == RepeatType.WEEKLY) days.sorted() else emptyList()
-                        val baseline = TimeFormat.localTime(time)
-                        val remindAt = LocalDateTime.now().withHour(baseline.hour).withMinute(baseline.minute)
-                            .withSecond(0).withNano(0)
-                        onSave(prompt.trim(), remindAt, repeatType, repeatDays, listOf(time))
-                    },
-                    enabled = prompt.isNotBlank() && (repeatType != RepeatType.WEEKLY || days.isNotEmpty()),
-                ) { Text(stringResource(R.string.android_ui_save)) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            com.lodo.app.ui.assets.SheetHeader(L("定时任务", "Routine"), valid, onDismiss) {
+                val at = if (type == RepeatType.NONE) requireNotNull(single) else LocalDateTime.now().toLocalDate().atTime(LocalTime.parse(requireNotNull(times).first()))
+                onSave(prompt.trim(), at, type, if (type == RepeatType.WEEKLY) days.sorted() else emptyList(), if (type == RepeatType.NONE) emptyList() else times.orEmpty())
             }
-            OutlinedTextField(
-                value = prompt, onValueChange = { prompt = it },
-                label = { Text(stringResource(R.string.android_ui_routine_instruction)) },
-                placeholder = { Text(stringResource(R.string.android_ui_routine_placeholder)) },
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                listOf(RepeatType.DAILY to stringResource(R.string.shared_daily), RepeatType.WEEKLY to stringResource(R.string.shared_weekly))
-                    .forEachIndexed { index, (type, label) ->
-                        SegmentedButton(
-                            selected = repeatType == type,
-                            onClick = { repeatType = type },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
-                        ) { Text(label) }
-                    }
-            }
-            if (repeatType == RepeatType.WEEKLY) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (i in 0..6) {
-                        FilterChip(
-                            selected = i in days,
-                            onClick = { days = if (i in days) days - i else days + i },
-                            label = { Text(localizedWeekdayChipLabel(i)) },
-                        )
-                    }
+            OutlinedTextField(prompt, { prompt = it }, label = { Text(L("指令", "Instruction")) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf(RepeatType.NONE to L("不重复", "Once"), RepeatType.DAILY to L("每天", "Daily"), RepeatType.WEEKLY to L("每周", "Weekly")).forEachIndexed { index, (value, label) ->
+                    SegmentedButton(type == value, { type = value }, shape = SegmentedButtonDefaults.itemShape(index, 3)) { Text(label) }
                 }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable(onClick = { showTimePicker = true }).padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.android_ui_trigger_time), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                Text(time, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
-            }
-            existing?.lastResultText?.let { last ->
-                FooterText(stringResource(R.string.android_ui_last_result_0, last))
-            }
-            if (onDelete != null) {
-                OutlinedButton(onClick = { onDelete(); onDismiss() }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.android_ui_delete_routine), color = MaterialTheme.colorScheme.error)
+            if (type == RepeatType.NONE) OutlinedTextField(singleText, { singleText = it }, label = { Text(L("触发日期时间(YYYY-MM-DD HH:mm)", "Date/time (YYYY-MM-DD HH:mm)")) }, isError = single == null, modifier = Modifier.fillMaxWidth())
+            else {
+                OutlinedTextField(timesText, { timesText = it }, label = { Text(L("触发时间(HH:mm,多个用逗号分隔)", "Times (HH:mm, comma separated)")) }, isError = times.isNullOrEmpty(), modifier = Modifier.fillMaxWidth())
+                if (type == RepeatType.WEEKLY) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (0..6).forEach { day -> FilterChip(day in days, { days = if (day in days) days - day else days + day }, label = { Text(localizedWeekdayChipLabel(day)) }) }
                 }
             }
+            existing?.lastResultText?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            if (onDelete != null) OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) { Text(L("删除定时任务", "Delete routine"), color = MaterialTheme.colorScheme.error) }
+            Spacer(Modifier.height(24.dp))
         }
     }
-
-    if (showTimePicker) {
-        LodoTimePickerDialog(
-            initial = TimeFormat.localTime(time),
-            onConfirm = { time = TimeFormat.hhmm(it); showTimePicker = false },
-            onDismiss = { showTimePicker = false },
-        )
-    }
+    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text(L("删除定时任务?", "Delete routine?")) },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete?.invoke(); onDismiss() }) { Text(L("删除", "Delete")) } }, dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(L("取消", "Cancel")) } })
 }

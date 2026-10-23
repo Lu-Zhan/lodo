@@ -64,7 +64,10 @@ import java.time.format.FormatStyle
  */
 @Stable
 class TaskFormState(source: ParsedTask?) {
-    private val base = source?.remindAt ?: LocalDateTime.now().plusMinutes(5)
+    private val base = source?.takeUnless { it.isInbox }?.remindAt ?: LocalDateTime.now().plusMinutes(5)
+
+    var inbox by mutableStateOf(source?.isInbox ?: true)
+    var project by mutableStateOf(source?.project ?: "")
 
     var title by mutableStateOf(source?.title ?: "")
     var repeatType by mutableStateOf(source?.repeatType ?: RepeatType.NONE)
@@ -78,16 +81,18 @@ class TaskFormState(source: ParsedTask?) {
     var duration by mutableIntStateOf(source?.durationMinutes ?: 0)
 
     val isValid: Boolean
-        get() = title.isNotBlank() && when (repeatType) {
+        get() = title.isNotBlank() && (inbox || when (repeatType) {
             RepeatType.NONE -> true
             RepeatType.DAILY -> times.isNotEmpty()
             RepeatType.WEEKLY -> times.isNotEmpty() && weekdays.isNotEmpty()
-        }
+        })
 
     /** 当前表单值 → ParsedTask(重复事项 remindAt 取下一次发生时间)。 */
     fun makeParsed(allDayTime: String): ParsedTask? {
         if (!isValid) return null
         val trimmed = title.trim()
+        if (inbox) return ParsedTask(trimmed, com.lodo.app.core.TaskInbox.date, false, 0,
+            RepeatType.NONE, emptyList(), emptyList(), project)
         val timeStrings = times.map { TimeFormat.hhmm(TimeFormat.localTime(it)) }.distinct().sorted()
         if (repeatType == RepeatType.NONE) {
             return ParsedTask(
@@ -98,6 +103,7 @@ class TaskFormState(source: ParsedTask?) {
                 repeatType = RepeatType.NONE,
                 repeatDays = emptyList(),
                 repeatTimes = emptyList(),
+                project = project,
             )
         }
         val now = LocalDateTime.now()
@@ -110,17 +116,21 @@ class TaskFormState(source: ParsedTask?) {
         return ParsedTask(
             title = trimmed, remindAt = first, allDay = false,
             durationMinutes = duration, repeatType = repeatType,
-            repeatDays = probe.repeatDays, repeatTimes = timeStrings,
+            repeatDays = probe.repeatDays, repeatTimes = timeStrings, project = project,
         )
     }
 
     /** 用 AI 返回的字段覆盖当前表单值。 */
     fun apply(parsed: ParsedTask) {
         title = parsed.title
+        inbox = parsed.isInbox
+        project = parsed.project
         repeatType = parsed.repeatType
         allDay = parsed.allDay
-        day = parsed.remindAt.toLocalDate()
-        time = parsed.remindAt.toLocalTime().withSecond(0).withNano(0)
+        if (!parsed.isInbox) {
+            day = parsed.remindAt.toLocalDate()
+            time = parsed.remindAt.toLocalTime().withSecond(0).withNano(0)
+        }
         weekdays = parsed.repeatDays.toSet()
         times = parsed.repeatTimes.map { TimeFormat.hhmm(TimeFormat.localTime(it)) }
         duration = parsed.durationMinutes
@@ -182,6 +192,15 @@ fun TaskFormFields(
             modifier = Modifier.fillMaxWidth(),
         )
 
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(com.lodo.app.ui.L("放进收集", "Add to Inbox"), modifier = Modifier.weight(1f))
+            Switch(checked = state.inbox, onCheckedChange = { state.inbox = it })
+        }
+        if (state.inbox) {
+            FooterText(com.lodo.app.ui.L("没有截止时间,不提醒。", "No due date or reminders."))
+        }
+
+        if (!state.inbox) {
         SectionHeader(stringResource(R.string.shared_repeat))
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             listOf(
@@ -295,6 +314,7 @@ fun TaskFormFields(
             FooterText(stringResource(R.string.android_ui_duration_ai_footer))
         }
         FooterText(stringResource(R.string.android_ui_duration_phase_footer))
+        }
     }
 
     if (showDatePicker) {

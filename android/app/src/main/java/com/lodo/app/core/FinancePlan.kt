@@ -32,7 +32,11 @@ data class FinanceSnapshot(
     val statementDay: Int? = null,
     val institution: String = "",
     val endDate: LocalDateTime? = null,
-)
+    val estimated: Boolean = false,
+    val card: CreditCardSettings = CreditCardSettings(),
+) {
+    val effectiveCadence get() = if (estimated) FinanceCadence.MONTHLY else cadence
+}
 
 /** 资产/收支的纯计算,与 iOS FinancePlan 同义。换不出汇率的币种不参与求和、原样报回。 */
 object FinancePlan {
@@ -43,8 +47,9 @@ object FinancePlan {
         val expense: Double = 0.0,
         val missingCurrencies: List<String> = emptyList(),
         val irregularCount: Int = 0,
+        val spending: Double = 0.0,
     ) {
-        val net get() = income - expense
+        val net get() = income - expense - spending
     }
 
     fun monthlyTotal(
@@ -53,13 +58,14 @@ object FinancePlan {
     ): MonthlyTotal {
         var income = 0.0
         var expense = 0.0
+        var spending = 0.0
         var irregular = 0
         val missing = sortedSetOf<String>()
         for (e in entries) {
             if (e.kind == FinanceKind.CREDIT_CARD) continue
             val amount = e.amount ?: continue
             if (e.kind == FinanceKind.EXPENSE && e.endDate != null && e.endDate.isBefore(now)) continue
-            val factor = e.cadence.monthlyFactor
+            val factor = e.effectiveCadence.monthlyFactor
             if (factor == null) {
                 irregular++
                 continue
@@ -69,9 +75,11 @@ object FinancePlan {
                 missing += e.currency
                 continue
             }
-            if (e.kind == FinanceKind.INCOME) income += converted * factor else expense += converted * factor
+            if (e.kind == FinanceKind.INCOME) income += converted * factor
+            else if (e.estimated) spending += converted * factor
+            else expense += converted * factor
         }
-        return MonthlyTotal(income, expense, missing.toList(), irregular)
+        return MonthlyTotal(income, expense, missing.toList(), irregular, spending)
     }
 
     /** 下一个"每月 day 号"(含今天);31 号在小月落月末。 */
@@ -98,9 +106,8 @@ object FinancePlan {
 
     /** 还款日前一天的全天提醒时刻;已经过了就取 now,同 iOS。 */
     fun reminder(card: FinanceSnapshot, allDayTime: String, now: LocalDateTime): CardReminder? {
-        val due = nextDueDate(card, now) ?: return null
-        val at = due.minusDays(1).atTime(CountdownPlan.parseTime(allDayTime))
-        return CardReminder(card.id, due, if (at.isBefore(now)) now else at, due.toString())
+        val r = CreditCardPlan.reminder(card, CardReminderKind.REPAYMENT, allDayTime, now) ?: return null
+        return CardReminder(r.cardId, r.dueDate, r.remindAt, r.cycle)
     }
 
     fun monthsSince(date: LocalDateTime, now: LocalDateTime): Int =
@@ -135,7 +142,7 @@ object FinancePlan {
 
 /** 资产分类:预设就是持久化的中文标签本身,别改(同 iOS AssetCategory)。 */
 object AssetCategory {
-    val presets = listOf("房产", "车辆", "存款", "投资", "保险", "其他")
+    val presets = listOf("房产", "车辆", "存款", "公积金", "投资", "保险", "其他")
 
     fun category(tags: List<String>, reserved: Set<String>): String = tags.firstOrNull { it !in reserved } ?: "其他"
 

@@ -95,12 +95,16 @@ import com.lodo.app.ui.SectionHeader
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-/** 任务页的四档筛选(同 iOS 任务页顶部「今天/未来/全部/已完成」)。 */
-enum class TaskFilter { TODAY, FUTURE, ALL, DONE }
+/** 任务页的四档筛选,与 iOS 一致。 */
+enum class TaskFilter { TODAY, ALL, INBOX, DONE }
+
+private data class TimelineRow(val at: java.time.LocalDateTime, val task: TaskEntity? = null, val routine: com.lodo.app.data.RoutineEntity? = null) {
+    val key get() = task?.let { "task-${it.uuid}" } ?: "routine-${routine!!.uuid}"
+}
 
 /**
  * 「任务」页,对应 iOS TodoListView:顶部四档筛选、置顶的「重要的事」、到期提醒卡
- * (完成/稍等/忽略 + 改期)、按日期分组的任务;新建一律走底部「问问 AI」(页面上没有「+」)。
+ * (完成/稍等/忽略 + 改期)、按日期分组的任务;「+」/下拉手动添加,也支持底部「问问 AI」。
  * 行:右滑完成、左滑删除,长按置顶/编辑。
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -111,6 +115,10 @@ fun TodoListScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val app = LocalContext.current.applicationContext as LodoApp
+    val routines by vm.routines.collectAsStateWithLifecycle()
+    var routineEditor by remember { mutableStateOf<com.lodo.app.data.RoutineEntity?>(null) }
+    var now by remember { mutableStateOf(java.time.LocalDateTime.now()) }
+    LaunchedEffect(Unit) { while (true) { now = java.time.LocalDateTime.now(); kotlinx.coroutines.delay(30000) } }
     var filter by rememberSaveable { mutableStateOf(TaskFilter.TODAY) }
 
     val pendingRoute by app.pendingRoute.collectAsStateWithLifecycle()
@@ -121,29 +129,41 @@ fun TodoListScreen(
         }
     }
 
-    val today = LocalDate.now()
+    val today = now.toLocalDate()
     val dueUuids = state.due.map { it.uuid }.toSet()
     val pinned = state.pending.filter { it.pinned }.sortedByDescending { it.pinnedAtMillis ?: 0 }
-    val upcoming = state.pending.filter { it.uuid !in dueUuids && !it.pinned }
+    val upcoming = state.pending.filter { !it.isInbox && !it.pinned }
+    val inbox = state.pending.filter { it.isInbox && !it.pinned }.sortedByDescending { it.createdAtMillis }
     val listed = when (filter) {
         TaskFilter.TODAY -> upcoming.filter { !it.nextRemindAt.toLocalDate().isAfter(today) }
-        TaskFilter.FUTURE -> upcoming.filter { it.nextRemindAt.toLocalDate().isAfter(today) }
         TaskFilter.ALL -> upcoming
-        TaskFilter.DONE -> emptyList()
+        TaskFilter.INBOX, TaskFilter.DONE -> emptyList()
     }
-    val groups = listed.groupBy { it.nextRemindAt.toLocalDate() }.toSortedMap().toList()
+    val routineRows = if (filter == TaskFilter.TODAY || filter == TaskFilter.ALL) routines.mapNotNull { routine ->
+        val next = if (routine.nextRunAt > now) routine.nextRunAt else com.lodo.app.core.Scheduler.nextOccurrence(routine.toTaskData(), now)
+        val at = com.lodo.app.core.RoutineTimeline.displayTime(routine.enabled, routine.lastRunAt, next, now) ?: return@mapNotNull null
+        if (filter == TaskFilter.TODAY && at.toLocalDate() != today) null else TimelineRow(at, routine = routine)
+    } else emptyList()
+    val groups = (listed.map { TimelineRow(it.nextRemindAt, task = it) } + routineRows)
+        .groupBy { maxOf(today, it.at.toLocalDate()) }.toSortedMap().map { (day, rows) -> day to rows.sortedBy { it.at } }
 
     com.lodo.app.ui.LodoPage(
         title = com.lodo.app.ui.L("任务", "Tasks"),
         focus = com.lodo.app.ai.AgentFocus(com.lodo.app.ai.AgentPageFocus.TODO),
         askPrompt = com.lodo.app.ui.L("要做点什么?", "What needs doing?"),
         modifier = modifier,
+        onPullCreate = { vm.sheet = SheetMode.Create(null) },
+        actions = {
+            IconButton(onClick = { vm.sheet = SheetMode.Create(null) }) {
+                Icon(Icons.Filled.Add, com.lodo.app.ui.L("新建事项", "New task"))
+            }
+        },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             com.lodo.app.ui.SegmentedTabs(
                 labels = listOf(
-                    com.lodo.app.ui.L("今天", "Today"), com.lodo.app.ui.L("未来", "Upcoming"),
-                    com.lodo.app.ui.L("全部", "All"), com.lodo.app.ui.L("已完成", "Done"),
+                    com.lodo.app.ui.L("今天", "Today"), com.lodo.app.ui.L("全部", "All"),
+                    com.lodo.app.ui.L("收集", "Inbox"), com.lodo.app.ui.L("已完成", "Done"),
                 ),
                 selected = filter.ordinal,
                 onSelect = { filter = TaskFilter.entries[it] },
@@ -174,35 +194,54 @@ fun TodoListScreen(
                     item(key = "pinned-header") { ListHeader(com.lodo.app.ui.L("重要的事", "Pinned")) }
                     items(pinned, key = { "pin-" + it.uuid }) { task -> TaskRowFor(task, state, vm, Modifier.animateItem()) }
                 }
-                if (state.due.isNotEmpty() && filter != TaskFilter.FUTURE) {
-                    item(key = "due-header") { ListHeader(stringResource(R.string.android_ui_due_now)) }
-                    items(state.due.filter { !it.pinned }, key = { "due-${it.uuid}" }) { task ->
-                        Box(Modifier.animateItem().padding(horizontal = 16.dp)) { DueCard(task = task, vm = vm, snoozeMinutes = state.snoozeMinutes) }
-                    }
-                    vm.rescheduleError?.let { error ->
-                        item(key = "reschedule-error") {
-                            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
+                vm.rescheduleError?.let { error -> item(key = "reschedule-error") {
+                    Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
+                } }
+                groups.forEach { (date, rows) ->
+                    item(key = "h-$date") { ListHeader(dayHeader(date, today)) }
+                    items(rows, key = { it.key }) { row ->
+                        val task = row.task
+                        if (task != null) {
+                            if (task.uuid in dueUuids) Box(Modifier.animateItem().padding(horizontal = 16.dp)) { DueCard(task, vm, state.snoozeMinutes) }
+                            else TaskRowFor(task, state, vm, Modifier.animateItem(), timeOnly = true)
+                        } else row.routine?.let { routine ->
+                            ListItem(headlineContent = { Text(routine.prompt) }, supportingContent = {
+                                Column {
+                                    Text(com.lodo.app.ui.L("定时任务 · ", "Routine · ") + row.at.toLocalTime().toString())
+                                    if (routine.lastRunAt?.toLocalDate() == today) routine.lastResultText?.let { Text(it) }
+                                }
+                            }, leadingContent = { Icon(Icons.Filled.AutoAwesome, null) }, modifier = Modifier.animateItem().clickable { routineEditor = routine })
                         }
                     }
                 }
-                groups.forEach { (date, tasks) ->
-                    item(key = "h-$date") { ListHeader(dayHeader(date, today)) }
-                    // 已经在日期分组下面了,行里只写时间,不再重复一遍日期。
-                    items(tasks, key = { it.uuid }) { task -> TaskRowFor(task, state, vm, Modifier.animateItem(), timeOnly = true) }
+                if ((filter == TaskFilter.INBOX || filter == TaskFilter.ALL) && inbox.isNotEmpty()) {
+                    item(key = "inbox-header") { ListHeader(com.lodo.app.ui.L("收集", "Inbox")) }
+                    items(inbox, key = { "inbox-${it.uuid}" }) { task ->
+                        TaskRowFor(task, state, vm, Modifier.animateItem())
+                    }
                 }
-                if (groups.isEmpty() && state.due.isEmpty() && pinned.isEmpty()) {
+                if (groups.isEmpty() && pinned.isEmpty() && ((filter != TaskFilter.INBOX && filter != TaskFilter.ALL) || inbox.isEmpty())) {
                     item(key = "empty") {
                         EmptyState(Icons.Outlined.CheckCircle, when (filter) {
                             TaskFilter.TODAY -> com.lodo.app.ui.L("今天没有要做的事了", "Nothing left for today")
-                            TaskFilter.FUTURE -> com.lodo.app.ui.L("接下来没有安排", "Nothing upcoming")
+                            TaskFilter.INBOX -> com.lodo.app.ui.L("收集里还没有事项", "Inbox is empty")
                             else -> stringResource(R.string.shared_no_tasks_yet)
                         })
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Button(onClick = { vm.sheet = SheetMode.Create(null) }) {
+                                Text(com.lodo.app.ui.L("新建事项", "New task"))
+                            }
+                        }
                     }
                 }
                 item(key = "bottom-spacer") { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
+
+    routineEditor?.let { routine -> com.lodo.app.ui.routine.RoutineEditSheet(existing = routine,
+        onSave = { prompt, at, type, days, times -> vm.updateRoutine(routine.uuid, prompt, at, type, days, times); routineEditor = null },
+        onDelete = { vm.deleteRoutine(routine.uuid) }, onDismiss = { routineEditor = null }) }
 
     when (val sheet = vm.sheet) {
         is SheetMode.Add -> AddTaskSheet(
@@ -260,7 +299,7 @@ private fun TaskRowFor(task: TaskEntity, state: TodoUiState, vm: TodoViewModel, 
                 text = { Text(if (task.pinned) com.lodo.app.ui.L("取消置顶", "Unpin") else com.lodo.app.ui.L("置顶", "Pin")) },
                 onClick = { menu = false; vm.togglePin(task.uuid) },
             )
-            androidx.compose.material3.DropdownMenuItem(
+            if (!task.isInbox) androidx.compose.material3.DropdownMenuItem(
                 text = { Text(com.lodo.app.ui.L("稍等", "Snooze")) }, onClick = { menu = false; vm.snooze(task.uuid) },
             )
             androidx.compose.material3.DropdownMenuItem(
@@ -530,6 +569,7 @@ internal fun PendingRow(
 
 @Composable
 private fun localizedTaskCaption(task: TaskEntity, timeOnly: Boolean = false): String {
+    if (task.isInbox) return com.lodo.app.ui.L("收集", "Inbox")
     // 日期分组下面只写时间;重复事项和全天事项下面会再写「每周一 09:00」「全天」,这里就不重复了。
     val parts = mutableListOf<String>()
     when {

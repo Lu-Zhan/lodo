@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,6 +74,11 @@ import androidx.compose.material.icons.outlined.Flight
 fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewModel()) {
     val items by vm.items.collectAsStateWithLifecycle()
     val relationships by vm.relationships.collectAsStateWithLifecycle()
+    var addMenu by remember { mutableStateOf(false) }
+    var initialText by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf<MemoryEntity?>(null) }
+    val context = LocalContext.current
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::saveFile) }
 
     if (vm.showGraph) {
         ContactGraphScreen(
@@ -94,14 +102,35 @@ fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewMo
         focus = com.lodo.app.ai.AgentFocus(com.lodo.app.ai.AgentPageFocus.MEMORY),
         askPrompt = com.lodo.app.ui.L("想找点什么?", "Looking for something?"),
         modifier = modifier,
+        onPullCreate = { addMenu = true },
         actions = {
-            // AI 是主入口;手动收藏一段文字/链接这一条 AI 也能做,但留在右上角方便粘贴。
-            IconButton(onClick = { vm.showCompose = true }) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.android_ui_memorize))
+            Box {
+                IconButton(onClick = { addMenu = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.android_ui_memorize))
+                }
+                DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+                    DropdownMenuItem(text = { Text(com.lodo.app.ui.L("输入文字", "Enter text")) }, onClick = {
+                        addMenu = false; initialText = ""; vm.showCompose = true
+                    })
+                    DropdownMenuItem(text = { Text(com.lodo.app.ui.L("粘贴收藏", "Paste to save")) }, onClick = {
+                        addMenu = false
+                        // 只在用户明确点击粘贴时读剪贴板;仍经表单确认后保存。
+                        val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                        initialText = clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+                        vm.showCompose = true
+                    })
+                    DropdownMenuItem(enabled = !vm.busy, text = { Text(com.lodo.app.ui.L("选择文件", "Choose file")) }, onClick = {
+                        addMenu = false; pickFile.launch(arrayOf("*/*"))
+                    })
+                }
             }
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (vm.busy) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+            vm.errorText?.let { message ->
+                androidx.compose.material3.TextButton(onClick = { vm.errorText = null }) { Text(message, color = MaterialTheme.colorScheme.error) }
+            }
             // 标签只取这一页会出现的条目(资产的分类、人脉的标签不混进来)。
             val tags = items.filter { !it.isContact && !it.isAsset }.flatMap { it.tagsList }
                 .filterNot { it in MemoryEntity.reservedTagNames }.distinct().sorted()
@@ -126,19 +155,47 @@ fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewMo
                     Icons.Outlined.Bookmarks,
                     if (vm.selectedTag == null) stringResource(R.string.android_ui_no_memories_yet) else stringResource(R.string.android_ui_no_matching_memories),
                     com.lodo.app.ui.L("说一句「帮我记住门禁码 1234」,或从别的 app 分享进来。", "Say \"remember the door code is 1234\", or share into Lodo."),
-                )
+                ) {
+                    androidx.compose.material3.Button(onClick = { addMenu = true }) { Text(com.lodo.app.ui.L("添加记忆", "Add memory")) }
+                }
             } else {
                 LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(filtered, key = { it.uuid }) { item ->
-                        androidx.compose.material3.Card(
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                        ) { MemoryRow(item, onClick = { vm.detailUuid = item.uuid }) }
+                        val swipe = androidx.compose.material3.rememberSwipeToDismissBoxState(confirmValueChange = { value ->
+                            if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) deleting = item
+                            false // 只请求确认,滑到底也不直接删除。
+                        })
+                        androidx.compose.material3.SwipeToDismissBox(
+                            state = swipe,
+                            enableDismissFromStartToEnd = false,
+                            backgroundContent = { com.lodo.app.ui.todo.SwipeBackground(swipe.dismissDirection) },
+                        ) {
+                            androidx.compose.material3.Card(
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            ) { MemoryRow(item, onClick = { vm.detailUuid = item.uuid }) }
+                        }
                     }
                 }
             }
         }
+    }
+
+    deleting?.let { item ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text(com.lodo.app.ui.L("删除这条记忆?", "Delete this memory?")) },
+            text = { Text(item.title) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { vm.delete(item.uuid); deleting = null }) {
+                    Text(com.lodo.app.ui.L("删除", "Delete"), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text(com.lodo.app.ui.L("取消", "Cancel")) }
+            },
+        )
     }
 
     if (vm.showCompose) {
@@ -147,6 +204,7 @@ fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewMo
             errorText = vm.errorText,
             onSave = vm::save,
             onDismiss = { vm.showCompose = false },
+            initialText = initialText,
         )
     }
 
@@ -188,6 +246,8 @@ fun MemoryListScreen(modifier: Modifier = Modifier, vm: MemoryViewModel = viewMo
                     allTags = vm.allTags,
                     onSave = { title, tags -> vm.updateTitleAndTags(uuid, title, tags) },
                     onRetry = { vm.retry(uuid) },
+                    onOpenFile = { vm.openFile(item) },
+                    onShareFile = { vm.openFile(item, share = true) },
                     onDelete = { vm.delete(uuid) },
                     onDismiss = { vm.detailUuid = null },
                 )
@@ -273,4 +333,7 @@ private fun MemoryRow(item: MemoryEntity, onClick: () -> Unit) {
 private fun iconFor(kind: MemoryKind): ImageVector = when (kind) {
     MemoryKind.LINK -> Icons.Filled.Link
     MemoryKind.TEXT -> Icons.AutoMirrored.Filled.TextSnippet
+    MemoryKind.PDF -> Icons.Filled.PictureAsPdf
+    MemoryKind.IMAGE -> Icons.Filled.Image
+    MemoryKind.FILE -> Icons.Filled.InsertDriveFile
 }

@@ -276,7 +276,8 @@ class OverviewViewModel(application: Application) : AndroidViewModel(application
 fun OverviewScreen(vm: OverviewViewModel = viewModel()) {
     val settings = LocalSettings.current
     val shell = LocalShell.current
-    val pending by vm.pending.collectAsStateWithLifecycle()
+    val allPending by vm.pending.collectAsStateWithLifecycle()
+    val pending = allPending.filterNot { it.isInbox }
     val done by vm.done.collectAsStateWithLifecycle()
     val countdowns by vm.countdowns.collectAsStateWithLifecycle()
     val memories by vm.memories.collectAsStateWithLifecycle()

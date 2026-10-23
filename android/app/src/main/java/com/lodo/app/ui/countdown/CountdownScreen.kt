@@ -159,11 +159,14 @@ fun CountdownScreen(vm: CountdownViewModel = viewModel()) {
         title = L("倒数", "Countdown"),
         focus = AgentFocus(AgentPageFocus.COUNTDOWN),
         askPrompt = L("有什么日子要记?", "Any date to count down to?"),
+        onPullCreate = { creating = true },
         actions = { IconButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, L("新建倒数日", "New countdown")) } },
     ) { padding ->
         if (items.isEmpty()) {
             FullEmpty(Icons.Outlined.HourglassTop, L("还没有倒数日", "No countdowns yet"),
-                L("考试、搬家、演唱会、纪念日……说一句「记一下 12 月 20 号考研」就行", "Exams, moves, anniversaries — just tell the AI."), padding)
+                L("考试、搬家、演唱会、纪念日……说一句「记一下 12 月 20 号考研」就行", "Exams, moves, anniversaries — just tell the AI."), padding) {
+                androidx.compose.material3.Button(onClick = { creating = true }) { Text(L("添加倒数日", "Add countdown")) }
+            }
             return@LodoPage
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp,

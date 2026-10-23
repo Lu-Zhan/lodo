@@ -30,7 +30,9 @@ data class ParsedTask(
     val repeatTimes: List<String>,
     /** 所属项目/主题,空串 = 没有。 */
     val project: String = "",
-)
+) {
+    val isInbox: Boolean get() = com.lodo.app.core.TaskInbox.contains(remindAt)
+}
 
 /** 错误文案与 iOS DeepSeekError 一致,直接展示给用户。 */
 open class DeepSeekException(message: String) : Exception(message)
@@ -240,12 +242,20 @@ object DeepSeekClient {
         }
     }.toString()
 
+    /** 同 iOS 给收集保留名额,防止大量有时间的待办挤掉所有收集事项。 */
+    internal fun commandTasks(tasks: List<Pair<String, ParsedTask>>): List<Pair<String, ParsedTask>> {
+        val scheduled = tasks.filterNot { it.second.isInbox }
+        val inbox = tasks.filter { it.second.isInbox }
+        val inboxQuota = minOf(inbox.size, maxOf(20, 50 - scheduled.size))
+        return scheduled.take(50 - inboxQuota) + inbox.take(inboxQuota)
+    }
+
     /** command 实际发给模型的 system prompt(设置里「查看最终 Prompt」与真实请求共用),
      * 拼接顺序同 iOS commandSystemPrompt。 */
     fun commandSystemPrompt(config: AIConfig, ctx: CommandContext): String {
         val caps = effectiveCaps(ctx.caps)
         val list = JSONArray()
-        ctx.tasks.take(50).forEach { (uuid, task) -> list.put(taskJson(task).put("uuid", uuid)) }
+        commandTasks(ctx.tasks).forEach { (uuid, task) -> list.put(taskJson(task).put("uuid", uuid)) }
         fun block(on: Boolean, id: AgentSkillId) = if (on) "\n\n" + AgentSkillStore.content(id) else ""
         val countdownBlock = if (caps.countdown) "\n\n" + AgentSkillStore.content(AgentSkillId.COUNTDOWN) +
             "\n\n当前倒数日列表:\n" + (if (ctx.countdowns.isEmpty()) "(还没有)" else countdownList(ctx.countdowns)) else ""
@@ -298,7 +308,7 @@ object DeepSeekClient {
             throw e
         }
         val result = parseCommandResult(
-            payload, ctx.tasks.take(50).map { it.first }.toSet(), caps.webSearch, caps.memory,
+            payload, commandTasks(ctx.tasks).map { it.first }.toSet(), caps.webSearch, caps.memory,
             health = caps.health, travel = caps.travel, tripPlan = caps.tripPlan, news = caps.news,
             countdown = caps.countdown, validCountdownIds = ctx.countdowns.map { it.id },
             assets = caps.assets, validAssetIds = ctx.assets.map { it.id },
@@ -691,6 +701,45 @@ object DeepSeekClient {
     data class HealthAnalysis(val analysis: String, val suggestions: List<String>)
 
     /** 健康页:一段分析 + 最多 3 条建议。 */
+    suspend fun matchCheckupNames(config: AIConfig, catalog: List<com.lodo.app.core.CheckupNormalizer.NameInfo>): List<com.lodo.app.core.CheckupNameGroup> =
+        com.lodo.app.core.CheckupNormalizer.parseGroups(complete(config, HealthReportPrompts.matchCheckupNames, com.lodo.app.core.CheckupNormalizer.promptLines(catalog), 120), catalog)
+
+    suspend fun parseCheckupReport(config: AIConfig, text: String, knownNames: List<String> = emptyList()): com.lodo.app.core.ParsedCheckupReport =
+        com.lodo.app.core.CheckupReport.parse(complete(config, HealthReportPrompts.checkup(knownNames), text, 180))
+
+    suspend fun parseWeightReport(config: AIConfig, text: String, now: LocalDateTime = LocalDateTime.now()): com.lodo.app.core.ParsedWeightReport =
+        com.lodo.app.core.WeightReport.parse(complete(config, HealthReportPrompts.weight(now.toLocalDate().toString()), text, 120), now)
+
+    suspend fun estimateNutrition(config: AIConfig, text: String): com.lodo.app.core.NutritionEstimate {
+        val system = "你是营养估算助手。用户用一句话描述自己吃了什么,把它拆成一样一样的食物/饮品," +
+            "按常见做法和常见份量估算每一样的热量(千卡)、蛋白质、脂肪、碳水(克)。" +
+            "用户写了份量就按写的算,没写就按中国家常的一人份估;饮料、酱料、加的油也算进去。" +
+            "只是估算,给整数或一位小数即可,不要拒绝、不要反问。\n" +
+            "只返回 JSON:{\"items\": [{\"name\": \"牛肉面\", \"amount\": \"1 碗\", \"calories\": 550, \"protein\": 25, \"fat\": 15, \"carbs\": 75}]}," +
+            "不要任何其他文字。"
+        return com.lodo.app.core.NutritionEstimate.parse(complete(config, system, text, 60))
+            ?: throw DeepSeekException("无法解析:返回格式异常:缺少 items")
+    }
+
+    suspend fun weightPlan(config: AIConfig, summary: String, healthSummary: String?, todaySummary: String?,
+                           day: java.time.LocalDate, isToday: Boolean, language: String): com.lodo.app.core.WeightDietPlan {
+        val dayText = if (isToday) "今天($day)剩下的时间,现在是 ${LocalDateTime.now().format(dateFormatter)}" else "明天($day)"
+        val system = "你是提醒事项应用 lodo 的体重管理助手。根据用户的体重、体脂率、目标和最近的变化,用${language}给出:\n" +
+            "1. 一句不超过 40 个字(英文不超过 25 个词)的简短建议:针对最近的变化说一件最该做的事,具体可执行," +
+            "不要\"保持健康\"\"注意饮食\"这类空话;离目标很近或已经达到时就鼓励保持。\n" +
+            "2. ${dayText}的饮食安排,3 到 5 餐(早餐/午餐/晚餐,需要时加一顿加餐),每餐写具体吃什么和大概分量," +
+            "家常、容易买到;按目标决定热量缺口或盈余,减重时每天缺口不超过 500 千卡,不推荐节食、代餐、减肥药。" +
+            "给今天排时,已经吃过的不要再排,剩下几餐按今天已经摄入的热量和活动消耗调整。\n" +
+            "你不是医生或营养师:不做诊断;BMI 过低或体重变化异常快时,建议咨询医生。\n" +
+            "只返回 JSON:{\"advice\": \"一句话\", \"meals\": [{\"meal\": \"早餐\", \"time\": \"HH:mm\", \"food\": \"吃什么\", \"calories\": 估算千卡整数}]}," +
+            "不要任何其他文字。" + personaBlock(config)
+        var user = summary
+        if (!healthSummary.isNullOrBlank()) user += "\n\n最近的健康数据:\n$healthSummary"
+        if (isToday && !todaySummary.isNullOrBlank()) user += "\n\n$todaySummary"
+        return com.lodo.app.core.WeightDietPlan.parse(complete(config, system, user, 90), day)
+            ?: throw DeepSeekException("无法解析:返回格式异常:缺少 advice/meals")
+    }
+
     suspend fun analyzeHealth(config: AIConfig, summary: String, memoryContext: String? = null): HealthAnalysis {
         val system = "你是提醒事项应用 lodo 的健康助手。根据用户最近几天的健康数据汇总" +
             "(可能附带用户自己收藏的健康资料),写一段不超过 150 个字的分析:" +
@@ -1028,7 +1077,8 @@ object DeepSeekClient {
 
     private fun taskJson(task: ParsedTask): JSONObject = JSONObject()
         .put("title", task.title)
-        .put("remind_at", task.remindAt.format(dateFormatter))
+        .put("remind_at", if (task.isInbox) "" else task.remindAt.format(dateFormatter))
+        .put("inbox", task.isInbox)
         .put("all_day", task.allDay)
         .put("duration_minutes", task.durationMinutes)
         .put("repeat_type", task.repeatType.raw)
@@ -1260,6 +1310,11 @@ object DeepSeekClient {
      * "AI 说建的是 A,实际存的是被偷偷改过的 A'"这种不可见偏差,不如报错更安全。 */
     private fun parsePayload(payload: JSONObject): ParsedTask {
         val title = payload.optString("title").trim()
+        // 只有明确给 true 才认;不能把缺失/错误时间静默变成收集。
+        if (title.isNotEmpty() && payload.opt("inbox") == true) {
+            return ParsedTask(title, com.lodo.app.core.TaskInbox.date, false, 0,
+                RepeatType.NONE, emptyList(), emptyList(), payload.optString("project").trim())
+        }
         val remindAt = try {
             LocalDateTime.parse(payload.optString("remind_at"), dateFormatter)
         } catch (_: DateTimeParseException) {

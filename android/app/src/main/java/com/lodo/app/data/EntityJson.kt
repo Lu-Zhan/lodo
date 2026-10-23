@@ -22,6 +22,7 @@ fun TaskEntity.toJson(): JSONObject = JSONObject()
     .put("nextRemindAtMillis", nextRemindAtMillis).put("createdAtMillis", createdAtMillis)
     .put("doneAtMillis", doneAtMillis.orNull()).put("ignoreStreak", ignoreStreak)
     .put("pinned", pinned).put("pinnedAtMillis", pinnedAtMillis.orNull()).put("project", project)
+    .put("medicationUuid", medicationUuid.orNull())
 
 fun taskFromJson(o: JSONObject) = TaskEntity(
     uuid = o.getString("uuid"), title = o.getString("title"),
@@ -33,7 +34,7 @@ fun taskFromJson(o: JSONObject) = TaskEntity(
     createdAtMillis = o.optLong("createdAtMillis", o.getLong("remindAtMillis")),
     doneAtMillis = o.lng("doneAtMillis"), ignoreStreak = o.optInt("ignoreStreak", 0),
     pinned = o.optBoolean("pinned", false), pinnedAtMillis = o.lng("pinnedAtMillis"),
-    project = o.optString("project", ""),
+    project = o.optString("project", ""), medicationUuid = o.str("medicationUuid"),
 )
 
 fun MemoryEntity.toJson(): JSONObject = JSONObject()
@@ -55,6 +56,8 @@ fun MemoryEntity.toJson(): JSONObject = JSONObject()
     .put("travelNote", travelNote.orNull())
     .put("menuSourceLanguage", menuSourceLanguage.orNull()).put("menuTargetLanguage", menuTargetLanguage.orNull())
     .put("menuCurrency", menuCurrency.orNull())
+    .put("originalFileName", originalFileName.orNull()).put("relativeFilePath", relativeFilePath.orNull())
+    .put("checkupDateDay", checkupDateDay.orNull()).put("checkupInstitution", checkupInstitution.orNull()).put("checkupProfileUuid", checkupProfileUuid.orNull())
 
 fun memoryFromJson(o: JSONObject) = MemoryEntity(
     uuid = o.getString("uuid"), kind = o.optString("kind", "text"), title = o.optString("title"),
@@ -74,6 +77,8 @@ fun memoryFromJson(o: JSONObject) = MemoryEntity(
     travelFlightData = o.str("travelFlightData"), travelNote = o.str("travelNote"),
     menuSourceLanguage = o.str("menuSourceLanguage"), menuTargetLanguage = o.str("menuTargetLanguage"),
     menuCurrency = o.str("menuCurrency"),
+    originalFileName = o.str("originalFileName"), relativeFilePath = o.str("relativeFilePath"),
+    checkupDateDay = o.str("checkupDateDay")?.also { require(com.lodo.app.core.CycleFlow.date(it) != null) { "备份报告日期无效" } }, checkupInstitution = o.str("checkupInstitution"), checkupProfileUuid = o.str("checkupProfileUuid"),
 )
 
 fun FinanceEntity.toJson(): JSONObject = JSONObject()
@@ -81,6 +86,13 @@ fun FinanceEntity.toJson(): JSONObject = JSONObject()
     .put("currency", currency).put("cadence", cadence).put("dayOfMonth", dayOfMonth.orNull())
     .put("statementDay", statementDay.orNull()).put("institution", institution)
     .put("endDateMillis", endDateMillis.orNull()).put("notes", notes).put("remindEnabled", remindEnabled)
+    .put("estimated", estimated).put("repaymentLeadDays", repaymentLeadDays)
+    .put("statementRemindEnabled", statementRemindEnabled).put("statementLeadDays", statementLeadDays)
+    .put("annualFeeAmount", annualFeeAmount.orNull()).put("annualFeeBasisRaw", annualFeeBasisRaw)
+    .put("annualFeeMonth", annualFeeMonth.orNull()).put("annualFeeDay", annualFeeDay.orNull())
+    .put("annualFeeWaiver", annualFeeWaiver).put("annualFeeRemindEnabled", annualFeeRemindEnabled)
+    .put("annualFeeLeadDays", annualFeeLeadDays)
+    // 防重复标记是本机任务引用,不进备份,与 iOS 一致。
     .put("sortIndex", sortIndex).put("updatedAtMillis", updatedAtMillis).put("createdAtMillis", createdAtMillis)
 
 fun financeFromJson(o: JSONObject) = FinanceEntity(
@@ -88,6 +100,11 @@ fun financeFromJson(o: JSONObject) = FinanceEntity(
     amount = o.dbl("amount"), currency = o.optString("currency", "CNY"), cadence = o.optString("cadence", "monthly"),
     dayOfMonth = o.int("dayOfMonth"), statementDay = o.int("statementDay"), institution = o.optString("institution"),
     endDateMillis = o.lng("endDateMillis"), notes = o.optString("notes"), remindEnabled = o.optBoolean("remindEnabled", true),
+    estimated = o.optBoolean("estimated", false), repaymentLeadDays = o.optInt("repaymentLeadDays", 1),
+    statementRemindEnabled = o.optBoolean("statementRemindEnabled", false), statementLeadDays = o.optInt("statementLeadDays", 0),
+    annualFeeAmount = o.dbl("annualFeeAmount"), annualFeeBasisRaw = o.optString("annualFeeBasisRaw", "unknown"),
+    annualFeeMonth = o.int("annualFeeMonth"), annualFeeDay = o.int("annualFeeDay"), annualFeeWaiver = o.optString("annualFeeWaiver", ""),
+    annualFeeRemindEnabled = o.optBoolean("annualFeeRemindEnabled", false), annualFeeLeadDays = o.optInt("annualFeeLeadDays", 30),
     sortIndex = o.optInt("sortIndex"), updatedAtMillis = o.optLong("updatedAtMillis", System.currentTimeMillis()),
     createdAtMillis = o.optLong("createdAtMillis", System.currentTimeMillis()),
 )
