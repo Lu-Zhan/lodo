@@ -26,6 +26,11 @@
     <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
 
+    <!-- 经期同步独立授权,默认关闭;只写 lodo 手记的经期流量。 -->
+    <uses-permission android:name="android.permission.health.READ_MENSTRUATION" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
+    <uses-permission android:name="android.permission.health.WRITE_MENSTRUATION" />
+
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
         <intent>

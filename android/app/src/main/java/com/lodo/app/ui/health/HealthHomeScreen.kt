@@ -71,6 +71,18 @@ fun HealthScreen(vm: HealthViewModel = viewModel(), journalVm: HealthJournalView
     val profiles by journalVm.profiles.collectAsStateWithLifecycle()
     val memories by journalVm.memories.collectAsStateWithLifecycle()
     val revision by j.settingsRevision.collectAsStateWithLifecycle()
+    val cycleSync = journalVm.app.cycleHealthSync
+    val healthFlows by cycleSync.samples.collectAsStateWithLifecycle()
+    val syncStatus by cycleSync.status.collectAsStateWithLifecycle()
+    val permissionRequest = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()
+    ) { journalVm.viewModelScope.launch { cycleSync.refresh() } }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        journalVm.viewModelScope.launch {
+            cycleSync.refresh()
+            com.lodo.app.notify.CycleReminder.reschedule(journalVm.app)
+        }
+    }
     val diet by j.dietPlan.collectAsStateWithLifecycle()
     val planning by j.planning.collectAsStateWithLifecycle()
     val busy by journalVm.busy.collectAsStateWithLifecycle()
@@ -92,11 +104,17 @@ fun HealthScreen(vm: HealthViewModel = viewModel(), journalVm: HealthJournalView
     val entries = WeightPlan.merge(weights.map { it.entry() }, vm.report?.series(HealthMetricKind.BODY_MASS)?.points.orEmpty())
     val currentWeight = WeightPlan.latestWeight(entries)?.weightKg
     val today = now.toLocalDate()
+    LaunchedEffect(today, page) {
+        cycleSync.refresh()
+        com.lodo.app.notify.CycleReminder.reschedule(journalVm.app)
+    }
     val todayFoods = foods.filter { it.dateMillis.toLocalDateTime().toLocalDate() == today }
     val intake = todayFoods.fold(Nutrition()) { a, food -> a + food.nutrition }
     val slots = MedicationPlan.todaySlots(meds.map { it.entry() }, doses.map { it.entry() }, now)
-    val prediction = remember(periods, today, revision) { CyclePrediction.predict(CyclePlan.merge(periods.map { it.entry() }, emptyList(), today), today, j.confirmations()) }
-    val flowByDay = CycleFlow.resolve(flows.map { it.entry() }, emptyList())
+    val visibleHealthFlows = if (cycleEnabled && (j.cycleHealthSyncEnabled || settings.healthEnabled)) healthFlows else emptyList()
+    val mergedPeriods = CyclePlan.merge(periods.map { it.entry() }, CyclePlan.periodsFromFlowDays(visibleHealthFlows.filter { it.level.isBleeding }.map { LocalDate.parse(it.dayKey) }), today)
+    val prediction = CyclePrediction.predict(mergedPeriods, today, j.confirmations())
+    val flowByDay = CycleFlow.resolve(flows.map { it.entry() }, visibleHealthFlows)
     fun recordDose(slot: MedicationPlan.Slot) {
         if (MedicationPlan.isEarly(slot, LocalDateTime.now())) earlyDose = slot
         else journalVm.runAction { j.logNextDose(slot.medicationId, slot.time) }
@@ -238,6 +256,26 @@ fun HealthScreen(vm: HealthViewModel = viewModel(), journalVm: HealthJournalView
             if (page == "cycle") {
                 item("cycle-options") { SwitchRow(L("经期记录", "Cycle tracking"), cycleEnabled) { j.setCycleEnabled(it) } }
                 if (cycleEnabled) {
+                    item("cycle-sync") {
+                        Column {
+                            SwitchRow(L("与 Health Connect 同步", "Sync with Health Connect"), j.cycleHealthSyncEnabled,
+                                subtitle = L("读取经期,并将手记的经期和出血量写回;只修改 lodo 写入的记录。", "Read periods and write your manual periods and flow; only lodo records are modified.")) { on ->
+                                j.setCycleHealthSync(on)
+                                if (on && vm.repo.isAvailable) permissionRequest.launch(cycleSync.requestPermissions)
+                            }
+                            Text(L("允许读取历史数据后同步最近 400 天,否则仅最近 30 天;关闭不会删除已写入的记录。无出血不写入流量。", "Syncs 400 days with history access, otherwise 30 days. Turning off keeps exported records. No flow is not exported."), style = MaterialTheme.typography.bodySmall)
+                            if (!vm.repo.isAvailable) Text(L("这台设备没有 Health Connect", "Health Connect isn't available"))
+                            if (j.cycleHealthSyncEnabled) {
+                                Text(when (syncStatus) {
+                                    CycleHealthSync.Status.SYNCING -> L("正在同步到 Health Connect…", "Syncing to Health Connect…")
+                                    CycleHealthSync.Status.NOT_AUTHORIZED -> L("请允许读取和写入经期数据。", "Please allow reading and writing menstrual data.")
+                                    CycleHealthSync.Status.FAILED -> L("同步到 Health Connect 失败,下次打开时会再试。", "Sync failed; will retry next time.")
+                                    else -> L("经期同步已开启", "Cycle sync is on")
+                                }, style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = { if (vm.repo.isAvailable) permissionRequest.launch(cycleSync.requestPermissions) }) { Text(L("管理授权", "Manage permissions")) }
+                            }
+                        }
+                    }
                     item("cycle-reminder") { SwitchRow(L("经期提醒", "Cycle reminder"), j.cycleReminderEnabled, subtitle = L("依据充足时,预计范围前两天提醒", "Reminds two days before the range when there is sufficient evidence")) { j.setCycleReminder(it) } }
                     item("cycle-current") { HealthGroup(cycleCaption(prediction)) {
                         prediction.currentEnd?.let { Text(L("预计结束 ", "Expected end ") + "${it.lower} — ${it.upper}") }
@@ -258,6 +296,9 @@ fun HealthScreen(vm: HealthViewModel = viewModel(), journalVm: HealthJournalView
                         TextButton(onClick = { editor = HealthEditor.Flow() }) { Text(L("补记出血量", "Record past flow")) }
                         TextButton(onClick = { journalVm.runAction { j.saveFlow(today, null) } }) { Text(L("清除今天的出血量", "Clear today's flow")) }
                     } }
+                    items(mergedPeriods.filter { it.fromHealth }.asReversed(), key = { "health-${it.id}" }) { p ->
+                        HealthGroup("${p.start} — ${p.end}") { Text(L("来自 Health Connect", "From Health Connect")) }
+                    }
                     items(periods.asReversed(), key = { "period-${it.uuid}" }) { p -> HealthGroup("${p.startDay} — ${p.endDay ?: L("结束待确认", "End unconfirmed")}") {
                         Row { TextButton(onClick = { editor = HealthEditor.Period(p) }) { Text(L("编辑", "Edit")) }
                             TextButton(onClick = { deleteAction = { journalVm.runAction { j.dao.deletePeriod(p.uuid) } } }) { Text(L("删除", "Delete")) } }

@@ -23,7 +23,10 @@ object CycleReminder {
         Intent(context, CycleReminderReceiver::class.java).setAction("com.lodo.CYCLE_REMINDER").putExtra("at", at),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     suspend fun prediction(app: LodoApp, now: LocalDateTime): CyclePrediction.Result = CyclePrediction.predict(
-        CyclePlan.merge(app.database.healthDao().periods().map { it.entry() }, emptyList(), now.toLocalDate()), now.toLocalDate(), app.healthJournal.confirmations())
+        CyclePlan.merge(app.database.healthDao().periods().map { it.entry() },
+            if (app.healthJournal.cycleEnabled && (app.healthJournal.cycleHealthSyncEnabled || app.settings.snapshot().healthEnabled))
+                CyclePlan.periodsFromFlowDays(app.cycleHealthSync.samples.value.filter { it.level.isBleeding }.map { java.time.LocalDate.parse(it.dayKey) })
+            else emptyList(), now.toLocalDate()), now.toLocalDate(), app.healthJournal.confirmations())
     suspend fun reschedule(app: LodoApp) {
         val alarm = app.getSystemService(AlarmManager::class.java)
         val now = LocalDateTime.now()

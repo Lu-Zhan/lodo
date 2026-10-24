@@ -39,6 +39,7 @@ class HealthRepository(private val context: Context) {
         HealthPermission.getReadPermission(RestingHeartRateRecord::class),
         HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
         HealthPermission.getReadPermission(WeightRecord::class),
+        HealthPermission.getReadPermission(androidx.health.connect.client.records.MenstruationFlowRecord::class),
     )
 
     /** 设备上有没有可用的 Health Connect(Android 14+ 自带,13 及以下要装 app)。 */

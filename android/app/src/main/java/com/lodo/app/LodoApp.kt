@@ -64,6 +64,7 @@ class LodoApp : Application() {
     val library by lazy { com.lodo.app.data.LibraryRepository(database, memoryRepository, news) }
     val menus by lazy { com.lodo.app.data.MenuRepository(database) }
     val health by lazy { com.lodo.app.data.HealthRepository(this) }
+    val cycleHealthSync by lazy { com.lodo.app.data.CycleHealthSync(this) }
     val healthJournal by lazy { com.lodo.app.data.HealthJournal(this) }
     val checkups by lazy { com.lodo.app.data.CheckupRepository(this) }
     val calendar by lazy { com.lodo.app.data.CalendarRepository(this) }
@@ -103,8 +104,11 @@ class LodoApp : Application() {
         }
         scheduleRoutineCheck()
         appScope.launch {
-            kotlinx.coroutines.flow.combine(database.healthDao().observePeriods(), healthJournal.settingsRevision, settings.settings) { _, _, _ -> Unit }
-                .collect { runCatching { com.lodo.app.notify.CycleReminder.reschedule(this@LodoApp) } }
+            kotlinx.coroutines.flow.combine(database.healthDao().observePeriods(), database.healthDao().observeFlows(), healthJournal.settingsRevision, settings.settings) { _, _, _, _ -> Unit }
+                .collect {
+                    cycleHealthSync.refresh()
+                    runCatching { com.lodo.app.notify.CycleReminder.reschedule(this@LodoApp) }
+                }
         }
     }
 

@@ -25,6 +25,9 @@ class HealthJournal(private val app: com.lodo.app.LodoApp) {
     val planning = MutableStateFlow(false)
     val medicationVisible get() = prefs.getBoolean("medicationVisible", true)
     val cycleEnabled get() = prefs.getBoolean("cycleEnabled", false)
+    // 授权意愿仅留本机,不随备份恢复。
+    val cycleHealthSyncEnabled get() = prefs.getBoolean("cycleHealthSyncEnabled", false)
+    fun setCycleHealthSync(value: Boolean) { prefs.edit().putBoolean("cycleHealthSyncEnabled", value).apply(); settingsRevision.value++ }
     val cycleReminderEnabled get() = prefs.getBoolean("cycleReminderEnabled", true)
     val weightGoal: WeightGoal get() {
         val json = runCatching { JSONObject(prefs.getString("weightGoal", "").orEmpty()) }.getOrNull() ?: return WeightGoal()

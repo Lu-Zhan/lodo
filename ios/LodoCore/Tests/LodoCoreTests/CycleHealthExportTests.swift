@@ -60,9 +60,10 @@ final class CycleHealthExportTests: XCTestCase {
             CycleHealthExport.Existing(id: gone, day: .init(dayKey: "2026-06-01", level: .medium, isStart: true)),
         ]
         let plan = CycleHealthExport.plan(desired: [a.dayKey: a, b.dayKey: b, c.dayKey: c], existing: existing)
-        XCTAssertEqual(Set(plan.delete), [dup, stale, gone])
-        XCTAssertEqual(plan.add, [b, c])
+        // 对账按 UUID 排序保留第一条,随机生成的 keep 不一定排在 dup 前。
         let ids = [keep, dup].sorted { $0.uuidString < $1.uuidString }
+        XCTAssertEqual(Set(plan.delete), [ids[1], stale, gone])
+        XCTAssertEqual(plan.add, [b, c])
         XCTAssertFalse(plan.delete.contains(ids[0]))
 
         XCTAssertTrue(CycleHealthExport.plan(desired: [a.dayKey: a],
