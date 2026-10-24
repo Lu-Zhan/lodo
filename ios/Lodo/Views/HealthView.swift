@@ -13,6 +13,7 @@ import LodoCore
 struct HealthView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(AppSettings.healthEnabledKey) private var healthEnabled = false
+    @AppStorage(AppSettings.cycleHealthSyncKey) private var cycleHealthSync = false
     @AppStorage(AppSettings.healthRangeDaysKey) private var rangeDays = 14
     @AppStorage(AppSettings.cycleTrackingKey) private var cyclePreferenceRaw = ""
     @AppStorage(AppSettings.medicationVisibleKey) private var medicationVisible = true
@@ -228,8 +229,8 @@ struct HealthView: View {
             // 经期:读健康 App 的经期 + 重排提醒,挂在页面根上(不挂在会被懒加载回收的标题上),
             // 同一组配置读过就不再读,见 `CycleHealthPeriods`。
             // (读取本身跑在协调器自己的任务上,这里只是按配置发起,页面被推走也不会读到一半丢掉。)
-            .task(id: "\(showsCycle)-\(healthEnabled)-\(airRefreshToken)") {
-                CycleHealthPeriods.shared.refresh(enabled: showsCycle, healthEnabled: healthEnabled,
+            .task(id: "\(showsCycle)-\(healthEnabled)-\(cycleHealthSync)-\(airRefreshToken)") {
+                CycleHealthPeriods.shared.refresh(enabled: showsCycle, healthEnabled: healthEnabled || cycleHealthSync,
                                                   token: airRefreshToken, context: context)
             }
             // 手表完成的用药提醒补记、健康 App 服药记录导入:挂在页面上而不是用药那一组上,

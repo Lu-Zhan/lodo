@@ -7,7 +7,8 @@ import LodoCore
 /// 经期:合并手记和健康 App 的记录、排经期提醒。纯逻辑在 `CyclePlan`。
 ///
 /// 隐私口径:经期数据**不发给 AI**(不进 `read_health`、不进健康分析的汇总),
-/// 健康 App 那一半只在健康分析开着时才读,读也只读日子、不读流量档位以外的东西。
+/// 健康 App 那一半只在健康分析或「与健康 App 同步」开着时才读,读也只读日子和档位;
+/// 写回健康 App 只在开了同步时做(`CycleHealthSync`)。
 @MainActor
 enum CycleStore {
     static let reminderID = "cycle-reminder"
@@ -40,8 +41,10 @@ enum CycleStore {
 
     /// 健康 App 里的经期段 + 每天的出血量档位(同一次查询)。只读,不落进手记表。
     static func healthData() async -> (periods: [CyclePlan.Period], flows: [CycleFlow.HealthSample]) {
-        guard AppSettings.healthEnabled, HealthKitBridge.isAvailable else { return ([], []) }
-        let samples = await HealthKitBridge.menstrualFlowSamples(days: healthLookbackDays)
+        guard AppSettings.cycleReadsHealth, HealthKitBridge.isAvailable else { return ([], []) }
+        // lodo 自己写回去的不算健康 App 的数据(手记那份已经在了)。
+        let samples = (await HealthKitBridge.menstrualFlowSamples(days: healthLookbackDays) ?? [])
+            .filter { !$0.fromLodo }
         let periods = CyclePlan.periods(fromFlowDays: samples.filter { $0.level.isBleeding }.map(\.date))
         let flows = samples.map { CycleFlow.HealthSample(dayKey: CycleFlow.dayKey($0.date), level: $0.level) }
         return (periods, flows)
@@ -65,6 +68,7 @@ enum CycleStore {
                 context.insert(PeriodFlowRecord(dayKey: key, level: level, updatedAt: now))
             }
             try context.save()
+            CycleHealthSync.shared.schedule(context: context)
             return true
         } catch {
             context.rollback()
@@ -83,6 +87,7 @@ enum CycleStore {
             record.isDeleted = true
             record.updatedAt = Date()
             try context.save()
+            CycleHealthSync.shared.schedule(context: context)
             return true
         } catch {
             context.rollback()
@@ -152,6 +157,8 @@ enum CycleStore {
     /// 按库里最新的手记 + 已经读来的健康 App 经期(`CycleHealthPeriods`,不再读一次)重排提醒。
     /// 每个写入点(开始/结束、补记、编辑、删除、切提醒开关)和读完健康数据之后都调它。
     static func rescheduleFromRecords(context: ModelContext) {
+        // 写入点都会走到这里:顺带把手记同步回健康 App(没开同步时什么都不做)。
+        CycleHealthSync.shared.schedule(context: context)
         guard AppSettings.cycleTrackingEnabled else {
             cancelReminder()
             return
@@ -210,6 +217,98 @@ enum CycleStore {
     /// 关掉经期功能时撤掉提醒。
     static func cancelReminder() {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [reminderID])
+    }
+}
+
+/// 手记的经期 → 健康 App(「与健康 App 同步」开着时)。对账逻辑在 `CycleHealthExport`。
+///
+/// - **只动 lodo 自己写的样本**:健康 App 里用户自己 / 别的 app 记的一条不碰;那天已经有别的
+///   来源记过就不再写(读的时候它们本来就会合并进来)。
+/// - lodo 写的那份以手记为准:在健康 App 里删掉 lodo 写的某天,下次对账会补回来;要删就在
+///   lodo 里改手记。
+/// - 写入点调 `schedule`(合并 0.8 秒),回前台随重读健康数据后的重排再兜一次底。
+/// - 关掉同步不删已经写进去的样本(那已经是用户健康记录的一部分)。
+@MainActor
+@Observable
+final class CycleHealthSync {
+    static let shared = CycleHealthSync()
+
+    enum Status: Equatable {
+        case idle
+        case syncing
+        case synced(Date)
+        /// 没给写权限(到 设置 → 健康 → 数据访问与设备 里打开)。
+        case notAuthorized
+        case failed
+    }
+
+    private(set) var status: Status = .idle
+    private var pending: Task<Void, Never>?
+    private var running = false
+    private var rerun = false
+
+    func schedule(context: ModelContext) {
+        guard AppSettings.cycleHealthSyncEnabled, AppSettings.cycleTrackingEnabled,
+              HealthKitBridge.isAvailable else { return }
+        pending?.cancel()
+        pending = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            await self?.run(context: context)
+        }
+    }
+
+    private func run(context: ModelContext) async {
+        if running {
+            rerun = true
+            return
+        }
+        running = true
+        defer { running = false }
+        repeat {
+            rerun = false
+            await syncOnce(context: context)
+        } while rerun
+    }
+
+    private func syncOnce(context: ModelContext) async {
+        guard AppSettings.cycleHealthSyncEnabled, AppSettings.cycleTrackingEnabled,
+              HealthKitBridge.isAvailable else { return }
+        guard HealthKitBridge.cycleWriteAuthorized else {
+            status = .notAuthorized
+            return
+        }
+        status = .syncing
+        let lookback = CycleStore.healthLookbackDays
+        // 查不到现状就不对账(当成空的会把每天重写一遍)。
+        guard let samples = await HealthKitBridge.menstrualFlowSamples(days: lookback) else {
+            status = .failed
+            return
+        }
+        let calendar = Calendar.current
+        let now = Date()
+        let records = (try? context.fetch(FetchDescriptor<PeriodRecord>())) ?? []
+        let flows = (try? context.fetch(FetchDescriptor<PeriodFlowRecord>())) ?? []
+        let foreign = samples.filter { !$0.fromLodo }
+        let foreignPeriods = CyclePlan.periods(fromFlowDays: foreign.filter { $0.level.isBleeding }.map(\.date))
+        let merged = CyclePlan.merge(manual: records.map(\.period), health: foreignPeriods, today: now)
+        let openLimit = merged.isEmpty ? CyclePlan.defaultPeriodLength
+            : CyclePrediction.predict(merged, today: now, confirmations: CycleConfirmations.shared.value).periodLength
+        // 窗口留一天余量:最早那天的样本可能只落了一半在查询范围里。
+        let since = calendar.date(byAdding: .day, value: -(lookback - 1), to: now) ?? now
+        let desired = CycleHealthExport.desired(
+            manual: records.map(\.period), flows: flows.map(\.entry),
+            foreignDays: Set(foreign.map { CycleFlow.dayKey($0.date) }),
+            since: since, today: now, openLimit: openLimit)
+        let existing = samples.filter { $0.fromLodo && $0.date >= calendar.startOfDay(for: since) }.map {
+            CycleHealthExport.Existing(id: $0.id, day: .init(dayKey: CycleFlow.dayKey($0.date),
+                                                             level: $0.level, isStart: $0.isStart))
+        }
+        let plan = CycleHealthExport.plan(desired: desired, existing: existing)
+        var ok = true
+        if !plan.delete.isEmpty { ok = await HealthKitBridge.deleteMenstrualFlow(ids: plan.delete) && ok }
+        if !plan.add.isEmpty { ok = await HealthKitBridge.saveMenstrualFlow(plan.add) && ok }
+        status = ok ? .synced(Date()) : .failed
     }
 }
 

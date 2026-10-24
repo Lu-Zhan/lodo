@@ -5,7 +5,8 @@ import HealthKit
 /// 读系统健康库,汇总成 `HealthReport`(纯逻辑在 LodoCore/HealthReport.swift)。
 ///
 /// 三条约定,和 `LocationHelper` 一脉相承:
-/// 1. **只读**——`requestAuthorization(toShare: [], read:)`,app 从不往健康库写数据;
+/// 1. **只读**——`requestAuthorization(toShare: [], read:)`;唯一的例外是经期:用户打开
+///    「与健康 App 同步」后,把手记的经期写成经期流量样本(只写经期这一种,见「经期」那段);
 /// 2. **静默降级**——未授权/无数据/查询报错一律返回空报告,不抛错打断调用方;
 ///    HealthKit 出于隐私不告诉 app "读权限被拒"(`authorizationStatus` 只反映写权限),
 ///    所以"拒绝"和"确实没数据"在我们这儿是同一种结果,UI 也按同一种空态处理;
@@ -173,25 +174,38 @@ enum HealthKitBridge {
 
     // MARK: - 经期
 
-    /// 经期的读权限单独请求:不放进上面那张总授权单里,免得没用这个功能的人也被问一遍经期。
+    /// 经期的权限单独请求:不放进上面那张总授权单里,免得没用这个功能的人也被问一遍经期。
+    /// `write` = 开了「与健康 App 同步」,连写权限一起问。
     @discardableResult
-    static func requestCycleAuthorization() async -> Bool {
+    static func requestCycleAuthorization(write: Bool = false) async -> Bool {
         guard isAvailable else { return false }
+        let type = HKCategoryType(.menstrualFlow)
         do {
-            try await store.requestAuthorization(toShare: [], read: [HKCategoryType(.menstrualFlow)])
+            try await store.requestAuthorization(toShare: write ? [type] : [], read: [type])
             return true
         } catch {
             return false
         }
     }
 
-    /// 最近 days 天里健康 App 记过经期流量的日子(「无」那一档不算)。
-    static func menstrualFlowDays(days: Int) async -> [Date] {
-        await menstrualFlowSamples(days: days).filter { $0.level.isBleeding }.map(\.date)
+    /// 经期写权限给了没有(HealthKit 只告诉 app 写权限的状态,读权限不告诉)。
+    static var cycleWriteAuthorized: Bool {
+        isAvailable && store.authorizationStatus(for: HKCategoryType(.menstrualFlow)) == .sharingAuthorized
+    }
+
+    /// 健康 App 里的一条经期流量样本。`fromLodo` = lodo 自己写进去的(读经期时要排除,
+    /// 不然自己写的又当成健康 App 的数据读回来)。
+    struct CycleFlowSample {
+        let id: UUID
+        let date: Date
+        let level: CycleFlowLevel
+        let isStart: Bool
+        let fromLodo: Bool
     }
 
     /// 最近 days 天健康 App 的经期流量样本(日子 + 档位,含「无」)。只读日子和档位,别的不读。
-    static func menstrualFlowSamples(days: Int) async -> [(date: Date, level: CycleFlowLevel)] {
+    /// `nil` = 查询失败(和"一条都没有"分开:写回时查不到现状就不能对账,否则会重复写)。
+    static func menstrualFlowSamples(days: Int) async -> [CycleFlowSample]? {
         guard isAvailable, days > 0 else { return [] }
         let end = Date()
         guard let start = Calendar.current.date(byAdding: .day, value: -days, to: end) else { return [] }
@@ -199,8 +213,75 @@ enum HealthKitBridge {
         let descriptor = HKSampleQueryDescriptor(
             predicates: [.categorySample(type: HKCategoryType(.menstrualFlow), predicate: predicate)],
             sortDescriptors: [])
-        guard let samples = try? await descriptor.result(for: store) else { return [] }
-        return samples.map { (date: $0.startDate, level: flowLevel($0.value)) }
+        guard let samples = try? await descriptor.result(for: store) else { return nil }
+        let ownBundle = HKSource.default().bundleIdentifier
+        return samples.map { sample in
+            CycleFlowSample(
+                id: sample.uuid, date: sample.startDate, level: flowLevel(sample.value),
+                isStart: (sample.metadata?[HKMetadataKeyMenstrualCycleStart] as? NSNumber)?.boolValue ?? false,
+                fromLodo: sample.sourceRevision.source.bundleIdentifier == ownBundle)
+        }
+    }
+
+    /// 写一批经期流量样本(每天一条,0 点到次日 0 点)。带 sync identifier(按日子),
+    /// 两台设备同一天各写一条时健康 App 只留版本新的那条。
+    static func saveMenstrualFlow(_ days: [CycleHealthExport.Day]) async -> Bool {
+        guard isAvailable, !days.isEmpty else { return true }
+        let calendar = Calendar.current
+        let type = HKCategoryType(.menstrualFlow)
+        let version = Int(Date().timeIntervalSince1970)
+        let samples: [HKCategorySample] = days.compactMap { day in
+            guard let start = CycleFlow.date(fromKey: day.dayKey, calendar: calendar),
+                  let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
+            return HKCategorySample(
+                type: type, value: healthValue(day.level), start: start, end: end,
+                metadata: [HKMetadataKeyMenstrualCycleStart: day.isStart,
+                           HKMetadataKeySyncIdentifier: "lodo-cycle-\(day.dayKey)",
+                           HKMetadataKeySyncVersion: version])
+        }
+        do {
+            try await store.save(samples)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// 删掉 lodo 自己写过的几条经期样本(HealthKit 只允许删本 app 写的)。
+    static func deleteMenstrualFlow(ids: [UUID]) async -> Bool {
+        guard isAvailable, !ids.isEmpty else { return true }
+        do {
+            _ = try await store.deleteObjects(of: HKCategoryType(.menstrualFlow),
+                                              predicate: HKQuery.predicateForObjects(with: Set(ids)))
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// lodo 档位 → HealthKit 原始值(和 `flowLevel` 反过来)。
+    private static func healthValue(_ level: CycleFlowLevel) -> Int {
+        if #available(iOS 18.0, macOS 15.0, *) {
+            let value: HKCategoryValueVaginalBleeding
+            switch level {
+            case .none: value = .none
+            case .light: value = .light
+            case .medium: value = .medium
+            case .heavy: value = .heavy
+            case .unspecified: value = .unspecified
+            }
+            return value.rawValue
+        } else {
+            let value: HKCategoryValueMenstrualFlow
+            switch level {
+            case .none: value = .none
+            case .light: value = .light
+            case .medium: value = .medium
+            case .heavy: value = .heavy
+            case .unspecified: value = .unspecified
+            }
+            return value.rawValue
+        }
     }
 
     /// HealthKit 档位 → lodo 档位。iOS 18 起叫 HKCategoryValueVaginalBleeding,之前是

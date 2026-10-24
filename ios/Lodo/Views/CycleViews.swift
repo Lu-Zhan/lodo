@@ -67,7 +67,7 @@ final class CycleHealthPeriods {
             let askedKey = "cycleAccessRequested"
             if !UserDefaults.standard.bool(forKey: askedKey) {
                 UserDefaults.standard.set(true, forKey: askedKey)
-                await HealthKitBridge.requestCycleAuthorization()
+                await HealthKitBridge.requestCycleAuthorization(write: AppSettings.cycleHealthSyncEnabled)
             }
             let result = await CycleStore.healthData()
             // 期间又发了新的一次(那一次已经接手了 `loading`):这份不要。
@@ -75,7 +75,7 @@ final class CycleHealthPeriods {
             // 还是最新的这一次:不管用不用结果,都不再算"正在读",同一配置之后可以重读。
             self.loading = nil
             // 读的时候健康分析被关了:这份不要(关掉的那次 refresh 会按手记重排)。
-            guard !Task.isCancelled, AppSettings.healthEnabled else { return }
+            guard !Task.isCancelled, AppSettings.cycleReadsHealth else { return }
             self.periods = result.periods
             self.flows = result.flows
             self.loadedKey = key
@@ -90,14 +90,14 @@ final class CycleHealthPeriods {
         loadedKey = nil
         if let loading { loading.task.cancel() }
         loading = nil
-        refresh(enabled: AppSettings.cycleTrackingEnabled, healthEnabled: AppSettings.healthEnabled,
+        refresh(enabled: AppSettings.cycleTrackingEnabled, healthEnabled: AppSettings.cycleReadsHealth,
                 token: lastToken, context: context)
     }
 
     /// 写入点要重排时健康数据还没就绪:没在读就按当前设置补发一次(读完会统一重排)。
     func ensureLoading(context: ModelContext) {
         guard !ready, loading == nil else { return }
-        refresh(enabled: AppSettings.cycleTrackingEnabled, healthEnabled: AppSettings.healthEnabled,
+        refresh(enabled: AppSettings.cycleTrackingEnabled, healthEnabled: AppSettings.cycleReadsHealth,
                 token: lastToken, context: context)
     }
 }
@@ -968,6 +968,7 @@ struct CycleSection: View {
     @Query(sort: [SortDescriptor(\PeriodRecord.start)]) private var records: [PeriodRecord]
     @Query private var flowRecords: [PeriodFlowRecord]
     @AppStorage(AppSettings.cycleReminderEnabledKey) private var reminderEnabled = true
+    @AppStorage(AppSettings.cycleHealthSyncKey) private var healthSync = false
     @AppStorage(AppSettings.languageKey) private var languageRaw = AppLanguage.zhHans.rawValue
 
     @State private var now = Date()
@@ -1015,9 +1016,48 @@ struct CycleSection: View {
             }
         }
 
+        if HealthKitBridge.isAvailable {
+            Section {
+                Toggle(isOn: $healthSync) {
+                    Label("与健康 App 同步", systemImage: "heart.text.square")
+                }
+                .onChange(of: healthSync) { _, on in
+                    Task { @MainActor in
+                        if on { await HealthKitBridge.requestCycleAuthorization(write: true) }
+                        // 读健康 App 的口径变了(不再要求开健康分析):重读,读完统一重排并写回。
+                        CycleHealthPeriods.shared.reload(context: context)
+                        CycleHealthSync.shared.schedule(context: context)
+                    }
+                }
+            } header: {
+                Text("健康 App")
+            } footer: {
+                Text(healthSyncFooter)
+            }
+        }
+
         Section {
         } footer: {
             Text("预测按最近几个周期估算出一个经验范围,仅供参考,不能用于避孕。经期和出血量只存在这台设备和你的 iCloud 里,不会发给 AI。")
+        }
+    }
+}
+
+extension CycleSection {
+    fileprivate var healthSyncFooter: String {
+        let bundle = Bundle.appLanguage()
+        guard healthSync else {
+            return String(localized: "打开后读取健康 App 里的经期(不需要开健康分析),并把在 lodo 里记的经期和出血量写进健康 App。", bundle: bundle, locale: locale)
+        }
+        switch CycleHealthSync.shared.status {
+        case .notAuthorized:
+            return String(localized: "没有写入健康 App 的权限:到 设置 → 健康 → 数据访问与设备 → Lodo 里打开「经期」。", bundle: bundle, locale: locale)
+        case .failed:
+            return String(localized: "同步到健康 App 失败,下次打开时会再试。", bundle: bundle, locale: locale)
+        case .syncing:
+            return String(localized: "正在同步到健康 App…", bundle: bundle, locale: locale)
+        case .synced, .idle:
+            return String(localized: "健康 App 里的经期会合并进来;在 lodo 里记的经期和出血量会写进健康 App。健康 App 里别处记过的日子不重复写;要改 lodo 写进去的记录,在 lodo 里改。", bundle: bundle, locale: locale)
         }
     }
 }

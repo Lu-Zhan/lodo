@@ -61,6 +61,9 @@ public enum AppSettings {
     public static let biologicalSexKey = "healthBiologicalSex"
     /// 经期提醒(预计开始前 2 天,全天提醒时刻)。**默认开**:只有记过两次以上、预测靠得住才会排。
     public static let cycleReminderEnabledKey = "cycleReminderEnabled"
+    /// 经期与健康 App 双向同步(默认关):开着时不管健康分析开没开都读健康 App 的经期,
+    /// 并把手记的经期写回健康 App(`CycleHealthExport`)。存储值别改。
+    public static let cycleHealthSyncKey = "cycleHealthSync"
     /// Spotlight 里能搜到哪几类(`SpotlightCategory` 的 rawValue 逗号串;没设过 = 默认那几类)。
     public static let spotlightCategoriesKey = "spotlightCategories"
     /// 空气质量提醒的时间点,"07:00,18:30"(`AirQualityReminderPlan.parseTimes`);空串 = 不提醒。
@@ -114,6 +117,13 @@ public enum AppSettings {
     public static var cycleTrackingEnabled: Bool {
         CyclePlan.isEnabled(cyclePreference, sex: biologicalSex)
     }
+
+    public static var cycleHealthSyncEnabled: Bool {
+        UserDefaults.standard.bool(forKey: cycleHealthSyncKey)
+    }
+
+    /// 经期要不要读健康 App:开了健康分析,或者开了经期同步。
+    public static var cycleReadsHealth: Bool { healthEnabled || cycleHealthSyncEnabled }
 
     public static var cycleReminderEnabled: Bool {
         UserDefaults.standard.object(forKey: cycleReminderEnabledKey) as? Bool ?? true

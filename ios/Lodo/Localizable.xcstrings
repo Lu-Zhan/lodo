@@ -3071,6 +3071,22 @@
         }
       }
     },
+    "与健康 App 同步" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with Health"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与健康 App 同步"
+          }
+        }
+      }
+    },
     "与原文相同" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5559,6 +5575,22 @@
         }
       }
     },
+    "健康 App" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Health App"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "健康 App"
+          }
+        }
+      }
+    },
     "健康 App · 记录不一致" : {
       "localizations" : {
         "en" : {
@@ -5587,6 +5619,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "健康 App 里没有可导入的药,或者还没允许 lodo 读取。"
+          }
+        }
+      }
+    },
+    "健康 App 里的经期会合并进来;在 lodo 里记的经期和出血量会写进健康 App。健康 App 里别处记过的日子不重复写;要改 lodo 写进去的记录,在 lodo 里改。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periods in the Health app are merged in; periods and flow you log in lodo are written to the Health app. Days already logged elsewhere in Health aren't written again. To change what lodo wrote, edit it in lodo."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "健康 App 里的经期会合并进来;在 lodo 里记的经期和出血量会写进健康 App。健康 App 里别处记过的日子不重复写;要改 lodo 写进去的记录,在 lodo 里改。"
           }
         }
       }
@@ -7153,6 +7201,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "再记一笔就能看到趋势。"
+          }
+        }
+      }
+    },
+    "同步到健康 App 失败,下次打开时会再试。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't sync to the Health app. It will try again next time you open lodo."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步到健康 App 失败,下次打开时会再试。"
+          }
+        }
+      }
+    },
+    "打开后读取健康 App 里的经期(不需要开健康分析),并把在 lodo 里记的经期和出血量写进健康 App。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When on, periods from the Health app are read (Health Analysis isn't required), and periods and flow you log in lodo are written to the Health app."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开后读取健康 App 里的经期(不需要开健康分析),并把在 lodo 里记的经期和出血量写进健康 App。"
           }
         }
       }
@@ -21236,6 +21316,22 @@
         }
       }
     },
+    "正在同步到健康 App…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Syncing to the Health app…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在同步到健康 App…"
+          }
+        }
+      }
+    },
     "正在建立共享…" : {
       "localizations" : {
         "en" : {
@@ -22434,6 +22530,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有任务"
+          }
+        }
+      }
+    },
+    "没有写入健康 App 的权限:到 设置 → 健康 → 数据访问与设备 → Lodo 里打开「经期」。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No permission to write to the Health app. Go to Settings → Health → Data Access & Devices → Lodo and turn on Menstruation."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有写入健康 App 的权限:到 设置 → 健康 → 数据访问与设备 → Lodo 里打开「经期」。"
           }
         }
       }
