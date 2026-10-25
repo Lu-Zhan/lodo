@@ -7,6 +7,10 @@ import SwiftUI
 struct KeyboardSettingsView: View {
     @AppStorage(KeyboardExchange.fuzzyKey, store: KeyboardExchange.shared) private var fuzzyRaw = 0
     @AppStorage(KeyboardExchange.hapticsKey, store: KeyboardExchange.shared) private var haptics = true
+    @AppStorage(KeyboardExchange.hapticsIntensityKey, store: KeyboardExchange.shared)
+    private var hapticsIntensity = KeyboardExchange.defaultHapticsIntensity
+    /// 和键盘里同一种震感(.soft),预览才对得上。
+    @State private var preview = UIImpactFeedbackGenerator(style: .soft)
     @Environment(\.openURL) private var openURL
 
     /// 和 LodoIME 的 `FuzzyOptions` 位一一对应(主 app 不链接 LodoIME,这里按位写)。
@@ -41,8 +45,27 @@ struct KeyboardSettingsView: View {
 
             Section {
                 Toggle("按键震动", isOn: $haptics)
+                VStack(alignment: .leading) {
+                    Text("震动强度")
+                    Slider(value: Binding(
+                        get: { KeyboardExchange.hapticsIntensity(from: hapticsIntensity) },
+                        set: { hapticsIntensity = $0 }),
+                           in: KeyboardExchange.hapticsIntensityRange, step: 0.05) {
+                        Text("震动强度")
+                    } minimumValueLabel: {
+                        Text("轻")
+                    } maximumValueLabel: {
+                        Text("强")
+                    } onEditingChanged: { editing in
+                        if !editing { playPreview() } // 松手试一下,拖动途中不一直震
+                    }
+                    .accessibilityValue(Text(verbatim: "\(Int((KeyboardExchange.hapticsIntensity(from: hapticsIntensity) * 100).rounded()))%"))
+                }
+                .disabled(!haptics)
+                Button("试一下", action: playPreview)
+                    .disabled(!haptics)
             } footer: {
-                Text("要开了「允许完全访问」才会震;键盘的颜色跟着这里选的强调色。")
+                Text("要开了「允许完全访问」才会震,不开也能正常打字;这里的预览不代表键盘已经拿到权限。下次弹出键盘时生效。键盘的颜色跟着这里选的强调色。")
             }
 
             Section {
@@ -68,6 +91,11 @@ struct KeyboardSettingsView: View {
         }
         .formStyle(.grouped)
         .pageTitle("lodo 键盘")
+    }
+
+    private func playPreview() {
+        preview.impactOccurred(intensity: KeyboardExchange.hapticsIntensity(from: hapticsIntensity))
+        preview.prepare()
     }
 
     private func acknowledgement(_ title: LocalizedStringKey, _ detail: String) -> some View {

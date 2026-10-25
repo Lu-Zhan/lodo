@@ -38,4 +38,13 @@ final class KeyboardExchangeTests: XCTestCase {
         XCTAssertEqual(target.object(forKey: "agentSkillEnabled.memory") as? Bool, false)
         XCTAssertNil(target.string(forKey: AppSettings.aiModelKey), "主 app 那边没设的要清掉")
     }
+
+    func testHapticsIntensityNormalization() {
+        XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: nil), KeyboardExchange.defaultHapticsIntensity)
+        XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: "强"), KeyboardExchange.defaultHapticsIntensity)
+        XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: Double.nan), KeyboardExchange.defaultHapticsIntensity)
+        XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: 0.0), 0.1)
+        XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: 3.0), 1.0)
+        XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: 0.35), 0.35, accuracy: 1e-9)
+    }
 }

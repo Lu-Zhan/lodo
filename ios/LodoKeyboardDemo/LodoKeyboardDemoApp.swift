@@ -30,11 +30,21 @@ struct DemoKeyboardScreen: UIViewControllerRepresentable {
 }
 
 final class DemoDocument: TextDocument {
-    var text = "" { didSet { onChange?(text) } }
-    var onChange: ((String) -> Void)?
-    var contextBeforeInput: String? { text }
-    func insertText(_ t: String) { text += t }
+    var text = "" { didSet { onChange?(display) } }
+    /// 标记文字(正在拼的拼音),显示时带下划线,同真实输入框。
+    var marked = "" { didSet { onChange?(display) } }
+    var onChange: ((NSAttributedString) -> Void)?
+    var contextBeforeInput: String? { text + marked }
+    func insertText(_ t: String) { text += marked + t; marked = "" }
     func deleteBackward() { if !text.isEmpty { text.removeLast() } }
+    var supportsMarkedText: Bool { true }
+    func setMarkedText(_ t: String) { marked = t }
+    func unmarkText() { let m = marked; marked = ""; text += m }
+    var display: NSAttributedString {
+        let s = NSMutableAttributedString(string: text)
+        s.append(NSAttributedString(string: marked, attributes: [.underlineStyle: NSUnderlineStyle.single.rawValue]))
+        return s
+    }
 }
 
 /// 假的 lodo 服务:不写 App Group、不联网,回答是写死的。
@@ -76,7 +86,7 @@ final class DemoKeyboardViewController: UIViewController, KeyboardHost {
         field.font = .systemFont(ofSize: 20)
         field.text = "lodo 键盘"
         field.textColor = .secondaryLabel
-        doc.onChange = { [weak self] in self?.field.text = $0; self?.field.textColor = .label }
+        doc.onChange = { [weak self] in self?.field.attributedText = $0; self?.field.textColor = .label }
         keyboard = try! KeyboardController(host: self, userDictionaryURL: nil)
         services.hasFullAccess = !args.contains("--no-full-access")
         keyboard.services = services

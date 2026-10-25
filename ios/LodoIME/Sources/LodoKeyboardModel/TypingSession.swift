@@ -6,6 +6,17 @@ public protocol TextDocument: AnyObject {
     var contextBeforeInput: String? { get }
     func insertText(_ text: String)
     func deleteBackward()
+    /// 能不能把正在拼的拼音写成宿主里的「标记文字」(带下划线、还没确认的那段,系统拼音键盘就是这样)。
+    var supportsMarkedText: Bool { get }
+    func setMarkedText(_ text: String)
+    /// 把标记文字原样确认下来。
+    func unmarkText()
+}
+
+public extension TextDocument {
+    var supportsMarkedText: Bool { false }
+    func setMarkedText(_ text: String) {}
+    func unmarkText() {}
 }
 
 /// 英文补全(扩展里用 `UITextChecker`,这一层不碰 UIKit)。
@@ -30,6 +41,8 @@ public final class TypingSession {
     public let engine: PinyinEngine
     public weak var document: TextDocument?
     public var completer: EnglishCompleter?
+    /// 有它就在后台解码(键盘里);没有就当场同步解(单测、简单宿主)。
+    public var decoder: BackgroundDecoder?
 
     public private(set) var page: KeyboardPage = .letters
     public private(set) var language: InputLanguage
@@ -53,11 +66,27 @@ public final class TypingSession {
     /// 开始拼音那一刻光标前的文字。拼音不写进宿主,所以宿主的文字变了只可能是外部改动;
     /// 没变就是我们自己上一次上屏迟到的 `textDidChange`,不能清掉正在拼的字。
     private var compositionAnchor: String?
+    /// 开始拼音那一刻光标前的完整文字(不含标记文字):给重排器当上文、算上屏后的回声。
+    private var compositionBase: String?
+    /// 现在写在宿主里的标记文字(拼音);空 = 没写。
+    private var marked = ""
+    /// 这一轮写过的标记文字:宿主的回调可能慢一拍,光标前是「开头 + 其中任何一版」都算自己的回声。
+    private var markedHistory: [String] = []
     /// 我们最后一次写宿主(上屏、删除)之后,光标前应有的文字。之后来的 `textDidChange` 是不是它的回声,
     /// 就看光标前的文字是不是正好是它(宿主的 context 可能慢一拍,所以不能只比开始拼音时的锚点)。
     private var expectedEcho: String?
     /// 上一次解码的切分(zhong'guo),预编辑直接用它,不为了显示再解一遍。
     private var segmented = ""
+    /// `candidates` 是对哪一串拼音解出来的:拼音后按标点时直接上屏屏幕上那个首选,不再解一遍。
+    private var candidatesKey: String?
+    /// 这一次事件里光标前的文字。`contextBeforeInput` 要跨进程问宿主,一次按键里只问一次;
+    /// 自己写进去的字按应有的样子续上。每个事件开头清空(宿主可能在两次事件之间变了)。
+    private var cachedContext: String??
+    /// 后台正在解哪一串(同一时间只发一个,回来时拼音又变了就接着解最新的,不排长队)。
+    private var decodingKey: String?
+    /// 组合的「轮次」:上屏、清空、选了一段、换写字对象都加一。后台结果只认发请求时那一轮——
+    /// 光比拼音不够:上屏后再打同样的字母,上文、已选片段、用户词都变了,上一轮的候选不再适用。
+    private var compositionGeneration = 0
     static let doubleTap: TimeInterval = 0.35
 
     public init(engine: PinyinEngine, language: InputLanguage = .chinese) {
@@ -68,11 +97,18 @@ public final class TypingSession {
     public var isComposing: Bool { !composition.isEmpty }
 
     /// 候选栏上方那一行:已选的字 + 剩下拼音的切分(zhong'guo)。
-    public var preedit: String { composition.pieces.map(\.text).joined() + segmented }
+    public var preedit: String {
+        // 候选还没跟上最新的拼音时,剩下那截先原样显示(旧的切分对不上新字母)。
+        composition.pieces.map(\.text).joined() + (candidatesAreCurrent ? segmented : composition.remaining)
+    }
+
+    /// 屏幕上的候选是不是对当前这串拼音解出来的(后台解码时可能慢一拍)。
+    public var candidatesAreCurrent: Bool { candidatesKey == composition.remaining }
 
     // MARK: - 按键
 
     public func handle(_ action: KeyAction, now: Date = Date()) {
+        cachedContext = nil
         if action != .shift {
             lastShiftTap = nil      // 中间按了别的键,就不算双击 shift
             shiftOverridden = false // 位置变了,自动大写重新说了算
@@ -104,13 +140,32 @@ public final class TypingSession {
     /// 选候选栏里的第 i 条。
     public func selectCandidate(at index: Int) {
         guard candidates.indices.contains(index) else { return }
-        if let text = composition.select(candidates[index], engine: engine) { insert(text) }
+        select(candidates[index], decodedFor: candidatesKey ?? composition.remaining)
+    }
+
+    /// 候选是对哪一串拼音解出来的(界面上那颗按钮记着的)。
+    public var candidatesDecodedFor: String? { candidatesKey }
+
+    /// 选一条候选。`key` 是它解出来时的拼音:屏幕上的候选可能比最新拼音慢一拍(后台解码、或按着候选时
+    /// 候选栏没换),点的是什么就上什么——只多打了字母时它照样成立,吃掉它那几个字母、剩下的接着拼;
+    /// 删过字母就对不上了,按文字在最新结果里找,找不到就不选(只刷新候选)。
+    public func select(_ candidate: Candidate, decodedFor key: String) {
+        guard isComposing else { return }
+        cachedContext = nil
+        var picked = candidate
+        if !composition.remaining.hasPrefix(key) {
+            if !candidatesAreCurrent { decodeNow() }
+            guard let same = candidates.first(where: { $0.text == candidate.text }) else { return refresh() }
+            picked = same
+        }
+        if let text = select(picked) { insert(text) }
         refresh()
     }
 
     /// 选一条英文补全:替换掉光标前那半个单词,后面补个空格。
     public func selectSuggestion(_ word: String) {
-        let partial = Self.trailingWord(document?.contextBeforeInput ?? "")
+        cachedContext = nil
+        let partial = Self.trailingWord(contextBefore ?? "")
         for _ in partial { deleteBackwardInDocument() }
         insert(word + " ")
         refresh()
@@ -119,22 +174,34 @@ public final class TypingSession {
     /// 宿主的文字或光标变了(`textDidChange`):只有光标前的文字确实和开始拼音时不一样
     /// (用户点到别处、宿主自己改了内容)才丢掉没上屏的拼音;然后重算自动大写。
     public func documentChanged() {
-        let current = Self.anchor(document?.contextBeforeInput)
+        cachedContext = nil
+        let current = Self.anchor(contextBefore)
         // 只认「光标前正好是我们最后一次编辑后该有的样子」,而且每次回调都把它作废——
         // 不管这次是不是回声,留着旧值以后挪回原处会被误认(codex 复核指出)。
         // 光看后缀也不行:前文里本来就有同样的字时,把光标挪过去也会对上。
         let isEcho = current == expectedEcho
         expectedEcho = nil
         if isComposing, let anchor = compositionAnchor, anchor != current {
-            if isEcho {
+            if usesMarkedText, isMarkedEcho(current) {
+                // 我们写标记文字(拼音)引起的回调:不动
+            } else if isEcho {
                 compositionAnchor = current // 自己上一次编辑的回声:跟上宿主,别清
             } else {
                 // 用户挪了光标、换了输入框、宿主自己改了内容:丢掉没上屏的拼音。
+                // 宿主那边的标记文字归宿主处理(挪光标时它会自己确认掉),这边只是不再认它。
                 composition.clear()
                 compositionAnchor = nil
+                marked = ""
             }
         }
         shiftOverridden = false
+        // 还在拼、拼音没被清掉:候选不会变(拼音不写进宿主),不必重新解码,只重算自动大写。
+        if isComposing, candidatesKey == composition.remaining {
+            updateAutoShift()
+            cachedContext = nil
+            onChange?()
+            return
+        }
         refresh()
     }
 
@@ -142,6 +209,7 @@ public final class TypingSession {
     public func switchDocument(to document: TextDocument) {
         commitRaw()
         self.document = document
+        cachedContext = nil
         expectedEcho = nil // 换了写字的对象,上一边的回声不作数
         refresh()
     }
@@ -154,6 +222,7 @@ public final class TypingSession {
     /// 点了「原样字母」:按显示的那样上屏。
     public func commitRawLetters() {
         guard isComposing else { return }
+        cachedContext = nil
         let text = rawLetters
         composition.clear()
         insert(text)
@@ -172,7 +241,12 @@ public final class TypingSession {
         let upper = shift != .off
         if shift == .once { shift = .off; shiftIsAuto = false }
         if language == .chinese && !upper {
-            if !isComposing { compositionAnchor = Self.anchor(document?.contextBeforeInput) }
+            if !isComposing {
+                let before = contextBefore
+                compositionAnchor = Self.anchor(before)
+                compositionBase = before ?? ""
+                markedHistory = []
+            }
             composition.insert(c)
             return
         }
@@ -184,7 +258,7 @@ public final class TypingSession {
     private func typeText(_ t: String) {
         // 拼到一半打标点/数字:先上首选,和系统拼音一致。
         commitBest()
-        insert(Punctuation.resolveQuote(t, before: document?.contextBeforeInput ?? ""))
+        insert(Punctuation.resolveQuote(t, before: contextBefore ?? ""))
     }
 
     /// 长按「，」:拼音拼到一半时是分隔符(xi'an 和 xian 分开),没在拼时打半角逗号。
@@ -221,7 +295,7 @@ public final class TypingSession {
     private func deleteWord() {
         if isComposing { return composition.backspace() }
         // 宿主不给前文(有的输入框就是拿不到):退回逐字删,长按删除不能停。
-        guard let before = document?.contextBeforeInput, !before.isEmpty else { return deleteBackwardInDocument() }
+        guard let before = contextBefore, !before.isEmpty else { return deleteBackwardInDocument() }
         let count = Self.wordDeletionLength(before)
         for _ in 0..<count { deleteBackwardInDocument() }
     }
@@ -241,8 +315,9 @@ public final class TypingSession {
 
     private func space(now: Date) {
         if isComposing {
+            if !candidatesAreCurrent { decodeNow() }
             if let first = candidates.first {
-                if let text = composition.select(first, engine: engine) { insert(text) }
+                if let text = select(first) { insert(text) }
             } else if composition.remaining.isEmpty {
                 // 分几次选完、又把剩下的字母删光了:只剩已选的字,空格把它们上屏。
                 insert(composition.commitRaw())
@@ -251,7 +326,7 @@ public final class TypingSession {
         }
         // 英文连按两下空格 = 句号 + 空格(系统键盘的习惯)。
         if language == .english, let last = lastSpace, now.timeIntervalSince(last) < 0.6,
-           let before = document?.contextBeforeInput, before.hasSuffix(" "),
+           let before = contextBefore, before.hasSuffix(" "),
            let prev = before.dropLast().last, prev.isLetter || prev.isNumber {
             deleteBackwardInDocument()
             insert(". ")
@@ -274,48 +349,159 @@ public final class TypingSession {
     /// 把整个组合按首选一路选完上屏。
     private func commitBest() {
         while isComposing {
-            let list = engine.candidates(for: composition.remaining, context: context(), limit: 1).candidates
+            // 第一段直接用屏幕上的首选(用户看到的就是它),选完还剩拼音才接着解。
+            let list = candidatesAreCurrent && !candidates.isEmpty
+                ? candidates
+                : decodeSync(composition.remaining, limit: 1).candidates
+            candidatesKey = nil
             guard let first = list.first else { insert(composition.commitRaw()); return }
-            if let text = composition.select(first, engine: engine) { insert(text) }
+            if let text = select(first) { insert(text) }
         }
     }
 
     private func insert(_ text: String) {
         guard !text.isEmpty else { return }
-        let before = document?.contextBeforeInput ?? ""
-        document?.insertText(text)
+        let before: String
+        if !marked.isEmpty {
+            // 拼音写在宿主里:用上屏的字换掉那段标记文字再确认,不是在它后面接着插。
+            before = compositionBase ?? ""
+            document?.setMarkedText(text)
+            document?.unmarkText()
+            marked = ""
+        } else {
+            before = contextBefore ?? ""
+            document?.insertText(text)
+        }
         expectedEcho = Self.anchor(before + text)
+        cachedContext = .some(before + text)
+    }
+
+    private var usesMarkedText: Bool { document?.supportsMarkedText == true }
+
+    /// 宿主里应该写着的拼音:已选的字 + 剩下那截的切分,音节之间用空格(同系统:「ni hao」)。
+    public var markedDisplay: String {
+        composition.pieces.map(\.text).joined()
+            + (candidatesAreCurrent ? segmented : composition.remaining).replacingOccurrences(of: "'", with: " ")
+    }
+
+    /// 拼音写在输入框里时,候选栏上面就不用再放一行拼音了。
+    public var showsPreeditInBar: Bool { !usesMarkedText }
+
+    /// 把宿主里的标记文字对齐到当前的组合(打字母、删字母、解码回来换了切分、组合结束)。
+    private func syncMarkedText() {
+        guard usesMarkedText else { return }
+        let want = isComposing ? markedDisplay : ""
+        guard want != marked else { return }
+        document?.setMarkedText(want)
+        if want.isEmpty {
+            document?.unmarkText() // 删光了:把空的标记确认掉,宿主里不留东西
+        } else {
+            markedHistory.append(want)
+            if markedHistory.count > 32 { markedHistory.removeFirst() }
+        }
+        marked = want
+        cachedContext = nil
+    }
+
+    private func isMarkedEcho(_ current: String) -> Bool {
+        let base = compositionBase ?? ""
+        return current == Self.anchor(base) || markedHistory.contains { current == Self.anchor(base + $0) }
     }
 
     private func deleteBackwardInDocument() {
-        let before = document?.contextBeforeInput ?? ""
+        let before = contextBefore ?? ""
         document?.deleteBackward()
         expectedEcho = Self.anchor(String(before.dropLast()))
+        cachedContext = .some(String(before.dropLast()))
+    }
+
+    /// 光标前的文字,一次事件里只问宿主一次(见 `cachedContext`)。
+    private var contextBefore: String? {
+        if let cached = cachedContext { return cached }
+        let value = document?.contextBeforeInput
+        cachedContext = .some(value)
+        return value
     }
 
     /// 给重排器的上文:光标前最近的一截 + 这次已经选好的几段。
     private func context() -> String {
-        String((document?.contextBeforeInput ?? "").suffix(24)) + composition.pieces.map(\.text).joined()
+        // 拼的时候用开始拼音那一刻的上文:宿主里光标前现在可能连着我们写进去的拼音。
+        let before = isComposing ? (compositionBase ?? contextBefore) : contextBefore
+        return String((before ?? "").suffix(24)) + composition.pieces.map(\.text).joined()
     }
 
     static func anchor(_ context: String?) -> String { String((context ?? "").suffix(48)) }
 
+    /// 选一条候选;整段选完时学进用户词,并把新的用户词交给后台那份引擎。
+    private func select(_ candidate: Candidate) -> String? {
+        let text = composition.select(candidate, engine: engine)
+        compositionGeneration += 1
+        if text != nil { decoder?.setUserDictionary(engine.userDictionary) }
+        return text
+    }
+
+    private func decodeSync(_ input: String, limit: Int = 60) -> PinyinEngine.Result {
+        if let decoder { return decoder.decodeNow(input, context: context(), limit: limit) }
+        return engine.candidates(for: input, context: context(), limit: limit)
+    }
+
+    /// 当场把候选解到最新(上屏那一下用)。
+    private func decodeNow() {
+        guard isComposing, !composition.remaining.isEmpty else { return }
+        let result = decodeSync(composition.remaining)
+        candidates = result.candidates
+        segmented = result.segmented
+        candidatesKey = composition.remaining
+    }
+
+    /// 后台解当前这串;已经有一个在解就等它回来再说(回来时发现拼音变了会接着解最新的)。
+    private func requestDecode() {
+        guard let decoder, decodingKey == nil else { return }
+        let key = composition.remaining
+        let generation = compositionGeneration
+        decodingKey = key
+        decoder.decode(key, context: context()) { [weak self] result in
+            guard let self else { return }
+            self.decodingKey = nil
+            guard self.isComposing, !self.composition.remaining.isEmpty else { return }
+            if self.composition.remaining == key, self.compositionGeneration == generation {
+                self.candidates = result.candidates
+                self.segmented = result.segmented
+                self.candidatesKey = key
+                self.cachedContext = nil
+                self.syncMarkedText() // 切分出来了:输入框里的「nihao」换成「ni hao」
+                self.onChange?()
+            } else if !self.candidatesAreCurrent {
+                self.requestDecode()
+            }
+        }
+    }
+
     private func refresh() {
         if isComposing, !composition.remaining.isEmpty {
-            let result = engine.candidates(for: composition.remaining, context: context())
-            candidates = result.candidates
-            segmented = result.segmented
+            if decoder == nil {
+                let result = engine.candidates(for: composition.remaining, context: context())
+                candidates = result.candidates
+                segmented = result.segmented
+                candidatesKey = composition.remaining
+            } else if !candidatesAreCurrent {
+                requestDecode() // 旧候选先留在屏幕上,解完再换,不闪
+            }
         } else {
             candidates = []
             segmented = ""
+            candidatesKey = nil
+            compositionGeneration += 1 // 这一轮结束了(上屏、清空、换写字对象),还在路上的结果作废
         }
-        if !isComposing { compositionAnchor = nil }
+        syncMarkedText()
+        if !isComposing { compositionAnchor = nil; compositionBase = nil }
         suggestions = []
         if language == .english, !isComposing, let completer {
-            let word = Self.trailingWord(document?.contextBeforeInput ?? "")
+            let word = Self.trailingWord(contextBefore ?? "")
             if word.count >= 1 { suggestions = Array(completer.completions(for: word).prefix(8)) }
         }
         updateAutoShift()
+        cachedContext = nil // 事件结束:下一次再问宿主
         onChange?()
     }
 
@@ -333,7 +519,7 @@ public final class TypingSession {
     }
 
     func shouldAutoCapitalize() -> Bool {
-        let before = document?.contextBeforeInput ?? ""
+        let before = contextBefore ?? ""
         switch autocapitalization {
         case .none: return false
         case .allCharacters: return true

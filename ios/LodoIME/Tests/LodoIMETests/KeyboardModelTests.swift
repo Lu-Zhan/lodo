@@ -249,10 +249,20 @@ extension KeyboardModelTests {
         XCTAssertEqual(doc.text, "see ")
     }
 
-    func testHoldActionsOnPunctuation() {
-        let row = KeyboardLayout.rows(page: .letters, language: .chinese, needsGlobe: false)[3]
-        XCTAssertEqual(row.first { $0.action == .text("，") }?.holdAction, .separator)
-        XCTAssertEqual(row.first { $0.action == .text("。") }?.holdAction, .text("."))
+    /// 第三行照系统键盘:shift / 删除 45pt 贴边,z…m 居中、正好落在 s…k 底下(真机截图)。
+    func testThirdRowEdgeKeysAndAlignedLetters() {
+        let m = KeyboardMetrics.phonePortrait
+        let placed = KeyboardFrames.place(KeyboardLayout.rows(page: .letters, language: .chinese, needsGlobe: false),
+                                          width: 402, metrics: m)
+        func frame(_ a: KeyAction) -> CGRect { placed.first { $0.key.action == a }!.frame }
+        XCTAssertEqual(frame(.shift).minX, m.sideInset, accuracy: 0.5)
+        XCTAssertEqual(frame(.shift).width, m.edgeKeyWidth, accuracy: 0.5)
+        XCTAssertEqual(frame(.delete).maxX, 402 - m.sideInset, accuracy: 0.5)
+        XCTAssertEqual(frame(.letter("z")).width, frame(.letter("q")).width, accuracy: 0.5)
+        XCTAssertEqual(frame(.letter("z")).midX, frame(.letter("s")).midX, accuracy: 0.5)
+        XCTAssertEqual(frame(.letter("m")).midX, frame(.letter("k")).midX, accuracy: 0.5)
+        // 底行:回车 2.5 格,和 o、p 两颗加中间键缝等宽再多半格。
+        XCTAssertEqual(frame(.returnKey).maxX, 402 - m.sideInset, accuracy: 0.5)
     }
 }
 
@@ -336,5 +346,102 @@ extension KeyboardModelTests {
         doc.text = "你好"                  // 再挪回原来上屏的位置
         session.documentChanged()
         XCTAssertFalse(session.isComposing, "作废了的回声不能再被认出来")
+    }
+}
+
+/// 数一共问了宿主几次光标前的文字(扩展里每次都是跨进程)。
+final class CountingDocument: TextDocument {
+    var text = ""
+    var reads = 0
+    var contextBeforeInput: String? { reads += 1; return text }
+    func insertText(_ t: String) { text += t }
+    func deleteBackward() { if !text.isEmpty { text.removeLast() } }
+}
+
+extension KeyboardModelTests {
+    /// 拼音后直接按标点:上屏的是屏幕上那个首选。
+    func testPunctuationCommitsDisplayedFirstCandidate() {
+        type("nihao")
+        let shown = session.candidates.first!.text
+        session.handle(.text("，"))
+        XCTAssertEqual(doc.text, shown + "，")
+    }
+
+    /// 一次按键只问一次宿主;还在拼时宿主的回调不重新解码,候选原样不动。
+    func testContextReadOncePerEventAndEchoSkipsDecode() {
+        let counting = CountingDocument()
+        session.document = counting
+        session.handle(.letter("n"))
+        counting.reads = 0
+        session.handle(.letter("i"))
+        XCTAssertLessThanOrEqual(counting.reads, 1)
+        let before = session.candidates.map(\.text)
+        counting.reads = 0
+        session.documentChanged()
+        XCTAssertEqual(counting.reads, 1)
+        XCTAssertEqual(session.candidates.map(\.text), before)
+        XCTAssertTrue(session.isComposing)
+        counting.reads = 0
+        session.handle(.text("，"))
+        XCTAssertLessThanOrEqual(counting.reads, 1)
+    }
+}
+
+/// 像 UITextView 那样支持标记文字的宿主:光标前的文字连着标记文字一起给。
+final class MarkedDocument: TextDocument {
+    var text = ""
+    var marked = ""
+    var contextBeforeInput: String? { text + marked }
+    func insertText(_ t: String) { text += marked + t; marked = "" }
+    func deleteBackward() { if !marked.isEmpty { marked = "" } else if !text.isEmpty { text.removeLast() } }
+    var supportsMarkedText: Bool { true }
+    func setMarkedText(_ t: String) { marked = t }
+    func unmarkText() { text += marked; marked = "" }
+}
+
+extension KeyboardModelTests {
+    /// 拼音写在输入框里(带空格切分),选完换成汉字;中途宿主回调不清组合。
+    func testPinyinIsMarkedTextInHost() {
+        let host = MarkedDocument()
+        host.text = "说"
+        session.document = host
+        type("nihao")
+        XCTAssertEqual(host.marked, "ni hao")
+        XCTAssertFalse(session.showsPreeditInBar)
+        session.documentChanged() // 写标记文字引起的回调
+        XCTAssertTrue(session.isComposing)
+        session.handle(.space)
+        XCTAssertEqual(host.text, "说" + reference(for: "nihao"))
+        XCTAssertEqual(host.marked, "")
+        session.documentChanged()
+        XCTAssertFalse(session.isComposing)
+    }
+
+    /// 删光拼音:输入框里不留东西。用户挪了光标:组合丢掉。
+    func testMarkedTextClearedOnDeleteAndExternalChange() {
+        let host = MarkedDocument()
+        session.document = host
+        type("ni")
+        session.handle(.delete); session.handle(.delete)
+        XCTAssertEqual(host.marked, "")
+        XCTAssertEqual(host.text, "")
+        type("ni")
+        host.text = "别处"; host.marked = "" // 宿主自己改了内容(挪光标时它会确认掉标记文字)
+        session.documentChanged()
+        XCTAssertFalse(session.isComposing)
+    }
+
+    /// 拼音后按标点:汉字换掉标记文字,标点接在后面。
+    func testPunctuationAfterMarkedPinyin() {
+        let host = MarkedDocument()
+        session.document = host
+        type("nihao")
+        session.handle(.text("，"))
+        XCTAssertEqual(host.text, reference(for: "nihao") + "，")
+        XCTAssertEqual(host.marked, "")
+    }
+
+    private func reference(for input: String) -> String {
+        PinyinEngine(lexicon: EngineTests.lexicon).candidates(for: input).candidates.first!.text
     }
 }

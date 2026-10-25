@@ -9,6 +9,8 @@ struct KeyFace {
     var font: UIFont
     var prominent = false
     var accessibility: String
+    /// 右下角的小字(中文时空格上的「拼」,同系统)。
+    var corner: String? = nil
 }
 
 @MainActor
@@ -17,7 +19,9 @@ protocol KeyAreaDelegate: AnyObject {
     /// 空格横拖要不要进光标模式(拼到一半、面板里都不行:那时照常打空格)。
     func keyAreaCanMoveCursor() -> Bool
     func keyArea(moveCursorBy offset: Int)
-    func keyAreaPlayClick()
+    func keyAreaPlayClick(for action: KeyAction)
+    /// 删除连删的每一下(轻一点的震动)。
+    func keyAreaRepeatFeedback()
 }
 
 /// 整块键区:摆键帽、收所有触摸。触摸不交给每颗键各自处理——那样多指快打、按住滑到隔壁键、
@@ -79,7 +83,7 @@ final class KeyAreaView: UIView {
             v.layer.cornerRadius = metrics.cornerRadius
             let f = face(p.key)
             v.configure(title: f.title, symbol: f.symbol, font: f.font, prominent: f.prominent,
-                        hint: p.key.holdHint, accessibility: f.accessibility)
+                        hint: p.key.holdHint, corner: f.corner, accessibility: f.accessibility)
             let action = p.key.action
             v.onActivate = { [weak self] in self?.delegate?.keyArea(trigger: action) }
             if action == .nextKeyboard {
@@ -168,7 +172,7 @@ final class KeyAreaView: UIView {
     private func press(_ i: Int, touch: UITouch, clicks: Bool = true) {
         let key = placed[i].key
         keyViews[i].isPressed = true
-        if clicks { delegate?.keyAreaPlayClick() }
+        if clicks { delegate?.keyAreaPlayClick(for: key.action) }
         if key.showsCallout && showsCallouts, let text = keyViews[i].accessibilityLabel {
             callout.show(text, over: placed[i].frame, in: bounds, cornerRadius: metrics.cornerRadius)
         }
@@ -251,6 +255,7 @@ final class KeyAreaView: UIView {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.delegate?.keyArea(trigger: action)
+                self.delegate?.keyAreaRepeatFeedback()
                 self.repeatCount += 1
                 if action == .delete, self.repeatCount == 12 {
                     self.repeatTimer?.invalidate()

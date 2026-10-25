@@ -125,6 +125,16 @@ public enum KeyboardExchange {
 
     /// 键盘的「按键震动」开关(主 app 设置里改,默认开)。
     public static let hapticsKey = "keyboardHaptics"
+    /// 按键震动的强度(0.1…1.0,默认 0.6)。存储值别改。
+    public static let hapticsIntensityKey = "keyboardHapticsIntensity"
+    public static let defaultHapticsIntensity = 0.6
+    public static let hapticsIntensityRange: ClosedRange<Double> = 0.1...1.0
+
+    /// 读出来的强度:没存过、类型不对、不是有限数时用默认值,越界的夹回范围里。
+    public static func hapticsIntensity(from raw: Any?) -> Double {
+        guard let value = (raw as? NSNumber)?.doubleValue, value.isFinite else { return defaultHapticsIntensity }
+        return min(max(value, hapticsIntensityRange.lowerBound), hapticsIntensityRange.upperBound)
+    }
 
     // MARK: - 设置镜像
 

@@ -10,6 +10,8 @@ final class KeyView: UIView {
     private let imageView = UIImageView()
     /// 右上角的长按提示(「，」上的 ')。
     private let hintLabel = UILabel()
+    /// 右下角的小字(空格上的「拼」)。
+    private let cornerLabel = UILabel()
     private var prominent = false
 
     var isPressed = false { didSet { if isPressed != oldValue { applyColors() } } }
@@ -27,6 +29,10 @@ final class KeyView: UIView {
         hintLabel.font = .systemFont(ofSize: 11)
         hintLabel.textColor = .secondaryLabel
         hintLabel.textAlignment = .right
+        cornerLabel.font = .systemFont(ofSize: 12)
+        cornerLabel.textColor = .secondaryLabel
+        cornerLabel.textAlignment = .right
+        addSubview(cornerLabel)
         addSubview(label)
         addSubview(imageView)
         addSubview(hintLabel)
@@ -42,10 +48,12 @@ final class KeyView: UIView {
 
     /// 文字或符号图标二选一。`prominent` = 蓝底白字(回车在搜索/发送时)。
     func configure(title: NSAttributedString?, symbol: String?, font: UIFont, prominent: Bool,
-                   hint: String? = nil, accessibility: String) {
+                   hint: String? = nil, corner: String? = nil, accessibility: String) {
         self.prominent = prominent
         hintLabel.text = hint
         hintLabel.isHidden = hint == nil
+        cornerLabel.text = corner
+        cornerLabel.isHidden = corner == nil
         // 调用方没指定字体的那几段用默认字体(「中/英」两段各有字号)。
         let text = NSMutableAttributedString(attributedString: title ?? NSAttributedString())
         text.enumerateAttribute(.font, in: NSRange(location: 0, length: text.length)) { value, range, _ in
@@ -88,6 +96,7 @@ final class KeyView: UIView {
         label.frame = bounds.insetBy(dx: 2, dy: 0)
         imageView.frame = bounds
         hintLabel.frame = CGRect(x: 0, y: 2, width: bounds.width - 5, height: 13)
+        cornerLabel.frame = CGRect(x: 0, y: bounds.height - 17, width: bounds.width - 7, height: 15)
     }
 
 

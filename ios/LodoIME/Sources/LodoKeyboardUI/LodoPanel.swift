@@ -34,10 +34,21 @@ public protocol LodoServices: AnyObject {
 /// 面板里那一个输入框背后的文字。
 final class PanelDocument: TextDocument {
     var text = "" { didSet { onChange?() } }
+    /// 正在拼的拼音,接在 `text` 后面显示(同宿主输入框里的标记文字)。
+    private(set) var marked = "" { didSet { onChange?() } }
     var onChange: (() -> Void)?
     var contextBeforeInput: String? { text }
+    /// 输入框里显示的:已经打好的字 + 还在拼的拼音。
+    var display: String { text + marked }
     func insertText(_ t: String) { text += t }
     func deleteBackward() { if !text.isEmpty { text.removeLast() } }
+    var supportsMarkedText: Bool { true }
+    func setMarkedText(_ t: String) { marked = t }
+    func unmarkText() {
+        let m = marked
+        marked = ""
+        text += m
+    }
 }
 
 /// 候选栏上面多出来的一行:[关闭] [输入胶囊:问题或一句话] [发送]。

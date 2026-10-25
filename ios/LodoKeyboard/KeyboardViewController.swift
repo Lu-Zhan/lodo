@@ -56,6 +56,8 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         services?.reload()
         keyboard.setFuzzy(FuzzyOptions(rawValue: KeyboardExchange.shared?.integer(forKey: KeyboardExchange.fuzzyKey) ?? 0))
         keyboard.hapticsEnabled = KeyboardExchange.shared?.object(forKey: KeyboardExchange.hapticsKey) as? Bool ?? true
+        keyboard.hapticsIntensity = KeyboardExchange.hapticsIntensity(
+            from: KeyboardExchange.shared?.object(forKey: KeyboardExchange.hapticsIntensityKey))
         if let theme = KeyboardExchange.loadTheme() {
             let accent = KeyboardAccent.dynamic(light: theme.accentLight, dark: theme.accentDark)
             keyboard.accent = KeyboardAccent(
@@ -95,4 +97,10 @@ private final class ProxyDocument: TextDocument {
     var contextBeforeInput: String? { controller.textDocumentProxy.documentContextBeforeInput }
     func insertText(_ text: String) { controller.textDocumentProxy.insertText(text) }
     func deleteBackward() { controller.textDocumentProxy.deleteBackward() }
+    /// 拼音写成输入框里的标记文字(带下划线),同系统拼音键盘;光标放在末尾。
+    var supportsMarkedText: Bool { true }
+    func setMarkedText(_ text: String) {
+        controller.textDocumentProxy.setMarkedText(text, selectedRange: NSRange(location: (text as NSString).length, length: 0))
+    }
+    func unmarkText() { controller.textDocumentProxy.unmarkText() }
 }

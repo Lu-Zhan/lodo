@@ -7365,6 +7365,86 @@
         }
       }
     },
+    "震动强度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haptic Strength"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "震动强度"
+          }
+        }
+      }
+    },
+    "轻" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Light"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻"
+          }
+        }
+      }
+    },
+    "强" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Strong"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "强"
+          }
+        }
+      }
+    },
+    "试一下" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try It"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试一下"
+          }
+        }
+      }
+    },
+    "要开了「允许完全访问」才会震,不开也能正常打字;这里的预览不代表键盘已经拿到权限。下次弹出键盘时生效。键盘的颜色跟着这里选的强调色。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haptics need “Allow Full Access”; typing works without it. This preview doesn’t mean the keyboard has that access. Changes apply the next time the keyboard appears. The keyboard uses the accent color chosen here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要开了「允许完全访问」才会震,不开也能正常打字;这里的预览不代表键盘已经拿到权限。下次弹出键盘时生效。键盘的颜色跟着这里选的强调色。"
+          }
+        }
+      }
+    },
     "最久拖了 %lld 天" : {
       "localizations" : {
         "en" : {

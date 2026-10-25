@@ -88,8 +88,16 @@ public final class KeyboardController: NSObject {
     }
 
     /// 按键震动(主 app 设置里的开关)。系统只在开了「完全访问」时才让键盘扩展震动,没开时这是空操作。
-    public var hapticsEnabled = true
-    private lazy var haptics = UIImpactFeedbackGenerator(style: .light)
+    public var hapticsEnabled: Bool {
+        get { haptics.enabled }
+        set { haptics.enabled = newValue }
+    }
+    /// 震动强度(0.1…1.0),主 app 设置里的滑块。
+    public var hapticsIntensity: Double {
+        get { Double(haptics.intensity) }
+        set { haptics.intensity = CGFloat(newValue) }
+    }
+    private let haptics = KeyboardHaptics()
 
     /// ✨ 背后的实现;nil = 不显示这颗键(截图 demo 可以给假的)。
     public weak var services: LodoServices? { didSet { render() } }
@@ -118,6 +126,7 @@ public final class KeyboardController: NSObject {
     private var savedVersion = 0
     private var saveTimer: Timer?
     private let saver = UserDictionarySaver()
+    private let decoder: BackgroundDecoder
     /// 常驻最上层的地球键(位置跟着键区里那颗走),见 `KeyAreaView.globeFrame`。
     private let globeButton = UIButton(type: .custom)
 
@@ -132,14 +141,17 @@ public final class KeyboardController: NSObject {
         }
         let engine = PinyinEngine(lexicon: try Lexicon.bundled(), userDictionary: dict)
         session = TypingSession(engine: engine)
+        // 解码在后台做,按键不等它(主线程那份引擎只管组合态和用户词学习)。
+        decoder = BackgroundDecoder(lexicon: engine.lexicon, userDictionary: dict)
         super.init()
+        session.decoder = decoder
         session.document = host.document
         session.completer = TextCheckerCompleter()
         session.onChange = { [weak self] in self?.render() }
         // 模型 5 MB,读进来要几十毫秒,别挡键盘出现;载入前照样能打字,只是没有重排。
         Task.detached(priority: .userInitiated) {
             let model = ModelReranker.bundled()
-            await MainActor.run { [weak self] in self?.session.engine.reranker = model }
+            await MainActor.run { [weak self] in self?.decoder.setReranker(model) }
         }
 
         // 扩展里根视图四边钉在系统给的 inputView 上(见 KeyboardViewController),这里只加一条高度约束。
@@ -188,6 +200,7 @@ public final class KeyboardController: NSObject {
             session.handle(.toggleLanguage)
         }
         textDidChange()
+        haptics.prepare()
     }
 
     /// 键盘收起:没选的拼音原样留在输入框里,用户词落盘。
@@ -199,7 +212,9 @@ public final class KeyboardController: NSObject {
 
     /// 扩展常驻期间主 app 可能改了设置:每次弹出键盘时由扩展调。
     public func setFuzzy(_ options: FuzzyOptions) {
-        if session.engine.fuzzy != options { session.engine.fuzzy = options }
+        guard session.engine.fuzzy != options else { return }
+        session.engine.fuzzy = options
+        decoder.setFuzzy(options)
     }
 
     public func layout() {
@@ -238,17 +253,36 @@ public final class KeyboardController: NSObject {
 
     // MARK: - 画
 
+    /// 键帽长什么样只取决于这几样。打拼音时它们都不变,不必每个字母都把三十多颗键帽重新配一遍。
+    private struct KeyFaceState: Equatable {
+        var page: KeyboardPage
+        var language: InputLanguage
+        var shift: ShiftState
+        var needsGlobe: Bool
+        var returnKeyType: UIReturnKeyType
+        var width: CGFloat
+        var keyHeight: CGFloat
+    }
+    private var keyFaceState: KeyFaceState?
+
     private func render() {
         guard keys.bounds.width > 0 else { return }
         let needsGlobe = host?.needsInputModeSwitchKey ?? false
-        let rows = KeyboardLayout.rows(page: session.page, language: session.language, needsGlobe: needsGlobe)
-        keys.setRows(rows) { [unowned self] in face(for: $0) }
+        let state = KeyFaceState(page: session.page, language: session.language, shift: session.shift,
+                                 needsGlobe: needsGlobe, returnKeyType: host?.returnKeyType ?? .default,
+                                 width: keys.bounds.width, keyHeight: keys.metrics.keyHeight)
+        if state != keyFaceState {
+            keyFaceState = state
+            let rows = KeyboardLayout.rows(page: session.page, language: session.language, needsGlobe: needsGlobe)
+            keys.setRows(rows) { [unowned self] in face(for: $0) }
+        }
         bar.showsLodoKeys = services != nil && !panelVisible
-        let items = displayedItems()
+        let items = displayedChoices()
         if session.isComposing {
-            bar.show(preedit: session.preedit, items: items, secondaryIndex: rawCandidateIndex)
+            bar.show(preedit: session.showsPreeditInBar ? session.preedit : nil, composing: true,
+                     choices: items, secondaryIndex: rawCandidateIndex)
         } else {
-            bar.show(preedit: nil, items: items)
+            bar.show(preedit: nil, composing: false, choices: items)
         }
         if items.isEmpty { setExpanded(false) } else if !grid.isHidden { grid.show(items) }
         placeGlobe()
@@ -259,10 +293,13 @@ public final class KeyboardController: NSObject {
         session.isComposing && !session.composition.remaining.isEmpty && !session.candidates.isEmpty ? 1 : nil
     }
 
-    private func displayedItems() -> [String] {
-        guard session.isComposing else { return session.suggestions }
-        var items = session.candidates.map(\.text)
-        if let raw = rawCandidateIndex { items.insert(session.rawLetters, at: raw) }
+    /// 候选栏里的每一项,连同点了之后做什么。按钮记着的是这一项本身而不是下标:
+    /// 后台解码回来、按着候选时候选栏不换,下标对到的可能已经是另一份候选。
+    private func displayedChoices() -> [CandidateChoice] {
+        guard session.isComposing else { return session.suggestions.map { .suggestion($0) } }
+        let key = session.candidatesDecodedFor ?? session.composition.remaining
+        var items: [CandidateChoice] = session.candidates.map { .candidate($0, key: key) }
+        if let raw = rawCandidateIndex { items.insert(.raw(session.rawLetters), at: raw) }
         return items
     }
 
@@ -300,7 +337,12 @@ public final class KeyboardController: NSObject {
         case .nextKeyboard:
             return KeyFace(symbol: "globe", font: KeyboardAppearance.functionFont, accessibility: String(localized: "下一个键盘"))
         case .space:
-            return text(zh ? "空格" : "space")
+            // 中文时同系统:空格上不写字,右下角一个小「拼」。
+            guard zh else { return text("space") }
+            var f = text("")
+            f.accessibility = String(localized: "空格")
+            f.corner = "拼"
+            return f
         case .page(let p):
             switch p {
             case .letters: return text(zh ? "拼音" : "ABC")
@@ -318,6 +360,11 @@ public final class KeyboardController: NSObject {
             return KeyFace(title: s, font: KeyboardAppearance.functionFont, accessibility: String(localized: "中英文切换"))
         case .returnKey:
             let type = host?.returnKeyType ?? .default
+            if [.search, .google, .yahoo].contains(type) {
+                // 系统键盘搜索时回车是放大镜。
+                return KeyFace(symbol: "magnifyingglass", font: KeyboardAppearance.functionFont, prominent: true,
+                               accessibility: Self.returnTitle(type, chinese: zh))
+            }
             var f = text(Self.returnTitle(type, chinese: zh))
             f.prominent = ![.default, .continue].contains(type)
             return f
@@ -388,7 +435,7 @@ public final class KeyboardController: NSObject {
         case .ask:
             let send = LodoPanelRow.iconButton("arrow.up", label: String(localized: "发送")) { [weak self] in self?.submitAsk() }
             send.isEnabled = !panelDocument.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            panelRow.showInput(text: panelDocument.text,
+            panelRow.showInput(text: panelDocument.display,
                                placeholder: String(localized: "问 lodo…"), buttons: [send])
         case .thinking(let question):
             panelRow.showMessage(text: question, busy: true)
@@ -475,24 +522,21 @@ public final class KeyboardController: NSObject {
         bar.isExpanded = on
         grid.isHidden = !on
         keys.isHidden = on || !replyView.isHidden
-        if on { grid.show(displayedItems(), resetScroll: true) }
+        if on { grid.show(displayedChoices(), resetScroll: true) }
         placeGlobe()
     }
 
-    private func selectCandidate(_ i: Int) {
+    private func selectCandidate(_ choice: CandidateChoice) {
         resumeEditingIfThinking() // 等回答时选词也是在改问题
-        if session.isComposing {
-            if let raw = rawCandidateIndex, i >= raw {
-                if i == raw { session.commitRawLetters() } else { session.selectCandidate(at: i - 1) }
-            } else {
-                session.selectCandidate(at: i)
-            }
-            if !session.isComposing { didCommit() }
-        } else if session.suggestions.indices.contains(i) {
-            session.selectSuggestion(session.suggestions[i])
+        let wasComposing = session.isComposing
+        switch choice {
+        case .candidate(let c, let key): session.select(c, decodedFor: key)
+        case .raw: session.commitRawLetters()
+        case .suggestion(let word): session.selectSuggestion(word)
         }
-        setExpanded(false)
-        render()
+        if wasComposing && !session.isComposing { didCommit() }
+        haptics.play(.candidate)
+        setExpanded(false) // 选词时 session 已经刷新过一遍了,这里不用再 render
     }
 
     /// 上屏学了词:扩展随时可能被系统杀掉,停手 3 秒就存一次(键盘收起时立刻存)。
@@ -515,7 +559,10 @@ public final class KeyboardController: NSObject {
         }
     }
 
-    @objc private func accessibilityChanged() { render() }
+    @objc private func accessibilityChanged() {
+        keyFaceState = nil // 键帽配色/描边跟着辅助功能设置变
+        render()
+    }
 
     // MARK: - 截图 / 演示用(LodoKeyboardDemo),扩展里不调
 
@@ -531,7 +578,9 @@ public final class KeyboardController: NSObject {
             case "@": keyArea(trigger: .page(.symbols))
             case "~": keyArea(trigger: .toggleLanguage)
             case "^": keyArea(trigger: .shift)
-            case "1"..."9": selectCandidate(Int(String(ch))! - 1)
+            case "1"..."9":
+                let choices = displayedChoices(), i = Int(String(ch))! - 1
+                if choices.indices.contains(i) { selectCandidate(choices[i]) }
             default: keyArea(trigger: .letter(ch))
             }
         }
@@ -567,17 +616,20 @@ extension KeyboardController: KeyAreaDelegate {
         host?.moveCursor(by: offset)
     }
 
-    func keyAreaPlayClick() {
+    func keyAreaPlayClick(for action: KeyAction) {
         UIDevice.current.playInputClick()
-        if hapticsEnabled {
-            haptics.impactOccurred(intensity: 0.6)
-            haptics.prepare() // 下一下按键跟手
+        switch action {
+        case .space: haptics.play(.space)
+        case .delete: haptics.play(.delete)
+        default: haptics.play(.key)
         }
     }
+
+    func keyAreaRepeatFeedback() { haptics.play(.repeatDelete) }
 }
 
 extension KeyboardController: CandidateBarDelegate {
-    func candidateBar(select index: Int) { selectCandidate(index) }
+    func candidateBar(select choice: CandidateChoice) { selectCandidate(choice) }
     func candidateBarToggleExpanded() { setExpanded(grid.isHidden) }
     func candidateBarAsk() { openAsk() }
 }

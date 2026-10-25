@@ -44,18 +44,22 @@ public struct Key: Hashable, Sendable {
     public let holdAction: KeyAction?
     /// 角上的小字提示。
     public let holdHint: String?
+    /// 钉在行的最左/最右、宽度取 `KeyboardMetrics.edgeKeyWidth`,中间的键照常按格子居中
+    /// (系统键盘第三行:shift、删除贴边,z…m 和上面两行对齐,中间留出空隙)。
+    public let edgeAnchored: Bool
     /// 按下时弹出放大气泡(只有字符键弹)。
     public var showsCallout: Bool {
         switch action { case .letter, .text: !isFunction; default: false }
     }
 
     public init(_ action: KeyAction, width: CGFloat = 1, isFunction: Bool = false,
-                hold: KeyAction? = nil, hint: String? = nil) {
+                hold: KeyAction? = nil, hint: String? = nil, edge: Bool = false) {
         self.action = action
         self.width = width
         self.isFunction = isFunction
         self.holdAction = hold
         self.holdHint = hint
+        self.edgeAnchored = edge
     }
 }
 
@@ -73,29 +77,26 @@ public enum KeyboardLayout {
     static func textRow(_ items: [String]) -> [Key] { items.map { Key(.text($0)) } }
 
     static func letters(language: InputLanguage, needsGlobe: Bool) -> [[Key]] {
-        let p = Punctuation.table(language)
+        // 照 iOS 系统拼音键盘:底行 123 / (地球) / 中英 / 空格 / 回车,回车 2.5 格;
+        // 标点去 123 页打(系统键盘字母页也没有逗号句号)。
         var bottom: [Key] = [Key(.page(.numbers), width: 1.25, isFunction: true)]
-        if needsGlobe { bottom.append(Key(.nextKeyboard, isFunction: true)) }
-        bottom.append(Key(.toggleLanguage, width: needsGlobe ? 1 : 1.25, isFunction: true))
-        // 中文页空格两边给常用的逗号句号:打中文时这两个最常用,不用每次切到 123。
-        // 长按:逗号 → 拼音分隔符 / 半角逗号,句号 → 半角句点。
-        if language == .chinese { bottom.append(Key(.text(p.comma), hold: .separator, hint: "'")) }
+        if needsGlobe { bottom.append(Key(.nextKeyboard, width: 1.25, isFunction: true)) }
+        bottom.append(Key(.toggleLanguage, width: 1.25, isFunction: true))
         bottom.append(Key(.space, width: 0))
-        if language == .chinese { bottom.append(Key(.text(p.period), hold: .text("."), hint: ".")) }
-        bottom.append(Key(.returnKey, width: 1.75, isFunction: true))
+        bottom.append(Key(.returnKey, width: 2.5, isFunction: true))
         return [
             letterRow("qwertyuiop"),
             letterRow("asdfghjkl"),
-            [Key(.shift, width: 1.5, isFunction: true)] + letterRow("zxcvbnm") + [Key(.delete, width: 1.5, isFunction: true)],
+            [Key(.shift, isFunction: true, edge: true)] + letterRow("zxcvbnm") + [Key(.delete, isFunction: true, edge: true)],
             bottom,
         ]
     }
 
     static func bottomRow(back: KeyboardPage, needsGlobe: Bool) -> [Key] {
-        var row: [Key] = [Key(.page(back), width: 1.25, isFunction: true)]
+        var row: [Key] = [Key(.page(back), width: needsGlobe ? 1.25 : 2.5, isFunction: true)]
         if needsGlobe { row.append(Key(.nextKeyboard, width: 1.25, isFunction: true)) }
         row.append(Key(.space, width: 0))
-        row.append(Key(.returnKey, width: 1.75, isFunction: true))
+        row.append(Key(.returnKey, width: 2.5, isFunction: true))
         return row
     }
 
@@ -149,15 +150,20 @@ public struct KeyboardMetrics: Sendable {
     public var bottomInset: CGFloat
     public var cornerRadius: CGFloat
     public var candidateBarHeight: CGFloat
+    /// 第三行贴边的 shift / 删除有多宽(`Key.edgeAnchored`)。
+    public var edgeKeyWidth: CGFloat
 
-    /// 竖屏数值是用户真机试用后定的:键帽 44、键缝 6、两边 6、行距 6、顶部留 8、底部不留;
-    /// 候选栏 40 = 拼音行 20 + 候选字 20(`CandidateBarView.preeditStrip`)。
-    public static let phonePortrait = KeyboardMetrics(keyHeight: 44, rowSpacing: 6, keySpacing: 6, sideInset: 6,
-                                                      topInset: 8, bottomInset: 0, cornerRadius: 8.5, candidateBarHeight: 40)
+    /// 竖屏照 iOS 27 系统拼音键盘的真机截图量的(402pt 宽):字母键 33.4 宽 42 高、键缝 6、行距 12、两边 7;
+    /// 第三行 shift / 删除 45 宽贴边;候选栏 53(首选垫一块 36 高的圆角底)。
+    public static let phonePortrait = KeyboardMetrics(keyHeight: 42, rowSpacing: 12, keySpacing: 6, sideInset: 7,
+                                                      topInset: 0, bottomInset: 0, cornerRadius: 8.5,
+                                                      candidateBarHeight: 53, edgeKeyWidth: 45)
     public static let phoneLandscape = KeyboardMetrics(keyHeight: 34, rowSpacing: 6, keySpacing: 4, sideInset: 3,
-                                                       topInset: 5, bottomInset: 3, cornerRadius: 7, candidateBarHeight: 32)
+                                                       topInset: 5, bottomInset: 3, cornerRadius: 7,
+                                                       candidateBarHeight: 36, edgeKeyWidth: 0)
     public static let pad = KeyboardMetrics(keyHeight: 58, rowSpacing: 9, keySpacing: 10, sideInset: 7,
-                                            topInset: 8, bottomInset: 8, cornerRadius: 9, candidateBarHeight: 44)
+                                            topInset: 8, bottomInset: 8, cornerRadius: 9,
+                                            candidateBarHeight: 50, edgeKeyWidth: 0)
 
     /// 键区(不含候选栏)的总高度。
     public func keyAreaHeight(rows: Int) -> CGFloat {
@@ -190,20 +196,36 @@ public enum KeyboardFrames {
                                 hold: k.holdAction, hint: k.holdHint)
             }
             let y = m.topInset + CGFloat(r) * (m.keyHeight + m.rowSpacing)
-            let rowUnits = row.reduce(0) { $0 + $1.width }
-            let rowWidth = rowUnits * unit + CGFloat(row.count - 1) * m.keySpacing
-                + (rowUnits - CGFloat(row.count)) * m.keySpacing // 宽键占掉的键缝也算进去
-            var x = m.sideInset + (available - rowWidth) / 2
             let top = r == 0 ? 0 : y - m.rowSpacing / 2
             let bottom = r == rows.count - 1 ? m.keyAreaHeight(rows: rows.count) : y + m.keyHeight + m.rowSpacing / 2
-            for (i, key) in row.enumerated() {
+            // 贴边的键(第三行 shift / 删除)单独摆;中间的键照常按格子居中,和上面几行对齐。
+            // `edgeKeyWidth` 为 0(横屏、iPad)时退回普通排法:按 1.5 格接在一起。
+            let anchored = m.edgeKeyWidth > 0 && row.contains(where: \.edgeAnchored)
+            let middle = anchored ? row.filter { !$0.edgeAnchored } : row.map {
+                $0.edgeAnchored ? Key($0.action, width: 1.5, isFunction: $0.isFunction, hold: $0.holdAction, hint: $0.holdHint) : $0
+            }
+            let rowUnits = middle.reduce(0) { $0 + $1.width }
+            let rowWidth = rowUnits * unit + CGFloat(middle.count - 1) * m.keySpacing
+                + (rowUnits - CGFloat(middle.count)) * m.keySpacing // 宽键占掉的键缝也算进去
+            var x = m.sideInset + (available - rowWidth) / 2
+            var frames: [(Key, CGRect)] = []
+            if anchored, let first = row.first, first.edgeAnchored {
+                frames.append((first, CGRect(x: m.sideInset, y: y, width: m.edgeKeyWidth, height: m.keyHeight)))
+            }
+            for key in middle {
                 let w = key.width * unit + (key.width - 1) * m.keySpacing
-                let frame = CGRect(x: x, y: y, width: w, height: m.keyHeight)
-                let left = i == 0 ? 0 : x - m.keySpacing / 2
-                let right = i == row.count - 1 ? width : x + w + m.keySpacing / 2
+                frames.append((key, CGRect(x: x, y: y, width: w, height: m.keyHeight)))
+                x += w + m.keySpacing
+            }
+            if anchored, let last = row.last, last.edgeAnchored {
+                frames.append((last, CGRect(x: width - m.sideInset - m.edgeKeyWidth, y: y, width: m.edgeKeyWidth, height: m.keyHeight)))
+            }
+            // 触摸范围:向左右扩到和邻键的中线(贴边键和字母之间的空隙两边各分一半)。
+            for (i, (key, frame)) in frames.enumerated() {
+                let left = i == 0 ? 0 : (frames[i - 1].1.maxX + frame.minX) / 2
+                let right = i == frames.count - 1 ? width : (frame.maxX + frames[i + 1].1.minX) / 2
                 out.append(PlacedKey(key: key, frame: frame,
                                      hitFrame: CGRect(x: left, y: top, width: right - left, height: bottom - top)))
-                x += w + m.keySpacing
             }
         }
         return out
