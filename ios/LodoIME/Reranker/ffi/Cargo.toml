@@ -1,0 +1,21 @@
+[package]
+name = "lodo-reranker-ffi"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "lodo_reranker"
+crate-type = ["staticlib"]
+
+[dependencies]
+# 上游推理参考实现(reference/,Apache-2.0)。固定 commit,升级时同时核对权重 sha256。
+chinese-ime-lm = { git = "https://github.com/metasequoiaime/chinese-ime-lm", rev = "b97e99cbaa4a1a358158d717ffd434c472d5d5ca" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

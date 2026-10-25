@@ -1,0 +1,5 @@
+module LodoRerankerFFI {
+    header "lodo_reranker.h"
+    link "lodo_reranker"
+    export *
+}

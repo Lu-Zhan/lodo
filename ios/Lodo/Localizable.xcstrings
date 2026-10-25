@@ -33,6 +33,22 @@
         }
       }
     },
+    "AOSP 谷歌拼音词库" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AOSP Google Pinyin dictionary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AOSP 谷歌拼音词库"
+          }
+        }
+      }
+    },
     "—" : {
       "localizations" : {
         "en" : {
@@ -68,6 +84,22 @@
         }
       }
     },
+    "✨:问 lodo 一个问题,答案可以直接插进正在写的地方。发给你在 lodo 里设置的 AI 服务的,只有你的问题、这次前面几轮对话,和从记忆里检索到的相关摘录;不发任务列表。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✨: Ask lodo a question and insert the answer where you’re typing. Only your question, earlier turns in this panel, and related excerpts found in your memories are sent to the AI service set in lodo—never your task list."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✨:问 lodo 一个问题,答案可以直接插进正在写的地方。发给你在 lodo 里设置的 AI 服务的,只有你的问题、这次前面几轮对话,和从记忆里检索到的相关摘录;不发任务列表。"
+          }
+        }
+      }
+    },
     "、" : {
       "localizations" : {
         "en" : {
@@ -80,6 +112,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "、"
+          }
+        }
+      }
+    },
+    "mozillazg/pinyin-data、phrase-pinyin-data" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mozillazg/pinyin-data, phrase-pinyin-data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mozillazg/pinyin-data、phrase-pinyin-data"
           }
         }
       }
@@ -2249,6 +2297,22 @@
         }
       }
     },
+    "jieba 词典" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "jieba dictionary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "jieba 词典"
+          }
+        }
+      }
+    },
     "lodo 键盘" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2954,6 +3018,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不定期的不折算进每月收支,只在列表里记着。"
+          }
+        }
+      }
+    },
+    "不开也能正常打字,拼音和学到的词都只存在键盘自己那里。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Typing works without it. Pinyin and learned words stay inside the keyboard."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不开也能正常打字,拼音和学到的词都只存在键盘自己那里。"
           }
         }
       }
@@ -5672,6 +5752,22 @@
         }
       }
     },
+    "归在健康、体检报告、体重秤报告、资产这几类的记忆不会给键盘;其他记忆里的相关摘录可能被用来回答。你打过的词只在本机用来调整候选顺序,不会上传。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memories filed as health, checkup reports, scale reports or assets are never shared with the keyboard; excerpts from your other memories may be used to answer. Words you type only reorder candidates on this device and are never uploaded."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "归在健康、体检报告、体重秤报告、资产这几类的记忆不会给键盘;其他记忆里的相关摘录可能被用来回答。你打过的词只在本机用来调整候选顺序,不会上传。"
+          }
+        }
+      }
+    },
     "健康分析" : {
       "localizations" : {
         "en" : {
@@ -7221,6 +7317,22 @@
         }
       }
     },
+    "想用 ✨ 问 lodo,再点进「lodo」打开「允许完全访问」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To ask lodo with ✨, tap lodo and turn on Allow Full Access"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想用 ✨ 问 lodo,再点进「lodo」打开「允许完全访问」"
+          }
+        }
+      }
+    },
     "打开后读取健康 App 里的经期(不需要开健康分析),并把在 lodo 里记的经期和出血量写进健康 App。" : {
       "localizations" : {
         "en" : {
@@ -7233,6 +7345,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开后读取健康 App 里的经期(不需要开健康分析),并把在 lodo 里记的经期和出血量写进健康 App。"
+          }
+        }
+      }
+    },
+    "按键震动" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haptic Feedback"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按键震动"
           }
         }
       }
@@ -7755,6 +7883,22 @@
     },
     "分 RSS" : {
 
+    },
+    "分不清前后鼻音、平翘舌时打开对应的几项;下次弹出键盘时生效。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on the pairs you tend to mix up. Takes effect the next time the keyboard appears."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分不清前后鼻音、平翘舌时打开对应的几项;下次弹出键盘时生效。"
+          }
+        }
+      }
     },
     "分享" : {
       "localizations" : {
@@ -12072,6 +12216,22 @@
         }
       }
     },
+    "完全访问" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full Access"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完全访问"
+          }
+        }
+      }
+    },
     "完成" : {
       "localizations" : {
         "en" : {
@@ -16275,6 +16435,22 @@
         }
       }
     },
+    "打字时在键盘左下角(或底部)的地球键切换到 lodo。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "While typing, switch to lodo with the globe key."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打字时在键盘左下角(或底部)的地球键切换到 lodo。"
+          }
+        }
+      }
+    },
     "打开" : {
       "localizations" : {
         "en" : {
@@ -16356,6 +16532,22 @@
         }
       }
     },
+    "打开「设置」→「通用」→「键盘」→「键盘」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings → General → Keyboard → Keyboards"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开「设置」→「通用」→「键盘」→「键盘」"
+          }
+        }
+      }
+    },
     "打开参考新闻" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -16385,6 +16577,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开的几类可以在 iPhone 下拉搜索(Spotlight)里直接搜到,点结果进到 lodo 里那一条。资产默认不显示;体检、用药、经期这些健康数据不会出现在系统搜索里。"
+          }
+        }
+      }
+    },
+    "打开系统设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开系统设置"
           }
         }
       }
@@ -16694,6 +16902,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "拖得最久:「%@」%lld 天"
+          }
+        }
+      }
+    },
+    "拼音重排模型 chinese-ime-lm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinyin reranking model chinese-ime-lm"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拼音重排模型 chinese-ime-lm"
           }
         }
       }
@@ -21200,6 +21424,22 @@
         }
       }
     },
+    "模糊音" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fuzzy Pinyin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模糊音"
+          }
+        }
+      }
+    },
     "次/分" : {
 
     },
@@ -23789,6 +24029,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "点「搜索」选地点才会记下坐标,地图上才画得出这个点;只手打名字也能存,只是不上地图。"
+          }
+        }
+      }
+    },
+    "点「添加新键盘…」,选「lodo」" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Add New Keyboard… and choose lodo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点「添加新键盘…」,选「lodo」"
           }
         }
       }
@@ -26623,6 +26879,22 @@
         }
       }
     },
+    "致谢" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acknowledgements"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "致谢"
+          }
+        }
+      }
+    },
     "航班信息" : {
       "localizations" : {
         "en" : {
@@ -27282,6 +27554,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要安排点什么？"
+          }
+        }
+      }
+    },
+    "要开了「允许完全访问」才会震;键盘的颜色跟着这里选的强调色。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haptics need Allow Full Access. The keyboard uses the accent color chosen here."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要开了「允许完全访问」才会震;键盘的颜色跟着这里选的强调色。"
           }
         }
       }

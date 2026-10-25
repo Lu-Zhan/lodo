@@ -384,6 +384,13 @@ struct SettingsView: View {
                     NavigationLink(value: SettingsRoute.sidebar) {
                         Label("侧边栏自定义", systemImage: "sidebar.left")
                     }
+                    #if os(iOS)
+                    NavigationLink {
+                        KeyboardSettingsView()
+                    } label: {
+                        Label("lodo 键盘", systemImage: "keyboard")
+                    }
+                    #endif
                 }
 
                 // ---- 资产 ----

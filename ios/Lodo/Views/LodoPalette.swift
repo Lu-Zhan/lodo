@@ -115,26 +115,32 @@ enum AccentPalette: String, CaseIterable, Identifiable {
     }
 
     /// 大块填充(主操作按钮)。
-    var fill: Color {
+    var fill: Color { .lodoDynamic(light: fillHex.light, dark: fillHex.dark) }
+
+    /// 填充上的文字/图标色。
+    var onFill: Color { .lodoDynamic(light: onFillHex.light, dark: onFillHex.dark) }
+
+    /// `fill` / `onFill` 的明暗色值;和 `accentHex` 一起由 `WidgetBridge.writeTheme` 写进
+    /// App Group,lodo 键盘读这三组值(键盘扩展读不到 app 的设置)。
+    var fillHex: (light: UInt32, dark: UInt32) {
         switch self {
-        case .terracotta: .lodoDynamic(light: 0xC2410C, dark: 0xFF9500)
-        case .blue: .lodoDynamic(light: 0x0A58CA, dark: 0x4DA3FF)
-        case .indigo: .lodoDynamic(light: 0x4338CA, dark: 0x8B95F8)
-        case .green: .lodoDynamic(light: 0x13703A, dark: 0x34D373)
-        case .rose: .lodoDynamic(light: 0xBE123C, dark: 0xF65C74)
-        case .graphite: .lodoDynamic(light: 0x3F3F46, dark: 0xC9C9CF)
+        case .terracotta: (0xC2410C, 0xFF9500)
+        case .blue: (0x0A58CA, 0x4DA3FF)
+        case .indigo: (0x4338CA, 0x8B95F8)
+        case .green: (0x13703A, 0x34D373)
+        case .rose: (0xBE123C, 0xF65C74)
+        case .graphite: (0x3F3F46, 0xC9C9CF)
         }
     }
 
-    /// 填充上的文字/图标色。
-    var onFill: Color {
+    var onFillHex: (light: UInt32, dark: UInt32) {
         switch self {
-        case .terracotta: .lodoDynamic(light: 0xFFFFFF, dark: 0x1A1206)
-        case .blue: .lodoDynamic(light: 0xFFFFFF, dark: 0x05183A)
-        case .indigo: .lodoDynamic(light: 0xFFFFFF, dark: 0x11103A)
-        case .green: .lodoDynamic(light: 0xFFFFFF, dark: 0x04210F)
-        case .rose: .lodoDynamic(light: 0xFFFFFF, dark: 0x2B0511)
-        case .graphite: .lodoDynamic(light: 0xFFFFFF, dark: 0x1A1A1D)
+        case .terracotta: (0xFFFFFF, 0x1A1206)
+        case .blue: (0xFFFFFF, 0x05183A)
+        case .indigo: (0xFFFFFF, 0x11103A)
+        case .green: (0xFFFFFF, 0x04210F)
+        case .rose: (0xFFFFFF, 0x2B0511)
+        case .graphite: (0xFFFFFF, 0x1A1A1D)
         }
     }
 }

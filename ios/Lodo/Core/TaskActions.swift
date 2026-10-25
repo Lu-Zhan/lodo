@@ -14,6 +14,32 @@ enum TaskActions {
     @discardableResult
     static func create(_ parsed: ParsedTask, attachment: TaskAttachment? = nil,
                        context: ModelContext) -> TaskItem {
+        let task = makeTask(parsed, attachment: attachment)
+        context.insert(task)
+        try? context.save()
+        NotificationManager.shared.rebuild(for: task)
+        return task
+    }
+
+    /// 同 `create`,但保存失败时撤掉刚插入的并抛错,成功后才排提醒——给"存上了才能删源文件"的
+    /// 调用方用(lodo 键盘的收件箱)。`uuid` 由调用方事先定好,重试时靠它查库判断是否已经入库;
+    /// 不顺带同步小组件/日历,调用方批量处理完统一同步。
+    @discardableResult
+    static func createOrThrow(_ parsed: ParsedTask, uuid: UUID, context: ModelContext) throws -> TaskItem {
+        let task = makeTask(parsed, attachment: nil)
+        task.uuid = uuid
+        context.insert(task)
+        do {
+            try context.save()
+        } catch {
+            context.delete(task)
+            throw error
+        }
+        NotificationManager.shared.rebuild(for: task, syncWidget: false)
+        return task
+    }
+
+    private static func makeTask(_ parsed: ParsedTask, attachment: TaskAttachment?) -> TaskItem {
         let task = TaskItem(
             title: parsed.title, remindAt: parsed.remindAt, allDay: parsed.allDay,
             repeatType: parsed.repeatType, repeatDays: parsed.repeatDays,
@@ -21,9 +47,6 @@ enum TaskActions {
         task.attachment = attachment
         // 收集里的事项没有时间,也就没有闹钟。
         task.alarm = parsed.isInbox ? false : (parsed.alarm ?? false)
-        context.insert(task)
-        try? context.save()
-        NotificationManager.shared.rebuild(for: task)
         return task
     }
 
