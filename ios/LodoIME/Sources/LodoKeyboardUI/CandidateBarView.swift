@@ -5,7 +5,6 @@ import UIKit
 protocol CandidateBarDelegate: AnyObject {
     func candidateBar(select index: Int)
     func candidateBarToggleExpanded()
-    func candidateBarDismissKeyboard()
     func candidateBarAsk()
 }
 
@@ -39,7 +38,7 @@ final class CandidateButtons {
 
     static func set(_ b: UIButton, _ text: String, emphasized: Bool, secondary: Bool = false, topInset: CGFloat = 0) {
         b.configuration?.attributedTitle = AttributedString(text, attributes: AttributeContainer([
-            .font: emphasized ? UIFont.systemFont(ofSize: 19, weight: .semibold) : KeyboardAppearance.candidateFont,
+            .font: emphasized ? UIFont.systemFont(ofSize: 20, weight: .semibold) : KeyboardAppearance.candidateFont,
         ]))
         b.configuration?.baseForegroundColor = secondary ? .secondaryLabel : .label
         b.configuration?.contentInsets.top = topInset
@@ -47,14 +46,13 @@ final class CandidateButtons {
     }
 }
 
-/// 键区上方那一条:正在拼时是「拼音切分 + 横排候选 + 展开键」,没在拼时是工具条。
+/// 键区上方那一条:正在拼时是「拼音切分 + 横排候选 + 展开键」,没在拼时左边一颗 ✨。
 final class CandidateBarView: UIView {
     weak var delegate: CandidateBarDelegate?
     private let preedit = UILabel()
     private let scroll = UIScrollView()
     private lazy var buttons = CandidateButtons { [weak self] in self?.delegate?.candidateBar(select: $0) }
     private let expand = UIButton(type: .system)
-    private let dismiss = UIButton(type: .system)
     private let ask = UIButton(type: .system)
     private let divider = UIView()
     /// 没在拼的时候左边露出 ✨(宿主接了 lodo 服务才有)。
@@ -73,30 +71,26 @@ final class CandidateBarView: UIView {
         preedit.textColor = .secondaryLabel
         scroll.showsHorizontalScrollIndicator = false
         scroll.alwaysBounceHorizontal = true
+        scroll.plainForKeyboard()
         var expandConfig = UIButton.Configuration.plain()
         expandConfig.image = UIImage(systemName: "chevron.down")
         expandConfig.baseForegroundColor = .label
         expand.configuration = expandConfig
         expand.accessibilityLabel = String(localized: "更多候选")
         expand.addAction(UIAction { [weak self] _ in self?.delegate?.candidateBarToggleExpanded() }, for: .touchUpInside)
-        dismiss.tintColor = .label
-        dismiss.setImage(UIImage(systemName: "keyboard.chevron.compact.down"), for: .normal)
-        dismiss.accessibilityLabel = String(localized: "收起键盘")
-        dismiss.addAction(UIAction { [weak self] _ in self?.delegate?.candidateBarDismissKeyboard() }, for: .touchUpInside)
-        ask.tintColor = KeyboardAppearance.accent.accent
-        ask.setImage(UIImage(systemName: "sparkles", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)), for: .normal)
+        // 和键帽上的字同色(深色下是白色),不跟强调色。
+        ask.tintColor = .label
+        ask.setImage(UIImage(systemName: "sparkles", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .medium)), for: .normal)
         ask.accessibilityLabel = String(localized: "问 lodo")
         ask.addAction(UIAction { [weak self] _ in self?.delegate?.candidateBarAsk() }, for: .touchUpInside)
         divider.backgroundColor = .separator
-        [preedit, scroll, expand, dismiss, ask, divider].forEach(addSubview)
+        [preedit, scroll, expand, ask, divider].forEach(addSubview)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func applyAccent() { ask.tintColor = KeyboardAppearance.accent.accent }
-
     /// 拼音那一行的高度;候选按钮的可点范围铺满整栏(含这一行),字画在它下面。
-    static let preeditStrip: CGFloat = 14
+    static let preeditStrip: CGFloat = 20
 
     /// `preedit` 为 nil = 没在拼(英文补全也走这里,只是不显示拼音行)。
     /// `secondaryIndex`:画成灰字的那一项(原样字母)。
@@ -116,24 +110,22 @@ final class CandidateBarView: UIView {
         if changed { scroll.contentOffset = .zero }
         expand.isHidden = items.count <= 1
         divider.isHidden = expand.isHidden
-        dismiss.isHidden = !items.isEmpty
         ask.isHidden = !items.isEmpty || !showsLodoKeys
         setNeedsLayout()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // 候选栏压得很矮(键盘总高由系统定,省下来的给按键),拼音那行只留 14pt;
+        // 候选栏压得很矮(键盘总高由系统定,省下来的给按键),拼音那行 20pt;
         // 但候选和展开键的可点范围是整栏高度,快速选词不至于点空。
         let strip: CGFloat = preedit.isHidden ? 0 : Self.preeditStrip
-        preedit.frame = CGRect(x: 12, y: 1, width: bounds.width - 24, height: strip - 1)
+        preedit.frame = CGRect(x: 12, y: 0, width: bounds.width - 24, height: strip)
         let side: CGFloat = 44
         let rowH = bounds.height
-        expand.frame = CGRect(x: bounds.width - side, y: 0, width: side, height: rowH)
-        expand.configuration?.contentInsets = NSDirectionalEdgeInsets(top: strip, leading: 0, bottom: 0, trailing: 0)
+        // 箭头和候选字对齐(画在拼音行下面);按钮内边距在这里改不及时生效,直接挪按钮。
+        expand.frame = CGRect(x: bounds.width - side, y: strip, width: side, height: rowH - strip)
         divider.frame = CGRect(x: bounds.width - side, y: strip + (rowH - strip) * 0.25,
                                width: 1 / max(traitCollection.displayScale, 1), height: (rowH - strip) * 0.5)
-        dismiss.frame = CGRect(x: bounds.width - side - 4, y: 0, width: side, height: bounds.height)
         ask.frame = CGRect(x: 4, y: 0, width: side, height: bounds.height)
         scroll.frame = CGRect(x: 2, y: 0, width: bounds.width - 2 - (expand.isHidden ? 0 : side), height: rowH)
         var x: CGFloat = 0
@@ -156,6 +148,7 @@ final class CandidateGridView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         scroll.alwaysBounceVertical = true
+        scroll.plainForKeyboard()
         addSubview(scroll)
     }
 

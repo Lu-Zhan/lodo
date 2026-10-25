@@ -22,7 +22,19 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         do {
             let keyboard = try KeyboardController(host: self, userDictionaryURL: url)
             self.keyboard = keyboard
-            inputView = keyboard.rootView
+            // 根视图摆进系统给的 inputView 里、四边钉住,而不是直接替换掉 inputView:
+            // 替换掉的话系统只在弹出时问一次高度,打开 ✨ 栏后键盘长不高(真机实测);
+            // 作为子视图时它的 intrinsicContentSize / 高度约束一变,系统就跟着重新定键盘高度。
+            let root = keyboard.rootView
+            inputView?.allowsSelfSizing = true
+            root.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(root)
+            NSLayoutConstraint.activate([
+                root.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                root.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                root.topAnchor.constraint(equalTo: view.topAnchor),
+                root.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            ])
             let services = KeyboardLodoServices(controller: self)
             self.services = services
             keyboard.services = services

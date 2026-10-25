@@ -150,9 +150,11 @@ public struct KeyboardMetrics: Sendable {
     public var cornerRadius: CGFloat
     public var candidateBarHeight: CGFloat
 
-    public static let phonePortrait = KeyboardMetrics(keyHeight: 45, rowSpacing: 8, keySpacing: 6, sideInset: 3,
-                                                      topInset: 8, bottomInset: 4, cornerRadius: 8.5, candidateBarHeight: 38)
-    public static let phoneLandscape = KeyboardMetrics(keyHeight: 34, rowSpacing: 6, keySpacing: 6, sideInset: 3,
+    /// 竖屏数值是用户真机试用后定的:键帽 44、键缝 6、两边 6、行距 6、顶部留 8、底部不留;
+    /// 候选栏 40 = 拼音行 20 + 候选字 20(`CandidateBarView.preeditStrip`)。
+    public static let phonePortrait = KeyboardMetrics(keyHeight: 44, rowSpacing: 6, keySpacing: 6, sideInset: 6,
+                                                      topInset: 8, bottomInset: 0, cornerRadius: 8.5, candidateBarHeight: 40)
+    public static let phoneLandscape = KeyboardMetrics(keyHeight: 34, rowSpacing: 6, keySpacing: 4, sideInset: 3,
                                                        topInset: 5, bottomInset: 3, cornerRadius: 7, candidateBarHeight: 32)
     public static let pad = KeyboardMetrics(keyHeight: 58, rowSpacing: 9, keySpacing: 10, sideInset: 7,
                                             topInset: 8, bottomInset: 8, cornerRadius: 9, candidateBarHeight: 44)

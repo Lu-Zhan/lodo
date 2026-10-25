@@ -40,40 +40,42 @@ final class PanelDocument: TextDocument {
     func deleteBackward() { if !text.isEmpty { text.removeLast() } }
 }
 
-/// 候选栏上面多出来的一行:[关闭] [输入框或一句话] [操作]。
+/// 候选栏上面多出来的一行:[关闭] [输入胶囊:问题或一句话] [发送]。
+/// 样子照 lodo 里的输入栏:关闭圆和输入胶囊底色同 shift 键;确认键在胶囊外面右侧独立一颗。
 final class LodoPanelRow: UIView {
     let close = UIButton(type: .system)
-    private let icon = UIImageView()
+    private let capsule = UIView()
     private let field = UILabel()
     private let caret = UIView()
     private let actions = UIStackView()
     private let spinner = UIActivityIndicatorView(style: .medium)
     private var editing = false
+    /// 三块控件的高度(关闭圆、胶囊、确认圆)。
+    static let controlSize: CGFloat = 32
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        close.setImage(UIImage(systemName: "xmark"), for: .normal)
-        close.tintColor = .secondaryLabel
+        close.setImage(UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)), for: .normal)
+        close.tintColor = .label
         close.accessibilityLabel = String(localized: "关闭")
-        icon.tintColor = KeyboardAppearance.accent.accent
-        icon.contentMode = .center
-        field.font = .systemFont(ofSize: 17)
+        capsule.layer.cornerCurve = .continuous
+        capsule.isUserInteractionEnabled = false
+        field.font = .systemFont(ofSize: 15)
         field.lineBreakMode = .byTruncatingHead // 打长了看的是末尾
         caret.backgroundColor = KeyboardAppearance.accent.accent
         actions.axis = .horizontal
-        actions.spacing = 8
-        [close, icon, field, caret, actions, spinner].forEach(addSubview)
+        actions.spacing = 6
+        [close, capsule, field, caret, actions, spinner].forEach(addSubview)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     /// 输入态:`text` 为空时显示占位语。
-    func showInput(symbol: String, text: String, placeholder: String, buttons: [UIButton]) {
+    func showInput(text: String, placeholder: String, buttons: [UIButton]) {
         editing = true
         field.numberOfLines = 1
         field.font = .systemFont(ofSize: 17)
         field.lineBreakMode = .byTruncatingHead // 打长了看的是末尾
-        icon.image = UIImage(systemName: symbol)
         field.text = text.isEmpty ? placeholder : text
         field.textColor = text.isEmpty ? .placeholderText : .label
         field.accessibilityLabel = text.isEmpty ? placeholder : text
@@ -84,13 +86,12 @@ final class LodoPanelRow: UIView {
     }
 
     /// 一句话(进行中、已保存、说明),可带按钮。
-    func showMessage(symbol: String, text: String, busy: Bool = false, buttons: [UIButton] = []) {
+    func showMessage(text: String, busy: Bool = false, buttons: [UIButton] = []) {
         editing = false
-        // 说明文字要从头读:最多两行,截尾巴。
+        // 说明文字要从头读:最多两行,截尾巴(胶囊 32pt 高,两行用小字)。
         field.numberOfLines = 2
-        field.font = .systemFont(ofSize: 15)
+        field.font = .systemFont(ofSize: 13)
         field.lineBreakMode = .byTruncatingTail
-        icon.image = UIImage(systemName: symbol)
         field.text = text
         field.textColor = .label
         field.accessibilityLabel = text
@@ -118,24 +119,35 @@ final class LodoPanelRow: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let h = bounds.height
-        close.frame = CGRect(x: 4, y: 0, width: 40, height: h)
-        icon.frame = CGRect(x: 42, y: 0, width: 26, height: h)
-        let actionsSize = actions.systemLayoutSizeFitting(CGSize(width: bounds.width, height: h))
-        actions.frame = CGRect(x: bounds.width - actionsSize.width - 10, y: (h - 34) / 2, width: actionsSize.width, height: 34)
-        let right = (actions.arrangedSubviews.isEmpty ? bounds.width - 10 : actions.frame.minX - 8)
-        spinner.frame = CGRect(x: right - 24, y: 0, width: 24, height: h)
+        // 三块同高同圆心:[✕ 圆] [输入胶囊] [确认圆],同 lodo AI 页的输入栏。
+        let side = Self.controlSize, y = (bounds.height - side) / 2, gap: CGFloat = 6
+        close.frame = CGRect(x: 6, y: y, width: side, height: side)
+        close.layer.cornerRadius = side / 2
+        close.backgroundColor = KeyboardAppearance.functionKey
+        let actionsW = actions.arrangedSubviews.isEmpty ? 0
+            : actions.systemLayoutSizeFitting(CGSize(width: bounds.width, height: side),
+                                              withHorizontalFittingPriority: .fittingSizeLevel,
+                                              verticalFittingPriority: .required).width
+        actions.frame = CGRect(x: bounds.width - 6 - actionsW, y: y, width: actionsW, height: side)
+        let pillLeft = close.frame.maxX + gap
+        let pillRight = actions.arrangedSubviews.isEmpty ? bounds.width - 6 : actions.frame.minX - gap
+        let pill = CGRect(x: pillLeft, y: y, width: max(pillRight - pillLeft, 0), height: side)
+        capsule.frame = pill
+        capsule.layer.cornerRadius = pill.height / 2
+        capsule.backgroundColor = KeyboardAppearance.functionKey // 「减弱透明度」切换后跟着变
+        let right = pill.maxX - 12
+        spinner.frame = CGRect(x: right - 20, y: pill.minY, width: 20, height: pill.height)
         let fieldRight = spinner.isAnimating ? spinner.frame.minX - 4 : right
-        let natural = editing ? field.sizeThatFits(CGSize(width: .greatestFiniteMagnitude, height: h)).width : .greatestFiniteMagnitude
-        let width = min(natural, fieldRight - 74)
-        field.frame = CGRect(x: 72, y: 0, width: max(width, 0), height: h)
-        caret.frame = CGRect(x: field.textColor == .placeholderText ? 72 : min(field.frame.maxX + 1, fieldRight - 2),
-                             y: h / 2 - 11, width: 2, height: 22)
+        let left = pill.minX + 12
+        let natural = editing ? field.sizeThatFits(CGSize(width: .greatestFiniteMagnitude, height: pill.height)).width : .greatestFiniteMagnitude
+        let width = min(natural, fieldRight - left)
+        field.frame = CGRect(x: left, y: pill.minY, width: max(width, 0), height: pill.height)
+        caret.frame = CGRect(x: field.textColor == .placeholderText ? left : min(field.frame.maxX + 1, fieldRight - 2),
+                             y: pill.midY - 10, width: 2, height: 20)
     }
 
     /// 面板改色(换了强调色后重新上一遍)。
     func applyAccent() {
-        icon.tintColor = KeyboardAppearance.accent.accent
         caret.backgroundColor = KeyboardAppearance.accent.accent
     }
 
@@ -156,9 +168,12 @@ final class LodoPanelRow: UIView {
         config.cornerStyle = .capsule
         config.baseBackgroundColor = KeyboardAppearance.accent.fill
         config.baseForegroundColor = KeyboardAppearance.accent.onFill
-        config.image = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
+        config.image = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold))
+        config.contentInsets = .zero
         let b = UIButton(configuration: config, primaryAction: UIAction { _ in action() })
         b.accessibilityLabel = label
+        // 胶囊右边那颗圆:宽高相等,高度跟这一栏。
+        b.widthAnchor.constraint(equalTo: b.heightAnchor).isActive = true
         return b
     }
 }
@@ -184,6 +199,8 @@ final class LodoReplyView: UIView {
         buttons.spacing = 10
         buttons.distribution = .fillEqually
         options.showsHorizontalScrollIndicator = false
+        options.plainForKeyboard()
+        text.plainForKeyboard()
         [text, note, buttons, options].forEach(addSubview)
     }
 

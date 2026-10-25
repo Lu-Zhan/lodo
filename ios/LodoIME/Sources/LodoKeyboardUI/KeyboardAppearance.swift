@@ -77,7 +77,18 @@ enum KeyboardAppearance {
     static let symbolFont = UIFont.systemFont(ofSize: 22, weight: .regular)
     static let functionFont = UIFont.systemFont(ofSize: 16, weight: .regular)
     static let calloutFont = UIFont.systemFont(ofSize: 38, weight: .regular)
-    static let candidateFont = UIFont.systemFont(ofSize: 19, weight: .regular)
+    static let candidateFont = UIFont.systemFont(ofSize: 20, weight: .regular)
     static let preeditFont = UIFont.systemFont(ofSize: 12, weight: .regular)
+}
+
+extension UIScrollView {
+    /// 键盘里的滚动视图不要 iOS 26 的滚动边缘效果:候选栏只有 38pt 高,边缘那层模糊
+    /// 会把整排候选和拼音糊掉(真机实测)。也不按安全区调内边距,免得能竖着挪一点钻到边缘底下。
+    func plainForKeyboard() {
+        contentInsetAdjustmentBehavior = .never
+        if #available(iOS 26.0, *) {
+            for edge in [topEdgeEffect, bottomEdgeEffect, leftEdgeEffect, rightEdgeEffect] { edge.isHidden = true }
+        }
+    }
 }
 #endif

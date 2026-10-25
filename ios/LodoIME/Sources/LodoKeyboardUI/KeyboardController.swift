@@ -82,7 +82,6 @@ public final class KeyboardController: NSObject {
         get { KeyboardAppearance.accent }
         set {
             KeyboardAppearance.accent = newValue
-            bar.applyAccent()
             panelRow.applyAccent()
             renderPanel()
         }
@@ -106,7 +105,8 @@ public final class KeyboardController: NSObject {
     }
     private var panel = Panel.closed
     private var askTask: Task<Void, Never>?
-    static let panelHeight: CGFloat = 50
+    /// ✨ 那一栏:打开时整个键盘增高这么多(候选栏和键区不压缩);里面三块控件 32pt 高,上下各留 2pt。
+    static let panelHeight: CGFloat = 36
     private var panelVisible: Bool { if case .closed = panel { false } else { true } }
     /// 面板拿着输入:写问题时,以及等回答时(这时打字 = 取消这次、接着改问题)。
     private var panelEditing: Bool {
@@ -142,9 +142,9 @@ public final class KeyboardController: NSObject {
             await MainActor.run { [weak self] in self?.session.engine.reranker = model }
         }
 
-        // 根视图的位置和宽度归系统管(它就是扩展的 inputView),这里只加一条高度约束。
-        // **别关 translatesAutoresizingMaskIntoConstraints**:关了之后系统宿主给它的尺寸会塌成很小,
-        // 键帽照样画出来(超出部分被截掉、看不到空格那一行),但触摸只送到根视图范围内,一颗都点不到(真机实测)。
+        // 扩展里根视图四边钉在系统给的 inputView 上(见 KeyboardViewController),这里只加一条高度约束。
+        // 别把根视图直接当 inputView 再关 translatesAutoresizingMaskIntoConstraints:那样系统给它的尺寸会塌成很小,
+        // 键帽照样画出来,但触摸只送到根视图范围内,一颗都点不到(真机实测)。
         rootView.allowsSelfSizing = true
         bar.delegate = self
         keys.delegate = self
@@ -376,7 +376,7 @@ public final class KeyboardController: NSObject {
     private func showFullAccessNotice() {
         leaveEditing()
         setPanel(.notice)
-        panelRow.showMessage(symbol: "lock", text: String(localized: "要先在系统设置里给 lodo 键盘打开「允许完全访问」(设置 → 通用 → 键盘 → 键盘 → lodo)"))
+        panelRow.showMessage(text: String(localized: "要先在系统设置里给 lodo 键盘打开「允许完全访问」(设置 → 通用 → 键盘 → 键盘 → lodo)"))
     }
 
     private func renderPanel() {
@@ -388,12 +388,12 @@ public final class KeyboardController: NSObject {
         case .ask:
             let send = LodoPanelRow.iconButton("arrow.up", label: String(localized: "发送")) { [weak self] in self?.submitAsk() }
             send.isEnabled = !panelDocument.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            panelRow.showInput(symbol: "sparkles", text: panelDocument.text,
+            panelRow.showInput(text: panelDocument.text,
                                placeholder: String(localized: "问 lodo…"), buttons: [send])
         case .thinking(let question):
-            panelRow.showMessage(symbol: "sparkles", text: question, busy: true)
+            panelRow.showMessage(text: question, busy: true)
         case .reply(let question, let reply):
-            panelRow.showMessage(symbol: "sparkles", text: question)
+            panelRow.showMessage(text: question)
             showReply(reply)
         }
         keys.isHidden = !grid.isHidden || { if case .reply = panel { true } else { false } }()
@@ -443,13 +443,13 @@ public final class KeyboardController: NSObject {
             })
             actions.append(LodoPanelRow.button(String(localized: "复制")) { [weak self] in
                 UIPasteboard.general.string = reply.text
-                self?.panelRow.showMessage(symbol: "doc.on.doc", text: String(localized: "已复制"))
+                self?.panelRow.showMessage(text: String(localized: "已复制"))
             })
         }
         if let undo = reply.undo {
             actions.append(LodoPanelRow.button(String(localized: "撤销")) { [weak self] in
                 let message = undo() ? String(localized: "已撤销") : String(localized: "已经存进 lodo 了,去 lodo 里删")
-                self?.panelRow.showMessage(symbol: "arrow.uturn.backward", text: message)
+                self?.panelRow.showMessage(text: message)
             })
         }
         if reply.failed, case .reply(let question, _) = panel {
@@ -579,7 +579,6 @@ extension KeyboardController: KeyAreaDelegate {
 extension KeyboardController: CandidateBarDelegate {
     func candidateBar(select index: Int) { selectCandidate(index) }
     func candidateBarToggleExpanded() { setExpanded(grid.isHidden) }
-    func candidateBarDismissKeyboard() { host?.dismissKeyboard() }
     func candidateBarAsk() { openAsk() }
 }
 #endif
