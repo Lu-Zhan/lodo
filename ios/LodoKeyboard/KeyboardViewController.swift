@@ -22,6 +22,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         do {
             let keyboard = try KeyboardController(host: self, userDictionaryURL: url)
             self.keyboard = keyboard
+            inputView = keyboard.rootView
             let services = KeyboardLodoServices(controller: self)
             self.services = services
             keyboard.services = services
