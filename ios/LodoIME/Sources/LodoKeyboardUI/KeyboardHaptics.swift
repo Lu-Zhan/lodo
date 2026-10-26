@@ -1,7 +1,7 @@
 #if os(iOS)
 import UIKit
 
-/// 按键震动。用 `.soft`(比 `.light` 更收敛、不发硬),强度跟主 app 设置里的滑块;
+/// 按键震动。震感(默认 `.rigid`:短而干脆,最接近系统键盘;也可选 `.light` / `.soft`)和强度都跟主 app 设置;
 /// 不同的键轻重不一样:连删最轻、还限了频,不然按住删除会嗡成一片。
 /// 系统只在开了「完全访问」时让键盘扩展震动,没开时这些调用是空操作。
 @MainActor
@@ -11,10 +11,11 @@ final class KeyboardHaptics {
 
         var scale: CGFloat {
             switch self {
-            case .key, .candidate: 1.0
+            case .key: 1.0
+            case .candidate: 0.9
             case .space: 0.85
             case .delete: 0.8
-            case .repeatDelete: 0.35
+            case .repeatDelete: 0.4
             }
         }
     }
@@ -22,7 +23,14 @@ final class KeyboardHaptics {
     var enabled = true
     /// 0.1…1.0,由扩展从 App Group 读来设。
     var intensity: CGFloat = 0.6
-    private lazy var generator = UIImpactFeedbackGenerator(style: .soft)
+    var style: UIImpactFeedbackGenerator.FeedbackStyle = .rigid {
+        didSet {
+            guard style != oldValue else { return }
+            generator = UIImpactFeedbackGenerator(style: style)
+            prepare()
+        }
+    }
+    private lazy var generator = UIImpactFeedbackGenerator(style: style)
     private var lastRepeat: TimeInterval = 0
 
     /// 键盘弹出时先预热,第一下按键就跟手。

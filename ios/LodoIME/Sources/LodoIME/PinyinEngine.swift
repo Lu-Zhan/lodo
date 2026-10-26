@@ -44,8 +44,10 @@ struct Edge {
 public final class PinyinEngine: @unchecked Sendable {
     public let lexicon: Lexicon
     public var userDictionary: UserDictionary
+    public var personalDictionary: PersonalDictionary?
     public var reranker: Reranker?
-    public var fuzzy: FuzzyOptions { didSet { syllabifier = Syllabifier(lexicon: lexicon, fuzzy: fuzzy) } }
+    public var fuzzy: FuzzyOptions { didSet { rebuildSyllabifier() } }
+    public var correctionEnabled: Bool { didSet { rebuildSyllabifier() } }
     private var syllabifier: Syllabifier
 
     static let maxWordSyllables = 8
@@ -53,12 +55,17 @@ public final class PinyinEngine: @unchecked Sendable {
     static let beam = 8
 
     public init(lexicon: Lexicon, userDictionary: UserDictionary = UserDictionary(),
-                fuzzy: FuzzyOptions = [], reranker: Reranker? = nil) {
+                fuzzy: FuzzyOptions = [], correctionEnabled: Bool = true, reranker: Reranker? = nil) {
         self.lexicon = lexicon
         self.userDictionary = userDictionary
         self.fuzzy = fuzzy
+        self.correctionEnabled = correctionEnabled
         self.reranker = reranker
-        self.syllabifier = Syllabifier(lexicon: lexicon, fuzzy: fuzzy)
+        self.syllabifier = Syllabifier(lexicon: lexicon, fuzzy: fuzzy, correctionEnabled: correctionEnabled)
+    }
+
+    private func rebuildSyllabifier() {
+        syllabifier = Syllabifier(lexicon: lexicon, fuzzy: fuzzy, correctionEnabled: correctionEnabled)
     }
 
     // MARK: - 查询
@@ -132,8 +139,9 @@ public final class PinyinEngine: @unchecked Sendable {
                           syllableIDs: e.ids, corrected: e.corrected))
             if list.count >= limit { break }
         }
-        if rerank, let reranker, let top = list.first, !top.trustedDictionaryHit {
+        if rerank, let reranker, let top = list.first, !top.trustedDictionaryHit, !top.corrected {
             // 上游只比前 9 条整键候选;试过收窄到 3/5 条,救回的少了、弄坏的没少。
+            // 词图已把可信的纠错放到首位时,模型容易又按高频偏好改回错词(nihaya → 你还要)。
             let pool = list.indices.filter { list[$0].answersKey }
             if pool.count > 1,
                let pick = reranker.best(context: context, candidates: pool.map {
@@ -145,12 +153,50 @@ public final class PinyinEngine: @unchecked Sendable {
         }
 
         var segmented = ""
-        let cuts = Set((sentences.first ?? []).flatMap(\.cuts))
-        for (i, ch) in raw.enumerated() {
-            segmented.append(ch)
-            if cuts.contains(i + 1), i + 1 < n, raw[i + 1] != "'", ch != "'" { segmented.append("'") }
+        if raw.contains(where: { Syllabifier.nineKeyLetters[$0] != nil }) {
+            // 九宫格:输入框里显示最可能的那串拼音(64426 → ni'hao),而不是数字;
+            // 末音节没按完的只写按到的那几个字母。
+            segmented = Self.spelling(of: sentences.first ?? [], raw: raw, lexicon: lexicon)
+        } else {
+            let cuts = Set((sentences.first ?? []).flatMap(\.cuts))
+            for (i, ch) in raw.enumerated() {
+                segmented.append(ch)
+                if cuts.contains(i + 1), i + 1 < n, raw[i + 1] != "'", ch != "'" { segmented.append("'") }
+            }
         }
         return Result(candidates: Array(list.prefix(limit)), segmented: segmented)
+    }
+
+    /// 一条整句路径按音节写成拼音:每个音节取它在输入里占的那几个字符那么长。
+    static func spelling(of path: [Edge], raw: [Character], lexicon: Lexicon) -> String {
+        var parts: [String] = []
+        for e in path {
+            var start = e.start
+            for (k, cut) in e.cuts.enumerated() {
+                while start < raw.count, raw[start] == "'" { start += 1 }
+                let typed = max(cut - start, 1)
+                if k < e.ids.count {
+                    parts.append(String(lexicon.syllables[Int(e.ids[k])].prefix(typed)))
+                } else {
+                    parts.append(String(raw[start..<min(cut, raw.count)]))
+                }
+                start = cut
+            }
+        }
+        return parts.joined(separator: "'")
+    }
+
+    /// 九宫格左边那列:剩下的数字开头能读成哪些拼音,常用的在前。
+    public func nineKeySyllables(for input: String) -> [(syllable: String, length: Int)] {
+        // 第一段还没定的数字(前面选定的拼音跳过)。
+        let digits = String(input.drop { Syllabifier.nineKeyLetters[$0] == nil }.prefix { $0 != "'" })
+        return syllabifier.nineKeySyllables(digits) { [lexicon] id in
+            // 拿这个音节最常用的单字的代价当排序依据。
+            let r = lexicon.narrow(lexicon.all, depth: 0, id: id)
+            var best = Int.max, k = r.lowerBound
+            while k < r.upperBound, lexicon.length(k) == 1 { best = min(best, lexicon.cost(k)); k += 1 }
+            return best
+        }
     }
 
     private static func insert(_ list: inout [(cost: Int, edge: Edge?, prev: Int)], _ item: (cost: Int, edge: Edge?, prev: Int), limit: Int) {
@@ -198,8 +244,15 @@ public final class PinyinEngine: @unchecked Sendable {
                                             ids: ids, cuts: cuts, corrected: corr, fromUser: true))
                         }
                     }
+                    if let personalDictionary {
+                        for (word, cost) in personalDictionary.words(for: ids) {
+                            out.append(Edge(start: start, end: token.end, text: word, cost: cost + pen,
+                                            ids: ids, cuts: cuts, corrected: corr, fromUser: true))
+                        }
+                    }
                     let next = skip(token.end)
                     let deeper = k < r.upperBound || (!userDictionary.isEmpty && userDictionary.hasPhrase(withPrefix: ids))
+                        || (personalDictionary?.hasPhrase(withPrefix: ids) == true)
                     if depth + 1 < Self.maxWordSyllables, next < n, deeper {
                         dfs(next, k..<r.upperBound, pen, corr)
                     }

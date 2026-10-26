@@ -9,30 +9,62 @@ import LodoIME
 public final class BackgroundDecoder: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.lodo.ime.decode", qos: .userInitiated)
     private let engine: PinyinEngine
+    private let fastQueue = DispatchQueue(label: "com.lodo.ime.fast", qos: .userInitiated)
+    private let fastEngine: PinyinEngine
+    // 上屏只需要基础候选,不能排在模型重排后面。
+    private let commitQueue = DispatchQueue(label: "com.lodo.ime.commit", qos: .userInitiated)
+    private let commitEngine: PinyinEngine
 
     public init(lexicon: Lexicon, userDictionary: UserDictionary, fuzzy: FuzzyOptions = []) {
         engine = PinyinEngine(lexicon: lexicon, userDictionary: userDictionary, fuzzy: fuzzy)
+        fastEngine = PinyinEngine(lexicon: lexicon, userDictionary: userDictionary, fuzzy: fuzzy)
+        commitEngine = PinyinEngine(lexicon: lexicon, userDictionary: userDictionary, fuzzy: fuzzy)
     }
 
     /// 后台解一次,结果回到主线程。
-    public func decode(_ input: String, context: String, completion: @escaping (PinyinEngine.Result) -> Void) {
-        queue.async { [engine] in
-            let result = engine.candidates(for: input, context: context)
+    public func decode(_ input: String, context: String,
+                       completion: @escaping (PinyinEngine.Result, Bool) -> Void) {
+        fastQueue.async { [fastEngine, queue, engine] in
+            let base = fastEngine.candidates(for: input, context: context, rerank: false)
+            DispatchQueue.main.async { completion(base, false) }
+            guard base.candidates.count > 1, base.candidates.first?.trustedDictionaryHit != true else { return }
+            queue.async {
+                let improved = engine.candidates(for: input, context: context)
+                DispatchQueue.main.async { completion(improved, true) }
+            }
+        }
+    }
+
+    /// 候选尚未跟上输入时,异步求上屏用的基础候选。与模型队列隔离。
+    public func decodeForCommit(_ input: String, context: String, completion: @escaping (PinyinEngine.Result) -> Void) {
+        commitQueue.async { [commitEngine] in
+            let result = commitEngine.candidates(for: input, context: context, rerank: false)
             DispatchQueue.main.async { completion(result) }
         }
     }
 
-    /// 当场要结果(上屏那一下屏幕上的候选已经过时了):排在已经发出去的解码后面,同步等它。
-    public func decodeNow(_ input: String, context: String, limit: Int = 60) -> PinyinEngine.Result {
-        queue.sync { engine.candidates(for: input, context: context, limit: limit) }
-    }
-
     public func setUserDictionary(_ dictionary: UserDictionary) {
         queue.async { [engine] in engine.userDictionary = dictionary }
+        fastQueue.async { [fastEngine] in fastEngine.userDictionary = dictionary }
+        commitQueue.async { [commitEngine] in commitEngine.userDictionary = dictionary }
+    }
+
+    public func setPersonalDictionary(_ dictionary: PersonalDictionary?) {
+        queue.async { [engine] in engine.personalDictionary = dictionary }
+        fastQueue.async { [fastEngine] in fastEngine.personalDictionary = dictionary }
+        commitQueue.async { [commitEngine] in commitEngine.personalDictionary = dictionary }
     }
 
     public func setFuzzy(_ fuzzy: FuzzyOptions) {
         queue.async { [engine] in if engine.fuzzy != fuzzy { engine.fuzzy = fuzzy } }
+        fastQueue.async { [fastEngine] in if fastEngine.fuzzy != fuzzy { fastEngine.fuzzy = fuzzy } }
+        commitQueue.async { [commitEngine] in if commitEngine.fuzzy != fuzzy { commitEngine.fuzzy = fuzzy } }
+    }
+
+    public func setCorrectionEnabled(_ enabled: Bool) {
+        queue.async { [engine] in if engine.correctionEnabled != enabled { engine.correctionEnabled = enabled } }
+        fastQueue.async { [fastEngine] in if fastEngine.correctionEnabled != enabled { fastEngine.correctionEnabled = enabled } }
+        commitQueue.async { [commitEngine] in if commitEngine.correctionEnabled != enabled { commitEngine.correctionEnabled = enabled } }
     }
 
     public func setReranker(_ reranker: Reranker?) {

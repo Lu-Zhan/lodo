@@ -38,10 +38,17 @@ final class TypingSessionAsyncTests: XCTestCase {
         XCTAssertEqual(session.preedit, "ni'hao")
     }
 
-    /// 打完马上按空格(候选还没回来):当场补解一次,上屏的是这串拼音的首选。
+    /// 打完马上按空格:异步补解,上屏的是这串拼音的首选。
     func testSpaceBeforeResultCommitsCurrentBest() {
         type("nihao")
         session.handle(.space)
+        let committed = expectation(description: "异步上屏")
+        func poll() {
+            if !session.isComposing { committed.fulfill() }
+            else { DispatchQueue.main.async(execute: poll) }
+        }
+        poll()
+        wait(for: [committed], timeout: 5)
         XCTAssertEqual(doc.text, reference.candidates(for: "nihao").candidates.first?.text)
         XCTAssertFalse(session.isComposing)
     }
@@ -73,13 +80,50 @@ final class TypingSessionAsyncTests: XCTestCase {
     func testResultFromPreviousCompositionIsDropped() {
         type("ni")
         session.handle(.space) // 上一轮的后台请求还没回来就上屏了
-        let committed = doc.text
         type("ni")
-        XCTAssertFalse(session.candidatesAreCurrent)
+        let committed = reference.candidates(for: "ni").candidates.first!.text
         waitForCandidates()
-        XCTAssertTrue(session.candidatesAreCurrent)
         session.handle(.space)
+        let done = expectation(description: "两轮上屏")
+        func poll() {
+            if doc.text.count > committed.count { done.fulfill() }
+            else { DispatchQueue.main.async(execute: poll) }
+        }
+        poll()
+        wait(for: [done], timeout: 5)
         XCTAssertTrue(doc.text.hasPrefix(committed))
-        XCTAssertGreaterThan(doc.text.count, committed.count)
+    }
+
+    func testQueuedPunctuationKeepsInputOrder() {
+        type("nihao")
+        session.handle(.text("，"))
+        type("ni")
+        session.handle(.space)
+        let done = expectation(description: "连续输入完成")
+        func poll() {
+            if doc.text.hasSuffix("你") { done.fulfill() }
+            else { DispatchQueue.main.async(execute: poll) }
+        }
+        poll()
+        wait(for: [done], timeout: 5)
+        XCTAssertEqual(doc.text, "你好，你")
+    }
+
+    func testDismissalFlushesPendingKeys() {
+        type("nihao")
+        session.handle(.text("，"))
+        type("ni")
+        session.commitRaw()
+        XCTAssertEqual(doc.text, "你好，ni")
+        XCTAssertFalse(session.isComposing)
+    }
+
+    func testDictionaryRefreshDoesNotDropPendingInput() {
+        type("nihao")
+        session.handle(.text("，"))
+        session.personalDictionaryChanged()
+        type("ni")
+        session.commitRaw()
+        XCTAssertEqual(doc.text, "你好，ni")
     }
 }

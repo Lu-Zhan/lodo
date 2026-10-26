@@ -68,7 +68,11 @@ final class KeyAreaView: UIView {
 
     /// 换一页键(或者宽度变了)。键帽视图按需重建。
     func setRows(_ rows: [[Key]], face: (Key) -> KeyFace) {
-        let newPlaced = KeyboardFrames.place(rows, width: bounds.width, metrics: metrics)
+        setPlaced(KeyboardFrames.place(rows, width: bounds.width, metrics: metrics), face: face)
+    }
+
+    /// 键位已经算好(九宫格不是一行行排的)。
+    func setPlaced(_ newPlaced: [PlacedKey], face: (Key) -> KeyFace) {
         if newPlaced.map(\.key) != placed.map(\.key) {
             cancelAllPresses()
             keyViews.forEach { $0.removeFromSuperview() }

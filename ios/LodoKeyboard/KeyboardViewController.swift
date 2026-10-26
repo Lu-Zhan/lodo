@@ -54,8 +54,16 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
     private func reloadSettings() {
         guard let keyboard else { return }
         services?.reload()
+        keyboard.loadPersonalDictionary(from: KeyboardExchange.personalWordsURL)
         keyboard.setFuzzy(FuzzyOptions(rawValue: KeyboardExchange.shared?.integer(forKey: KeyboardExchange.fuzzyKey) ?? 0))
+        keyboard.setSmartCorrection(KeyboardExchange.shared?.object(forKey: KeyboardExchange.smartCorrectionKey) as? Bool ?? true)
         keyboard.hapticsEnabled = KeyboardExchange.shared?.object(forKey: KeyboardExchange.hapticsKey) as? Bool ?? true
+        keyboard.nineKey = KeyboardExchange.shared?.bool(forKey: KeyboardExchange.nineKeyKey) ?? false
+        keyboard.hapticsStyle = switch KeyboardExchange.hapticsStyle(from: KeyboardExchange.shared?.object(forKey: KeyboardExchange.hapticsStyleKey)) {
+        case .crisp: .rigid
+        case .standard: .light
+        case .soft: .soft
+        }
         keyboard.hapticsIntensity = KeyboardExchange.hapticsIntensity(
             from: KeyboardExchange.shared?.object(forKey: KeyboardExchange.hapticsIntensityKey))
         if let theme = KeyboardExchange.loadTheme() {

@@ -104,7 +104,7 @@ final class CandidateBarView: UIView {
         return b
     }()
     /// 手指按在候选上时来了新内容:先攒着,松手再换(不然按着的那颗按钮会变成别的词、或被挪走)。
-    private var deferred: (preedit: String?, composing: Bool, choices: [CandidateChoice], secondary: Int?)?
+    private var deferred: (preedit: String?, composing: Bool, choices: [CandidateChoice], secondary: Int?, reset: Bool)?
     /// 按钮 i 点了选的就是 `choices[i]`,和它显示的字永远是同一份。
     private var choices: [CandidateChoice] = []
     private let expand = UIButton(type: .system)
@@ -158,9 +158,10 @@ final class CandidateBarView: UIView {
     /// `secondaryIndex`:画成灰字的那一项(原样字母)。
     private var shown: (preedit: String?, secondary: Int?, lodo: Bool, composing: Bool)?
 
-    func show(preedit text: String?, composing: Bool, choices: [CandidateChoice], secondaryIndex: Int? = nil) {
+    func show(preedit text: String?, composing: Bool, choices: [CandidateChoice], secondaryIndex: Int? = nil,
+              resetScrollOnChange: Bool = true) {
         if buttons.isTracking {
-            deferred = (text, composing, choices, secondaryIndex)
+            deferred = (text, composing, choices, secondaryIndex, resetScrollOnChange)
             return
         }
         deferred = nil
@@ -183,7 +184,7 @@ final class CandidateBarView: UIView {
             CandidateButtons.set(b, visible[i], secondary: i == secondaryIndex, topInset: strip)
         }
         // 只有候选真的换了才滚回开头(布局回调也会走到这里,不能把用户翻到一半的候选拉回去)。
-        if changed { scroll.contentOffset = .zero }
+        if changed && resetScrollOnChange { scroll.contentOffset = .zero }
         expand.isHidden = items.count <= 1
         divider.isHidden = expand.isHidden
         ask.isHidden = !items.isEmpty || !showsLodoKeys
@@ -192,7 +193,8 @@ final class CandidateBarView: UIView {
 
     private func flushDeferred() {
         guard let d = deferred, !buttons.isTracking else { return }
-        show(preedit: d.preedit, composing: d.composing, choices: d.choices, secondaryIndex: d.secondary)
+        show(preedit: d.preedit, composing: d.composing, choices: d.choices, secondaryIndex: d.secondary,
+             resetScrollOnChange: d.reset)
     }
 
     override func layoutSubviews() {
@@ -272,7 +274,7 @@ final class CandidateGridView: UIView {
         self.items = items
         let bs = buttons.buttons(count: items.count, in: scroll)
         for (i, b) in bs.enumerated() { CandidateButtons.set(b, items[i]) }
-        if changed || resetScroll { scroll.contentOffset = .zero }
+        if resetScroll { scroll.contentOffset = .zero }
         setNeedsLayout()
     }
 

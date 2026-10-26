@@ -1,5 +1,6 @@
 import XCTest
 @testable import LodoIME
+import LodoReranker
 
 final class EngineTests: XCTestCase {
     static let lexicon = try! Lexicon.bundled()
@@ -47,6 +48,28 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(c.first?.corrected ?? false)
     }
 
+    func testMissingVowelInsideSentence() {
+        let choices = engine.candidates(for: "nihaya").candidates
+        XCTAssertEqual(choices.first?.text, "你好呀")
+        XCTAssertTrue(choices.first?.corrected == true)
+        if let model = ModelReranker.bundled() {
+            engine.reranker = model
+            XCTAssertEqual(engine.candidates(for: "nihaya").candidates.first?.text, "你好呀")
+        }
+        engine.correctionEnabled = false
+        XCTAssertFalse(engine.candidates(for: "nihaya").candidates.contains { $0.text == "你好呀" && $0.corrected })
+    }
+
+    func testPersonalNameAppearsAsCandidate() {
+        engine.personalDictionary = PersonalDictionary(
+            words: [.init(text: "张小满", pinyin: "zhang xiao man")], lexicon: Self.lexicon)
+        let choices = engine.candidates(for: "zhangxiaoman").candidates
+        XCTAssertTrue(choices.contains { $0.text == "张小满" && $0.source == .user })
+        XCTAssertTrue(engine.candidates(for: "zxm").candidates.contains { $0.text == "张小满" })
+        let digits = Syllabifier.nineKeyCode("zhangxiaoman")
+        XCTAssertTrue(engine.candidates(for: digits).candidates.contains { $0.text == "张小满" })
+    }
+
     func testCompositionPartialSelect() {
         var comp = Composition()
         "zhongguoren".forEach { comp.insert($0) }
@@ -62,7 +85,10 @@ final class EngineTests: XCTestCase {
     func testBackspaceUndoesSelection() {
         var comp = Composition()
         "nihao".forEach { comp.insert($0) }
-        let ni = engine.candidates(for: "nihao").candidates.first { $0.text == "你" && $0.source == .prefix }!
+        guard let ni = engine.candidates(for: "nihao").candidates.first(where: { $0.text == "你" && $0.source == .prefix }) else {
+            XCTFail("missing exact prefix")
+            return
+        }
         _ = comp.select(ni, engine: engine)
         XCTAssertEqual(comp.remaining, "hao")
         comp.remaining.forEach { _ in comp.backspace() }

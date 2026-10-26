@@ -59,6 +59,26 @@ enum ContactsBridge {
         return contacts
     }
 
+    /// 键盘词库只取姓名和昵称,避免读取联系方式、照片等无关数据。
+    nonisolated static func fetchKeyboardNames() -> [String]? {
+        let request = CNContactFetchRequest(keysToFetch: [
+            CNContactNicknameKey as CNKeyDescriptor,
+            CNContactFormatter.descriptorForRequiredKeys(for: .fullName),
+        ])
+        var names: [String] = []
+        do {
+            try CNContactStore().enumerateContacts(with: request) { contact, _ in
+                if let name = CNContactFormatter.string(from: contact, style: .fullName), !name.isEmpty {
+                    names.append(name)
+                }
+                if !contact.nickname.isEmpty { names.append(contact.nickname) }
+            }
+            return names
+        } catch {
+            return nil // 读取失败不是空通讯录,不能覆盖上次导入。
+        }
+    }
+
     // MARK: - 导入(系统联系人 → 记忆库人脉)
 
     /// 批量导入,按手机号/邮箱与已有人脉条目去重(命中任一即跳过,不新建、

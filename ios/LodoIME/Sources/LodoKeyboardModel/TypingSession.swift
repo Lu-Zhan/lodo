@@ -84,6 +84,14 @@ public final class TypingSession {
     private var cachedContext: String??
     /// 后台正在解哪一串(同一时间只发一个,回来时拼音又变了就接着解最新的,不排长队)。
     private var decodingKey: String?
+    private enum QueuedInput {
+        case action(KeyAction)
+        case candidate(Candidate, String)
+        case rawLetters
+    }
+    /// 等基础候选时仍收按键;结果到达后按原顺序处理,不在触摸回调里同步等词图。
+    private var commitKey: String?
+    private var queuedInputs: [QueuedInput] = []
     /// 组合的「轮次」:上屏、清空、选了一段、换写字对象都加一。后台结果只认发请求时那一轮——
     /// 光比拼音不够:上屏后再打同样的字母,上文、已选片段、用户词都变了,上一轮的候选不再适用。
     private var compositionGeneration = 0
@@ -105,9 +113,45 @@ public final class TypingSession {
     /// 屏幕上的候选是不是对当前这串拼音解出来的(后台解码时可能慢一拍)。
     public var candidatesAreCurrent: Bool { candidatesKey == composition.remaining }
 
+    /// 个性词库换版后,正在显示的候选失效;下一轮解码使用新快照。
+    public func personalDictionaryChanged() {
+        candidatesKey = nil
+        compositionGeneration += 1
+        if isComposing { requestDecode() }
+    }
+
     // MARK: - 按键
 
     public func handle(_ action: KeyAction, now: Date = Date()) {
+        if commitKey != nil {
+            queuedInputs.append(.action(action))
+            return
+        }
+        if needsCandidateBefore(action), let decoder {
+            let key = composition.remaining
+            commitKey = key
+            queuedInputs.append(.action(action))
+            decoder.decodeForCommit(key, context: context()) { [weak self] result in
+                guard let self, self.commitKey == key else { return }
+                self.commitKey = nil
+                let queued = self.queuedInputs
+                self.queuedInputs = []
+                guard self.composition.remaining == key else { return }
+                if !self.candidatesAreCurrent {
+                    self.candidates = result.candidates
+                    self.segmented = result.segmented
+                    self.candidatesKey = key
+                }
+                for input in queued {
+                    switch input {
+                    case .action(let action): self.handle(action)
+                    case .candidate(let candidate, let decodedFor): self.select(candidate, decodedFor: decodedFor)
+                    case .rawLetters: self.commitRawLetters()
+                    }
+                }
+            }
+            return
+        }
         cachedContext = nil
         if action != .shift {
             lastShiftTap = nil      // 中间按了别的键,就不算双击 shift
@@ -132,9 +176,22 @@ public final class TypingSession {
             shiftIsAuto = false
         case .nextKeyboard:
             break // 由视图交给系统
+        case .clearComposition:
+            composition.clear()
+        case .nineKeyOne:
+            if isComposing { separator() } else { insert("@") }
         }
         if action != .space { lastSpace = nil }
         refresh()
+    }
+
+    private func needsCandidateBefore(_ action: KeyAction) -> Bool {
+        guard isComposing, !composition.remaining.isEmpty, !candidatesAreCurrent else { return false }
+        switch action {
+        case .space, .text: return true
+        case .letter: return shift != .off
+        default: return false
+        }
     }
 
     /// 选候选栏里的第 i 条。
@@ -150,11 +207,15 @@ public final class TypingSession {
     /// 候选栏没换),点的是什么就上什么——只多打了字母时它照样成立,吃掉它那几个字母、剩下的接着拼;
     /// 删过字母就对不上了,按文字在最新结果里找,找不到就不选(只刷新候选)。
     public func select(_ candidate: Candidate, decodedFor key: String) {
+        if commitKey != nil {
+            queuedInputs.append(.candidate(candidate, key))
+            return
+        }
         guard isComposing else { return }
         cachedContext = nil
         var picked = candidate
         if !composition.remaining.hasPrefix(key) {
-            if !candidatesAreCurrent { decodeNow() }
+            if !candidatesAreCurrent { requestDecode(); return }
             guard let same = candidates.first(where: { $0.text == candidate.text }) else { return refresh() }
             picked = same
         }
@@ -190,6 +251,8 @@ public final class TypingSession {
                 // 用户挪了光标、换了输入框、宿主自己改了内容:丢掉没上屏的拼音。
                 // 宿主那边的标记文字归宿主处理(挪光标时它会自己确认掉),这边只是不再认它。
                 composition.clear()
+                commitKey = nil
+                queuedInputs = []
                 compositionAnchor = nil
                 marked = ""
             }
@@ -221,6 +284,10 @@ public final class TypingSession {
 
     /// 点了「原样字母」:按显示的那样上屏。
     public func commitRawLetters() {
+        if commitKey != nil {
+            queuedInputs.append(.rawLetters)
+            return
+        }
         guard isComposing else { return }
         cachedContext = nil
         let text = rawLetters
@@ -231,8 +298,49 @@ public final class TypingSession {
 
     /// 键盘收起前把正在拼的字母原样留下,不吞掉用户的输入。
     public func commitRaw() {
+        flushPendingForDismissal()
         guard isComposing else { return }
+        if composition.hasNineKeyDigits {
+            // 九宫格按的是数字:原样上屏的是输入框里显示的那串拼音,不是数字。
+            if !candidatesAreCurrent { decodeNow() }
+            let text = composition.pieces.map(\.text).joined() + segmented.replacingOccurrences(of: "'", with: "")
+            composition.clear()
+            insert(text)
+            return
+        }
         insert(composition.commitRaw())
+    }
+
+    /// 收键盘/换宿主时不能留下尚未处理的按键;此处罕见路径允许同步补解。
+    private func flushPendingForDismissal() {
+        guard commitKey != nil else { return }
+        commitKey = nil
+        let queued = queuedInputs
+        queuedInputs = []
+        let background = decoder
+        decoder = nil
+        for input in queued {
+            switch input {
+            case .action(let action): handle(action)
+            case .candidate(let candidate, let key): select(candidate, decodedFor: key)
+            case .rawLetters: commitRawLetters()
+            }
+        }
+        decoder = background
+    }
+
+    /// 九宫格左边那列:剩下的数字开头能读成哪些拼音。
+    public var nineKeySyllables: [(syllable: String, length: Int)] {
+        guard composition.hasNineKeyDigits else { return [] }
+        return engine.nineKeySyllables(for: composition.remaining)
+    }
+
+    /// 在左边那列选了一个拼音:开头那几个数字定成它。
+    public func fixSpelling(_ syllable: String, length: Int) {
+        guard isComposing else { return }
+        cachedContext = nil
+        composition.fixSpelling(syllable, consuming: length)
+        refresh()
     }
 
     // MARK: -
@@ -441,8 +549,9 @@ public final class TypingSession {
     }
 
     private func decodeSync(_ input: String, limit: Int = 60) -> PinyinEngine.Result {
-        if let decoder { return decoder.decodeNow(input, context: context(), limit: limit) }
-        return engine.candidates(for: input, context: context(), limit: limit)
+        // 仅用于收键盘、九宫格原样确认和极少数分段上屏的兜底。
+        // 不排进可能正在跑模型的后台队列,也不调用模型。
+        return engine.candidates(for: input, context: context(), limit: limit, rerank: false)
     }
 
     /// 当场把候选解到最新(上屏那一下用)。
@@ -460,18 +569,19 @@ public final class TypingSession {
         let key = composition.remaining
         let generation = compositionGeneration
         decodingKey = key
-        decoder.decode(key, context: context()) { [weak self] result in
+        decoder.decode(key, context: context()) { [weak self] result, enriched in
             guard let self else { return }
-            self.decodingKey = nil
+            if !enriched, self.decodingKey == key { self.decodingKey = nil }
             guard self.isComposing, !self.composition.remaining.isEmpty else { return }
             if self.composition.remaining == key, self.compositionGeneration == generation {
+                guard self.candidates != result.candidates || self.segmented != result.segmented else { return }
                 self.candidates = result.candidates
                 self.segmented = result.segmented
                 self.candidatesKey = key
                 self.cachedContext = nil
                 self.syncMarkedText() // 切分出来了:输入框里的「nihao」换成「ni hao」
                 self.onChange?()
-            } else if !self.candidatesAreCurrent {
+            } else if !enriched && !self.candidatesAreCurrent {
                 self.requestDecode()
             }
         }

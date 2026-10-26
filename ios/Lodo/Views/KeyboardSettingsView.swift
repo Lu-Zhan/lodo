@@ -1,16 +1,30 @@
 #if os(iOS)
 import LodoCore
 import SwiftUI
+import SwiftData
 
 /// 设置 → lodo 键盘:怎么启用、完全访问拿来做什么、按键震动、模糊音、致谢。
 /// 教程放在这里而不是键盘里(HIG:别在键盘里放帮助内容)。
 struct KeyboardSettingsView: View {
+    @Environment(\.modelContext) private var context
+    @State private var importMessage: String?
     @AppStorage(KeyboardExchange.fuzzyKey, store: KeyboardExchange.shared) private var fuzzyRaw = 0
+    @AppStorage(KeyboardExchange.smartCorrectionKey, store: KeyboardExchange.shared) private var smartCorrection = true
     @AppStorage(KeyboardExchange.hapticsKey, store: KeyboardExchange.shared) private var haptics = true
+    @AppStorage(KeyboardExchange.nineKeyKey, store: KeyboardExchange.shared) private var nineKey = false
     @AppStorage(KeyboardExchange.hapticsIntensityKey, store: KeyboardExchange.shared)
     private var hapticsIntensity = KeyboardExchange.defaultHapticsIntensity
-    /// 和键盘里同一种震感(.soft),预览才对得上。
-    @State private var preview = UIImpactFeedbackGenerator(style: .soft)
+    @AppStorage(KeyboardExchange.hapticsStyleKey, store: KeyboardExchange.shared)
+    private var hapticsStyleRaw = KeyboardExchange.HapticsStyle.crisp.rawValue
+
+    /// 和键盘里同一套映射,预览才对得上。
+    private var previewStyle: UIImpactFeedbackGenerator.FeedbackStyle {
+        switch KeyboardExchange.hapticsStyle(from: hapticsStyleRaw) {
+        case .crisp: .rigid
+        case .standard: .light
+        case .soft: .soft
+        }
+    }
     @Environment(\.openURL) private var openURL
 
     /// 和 LodoIME 的 `FuzzyOptions` 位一一对应(主 app 不链接 LodoIME,这里按位写)。
@@ -44,7 +58,24 @@ struct KeyboardSettingsView: View {
             }
 
             Section {
+                Picker("中文键盘", selection: $nineKey) {
+                    Text("全键盘").tag(false)
+                    Text("九宫格").tag(true)
+                }
+                .segmentedPickerStyle()
+            } footer: {
+                Text("九宫格:按数字键打拼音,左边那列可以选拼音、没在打字时是常用标点;英文和数字符号仍是全键盘。下次弹出键盘时生效。")
+            }
+
+            Section {
                 Toggle("按键震动", isOn: $haptics)
+                Picker("震感", selection: $hapticsStyleRaw) {
+                    Text("清脆").tag(KeyboardExchange.HapticsStyle.crisp.rawValue)
+                    Text("标准").tag(KeyboardExchange.HapticsStyle.standard.rawValue)
+                    Text("柔和").tag(KeyboardExchange.HapticsStyle.soft.rawValue)
+                }
+                .disabled(!haptics)
+                .onChange(of: hapticsStyleRaw) { playPreview() }
                 VStack(alignment: .leading) {
                     Text("震动强度")
                     Slider(value: Binding(
@@ -69,6 +100,12 @@ struct KeyboardSettingsView: View {
             }
 
             Section {
+                Toggle("智能纠错", isOn: $smartCorrection)
+            } footer: {
+                Text("漏敲一个拼音元音时尝试找回完整词句,例如 nihaya → 你好呀。下次弹出键盘时生效。")
+            }
+
+            Section {
                 ForEach(Self.fuzzyPairs, id: \.bit) { pair in
                     Toggle(pair.label, isOn: Binding(
                         get: { fuzzyRaw & (1 << pair.bit) != 0 },
@@ -78,6 +115,45 @@ struct KeyboardSettingsView: View {
                 Text("模糊音")
             } footer: {
                 Text("分不清前后鼻音、平翘舌时打开对应的几项;下次弹出键盘时生效。")
+            }
+
+            Section {
+                NavigationLink("自定义短语与读音") { KeyboardPersonalWordsView() }
+                Button("导入通讯录姓名") {
+                    Task {
+                        guard case .granted = await ContactsBridge.requestAccess() else {
+                            importMessage = "没有通讯录访问权限"
+                            return
+                        }
+                        let imported = await Task.detached(priority: .utility) { () -> Int? in
+                            guard let names = ContactsBridge.fetchKeyboardNames() else { return nil }
+                            let words = names.compactMap(KeyboardExchange.PersonalWord.init(text:))
+                            return KeyboardExchange.writeImportedContactWords(words) ? words.count : -1
+                        }.value
+                        guard let imported else {
+                            importMessage = "读取通讯录失败,请稍后再试"
+                            return
+                        }
+                        guard imported >= 0 else {
+                            importMessage = "保存姓名词库失败"
+                            return
+                        }
+                        KeyboardBridge.refresh(context: context)
+                        importMessage = "已导入\(imported)个姓名或昵称"
+                    }
+                }
+                Button("清除已导入的通讯录姓名", role: .destructive) {
+                    guard KeyboardExchange.writeImportedContactWords([]) else {
+                        importMessage = "清除姓名词库失败"
+                        return
+                    }
+                    KeyboardBridge.refresh(context: context)
+                    importMessage = "已清除通讯录姓名"
+                }
+            } header: {
+                Text("人名词库")
+            } footer: {
+                Text("lodo 人脉的姓名和昵称会自动用于键盘候选。通讯录姓名为一次性导入,再次点击可更新;只保存姓名和拼音。")
             }
 
             Section {
@@ -91,11 +167,19 @@ struct KeyboardSettingsView: View {
         }
         .formStyle(.grouped)
         .pageTitle("lodo 键盘")
+        .alert("人名词库", isPresented: Binding(
+            get: { importMessage != nil },
+            set: { if !$0 { importMessage = nil } }
+        )) {
+            Button("好", role: .cancel) { importMessage = nil }
+        } message: {
+            Text(importMessage ?? "")
+        }
     }
 
     private func playPreview() {
-        preview.impactOccurred(intensity: KeyboardExchange.hapticsIntensity(from: hapticsIntensity))
-        preview.prepare()
+        let generator = UIImpactFeedbackGenerator(style: previewStyle)
+        generator.impactOccurred(intensity: KeyboardExchange.hapticsIntensity(from: hapticsIntensity))
     }
 
     private func acknowledgement(_ title: LocalizedStringKey, _ detail: String) -> some View {

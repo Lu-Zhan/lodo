@@ -32,6 +32,10 @@ public enum KeyAction: Hashable, Sendable {
     case toggleLanguage
     /// 系统的切换输入法键(只在 `needsInputModeSwitchKey` 时出现)。
     case nextKeyboard
+    /// 九宫格「重输」:丢掉正在拼的这一串。
+    case clearComposition
+    /// 九宫格的 1 键:拼的时候是分词(同长按「，」的分隔符),没在拼时打「@」。
+    case nineKeyOne
 }
 
 public struct Key: Hashable, Sendable {
@@ -153,9 +157,9 @@ public struct KeyboardMetrics: Sendable {
     /// 第三行贴边的 shift / 删除有多宽(`Key.edgeAnchored`)。
     public var edgeKeyWidth: CGFloat
 
-    /// 竖屏照 iOS 27 系统拼音键盘的真机截图量的(402pt 宽):字母键 33.4 宽 42 高、键缝 6、行距 12、两边 7;
+    /// 竖屏照 iOS 27 系统拼音键盘的真机截图量的(402pt 宽):字母键 33.4 宽 42 高、键缝 6、行距 10(截图是 12,用户要求再收 2)、两边 7;
     /// 第三行 shift / 删除 45 宽贴边;候选栏 53(首选垫一块 36 高的圆角底)。
-    public static let phonePortrait = KeyboardMetrics(keyHeight: 42, rowSpacing: 12, keySpacing: 6, sideInset: 7,
+    public static let phonePortrait = KeyboardMetrics(keyHeight: 42, rowSpacing: 10, keySpacing: 6, sideInset: 7,
                                                       topInset: 0, bottomInset: 0, cornerRadius: 8.5,
                                                       candidateBarHeight: 53, edgeKeyWidth: 45)
     public static let phoneLandscape = KeyboardMetrics(keyHeight: 34, rowSpacing: 6, keySpacing: 4, sideInset: 3,
@@ -229,6 +233,62 @@ public enum KeyboardFrames {
             }
         }
         return out
+    }
+
+    /// 九宫格(中文字母页):左边一列是标点 / 选拼音的竖条(`listFrame`,由视图自己摆),
+    /// 中间 3×3 是 @/. ABC DEF / GHI JKL MNO / PQRS TUV WXYZ,右边一列 删除 / 重输 / 回车(占两行),
+    /// 底行 123 / (地球) 中英 / 空格。总高和全键盘一样,换布局时键盘不跳。
+    public static func placeNineKey(width: CGFloat, metrics m: KeyboardMetrics, needsGlobe: Bool)
+        -> (keys: [PlacedKey], listFrame: CGRect) {
+        let gap: CGFloat = 6
+        let available = width - 2 * m.sideInset
+        // 两边的窄列是中间大键的 3/4。
+        let big = (available - 4 * gap) / 4.5, narrow = big * 0.75
+        let colX: [CGFloat] = {
+            var xs: [CGFloat] = [], x = m.sideInset
+            for w in [narrow, big, big, big, narrow] { xs.append(x); x += w + gap }
+            return xs
+        }()
+        let colW: [CGFloat] = [narrow, big, big, big, narrow]
+        let total = m.keyAreaHeight(rows: 4)
+        let rowGap: CGFloat = 6
+        let rowH = (total - m.topInset - m.bottomInset - 3 * rowGap) / 4
+        func y(_ r: Int) -> CGFloat { m.topInset + CGFloat(r) * (rowH + rowGap) }
+        func rect(col: Int, row: Int, cols: Int = 1, rows: Int = 1) -> CGRect {
+            let w = colX[col + cols - 1] + colW[col + cols - 1] - colX[col]
+            return CGRect(x: colX[col], y: y(row), width: w, height: CGFloat(rows) * rowH + CGFloat(rows - 1) * rowGap)
+        }
+        var keys: [(Key, CGRect)] = [
+            (Key(.nineKeyOne), rect(col: 1, row: 0)),
+            (Key(.letter("2")), rect(col: 2, row: 0)), (Key(.letter("3")), rect(col: 3, row: 0)),
+            (Key(.delete, isFunction: true), rect(col: 4, row: 0)),
+            (Key(.letter("4")), rect(col: 1, row: 1)), (Key(.letter("5")), rect(col: 2, row: 1)),
+            (Key(.letter("6")), rect(col: 3, row: 1)),
+            (Key(.clearComposition, isFunction: true), rect(col: 4, row: 1)),
+            (Key(.letter("7")), rect(col: 1, row: 2)), (Key(.letter("8")), rect(col: 2, row: 2)),
+            (Key(.letter("9")), rect(col: 3, row: 2)),
+            (Key(.returnKey, isFunction: true), rect(col: 4, row: 2, rows: 2)),
+            (Key(.page(.numbers), isFunction: true), rect(col: 0, row: 3)),
+            (Key(.space), rect(col: 2, row: 3, cols: 2)),
+        ]
+        let langCell = rect(col: 1, row: 3)
+        if needsGlobe {
+            let half = (langCell.width - gap) / 2
+            keys.append((Key(.nextKeyboard, isFunction: true), CGRect(x: langCell.minX, y: langCell.minY, width: half, height: rowH)))
+            keys.append((Key(.toggleLanguage, isFunction: true),
+                         CGRect(x: langCell.maxX - half, y: langCell.minY, width: half, height: rowH)))
+        } else {
+            keys.append((Key(.toggleLanguage, isFunction: true), langCell))
+        }
+        // 触摸范围:向四周扩到键缝中线,贴边的扩到边。
+        let placed = keys.map { key, f in
+            let left = f.minX <= m.sideInset + 0.5 ? 0 : f.minX - gap / 2
+            let right = f.maxX >= width - m.sideInset - 0.5 ? width : f.maxX + gap / 2
+            let top = f.minY <= m.topInset + 0.5 ? 0 : f.minY - rowGap / 2
+            let bottom = f.maxY >= total - m.bottomInset - 0.5 ? total : f.maxY + rowGap / 2
+            return PlacedKey(key: key, frame: f, hitFrame: CGRect(x: left, y: top, width: right - left, height: bottom - top))
+        }
+        return (placed, rect(col: 0, row: 0, rows: 3))
     }
 
     /// 触点落在哪颗键:先看触摸范围,都不在(理论上不会)就取最近的键帽。

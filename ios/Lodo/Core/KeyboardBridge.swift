@@ -12,6 +12,7 @@ enum KeyboardBridge {
         #if os(iOS)
         consumeTasks(context: context)
         writeSnapshot(context: context)
+        writePersonalWords(context: context)
         if let shared = KeyboardExchange.shared {
             KeyboardExchange.mirror(from: .standard, to: shared)
         }
@@ -59,5 +60,14 @@ enum KeyboardBridge {
                 excerpt: MemorySearch.truncate($0.sourceText, limit: MemorySearch.maxExcerptChars),
                 createdAt: $0.createdAt) }
         KeyboardExchange.write(.init(memories: Array(memories)))
+    }
+
+    private static func writePersonalWords(context: ModelContext) {
+        let people = ((try? context.fetch(FetchDescriptor<MemoryItem>())) ?? []).filter(\.isContact)
+        let names = people.flatMap { [$0.title, $0.contactNickname ?? ""] }
+        let words = names.compactMap(KeyboardExchange.PersonalWord.init(text:))
+            + KeyboardExchange.loadImportedContactWords()
+            + KeyboardExchange.loadCustomWords()
+        KeyboardExchange.writePersonalWords(words)
     }
 }

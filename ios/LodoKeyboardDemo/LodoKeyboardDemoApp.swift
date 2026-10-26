@@ -13,6 +13,7 @@ import UIKit
 ///   --return <类型>    宿主的回车键类型:search / send / done / go
 ///   --dark / --light   深浅色
 ///   --ask              打开 ✨ 面板;配 --type 写问题,再加 --send 出假回答
+///   --nine             中文用九宫格(--type 里 2–9 就是按键)
 ///   --no-full-access   模拟没开「完全访问」
 ///   --accent blue      换成主 app 的「靛蓝」档(核对强调色跟随)
 @main
@@ -90,6 +91,7 @@ final class DemoKeyboardViewController: UIViewController, KeyboardHost {
         keyboard = try! KeyboardController(host: self, userDictionaryURL: nil)
         services.hasFullAccess = !args.contains("--no-full-access")
         keyboard.services = services
+        keyboard.nineKey = args.contains("--nine") // 中文九宫格
         if value("--accent") == "blue" {
             keyboard.accent = KeyboardAccent(accent: KeyboardAccent.dynamic(light: 0x0A58CA, dark: 0x7FB3FF),
                                              fill: KeyboardAccent.dynamic(light: 0x0A58CA, dark: 0x4DA3FF),

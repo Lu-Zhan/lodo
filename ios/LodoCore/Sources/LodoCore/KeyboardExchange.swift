@@ -15,6 +15,9 @@ public enum KeyboardExchange {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
     }
     public static var snapshotURL: URL? { root?.appending(path: "keyboard-snapshot.json") }
+    public static var personalWordsURL: URL? { root?.appending(path: "keyboard-personal-words.json") }
+    private static var importedContactWordsURL: URL? { root?.appending(path: "keyboard-imported-contacts.json") }
+    private static var customWordsURL: URL? { root?.appending(path: "keyboard-custom-words.json") }
     public static var shared: UserDefaults? { UserDefaults(suiteName: groupID) }
     public static var taskInbox: URL? { directory("Keyboard/Tasks") }
     public static var memoryInbox: URL? { directory("Memory/Inbox") }
@@ -61,6 +64,66 @@ public enum KeyboardExchange {
 
     public static func write(_ snapshot: Snapshot) {
         guard let url = snapshotURL, let data = try? JSONEncoder().encode(snapshot) else { return }
+        try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    /// 键盘选词专用:只含姓名/短语与拼音,没有电话、邮箱、头像或备注。
+    public struct PersonalWord: Codable, Hashable, Sendable {
+        public let text: String
+        public let pinyin: String
+        public init?(text: String) {
+            let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, value.count <= 24,
+                  let latin = value.applyingTransform(.toLatin, reverse: false)?
+                    .applyingTransform(.stripDiacritics, reverse: false) else { return nil }
+            let sounds = latin.lowercased().split(whereSeparator: { !$0.isASCII || !$0.isLetter })
+            guard !sounds.isEmpty, sounds.count <= 8 else { return nil }
+            self.text = value
+            self.pinyin = sounds.joined(separator: " ")
+        }
+        public init?(text: String, pinyin: String) {
+            let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let sounds = pinyin.lowercased().split(whereSeparator: { $0 == " " || $0 == "'" })
+            guard !value.isEmpty, value.count <= 24, !sounds.isEmpty, sounds.count <= 8,
+                  sounds.allSatisfy({ $0.allSatisfy { $0.isASCII && $0.isLetter } }) else { return nil }
+            self.text = value
+            self.pinyin = sounds.joined(separator: " ")
+        }
+    }
+
+    private struct PersonalWordsSnapshot: Codable {
+        let version: Int
+        let words: [PersonalWord]
+    }
+
+    public static func loadImportedContactWords() -> [PersonalWord] {
+        guard let url = importedContactWordsURL, let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([PersonalWord].self, from: data)) ?? []
+    }
+
+    public static func loadCustomWords() -> [PersonalWord] {
+        guard let url = customWordsURL, let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([PersonalWord].self, from: data)) ?? []
+    }
+
+    @discardableResult
+    public static func writeCustomWords(_ words: [PersonalWord]) -> Bool {
+        guard let url = customWordsURL, let data = try? JSONEncoder().encode(words) else { return false }
+        do { try data.write(to: url, options: .atomic); return true } catch { return false }
+    }
+
+    @discardableResult
+    public static func writeImportedContactWords(_ words: [PersonalWord]) -> Bool {
+        guard let url = importedContactWordsURL, let data = try? JSONEncoder().encode(words) else { return false }
+        do { try data.write(to: url, options: .atomic); return true } catch { return false }
+    }
+
+    public static func writePersonalWords(_ words: [PersonalWord]) {
+        guard let url = personalWordsURL else { return }
+        let snapshot = PersonalWordsSnapshot(version: 1, words: Array(Set(words)).sorted {
+            $0.text == $1.text ? $0.pinyin < $1.pinyin : $0.text < $1.text
+        })
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
@@ -125,6 +188,16 @@ public enum KeyboardExchange {
 
     /// 键盘的「按键震动」开关(主 app 设置里改,默认开)。
     public static let hapticsKey = "keyboardHaptics"
+    /// 中文键盘用九宫格(true)还是全键盘(默认)。存储值别改。
+    public static let nineKeyKey = "keyboardNineKey"
+    /// 震感:crisp 清脆(默认,短而干脆,接近系统键盘)/ standard 标准 / soft 柔和。存储值别改。
+    public static let hapticsStyleKey = "keyboardHapticsStyle"
+    public enum HapticsStyle: String, CaseIterable, Sendable {
+        case crisp, standard, soft
+    }
+    public static func hapticsStyle(from raw: Any?) -> HapticsStyle {
+        (raw as? String).flatMap(HapticsStyle.init(rawValue:)) ?? .crisp
+    }
     /// 按键震动的强度(0.1…1.0,默认 0.6)。存储值别改。
     public static let hapticsIntensityKey = "keyboardHapticsIntensity"
     public static let defaultHapticsIntensity = 0.6
@@ -147,6 +220,7 @@ public enum KeyboardExchange {
 
     /// 键盘的模糊音开关(`FuzzyOptions.rawValue`),在主 app 设置里改,扩展读。
     public static let fuzzyKey = "keyboardFuzzy"
+    public static let smartCorrectionKey = "keyboardSmartCorrection"
 
     public static func mirror(from source: UserDefaults, to target: UserDefaults) {
         for key in mirroredKeys {

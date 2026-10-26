@@ -20,7 +20,8 @@ public struct Composition: Sendable {
     public var isEmpty: Bool { remaining.isEmpty && pieces.isEmpty }
 
     public mutating func insert(_ letter: Character) {
-        guard letter.isASCII, letter.isLetter || letter == "'" else { return }
+        // 九宫格按的是 2–9。
+        guard letter.isASCII, letter.isLetter || letter == "'" || Syllabifier.nineKeyLetters[letter] != nil else { return }
         // 开头不能是分隔符,也不能连着两个。
         if letter == "'", remaining.isEmpty || remaining.last == "'" { return }
         remaining.append(Character(letter.lowercased()))
@@ -34,6 +35,18 @@ public struct Composition: Sendable {
             remaining = last.raw
         }
     }
+
+    /// 九宫格:还没定的那串数字里,开头 `count` 个定成 `syllable` 这个拼音(左边那列选了「ni」)。
+    /// 前面已经定过的拼音不动(ni'426 再选 hao → ni'hao)。
+    public mutating func fixSpelling(_ syllable: String, consuming count: Int) {
+        guard let start = remaining.firstIndex(where: { Syllabifier.nineKeyLetters[$0] != nil }) else { return }
+        let end = remaining.index(start, offsetBy: min(count, remaining.distance(from: start, to: remaining.endIndex)))
+        let rest = remaining[end...]
+        remaining = remaining[..<start] + syllable + (rest.isEmpty || rest.first == "'" ? "" : "'") + rest
+    }
+
+    /// 剩下的里面还有没按成拼音的数字(九宫格)。
+    public var hasNineKeyDigits: Bool { remaining.contains { Syllabifier.nineKeyLetters[$0] != nil } }
 
     public mutating func clear() {
         remaining = ""

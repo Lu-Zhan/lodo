@@ -7445,6 +7445,118 @@
         }
       }
     },
+    "中文键盘" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chinese Keyboard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中文键盘"
+          }
+        }
+      }
+    },
+    "全键盘" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QWERTY"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全键盘"
+          }
+        }
+      }
+    },
+    "九宫格" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "9-Key"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "九宫格"
+          }
+        }
+      }
+    },
+    "九宫格:按数字键打拼音,左边那列可以选拼音、没在打字时是常用标点;英文和数字符号仍是全键盘。下次弹出键盘时生效。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "9-Key: type pinyin with the number keys; the left column lets you pick the pinyin, and shows common punctuation when you’re not typing. English, numbers and symbols stay on the full keyboard. Takes effect the next time the keyboard appears."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "九宫格:按数字键打拼音,左边那列可以选拼音、没在打字时是常用标点;英文和数字符号仍是全键盘。下次弹出键盘时生效。"
+          }
+        }
+      }
+    },
+    "震感" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haptic Style"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "震感"
+          }
+        }
+      }
+    },
+    "清脆" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crisp"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清脆"
+          }
+        }
+      }
+    },
+    "柔和" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soft"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "柔和"
+          }
+        }
+      }
+    },
     "最久拖了 %lld 天" : {
       "localizations" : {
         "en" : {

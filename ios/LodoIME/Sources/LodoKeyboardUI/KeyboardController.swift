@@ -72,6 +72,15 @@ public final class KeyboardController: NSObject {
     private let bar = CandidateBarView()
     private let keys = KeyAreaView()
     private let grid = CandidateGridView()
+    /// 九宫格左边那一竖条(标点 / 选拼音)。
+    private let nineColumn = NineKeyColumnView()
+    /// 中文用九宫格(主 app 设置「中文键盘」);英文和 123 页照旧全键盘。
+    public var nineKey = false {
+        didSet { if nineKey != oldValue { keyFaceState = nil; render() } }
+    }
+    private var usesNineKey: Bool { nineKey && session.language == .chinese && session.page == .letters }
+    /// 横竖屏/设备决定的「按键弹气泡」;九宫格的大键不弹。
+    private var calloutsAllowed = true
     private let panelRow = LodoPanelRow()
     private let replyView = LodoReplyView()
     private let panelDocument = PanelDocument()
@@ -96,6 +105,11 @@ public final class KeyboardController: NSObject {
     public var hapticsIntensity: Double {
         get { Double(haptics.intensity) }
         set { haptics.intensity = CGFloat(newValue) }
+    }
+    /// 震感(主 app 设置里的「清脆 / 标准 / 柔和」)。
+    public var hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle {
+        get { haptics.style }
+        set { haptics.style = newValue }
     }
     private let haptics = KeyboardHaptics()
 
@@ -127,6 +141,7 @@ public final class KeyboardController: NSObject {
     private var saveTimer: Timer?
     private let saver = UserDictionarySaver()
     private let decoder: BackgroundDecoder
+    private var personalLoadVersion = 0
     /// 常驻最上层的地球键(位置跟着键区里那颗走),见 `KeyAreaView.globeFrame`。
     private let globeButton = UIButton(type: .custom)
 
@@ -171,7 +186,16 @@ public final class KeyboardController: NSObject {
         globeButton.setImage(UIImage(systemName: "globe"), for: .normal)
         globeButton.tintColor = .clear // 键帽在键区里画,这颗只负责接触摸;键区藏起来时才露出图标
         globeButton.accessibilityLabel = String(localized: "下一个键盘")
-        [panelRow, bar, keys, grid, replyView, globeButton].forEach(rootView.addSubview)
+        nineColumn.isHidden = true
+        nineColumn.onSelect = { [weak self] item in
+            guard let self else { return }
+            self.haptics.play(.key)
+            switch item {
+            case .punctuation(let p): self.keyArea(trigger: .text(p))
+            case .syllable(let s, let length): self.session.fixSpelling(s, length: length)
+            }
+        }
+        [panelRow, bar, keys, nineColumn, grid, replyView, globeButton].forEach(rootView.addSubview)
         host.attachInputModeSwitch(to: globeButton)
         NotificationCenter.default.addObserver(self, selector: #selector(accessibilityChanged),
                                                name: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil)
@@ -215,13 +239,47 @@ public final class KeyboardController: NSObject {
         guard session.engine.fuzzy != options else { return }
         session.engine.fuzzy = options
         decoder.setFuzzy(options)
+        session.personalDictionaryChanged()
+    }
+
+    public func setSmartCorrection(_ enabled: Bool) {
+        guard session.engine.correctionEnabled != enabled else { return }
+        session.engine.correctionEnabled = enabled
+        decoder.setCorrectionEnabled(enabled)
+        session.personalDictionaryChanged()
+    }
+
+    /// 主 app 的姓名快照可能较大,文件读取和建索引都不占用触摸线程。
+    public func loadPersonalDictionary(from url: URL?) {
+        personalLoadVersion += 1
+        let version = personalLoadVersion
+        let lexicon = session.engine.lexicon
+        Task.detached(priority: .utility) { [weak self] in
+            let words: [PersonalDictionary.Word]
+            if let url {
+                // 损坏/暂不可读时保持旧索引;空词库也会写成有效快照。
+                guard let data = try? Data(contentsOf: url),
+                      let snapshot = try? JSONDecoder().decode(PersonalDictionary.Snapshot.self, from: data),
+                      snapshot.version == 1 else { return }
+                words = snapshot.words
+            } else {
+                words = []
+            }
+            let dictionary = PersonalDictionary(words: words, lexicon: lexicon)
+            await MainActor.run { [weak self] in
+                guard let self, self.personalLoadVersion == version else { return }
+                self.session.engine.personalDictionary = dictionary
+                self.decoder.setPersonalDictionary(dictionary)
+                self.session.personalDictionaryChanged()
+            }
+        }
     }
 
     public func layout() {
         let pad = rootView.traitCollection.userInterfaceIdiom == .pad
         let landscape = !pad && rootView.traitCollection.verticalSizeClass == .compact
         var m: KeyboardMetrics = pad ? .pad : landscape ? .phoneLandscape : .phonePortrait
-        keys.showsCallouts = !pad && !landscape
+        calloutsAllowed = !pad && !landscape
         let top = panelVisible ? Self.panelHeight : 0
         let total = top + m.candidateBarHeight + m.keyAreaHeight(rows: 4)
         rootView.desiredHeight = total
@@ -262,35 +320,58 @@ public final class KeyboardController: NSObject {
         var returnKeyType: UIReturnKeyType
         var width: CGFloat
         var keyHeight: CGFloat
+        var nineKey: Bool
+        /// 九宫格的 1 键在拼的时候写「分词」、平时写「@/.」;「重输」平时变淡。
+        var nineKeyComposing: Bool
     }
     private var keyFaceState: KeyFaceState?
+    private var shownCompositionKey: String?
 
     private func render() {
         guard keys.bounds.width > 0 else { return }
         let needsGlobe = host?.needsInputModeSwitchKey ?? false
         let state = KeyFaceState(page: session.page, language: session.language, shift: session.shift,
                                  needsGlobe: needsGlobe, returnKeyType: host?.returnKeyType ?? .default,
-                                 width: keys.bounds.width, keyHeight: keys.metrics.keyHeight)
+                                 width: keys.bounds.width, keyHeight: keys.metrics.keyHeight,
+                                 nineKey: usesNineKey, nineKeyComposing: usesNineKey && session.isComposing)
+        keys.showsCallouts = calloutsAllowed && !usesNineKey
         if state != keyFaceState {
             keyFaceState = state
-            let rows = KeyboardLayout.rows(page: session.page, language: session.language, needsGlobe: needsGlobe)
-            keys.setRows(rows) { [unowned self] in face(for: $0) }
+            if usesNineKey {
+                let layout = KeyboardFrames.placeNineKey(width: keys.bounds.width, metrics: keys.metrics, needsGlobe: needsGlobe)
+                keys.setPlaced(layout.keys) { [unowned self] in face(for: $0) }
+                nineColumn.frame = layout.listFrame.offsetBy(dx: keys.frame.minX, dy: keys.frame.minY)
+                nineColumn.layer.cornerRadius = keys.metrics.cornerRadius
+            } else {
+                let rows = KeyboardLayout.rows(page: session.page, language: session.language, needsGlobe: needsGlobe)
+                keys.setRows(rows) { [unowned self] in face(for: $0) }
+            }
+        }
+        if usesNineKey {
+            nineColumn.show(session.isComposing
+                ? session.nineKeySyllables.map { .syllable($0.syllable, length: $0.length) }
+                : NineKeyColumnView.punctuation.map { .punctuation($0) })
         }
         bar.showsLodoKeys = services != nil && !panelVisible
         let items = displayedChoices()
+        let key = session.isComposing ? session.composition.remaining : nil
+        let newInput = key != shownCompositionKey
+        shownCompositionKey = key
         if session.isComposing {
             bar.show(preedit: session.showsPreeditInBar ? session.preedit : nil, composing: true,
-                     choices: items, secondaryIndex: rawCandidateIndex)
+                     choices: items, secondaryIndex: rawCandidateIndex, resetScrollOnChange: newInput)
         } else {
-            bar.show(preedit: nil, composing: false, choices: items)
+            bar.show(preedit: nil, composing: false, choices: items, resetScrollOnChange: newInput)
         }
-        if items.isEmpty { setExpanded(false) } else if !grid.isHidden { grid.show(items) }
+        if items.isEmpty { setExpanded(false) } else if !grid.isHidden { grid.show(items, resetScroll: newInput) }
         placeGlobe()
     }
 
-    /// 原样字母那一项在候选栏里的位置:紧跟首选之后,灰字。空格永远上首选,这一项要点才上。
+    /// 中文候选优先;原样字母保留在前三个中文候选后面。
     private var rawCandidateIndex: Int? {
-        session.isComposing && !session.composition.remaining.isEmpty && !session.candidates.isEmpty ? 1 : nil
+        // 九宫格按的是数字,「原样字母」没有意义,不给这一项。
+        session.isComposing && !session.composition.remaining.isEmpty && !session.candidates.isEmpty
+            && !session.composition.hasNineKeyDigits ? min(3, session.candidates.count) : nil
     }
 
     /// 候选栏里的每一项,连同点了之后做什么。按钮记着的是这一项本身而不是下标:
@@ -304,6 +385,7 @@ public final class KeyboardController: NSObject {
     }
 
     private func placeGlobe() {
+        nineColumn.isHidden = !usesNineKey || keys.isHidden
         if let frame = keys.globeFrame {
             globeButton.frame = keys.convert(frame, to: rootView)
             globeButton.isHidden = false
@@ -322,6 +404,17 @@ public final class KeyboardController: NSObject {
             KeyFace(title: NSAttributedString(string: s), font: font, accessibility: s)
         }
         switch key.action {
+        case .letter(let c) where NineKey.letters[c] != nil:
+            // 九宫格的数字键:写这个键上的字母(ABC),同系统。
+            return text(NineKey.letters[c]!.uppercased(), .systemFont(ofSize: 20, weight: .regular))
+        case .nineKeyOne:
+            return text(session.isComposing ? "分词" : "@/.", .systemFont(ofSize: session.isComposing ? 16 : 20))
+        case .clearComposition:
+            var f = text("重输")
+            if !session.isComposing {
+                f.title = NSAttributedString(string: "重输", attributes: [.foregroundColor: UIColor.tertiaryLabel])
+            }
+            return f
         case .letter(let c):
             let upper = session.shift != .off
             return text(upper ? c.uppercased() : String(c), KeyboardAppearance.letterFont(pad: pad))
@@ -444,6 +537,7 @@ public final class KeyboardController: NSObject {
             showReply(reply)
         }
         keys.isHidden = !grid.isHidden || { if case .reply = panel { true } else { false } }()
+        nineColumn.isHidden = !usesNineKey || keys.isHidden
         bar.isHidden = { if case .reply = panel { true } else { false } }()
     }
 
@@ -578,6 +672,7 @@ public final class KeyboardController: NSObject {
             case "@": keyArea(trigger: .page(.symbols))
             case "~": keyArea(trigger: .toggleLanguage)
             case "^": keyArea(trigger: .shift)
+            case "2"..."9" where usesNineKey: keyArea(trigger: .letter(ch)) // 九宫格里数字就是按键
             case "1"..."9":
                 let choices = displayedChoices(), i = Int(String(ch))! - 1
                 if choices.indices.contains(i) { selectCandidate(choices[i]) }
