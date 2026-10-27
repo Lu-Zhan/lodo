@@ -209,6 +209,16 @@ public enum KeyboardExchange {
         return min(max(value, hapticsIntensityRange.lowerBound), hapticsIntensityRange.upperBound)
     }
 
+    /// 按键高度倍数(0.85…1.25,默认 1 = 照系统键盘量的高度)。只放大键帽,键缝行距不变。存储值别改。
+    public static let keyHeightScaleKey = "keyboardKeyHeightScale"
+    public static let defaultKeyHeightScale = 1.0
+    public static let keyHeightScaleRange: ClosedRange<Double> = 0.85...1.25
+
+    public static func keyHeightScale(from raw: Any?) -> Double {
+        guard let value = (raw as? NSNumber)?.doubleValue, value.isFinite else { return defaultKeyHeightScale }
+        return min(max(value, keyHeightScaleRange.lowerBound), keyHeightScaleRange.upperBound)
+    }
+
     // MARK: - 设置镜像
 
     /// 键盘里 AI 键要用到的设置。思考强度不镜像:键盘里固定不思考(打字间隙等不起推理)。

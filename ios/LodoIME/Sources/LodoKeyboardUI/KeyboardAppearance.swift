@@ -47,20 +47,22 @@ enum KeyboardAppearance {
     /// 「增强对比度」开着时键帽加描边。
     static var increasesContrast: Bool { UIAccessibility.isDarkerSystemColorsEnabled }
 
+    /// 深色同系统深色键盘:键帽是实打实的灰(字母键亮一档、功能键暗一档),几乎不透——
+    /// 原来用半透明白叠在玻璃背板上,背后的内容(红的蓝的)会从键帽里透出来,字母键和功能键也分不开(真机截图)。
     static var characterKey: UIColor {
         reducesTransparency
-            ? dynamic(light: .white, dark: UIColor(white: 0.42, alpha: 1))
-            : dynamic(light: UIColor(white: 1, alpha: 0.92), dark: UIColor(white: 1, alpha: 0.28))
+            ? dynamic(light: .white, dark: UIColor(white: 0.36, alpha: 1))
+            : dynamic(light: UIColor(white: 1, alpha: 0.92), dark: UIColor(white: 0.36, alpha: 0.94))
     }
 
     static var functionKey: UIColor {
         reducesTransparency
-            ? dynamic(light: UIColor(red: 0.67, green: 0.69, blue: 0.73, alpha: 1), dark: UIColor(white: 0.27, alpha: 1))
-            : dynamic(light: UIColor(red: 0.55, green: 0.58, blue: 0.63, alpha: 0.42), dark: UIColor(white: 1, alpha: 0.13))
+            ? dynamic(light: UIColor(red: 0.67, green: 0.69, blue: 0.73, alpha: 1), dark: UIColor(white: 0.21, alpha: 1))
+            : dynamic(light: UIColor(red: 0.55, green: 0.58, blue: 0.63, alpha: 0.42), dark: UIColor(white: 0.21, alpha: 0.94))
     }
 
-    /// 放大气泡永远不透明:它盖在候选栏上,透出底下的字就看不清了。
-    static let calloutFill = dynamic(light: .white, dark: UIColor(white: 0.42, alpha: 1))
+    /// 放大气泡永远不透明:它盖在候选栏上,透出底下的字就看不清了。深色和字母键同色。
+    static let calloutFill = dynamic(light: .white, dark: UIColor(white: 0.36, alpha: 1))
 
     /// 回车键在「搜索/发送/前往…」时是系统蓝底白字,同系统键盘。
     static let prominentKey = UIColor.systemBlue

@@ -46,6 +46,7 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         reloadSettings()
+        followHostAppearance()
         keyboard?.willAppear()
         keyboard?.layout() // 先把高度约束挂上,键盘弹出来就是完整高度
     }
@@ -66,6 +67,8 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
         }
         keyboard.hapticsIntensity = KeyboardExchange.hapticsIntensity(
             from: KeyboardExchange.shared?.object(forKey: KeyboardExchange.hapticsIntensityKey))
+        keyboard.keyHeightScale = CGFloat(KeyboardExchange.keyHeightScale(
+            from: KeyboardExchange.shared?.object(forKey: KeyboardExchange.keyHeightScaleKey)))
         if let theme = KeyboardExchange.loadTheme() {
             let accent = KeyboardAccent.dynamic(light: theme.accentLight, dark: theme.accentDark)
             keyboard.accent = KeyboardAccent(
@@ -87,7 +90,19 @@ final class KeyboardViewController: UIInputViewController, KeyboardHost {
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        followHostAppearance()
         keyboard?.textDidChange()
+    }
+
+    /// 深浅色同系统键盘:输入框指定了 `keyboardAppearance`(深色主题的 app 在浅色模式下也要深色键盘)就照它,
+    /// 没指定才跟系统。系统按它画背板,键帽不跟着走的话浅色键帽会压在深色背板上。切换输入框时可能变,所以每次回调都看一眼。
+    private func followHostAppearance() {
+        let style: UIUserInterfaceStyle = switch textDocumentProxy.keyboardAppearance {
+        case .dark: .dark
+        case .light: .light
+        default: .unspecified
+        }
+        if view.overrideUserInterfaceStyle != style { view.overrideUserInterfaceStyle = style }
     }
 
     func moveCursor(by offset: Int) {

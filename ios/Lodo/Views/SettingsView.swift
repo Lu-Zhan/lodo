@@ -109,7 +109,7 @@ struct SettingsView: View {
     /// 页面里原有的 NavigationLink { } label: { } 不走这个栈,照常工作。
     @State private var path: [SettingsRoute] = []
 
-    enum SettingsRoute: Hashable { case reminder, syncStatus, sidebar }
+    enum SettingsRoute: Hashable { case reminder, syncStatus, sidebar, keyboard }
 
     /// macOS 上设置是独立的「设置」窗口(⌘,),窗口自己有关闭按钮,不再挂「完成」。
     private let isSettingsWindow: Bool
@@ -449,6 +449,12 @@ struct SettingsView: View {
                 case .reminder: ReminderSettingsView()
                 case .syncStatus: CloudSyncStatusView()
                 case .sidebar: SidebarSettingsView()
+                case .keyboard:
+                    #if os(iOS)
+                    KeyboardSettingsView()
+                    #else
+                    EmptyView()
+                    #endif
                 }
             }
             #if DEBUG
@@ -462,6 +468,9 @@ struct SettingsView: View {
                 }
                 if ProcessInfo.processInfo.arguments.contains("--demo-sidebar-settings") {
                     path = [.sidebar]
+                }
+                if ProcessInfo.processInfo.arguments.contains("--demo-keyboard-settings") {
+                    path = [.keyboard]
                 }
             }
             #endif

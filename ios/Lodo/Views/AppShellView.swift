@@ -962,7 +962,7 @@ struct AppShellView: View {
             break
         }
         if args.contains("--demo-settings") || args.contains("--demo-reminder-settings")
-            || args.contains("--demo-sync-status") {
+            || args.contains("--demo-sync-status") || args.contains("--demo-keyboard-settings") {
             showSettings = true
         }
         // 抽屉本身:simctl 既点不了 ☰ 也滑不了手势,直接摆成展开。

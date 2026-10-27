@@ -113,6 +113,11 @@ public final class KeyboardController: NSObject {
     }
     private let haptics = KeyboardHaptics()
 
+    /// 按键高度倍数(主 app 设置里的滑块):只乘键帽高度,候选栏、键缝、行距不变。
+    public var keyHeightScale: CGFloat = 1 {
+        didSet { if keyHeightScale != oldValue { layout() } }
+    }
+
     /// ✨ 背后的实现;nil = 不显示这颗键(截图 demo 可以给假的)。
     public weak var services: LodoServices? { didSet { render() } }
 
@@ -279,6 +284,7 @@ public final class KeyboardController: NSObject {
         let pad = rootView.traitCollection.userInterfaceIdiom == .pad
         let landscape = !pad && rootView.traitCollection.verticalSizeClass == .compact
         var m: KeyboardMetrics = pad ? .pad : landscape ? .phoneLandscape : .phonePortrait
+        m.keyHeight = (m.keyHeight * keyHeightScale).rounded()
         calloutsAllowed = !pad && !landscape
         let top = panelVisible ? Self.panelHeight : 0
         let total = top + m.candidateBarHeight + m.keyAreaHeight(rows: 4)

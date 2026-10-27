@@ -92,6 +92,7 @@ final class DemoKeyboardViewController: UIViewController, KeyboardHost {
         services.hasFullAccess = !args.contains("--no-full-access")
         keyboard.services = services
         keyboard.nineKey = args.contains("--nine") // 中文九宫格
+        if let scale = value("--key-height").flatMap(Double.init) { keyboard.keyHeightScale = CGFloat(scale) } // 按键高度倍数
         if value("--accent") == "blue" {
             keyboard.accent = KeyboardAccent(accent: KeyboardAccent.dynamic(light: 0x0A58CA, dark: 0x7FB3FF),
                                              fill: KeyboardAccent.dynamic(light: 0x0A58CA, dark: 0x4DA3FF),

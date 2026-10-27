@@ -14,6 +14,8 @@ struct KeyboardSettingsView: View {
     @AppStorage(KeyboardExchange.nineKeyKey, store: KeyboardExchange.shared) private var nineKey = false
     @AppStorage(KeyboardExchange.hapticsIntensityKey, store: KeyboardExchange.shared)
     private var hapticsIntensity = KeyboardExchange.defaultHapticsIntensity
+    @AppStorage(KeyboardExchange.keyHeightScaleKey, store: KeyboardExchange.shared)
+    private var keyHeightScale = KeyboardExchange.defaultKeyHeightScale
     @AppStorage(KeyboardExchange.hapticsStyleKey, store: KeyboardExchange.shared)
     private var hapticsStyleRaw = KeyboardExchange.HapticsStyle.crisp.rawValue
 
@@ -33,7 +35,10 @@ struct KeyboardSettingsView: View {
         (4, "in = ing"), (5, "en = eng"), (6, "an = ang"),
     ]
 
+    private static let keyHeightSection = "keyHeight"
+
     var body: some View {
+        ScrollViewReader { proxy in
         Form {
             Section {
                 Label("打开「设置」→「通用」→「键盘」→「键盘」", systemImage: "1.circle")
@@ -66,6 +71,31 @@ struct KeyboardSettingsView: View {
             } footer: {
                 Text("九宫格:按数字键打拼音,左边那列可以选拼音、没在打字时是常用标点;英文和数字符号仍是全键盘。下次弹出键盘时生效。")
             }
+
+            Section {
+                KeyboardSizePreview(scale: KeyboardExchange.keyHeightScale(from: keyHeightScale))
+                    .padding(.vertical, 6)
+                VStack(alignment: .leading) {
+                    Text("按键高度")
+                    Slider(value: Binding(
+                        get: { KeyboardExchange.keyHeightScale(from: keyHeightScale) },
+                        set: { keyHeightScale = $0 }),
+                           in: KeyboardExchange.keyHeightScaleRange, step: 0.05) {
+                        Text("按键高度")
+                    } minimumValueLabel: {
+                        Text("矮")
+                    } maximumValueLabel: {
+                        Text("高")
+                    }
+                    .accessibilityValue(Text(verbatim: "\(Int((KeyboardExchange.keyHeightScale(from: keyHeightScale) * 100).rounded()))%"))
+                }
+                if abs(KeyboardExchange.keyHeightScale(from: keyHeightScale) - KeyboardExchange.defaultKeyHeightScale) > 0.001 {
+                    Button("恢复默认高度") { keyHeightScale = KeyboardExchange.defaultKeyHeightScale }
+                }
+            } footer: {
+                Text("只改按键本身的高度,候选栏和按键间距不变;默认和系统键盘一样高。下次弹出键盘时生效。")
+            }
+            .id(Self.keyHeightSection)
 
             Section {
                 Toggle("按键震动", isOn: $haptics)
@@ -166,6 +196,17 @@ struct KeyboardSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        #if DEBUG
+        // 截图核对按键高度示意图:`--demo-key-height <倍数>` 设好值并滚到那一组。
+        .onAppear {
+            let args = ProcessInfo.processInfo.arguments
+            guard let i = args.firstIndex(of: "--demo-key-height"), args.indices.contains(i + 1),
+                  let value = Double(args[i + 1]) else { return }
+            keyHeightScale = value
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { proxy.scrollTo(Self.keyHeightSection, anchor: .top) }
+        }
+        #endif
+        }
         .pageTitle("lodo 键盘")
         .alert("人名词库", isPresented: Binding(
             get: { importMessage != nil },

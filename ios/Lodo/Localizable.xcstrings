@@ -7365,6 +7365,70 @@
         }
       }
     },
+    "按键高度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key Height"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按键高度"
+          }
+        }
+      }
+    },
+    "矮" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Short"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "矮"
+          }
+        }
+      }
+    },
+    "恢复默认高度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Default Height"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复默认高度"
+          }
+        }
+      }
+    },
+    "只改按键本身的高度,候选栏和按键间距不变;默认和系统键盘一样高。下次弹出键盘时生效。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes only the height of the keys; the candidate bar and key spacing stay the same. The default matches the system keyboard. Takes effect the next time the keyboard appears."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只改按键本身的高度,候选栏和按键间距不变;默认和系统键盘一样高。下次弹出键盘时生效。"
+          }
+        }
+      }
+    },
     "震动强度" : {
       "localizations" : {
         "en" : {
