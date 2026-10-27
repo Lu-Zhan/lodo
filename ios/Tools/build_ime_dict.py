@@ -22,6 +22,7 @@ import base64
 import math
 import os
 import struct
+import subprocess
 import sys
 import unicodedata
 
@@ -260,6 +261,8 @@ def main(src, dest):
     out += blob
     with open(dest, "wb") as fh:
         fh.write(out)
+    subprocess.run([sys.executable, "-I", os.path.join(os.path.dirname(__file__),
+                    "extend_ime_dict.py"), dest], check=True)
 
     print(f"syllables={len(syllables)} entries={len(rows)} derived={derived} "
           f"dropped={dropped} bytes={len(out)}")

@@ -26,5 +26,6 @@ let package = Package(
         .target(name: "LodoKeyboardUI", dependencies: ["LodoKeyboardModel", "LodoReranker"]),
         .testTarget(name: "LodoIMETests", dependencies: ["LodoIME", "LodoReranker", "LodoKeyboardModel"],
                     resources: [.copy("Fixtures")]),
+        .testTarget(name: "LodoKeyboardUITests", dependencies: ["LodoKeyboardUI"]),
     ]
 )

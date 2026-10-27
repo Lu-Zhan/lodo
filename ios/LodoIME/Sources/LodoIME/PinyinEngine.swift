@@ -50,7 +50,7 @@ public final class PinyinEngine: @unchecked Sendable {
     public var correctionEnabled: Bool { didSet { rebuildSyllabifier() } }
     private var syllabifier: Syllabifier
 
-    static let maxWordSyllables = 8
+    static let maxWordSyllables = 16
     /// 词图解码保留的整句条数。
     static let beam = 8
 

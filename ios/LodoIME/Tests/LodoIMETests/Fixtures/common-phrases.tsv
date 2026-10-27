@@ -1,0 +1,249 @@
+# lodo 人工整理的常用词表,同时用于词库生成和输入回归测试。
+# 古诗句均为传统公版作品原文,不包含现代译注;拼音采用不标声调的键盘拼写。
+# category<TAB>text<TAB>pinyin
+poetry	床前明月光	chuang qian ming yue guang
+poetry	疑是地上霜	yi shi di shang shuang
+poetry	举头望明月	ju tou wang ming yue
+poetry	低头思故乡	di tou si gu xiang
+poetry	春眠不觉晓	chun mian bu jue xiao
+poetry	处处闻啼鸟	chu chu wen ti niao
+poetry	夜来风雨声	ye lai feng yu sheng
+poetry	花落知多少	hua luo zhi duo shao
+poetry	白日依山尽	bai ri yi shan jin
+poetry	黄河入海流	huang he ru hai liu
+poetry	欲穷千里目	yu qiong qian li mu
+poetry	更上一层楼	geng shang yi ceng lou
+poetry	海内存知己	hai nei cun zhi ji
+poetry	天涯若比邻	tian ya ruo bi lin
+poetry	海上生明月	hai shang sheng ming yue
+poetry	天涯共此时	tian ya gong ci shi
+poetry	明月几时有	ming yue ji shi you
+poetry	把酒问青天	ba jiu wen qing tian
+poetry	但愿人长久	dan yuan ren chang jiu
+poetry	千里共婵娟	qian li gong chan juan
+poetry	人有悲欢离合	ren you bei huan li he
+poetry	月有阴晴圆缺	yue you yin qing yuan que
+poetry	独在异乡为异客	du zai yi xiang wei yi ke
+poetry	每逢佳节倍思亲	mei feng jia jie bei si qin
+poetry	桃花潭水深千尺	tao hua tan shui shen qian chi
+poetry	不及汪伦送我情	bu ji wang lun song wo qing
+poetry	故人西辞黄鹤楼	gu ren xi ci huang he lou
+poetry	烟花三月下扬州	yan hua san yue xia yang zhou
+poetry	孤帆远影碧空尽	gu fan yuan ying bi kong jin
+poetry	唯见长江天际流	wei jian chang jiang tian ji liu
+poetry	朝辞白帝彩云间	zhao ci bai di cai yun jian
+poetry	千里江陵一日还	qian li jiang ling yi ri huan
+poetry	两岸猿声啼不住	liang an yuan sheng ti bu zhu
+poetry	轻舟已过万重山	qing zhou yi guo wan chong shan
+poetry	天生我材必有用	tian sheng wo cai bi you yong
+poetry	千金散尽还复来	qian jin san jin huan fu lai
+poetry	长风破浪会有时	chang feng po lang hui you shi
+poetry	直挂云帆济沧海	zhi gua yun fan ji cang hai
+poetry	会当凌绝顶	hui dang ling jue ding
+poetry	一览众山小	yi lan zhong shan xiao
+poetry	好雨知时节	hao yu zhi shi jie
+poetry	当春乃发生	dang chun nai fa sheng
+poetry	随风潜入夜	sui feng qian ru ye
+poetry	润物细无声	run wu xi wu sheng
+poetry	露从今夜白	lu cong jin ye bai
+poetry	月是故乡明	yue shi gu xiang ming
+poetry	读书破万卷	du shu po wan juan
+poetry	下笔如有神	xia bi ru you shen
+poetry	野火烧不尽	ye huo shao bu jin
+poetry	春风吹又生	chun feng chui you sheng
+poetry	日出江花红胜火	ri chu jiang hua hong sheng huo
+poetry	春来江水绿如蓝	chun lai jiang shui lv ru lan
+poetry	同是天涯沦落人	tong shi tian ya lun luo ren
+poetry	相逢何必曾相识	xiang feng he bi ceng xiang shi
+poetry	山重水复疑无路	shan chong shui fu yi wu lu
+poetry	柳暗花明又一村	liu an hua ming you yi cun
+poetry	纸上得来终觉浅	zhi shang de lai zhong jue qian
+poetry	绝知此事要躬行	jue zhi ci shi yao gong xing
+poetry	春风又绿江南岸	chun feng you lv jiang nan an
+poetry	明月何时照我还	ming yue he shi zhao wo huan
+poetry	不识庐山真面目	bu shi lu shan zhen mian mu
+poetry	只缘身在此山中	zhi yuan shen zai ci shan zhong
+poetry	欲把西湖比西子	yu ba xi hu bi xi zi
+poetry	淡妆浓抹总相宜	dan zhuang nong mo zong xiang yi
+poetry	竹外桃花三两枝	zhu wai tao hua san liang zhi
+poetry	春江水暖鸭先知	chun jiang shui nuan ya xian zhi
+poetry	莫愁前路无知己	mo chou qian lu wu zhi ji
+poetry	天下谁人不识君	tian xia shui ren bu shi jun
+poetry	劝君更尽一杯酒	quan jun geng jin yi bei jiu
+poetry	西出阳关无故人	xi chu yang guan wu gu ren
+poetry	空山新雨后	kong shan xin yu hou
+poetry	天气晚来秋	tian qi wan lai qiu
+poetry	明月松间照	ming yue song jian zhao
+poetry	清泉石上流	qing quan shi shang liu
+poetry	行到水穷处	xing dao shui qiong chu
+poetry	坐看云起时	zuo kan yun qi shi
+poetry	采菊东篱下	cai ju dong li xia
+poetry	悠然见南山	you ran jian nan shan
+poetry	落霞与孤鹜齐飞	luo xia yu gu wu qi fei
+poetry	秋水共长天一色	qiu shui gong chang tian yi se
+poetry	海内存知己天涯若比邻	hai nei cun zhi ji tian ya ruo bi lin
+poetry	但愿人长久千里共婵娟	dan yuan ren chang jiu qian li gong chan juan
+poetry	欲穷千里目更上一层楼	yu qiong qian li mu geng shang yi ceng lou
+poetry	山重水复疑无路柳暗花明又一村	shan chong shui fu yi wu lu liu an hua ming you yi cun
+poetry	长风破浪会有时直挂云帆济沧海	chang feng po lang hui you shi zhi gua yun fan ji cang hai
+poetry	落霞与孤鹜齐飞秋水共长天一色	luo xia yu gu wu qi fei qiu shui gong chang tian yi se
+idiom	一帆风顺	yi fan feng shun
+idiom	一举两得	yi ju liang de
+idiom	一见如故	yi jian ru gu
+idiom	一心一意	yi xin yi yi
+idiom	一鸣惊人	yi ming jing ren
+idiom	一如既往	yi ru ji wang
+idiom	一往无前	yi wang wu qian
+idiom	一丝不苟	yi si bu gou
+idiom	一诺千金	yi nuo qian jin
+idiom	一言为定	yi yan wei ding
+idiom	一路顺风	yi lu shun feng
+idiom	万事如意	wan shi ru yi
+idiom	万象更新	wan xiang geng xin
+idiom	三思而行	san si er xing
+idiom	四季平安	si ji ping an
+idiom	五湖四海	wu hu si hai
+idiom	百年好合	bai nian hao he
+idiom	百尺竿头	bai chi gan tou
+idiom	百花齐放	bai hua qi fang
+idiom	百闻不如一见	bai wen bu ru yi jian
+idiom	千方百计	qian fang bai ji
+idiom	千言万语	qian yan wan yu
+idiom	千载难逢	qian zai nan feng
+idiom	千里之行始于足下	qian li zhi xing shi yu zu xia
+idiom	不约而同	bu yue er tong
+idiom	不言而喻	bu yan er yu
+idiom	不负众望	bu fu zhong wang
+idiom	不忘初心	bu wang chu xin
+idiom	从容不迫	cong rong bu po
+idiom	众志成城	zhong zhi cheng cheng
+idiom	众所周知	zhong suo zhou zhi
+idiom	全力以赴	quan li yi fu
+idiom	再接再厉	zai jie zai li
+idiom	前程似锦	qian cheng si jin
+idiom	功到自然成	gong dao zi ran cheng
+idiom	厚积薄发	hou ji bo fa
+idiom	各得其所	ge de qi suo
+idiom	同舟共济	tong zhou gong ji
+idiom	和而不同	he er bu tong
+idiom	喜出望外	xi chu wang wai
+idiom	因地制宜	yin di zhi yi
+idiom	坚持不懈	jian chi bu xie
+idiom	大展宏图	da zhan hong tu
+idiom	天道酬勤	tian dao chou qin
+idiom	守望相助	shou wang xiang zhu
+idiom	学以致用	xue yi zhi yong
+idiom	实事求是	shi shi qiu shi
+idiom	家喻户晓	jia yu hu xiao
+idiom	尽善尽美	jin shan jin mei
+idiom	循序渐进	xun xu jian jin
+idiom	心想事成	xin xiang shi cheng
+idiom	心照不宣	xin zhao bu xuan
+idiom	恍然大悟	huang ran da wu
+idiom	感同身受	gan tong shen shou
+idiom	持之以恒	chi zhi yi heng
+idiom	推陈出新	tui chen chu xin
+idiom	旗开得胜	qi kai de sheng
+idiom	日积月累	ri ji yue lei
+idiom	春暖花开	chun nuan hua kai
+idiom	未雨绸缪	wei yu chou mou
+idiom	来日方长	lai ri fang chang
+idiom	水到渠成	shui dao qu cheng
+idiom	温故知新	wen gu zhi xin
+idiom	满载而归	man zai er gui
+idiom	熟能生巧	shu neng sheng qiao
+idiom	物尽其用	wu jin qi yong
+idiom	独一无二	du yi wu er
+idiom	画龙点睛	hua long dian jing
+idiom	相得益彰	xiang de yi zhang
+idiom	精益求精	jing yi qiu jing
+idiom	脚踏实地	jiao ta shi di
+idiom	自强不息	zi qiang bu xi
+idiom	蒸蒸日上	zheng zheng ri shang
+idiom	言而有信	yan er you xin
+idiom	豁然开朗	huo ran kai lang
+idiom	锦上添花	jin shang tian hua
+idiom	雪中送炭	xue zhong song tan
+idiom	顺其自然	shun qi zi ran
+idiom	风和日丽	feng he ri li
+idiom	马到成功	ma dao cheng gong
+phrase	谢谢你的帮助	xie xie ni de bang zhu
+phrase	谢谢你的关心	xie xie ni de guan xin
+phrase	非常感谢你	fei chang gan xie ni
+phrase	辛苦你了	xin ku ni le
+phrase	麻烦你了	ma fan ni le
+phrase	不好意思打扰了	bu hao yi si da rao le
+phrase	没关系的	mei guan xi de
+phrase	不用客气	bu yong ke qi
+phrase	没问题的	mei wen ti de
+phrase	好的收到	hao de shou dao
+phrase	收到谢谢	shou dao xie xie
+phrase	稍等一下	shao deng yi xia
+phrase	请稍等一下	qing shao deng yi xia
+phrase	我马上到	wo ma shang dao
+phrase	我在路上	wo zai lu shang
+phrase	我已经到了	wo yi jing dao le
+phrase	我出发了	wo chu fa le
+phrase	等我一下	deng wo yi xia
+phrase	我晚点到	wo wan dian dao
+phrase	你到哪里了	ni dao na li le
+phrase	路上注意安全	lu shang zhu yi an quan
+phrase	到了告诉我	dao le gao su wo
+phrase	明天见面聊	ming tian jian mian liao
+phrase	回头再聊	hui tou zai liao
+phrase	有空再联系	you kong zai lian xi
+phrase	保持联系	bao chi lian xi
+phrase	有时间吗	you shi jian ma
+phrase	方便接电话吗	fang bian jie dian hua ma
+phrase	我给你打电话	wo gei ni da dian hua
+phrase	稍后回复你	shao hou hui fu ni
+phrase	我确认一下	wo que ren yi xia
+phrase	我看一下	wo kan yi xia
+phrase	我想一下	wo xiang yi xia
+phrase	让我考虑一下	rang wo kao lv yi xia
+phrase	有什么需要帮忙的	you shen me xu yao bang mang de
+phrase	有问题随时联系	you wen ti sui shi lian xi
+phrase	期待你的回复	qi dai ni de hui fu
+phrase	请查收附件	qing cha shou fu jian
+phrase	请确认一下	qing que ren yi xia
+phrase	请发我一份	qing fa wo yi fen
+phrase	稍后发给你	shao hou fa gei ni
+phrase	我已经发过去了	wo yi jing fa guo qu le
+phrase	我们约个时间	wo men yue ge shi jian
+phrase	时间方便的话	shi jian fang bian de hua
+phrase	今天有点忙	jin tian you dian mang
+phrase	我正在开会	wo zheng zai kai hui
+phrase	会议结束后联系你	hui yi jie shu hou lian xi ni
+phrase	这边已经处理好了	zhe bian yi jing chu li hao le
+phrase	我会尽快处理	wo hui jin kuai chu li
+phrase	有进展告诉你	you jin zhan gao su ni
+phrase	合作愉快	he zuo yu kuai
+phrase	感谢你的配合	gan xie ni de pei he
+phrase	感谢理解和支持	gan xie li jie he zhi chi
+phrase	祝你工作顺利	zhu ni gong zuo shun li
+phrase	祝你生活愉快	zhu ni sheng huo yu kuai
+phrase	祝你生日快乐	zhu ni sheng ri kuai le
+phrase	新年快乐	xin nian kuai le
+phrase	节日快乐	jie ri kuai le
+phrase	周末愉快	zhou mo yu kuai
+phrase	旅途愉快	lv tu yu kuai
+phrase	注意身体	zhu yi shen ti
+phrase	早点休息	zao dian xiu xi
+phrase	照顾好自己	zhao gu hao zi ji
+phrase	晚安好梦	wan an hao meng
+phrase	早上好呀	zao shang hao ya
+phrase	好久不见	hao jiu bu jian
+phrase	最近怎么样	zui jin zen me yang
+phrase	吃饭了吗	chi fan le ma
+phrase	一起吃个饭吧	yi qi chi ge fan ba
+phrase	改天请你吃饭	gai tian qing ni chi fan
+phrase	今天辛苦了	jin tian xin ku le
+phrase	一切顺利	yi qie shun li
+phrase	平安喜乐	ping an xi le
+phrase	未来可期	wei lai ke qi
+phrase	越来越好	yue lai yue hao
+phrase	梦想成真	meng xiang cheng zhen
+phrase	愿你所愿皆成真	yuan ni suo yuan jie cheng zhen
+phrase	感谢一路有你	gan xie yi lu you ni
+phrase	很高兴认识你	hen gao xing ren shi ni
+phrase	期待下次见面	qi dai xia ci jian mian

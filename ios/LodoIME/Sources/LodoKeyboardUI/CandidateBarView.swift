@@ -28,23 +28,85 @@ protocol CandidateBarDelegate: AnyObject {
 
 /// 候选栏的滚动视图。UIScrollView 默认先扣住触摸 150ms 看是不是要滚,快点候选时这一下会被吞掉、
 /// 要再点一次(真机反馈)。这里不扣:手指落下立刻交给候选按钮;真横着拖起来了再把按钮那一下取消、改成滚动。
-final class CandidateScrollView: UIScrollView {
+final class CandidateScrollView: UIScrollView, UIScrollViewDelegate {
+    var onInteractionEnded: (() -> Void)?
+    private var gestureInFlight = false
+    var isInteracting: Bool { gestureInFlight || isTracking || isDragging || isDecelerating }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         delaysContentTouches = false
         canCancelContentTouches = true
+        delegate = self
+        isDirectionalLockEnabled = true
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     /// UIControl 默认不让滚动视图取消,那样按在候选上就拖不动整排了。
     override func touchesShouldCancel(in view: UIView) -> Bool { true }
+
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { gestureInFlight = true }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { finishInteraction() }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { finishInteraction() }
+
+    private func finishInteraction() {
+        gestureInFlight = false
+        // 等触摸取消/选词事件处理完再更新,不会在手指抬起的同一回调里换掉按钮。
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isInteracting else { return }
+            self.onInteractionEnded?()
+        }
+    }
+}
+
+/// 测量只发生在文案/字体/行高变化时,横向滚动不重新跑 UIButton 的文字布局。
+final class CandidateButton: UIButton {
+    private struct Presentation: Equatable {
+        let text: String
+        let secondary: Bool
+        let topInset: CGFloat
+        let font: UIFont
+    }
+    private var presentation: Presentation?
+    private var measured: (height: CGFloat, width: CGFloat)?
+    #if DEBUG
+    private(set) var widthMeasurementCount = 0
+    #endif
+
+    func configure(_ text: String, secondary: Bool, topInset: CGFloat) {
+        let next = Presentation(text: text, secondary: secondary, topInset: topInset,
+                                font: KeyboardAppearance.candidateFont)
+        guard presentation != next else { return }
+        presentation = next
+        var config = configuration ?? .plain()
+        config.attributedTitle = AttributedString(text, attributes: AttributeContainer([.font: next.font]))
+        config.baseForegroundColor = secondary ? .secondaryLabel : .label
+        config.contentInsets = NSDirectionalEdgeInsets(top: topInset, leading: 11.5, bottom: 0, trailing: 11.5)
+        configuration = config
+        accessibilityLabel = text
+        measured = nil
+    }
+
+    func width(for height: CGFloat) -> CGFloat {
+        if let measured, measured.height == height { return measured.width }
+        let width = sizeThatFits(CGSize(width: .greatestFiniteMagnitude, height: height)).width
+        measured = (height, width)
+        #if DEBUG
+        widthMeasurementCount += 1
+        #endif
+        return width
+    }
 }
 
 /// 候选按钮池:每敲一个字母候选都会全换,按钮复用,不每次新建几十个视图。
 @MainActor
 final class CandidateButtons {
-    private var pool: [UIButton] = []
+    private var pool: [CandidateButton] = []
     private let action: (Int) -> Void
     /// 手指离开候选(选中、拖走、取消)时调:按着的时候候选栏不换内容,松手后补上。
     var onTrackingEnded: (() -> Void)?
@@ -54,13 +116,13 @@ final class CandidateButtons {
     /// 有没有手指正按在某个候选上。
     var isTracking: Bool { pool.contains { !$0.isHidden && $0.isTracking } }
 
-    func buttons(count: Int, in container: UIView) -> [UIButton] {
+    func buttons(count: Int, in container: UIView) -> [CandidateButton] {
         while pool.count < count {
             let i = pool.count
             var config = UIButton.Configuration.plain()
             config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 11.5, bottom: 0, trailing: 11.5) // 候选之间约 23pt,同系统
             config.baseForegroundColor = .label
-            let b = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.action(i) })
+            let b = CandidateButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.action(i) })
             b.addAction(UIAction { [weak self] _ in
                 // 放到下一轮:先让这次选词(primaryAction)跑完,再补上按着时攒下的候选。
                 DispatchQueue.main.async { self?.onTrackingEnded?() }
@@ -78,14 +140,8 @@ final class CandidateButtons {
         return Array(pool.prefix(count))
     }
 
-    static func set(_ b: UIButton, _ text: String, secondary: Bool = false, topInset: CGFloat = 0) {
-        // 首选不加粗,靠底下那块圆角底标出来(同系统)。
-        b.configuration?.attributedTitle = AttributedString(text, attributes: AttributeContainer([
-            .font: KeyboardAppearance.candidateFont,
-        ]))
-        b.configuration?.baseForegroundColor = secondary ? .secondaryLabel : .label
-        b.configuration?.contentInsets.top = topInset
-        b.accessibilityLabel = text
+    static func set(_ b: CandidateButton, _ text: String, secondary: Bool = false, topInset: CGFloat = 0) {
+        b.configure(text, secondary: secondary, topInset: topInset)
     }
 }
 
@@ -116,6 +172,11 @@ final class CandidateBarView: UIView {
     /// 没在拼的时候左边露出 ✨(宿主接了 lodo 服务才有)。
     var showsLodoKeys = false
     private var items: [String] = []
+    private var visibleButtons: [CandidateButton] = []
+    private var layoutDirty = true
+    private var layoutSize: CGSize = .zero
+    private var pendingReset = false
+    private var pendingAnchor: (text: String, offset: CGFloat)?
     /// 横排最多摆这么多条,剩下的展开看。
     static let inlineLimit = 24
 
@@ -130,6 +191,7 @@ final class CandidateBarView: UIView {
         scroll.showsHorizontalScrollIndicator = false
         scroll.alwaysBounceHorizontal = true
         scroll.plainForKeyboard()
+        scroll.onInteractionEnded = { [weak self] in self?.flushDeferred() }
         highlight.isUserInteractionEnabled = false
         highlight.layer.cornerRadius = 9
         highlight.layer.cornerCurve = .continuous
@@ -160,10 +222,11 @@ final class CandidateBarView: UIView {
 
     func show(preedit text: String?, composing: Bool, choices: [CandidateChoice], secondaryIndex: Int? = nil,
               resetScrollOnChange: Bool = true) {
-        if buttons.isTracking {
-            deferred = (text, composing, choices, secondaryIndex, resetScrollOnChange)
+        if buttons.isTracking || scroll.isInteracting {
+            deferred = (text, composing, choices, secondaryIndex, resetScrollOnChange || deferred?.reset == true)
             return
         }
+        let reset = resetScrollOnChange || deferred?.reset == true
         deferred = nil
         // 字一样也要换上新的绑定(同一个字可能吃掉的拼音不同)。
         self.choices = choices
@@ -171,7 +234,14 @@ final class CandidateBarView: UIView {
         let changed = items != self.items
         // 内容一模一样(宿主回调、选词后的重复刷新)就什么都不动:候选按钮的配置和逐个量宽度都不便宜。
         if !changed, let s = shown, s.preedit == text, s.secondary == secondaryIndex, s.lodo == showsLodoKeys,
-           s.composing == composing { return }
+           s.composing == composing, !reset { return }
+        if !reset, pendingAnchor == nil, scroll.contentOffset.x > 0,
+           let firstVisible = visibleButtons.first(where: { $0.frame.maxX > scroll.contentOffset.x }),
+           let title = firstVisible.accessibilityLabel {
+            pendingAnchor = (title, scroll.contentOffset.x - firstVisible.frame.minX)
+        }
+        pendingReset = pendingReset || reset
+        if pendingReset { pendingAnchor = nil }
         shown = (text, secondaryIndex, showsLodoKeys, composing)
         self.composing = composing
         self.items = items
@@ -179,26 +249,30 @@ final class CandidateBarView: UIView {
         preedit.isHidden = text == nil
         let strip = text == nil ? 0 : Self.preeditStrip
         let visible = Array(items.prefix(Self.inlineLimit))
-        let bs = buttons.buttons(count: visible.count, in: scroll)
-        for (i, b) in bs.enumerated() {
+        visibleButtons = buttons.buttons(count: visible.count, in: scroll)
+        for (i, b) in visibleButtons.enumerated() {
             CandidateButtons.set(b, visible[i], secondary: i == secondaryIndex, topInset: strip)
         }
-        // 只有候选真的换了才滚回开头(布局回调也会走到这里,不能把用户翻到一半的候选拉回去)。
-        if changed && resetScrollOnChange { scroll.contentOffset = .zero }
+        // 新输入由 reset 标记归零;同一输入的重排保留当前看到的词。
         expand.isHidden = items.count <= 1
         divider.isHidden = expand.isHidden
         ask.isHidden = !items.isEmpty || !showsLodoKeys
+        layoutDirty = true
         setNeedsLayout()
     }
 
     private func flushDeferred() {
-        guard let d = deferred, !buttons.isTracking else { return }
+        guard let d = deferred, !buttons.isTracking, !scroll.isInteracting else { return }
         show(preedit: d.preedit, composing: d.composing, choices: d.choices, secondaryIndex: d.secondary,
              resetScrollOnChange: d.reset)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        highlight.backgroundColor = KeyboardAppearance.characterKey
+        guard layoutDirty || layoutSize != bounds.size else { return }
+        layoutDirty = false
+        layoutSize = bounds.size
         // 候选栏压得很矮(键盘总高由系统定,省下来的给按键),拼音那行 20pt;
         // 但候选和展开键的可点范围是整栏高度,快速选词不至于点空。
         let strip: CGFloat = preedit.isHidden ? 0 : Self.preeditStrip
@@ -213,13 +287,22 @@ final class CandidateBarView: UIView {
         scroll.frame = CGRect(x: 0, y: 0, width: bounds.width - (expand.isHidden ? 0 : side), height: rowH)
         var x: CGFloat = 0
         var first: CGRect?
-        for b in scroll.subviews.compactMap({ $0 as? UIButton }) where !b.isHidden {
-            let w = max(b.sizeThatFits(CGSize(width: .greatestFiniteMagnitude, height: rowH)).width, 40)
+        for b in visibleButtons {
+            let w = max(b.width(for: rowH), 40)
             b.frame = CGRect(x: x, y: 0, width: w, height: rowH)
             if first == nil { first = b.frame }
             x += w
         }
-        scroll.contentSize = CGSize(width: x, height: rowH)
+        let contentSize = CGSize(width: x, height: rowH)
+        if scroll.contentSize != contentSize { scroll.contentSize = contentSize }
+        if pendingReset {
+            scroll.contentOffset = .zero
+        } else if let anchor = pendingAnchor,
+                  let button = visibleButtons.first(where: { $0.accessibilityLabel == anchor.text }) {
+            scroll.contentOffset.x = max(0, min(button.frame.minX + anchor.offset, x - scroll.bounds.width))
+        }
+        pendingReset = false
+        pendingAnchor = nil
         if composing, let f = first {
             let h = min(36, rowH - strip - 4)
             highlight.frame = CGRect(x: f.minX + 6.5, y: strip + (rowH - strip - h) / 2, width: f.width - 13, height: h)
@@ -241,13 +324,15 @@ final class CandidateGridView: UIView {
             self.onSelect?(self.choices[i])
         }
         b.onTrackingEnded = { [weak self] in
-            guard let self, let d = self.deferred, !self.buttons.isTracking else { return }
-            self.show(d.choices, resetScroll: d.reset)
+            self?.flushDeferred()
         }
         return b
     }()
     private var items: [String] = []
     private var choices: [CandidateChoice] = []
+    private var visibleButtons: [CandidateButton] = []
+    private var layoutDirty = true
+    private var layoutSize: CGSize = .zero
     /// 同横排候选栏:按着某个候选时不换内容,松手再补上。
     private var deferred: (choices: [CandidateChoice], reset: Bool)?
 
@@ -255,31 +340,42 @@ final class CandidateGridView: UIView {
         super.init(frame: frame)
         scroll.alwaysBounceVertical = true
         scroll.plainForKeyboard()
+        scroll.onInteractionEnded = { [weak self] in self?.flushDeferred() }
         addSubview(scroll)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `resetScroll`:刚展开时回到顶上;之后的刷新(布局回调)只有候选真的变了才回去。
+    /// `resetScroll`:刚展开时回到顶上;之后的刷新保留滚动位置。
     func show(_ choices: [CandidateChoice], resetScroll: Bool = false) {
-        if buttons.isTracking {
+        if buttons.isTracking || scroll.isInteracting {
             deferred = (choices, resetScroll || deferred?.reset == true)
             return
         }
+        let resetScroll = resetScroll || deferred?.reset == true
         deferred = nil
         self.choices = choices
         let items = choices.map(\.title)
         let changed = items != self.items
         if !changed && !resetScroll { return }
         self.items = items
-        let bs = buttons.buttons(count: items.count, in: scroll)
-        for (i, b) in bs.enumerated() { CandidateButtons.set(b, items[i]) }
+        visibleButtons = buttons.buttons(count: items.count, in: scroll)
+        for (i, b) in visibleButtons.enumerated() { CandidateButtons.set(b, items[i]) }
         if resetScroll { scroll.contentOffset = .zero }
+        layoutDirty = true
         setNeedsLayout()
+    }
+
+    private func flushDeferred() {
+        guard let d = deferred, !buttons.isTracking, !scroll.isInteracting else { return }
+        show(d.choices, resetScroll: d.reset)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        guard bounds.width > 12, layoutDirty || layoutSize != bounds.size else { return }
+        layoutDirty = false
+        layoutSize = bounds.size
         scroll.frame = bounds
         let rowH: CGFloat = 48, inset: CGFloat = 6
         let width = bounds.width - 2 * inset
@@ -299,8 +395,8 @@ final class CandidateGridView: UIView {
             x = 0
             y += rowH
         }
-        for b in scroll.subviews.compactMap({ $0 as? UIButton }) where !b.isHidden {
-            let natural = b.sizeThatFits(CGSize(width: .greatestFiniteMagnitude, height: rowH)).width
+        for b in visibleButtons {
+            let natural = b.width(for: rowH)
             let w = min(ceil(natural / cell) * cell, width)
             if x + w > width + 0.5 { flush() }
             row.append((b, w))

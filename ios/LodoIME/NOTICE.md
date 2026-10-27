@@ -13,6 +13,18 @@
 | mozillazg/phrase-pinyin-data | MIT | 词语注音 |
 | mozillazg/pinyin-data | MIT | 单字读音 |
 
+另含项目人工整理的 246 条古典诗句、成语及日常短语,拼音见
+`Tests/LodoIMETests/Fixtures/common-phrases.tsv`。古诗采用古典原文,不含现代译注。
+完整生成脚本会自动合入这些条目;已有基础词库可增量更新:
+
+```bash
+python3 -I ios/Tools/extend_ime_dict.py ios/LodoIME/Sources/LodoIME/Resources/PinyinLexicon.bin
+python3 -I ios/Tools/extend_ime_dict.py ios/LodoIME/Sources/LodoIME/Resources/PinyinLexicon.bin --check
+```
+
+增量合并保留已有更高词频;删除条目或降低词频需从原始数据完整重建。
+语料仅在构建时合并,键盘运行时仍查询同一份映射词库,不额外扫描文本文件。
+
 ## 重排器 `Reranker/`、`Sources/LodoReranker/Resources/pinyin-ime-reranker-4M.safetensors`
 
 - 推理代码:chinese-ime-lm `reference/`(commit b97e99cb),Apache-2.0,许可全文见 `Reranker/LICENSE-chinese-ime-lm`。
