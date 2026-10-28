@@ -195,6 +195,7 @@ struct KeyboardSettingsView: View {
                 acknowledgement("AOSP 谷歌拼音词库", "Apache-2.0")
                 acknowledgement("jieba 词典", "MIT")
                 acknowledgement("mozillazg/pinyin-data、phrase-pinyin-data", "MIT")
+                acknowledgement("通用规范汉字表字表(jaywcjlove 整理)", "MIT")
             } header: {
                 Text("致谢")
             }

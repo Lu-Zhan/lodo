@@ -110,7 +110,7 @@ public final class TypingSession {
     /// 候选栏上方那一行:已选的字 + 剩下拼音的切分(zhong'guo)。
     public var preedit: String {
         // 候选还没跟上最新的拼音时,剩下那截先原样显示(旧的切分对不上新字母)。
-        composition.pieces.map(\.text).joined() + (candidatesAreCurrent ? segmented : composition.remaining)
+        composition.pieces.map(\.text).joined() + (candidatesAreCurrent ? segmented : composition.display)
     }
 
     /// 屏幕上的候选是不是对当前这串拼音解出来的(后台解码时可能慢一拍)。
@@ -290,7 +290,7 @@ public final class TypingSession {
 
     /// 候选栏里「原样字母」那一项显示的文字,也正是点了之后上屏的文字:已选的字 + 剩下的字母(不带分隔符)。
     public var rawLetters: String {
-        composition.pieces.map(\.text).joined() + composition.remaining.replacingOccurrences(of: "'", with: "")
+        composition.pieces.map(\.text).joined() + composition.display.replacingOccurrences(of: "'", with: "")
     }
 
     /// 点了「原样字母」:按显示的那样上屏。`expected` 是那颗按钮上写的字——按着它时另一指又打了字母、
@@ -513,7 +513,7 @@ public final class TypingSession {
     /// 宿主里应该写着的拼音:已选的字 + 剩下那截的切分,音节之间用空格(同系统:「ni hao」)。
     public var markedDisplay: String {
         composition.pieces.map(\.text).joined()
-            + (candidatesAreCurrent ? segmented : composition.remaining).replacingOccurrences(of: "'", with: " ")
+            + (candidatesAreCurrent ? segmented : composition.display).replacingOccurrences(of: "'", with: " ")
     }
 
     /// 拼音写在输入框里时,候选栏上面就不用再放一行拼音了。

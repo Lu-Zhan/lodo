@@ -158,10 +158,10 @@ public struct KeyboardMetrics: Sendable {
     public var edgeKeyWidth: CGFloat
 
     /// 竖屏照 iOS 27 系统拼音键盘的真机截图量的(402pt 宽):字母键 33.4 宽 42 高、键缝 6、行距 10(截图是 12,用户要求再收 2)、两边 7;
-    /// 第三行 shift / 删除 45 宽贴边;候选栏 53(首选垫一块 36 高的圆角底)。
+    /// 第三行 shift / 删除 45 宽贴边;候选栏 38(首选的圆角底随之 34 高;原来照系统量的 53,用户要求压矮),键区上边距 0。
     public static let phonePortrait = KeyboardMetrics(keyHeight: 42, rowSpacing: 10, keySpacing: 6, sideInset: 7,
                                                       topInset: 0, bottomInset: 0, cornerRadius: 8.5,
-                                                      candidateBarHeight: 53, edgeKeyWidth: 45)
+                                                      candidateBarHeight: 38, edgeKeyWidth: 45)
     public static let phoneLandscape = KeyboardMetrics(keyHeight: 34, rowSpacing: 6, keySpacing: 4, sideInset: 3,
                                                        topInset: 5, bottomInset: 3, cornerRadius: 7,
                                                        candidateBarHeight: 36, edgeKeyWidth: 0)

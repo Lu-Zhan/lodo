@@ -247,7 +247,7 @@ final class CandidateBarView: UIView {
     private let expand = UIButton(type: .system)
     private let ask = UIButton(type: .system)
     private let divider = UIView()
-    /// 首选底下那块圆角底(同系统:36pt 高,比候选字两边各宽 5pt)。
+    /// 首选底下那块圆角底(最高 36pt,上下各留 2pt;比候选字两边各宽 5pt)。
     private let highlight = UIView()
     private var composing = false
     /// 没在拼的时候左边露出 ✨(宿主接了 lodo 服务才有)。

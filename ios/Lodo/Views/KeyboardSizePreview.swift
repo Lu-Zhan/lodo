@@ -14,7 +14,8 @@ struct KeyboardSizePreview: View {
     private static let rowSpacing: CGFloat = 10
     private static let keySpacing: CGFloat = 6
     private static let sideInset: CGFloat = 7
-    private static let candidateBar: CGFloat = 53
+    private static let candidateBar: CGFloat = 38
+    private static let keyAreaTop: CGFloat = 0
     private static let edgeKey: CGFloat = 45
     private static let bottomGap: CGFloat = 8
 
@@ -24,7 +25,7 @@ struct KeyboardSizePreview: View {
     private var keyHeight: CGFloat { (Self.keyHeight * scale).rounded() }
 
     private func boardHeight(keyHeight: CGFloat) -> CGFloat {
-        Self.candidateBar + 4 * keyHeight + 3 * Self.rowSpacing + Self.bottomGap
+        Self.candidateBar + Self.keyAreaTop + 4 * keyHeight + 3 * Self.rowSpacing + Self.bottomGap
     }
 
     private var isDefault: Bool { abs(scale - 1) < 0.001 }
@@ -73,6 +74,7 @@ struct KeyboardSizePreview: View {
             }
             .padding(.horizontal, s.sideInset * f)
             .frame(height: s.candidateBar * f)
+            .padding(.bottom, s.keyAreaTop * f)
 
             VStack(spacing: s.rowSpacing * f) {
                 HStack(spacing: gap) { ForEach(0..<10, id: \.self) { _ in key(width: unit, height: kh) } }

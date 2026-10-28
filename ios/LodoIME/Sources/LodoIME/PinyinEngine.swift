@@ -11,6 +11,8 @@ public struct Candidate: Hashable, Sendable {
         case assembled
         /// 只吃掉键的开头一截,选了之后剩下的接着拼。
         case prefix
+        /// 快捷输入(`QuickPhrases`:rq 出日期、sj 出时间),不学、不重排。
+        case quickPhrase
     }
 
     public let text: String
@@ -22,7 +24,7 @@ public struct Candidate: Hashable, Sendable {
     /// 经过纠错或模糊音:那它的词频是"用户想打的词"的证据,不是"用户敲的那串字母"的证据。
     public let corrected: Bool
 
-    public var answersKey: Bool { source != .prefix }
+    public var answersKey: Bool { source != .prefix && source != .quickPhrase }
     /// 用户词同样算:上游把 UserDatabase 也列在 `DICTIONARY_SOURCES` 里,用户亲手选过的不让模型改。
     public var trustedDictionaryHit: Bool { (source == .dictionary || source == .user) && !corrected }
 }
@@ -78,14 +80,16 @@ public final class PinyinEngine: @unchecked Sendable {
         public let segmented: String
     }
 
-    /// `input` 只含小写字母和 `'`;`context` 是光标前的文字,给重排器用。
+    /// `input` 只含小写字母、`'`、九宫格数字和左栏选定的大写拼音;`context` 是光标前的文字,给重排器用。
     /// `rerank: false` 只要切分(预编辑)时用,省一次模型调用。
     public func candidates(for input: String, context: String = "", limit: Int = 60,
                            rerank: Bool = true, now: Date = Date()) -> Result {
+        // 大写 = 九宫格左栏选定的拼音(`Composition.remaining`)。
+        let fixed = input.map(\.isUppercase)
         let raw = Array(input.lowercased())
         let n = raw.count
-        guard n > 0 else { return Result(candidates: [], segmented: "") }
-        let tokens = syllabifier.tokens(raw)
+        guard n > 0, fixed.count == n else { return Result(candidates: [], segmented: "") }
+        let tokens = syllabifier.tokens(raw, fixed: fixed.contains(true) ? fixed : nil)
         func skip(_ p: Int) -> Int { var p = p; while p < n, raw[p] == "'" { p += 1 }; return p }
 
         // 只从走得到的位置出发找边。
@@ -152,6 +156,14 @@ public final class PinyinEngine: @unchecked Sendable {
                 let chosen = list.remove(at: pool[pick])
                 list.insert(chosen, at: 0)
             }
+        }
+
+        // rq / sj / xq / nl:今天的日期、此刻的时间……排在首选后面,空格照旧上词典首选,也不交给模型重排。
+        if !fixed.contains(true) {
+            let quick = QuickPhrases.texts(for: String(raw), now: now).filter { !seen.contains($0) }
+            list.insert(contentsOf: quick.map {
+                Candidate(text: $0, source: .quickPhrase, consumed: n, syllableIDs: [], corrected: false)
+            }, at: min(1, list.count))
         }
 
         var segmented = ""
@@ -234,7 +246,9 @@ public final class PinyinEngine: @unchecked Sendable {
                     var k = r.lowerBound, taken = 0
                     while k < r.upperBound, lexicon.length(k) == depth + 1 {
                         if taken < perNode {
-                            out.append(Edge(start: start, end: token.end, text: lexicon.word(k), cost: lexicon.cost(k) + pen,
+                            let word = lexicon.word(k)
+                            let rare = depth == 0 && word.count == 1 && !CommonCharacters.isCommon(word.first!) ? Costs.rareCharacter : 0
+                            out.append(Edge(start: start, end: token.end, text: word, cost: lexicon.cost(k) + pen + rare,
                                             ids: ids, cuts: cuts, corrected: corr, fromUser: false))
                             taken += 1
                         }

@@ -41,6 +41,8 @@ enum Costs {
     static let unknownLetter = 3000
     /// 每多一个词的拼装惩罚:让整键词典命中优先于两个高频字的拼接。
     static let perWord = 300
+    /// 《通用规范汉字表》外的单字(`CommonCharacters`):繁体、异体、方言字排到常用字后面,仍然打得出来。
+    static let rareCharacter = 800
 }
 
 /// 把输入串切成 token 图。
@@ -172,8 +174,10 @@ struct Syllabifier {
     }
 
     /// `tokens[i]` = 从第 i 个字符开始的所有 token。`'` 处为空。
-    func tokens(_ raw: [Character]) -> [[Token]] {
+    /// `fixed[i]`:这个字母是九宫格左栏选定的拼音(见 `Composition.remaining`)。
+    func tokens(_ raw: [Character], fixed: [Bool]? = nil) -> [[Token]] {
         let n = raw.count
+        let fixed = fixed ?? Array(repeating: false, count: n)
         var out = Array(repeating: [Token](), count: n)
         // 九宫格按出来的数字:一个数字串可以读成好几个音节(64 = mi / ni),交给词频去分。
         // 选过拼音的那几段已经换成字母(ni'426),照下面的全拼规则走。
@@ -188,20 +192,27 @@ struct Syllabifier {
                 if atEnd, let longer = nineKeyPrefixes[piece] { out[i].append(Token(end: j, ids: longer, kind: .partial)) }
             }
         }
-        // 和数字混在一起的字母是在左边那列选定的拼音:只认这个音节本身,不补全、不纠错
-        // (选了 mi 就是 mi,不能被补成 min)。
-        let fixedLetters = raw.contains { Self.nineKeyLetters[$0] != nil }
-        for i in 0..<n where raw[i] != "'" && raw[i].isLetter {
+        // 左边那列选定的拼音:整段只认这个音节本身,不补全、不纠错(选了 mi 就是 mi,数字按完了也不会被补成 min);
+        // 选的是单个声母时就是以它开头的任何音节(n'426 的 n)。
+        for i in 0..<n where fixed[i] && (i == 0 || !fixed[i - 1]) {
+            var j = i
+            while j < n, fixed[j] { j += 1 }
+            let piece = String(raw[i..<j])
+            if let id = lexicon.syllableIndex[piece] { out[i].append(Token(end: j, ids: [id], kind: .full)) }
+            if Self.initials.contains(piece), let longer = prefixes[piece] {
+                out[i].append(Token(end: j, ids: longer, kind: .abbreviation))
+            }
+        }
+        for i in 0..<n where raw[i] != "'" && raw[i].isLetter && !fixed[i] {
             var j = i
             var piece = ""
-            while j < n, raw[j] != "'", raw[j].isLetter, j - i < 6 {
+            while j < n, raw[j] != "'", raw[j].isLetter, !fixed[j], j - i < 6 {
                 piece.append(raw[j])
                 j += 1
                 let atEnd = j == n || raw[j] == "'"
                 if let id = lexicon.syllableIndex[piece] {
                     out[i].append(Token(end: j, ids: [id], kind: .full))
                 }
-                if fixedLetters { continue }
                 if let alt = alternates[piece] {
                     let fuzzyIDs = alt.filter(\.1).map(\.0), typoIDs = alt.filter { !$0.1 }.map(\.0)
                     if !fuzzyIDs.isEmpty { out[i].append(Token(end: j, ids: fuzzyIDs, kind: .fuzzy)) }

@@ -10,8 +10,13 @@ public struct Composition: Sendable {
         public let source: Candidate.Source
     }
 
-    /// 还没选的那截输入。
+    /// 还没选的那截输入。九宫格左栏选定的拼音用**大写**存(`NI'426`):解码按它只认这个音节
+    /// (单个声母就是以它开头的音节),不补全、不纠错——不能从「串里还有没有数字」去猜哪些字母是选定的。
+    /// 打字只会进小写,所以大写就是选定的标记;显示和原样上屏用 `display`。
     public private(set) var remaining = ""
+
+    /// `remaining` 去掉选定标记,给输入框显示、原样上屏用。
+    public var display: String { remaining.lowercased() }
     /// 已经选好、还没上屏的几段。
     public private(set) var pieces: [Piece] = []
 
@@ -28,8 +33,13 @@ public struct Composition: Sendable {
     }
 
     /// 退格:先删字母;字母删完了撤回最后一次选择。
+    /// 末尾是左栏选定的拼音时整段退回成数字(NI'HAO → NI'426),再按才删数字,同系统九宫格。
     public mutating func backspace() {
-        if !remaining.isEmpty {
+        if let last = remaining.last, last.isUppercase {
+            let start = remaining.lastIndex { !$0.isUppercase }.map { remaining.index(after: $0) } ?? remaining.startIndex
+            let code = Syllabifier.nineKeyCode(remaining[start...].lowercased())
+            remaining = String(remaining[..<start]) + code
+        } else if !remaining.isEmpty {
             remaining.removeLast()
         } else if let last = pieces.popLast() {
             remaining = last.raw
@@ -42,7 +52,7 @@ public struct Composition: Sendable {
         guard let start = remaining.firstIndex(where: { Syllabifier.nineKeyLetters[$0] != nil }) else { return }
         let end = remaining.index(start, offsetBy: min(count, remaining.distance(from: start, to: remaining.endIndex)))
         let rest = remaining[end...]
-        remaining = remaining[..<start] + syllable + (rest.isEmpty || rest.first == "'" ? "" : "'") + rest
+        remaining = remaining[..<start] + syllable.uppercased() + (rest.isEmpty || rest.first == "'" ? "" : "'") + rest
     }
 
     /// 剩下的里面还有没按成拼音的数字(九宫格)。
@@ -65,7 +75,7 @@ public struct Composition: Sendable {
 
     /// 按回车:已选的字 + 剩下的原始字母上屏(打英文单词时用)。
     public mutating func commitRaw() -> String {
-        let text = pieces.map(\.text).joined() + remaining
+        let text = pieces.map(\.text).joined() + display
         clear()
         return text
     }
