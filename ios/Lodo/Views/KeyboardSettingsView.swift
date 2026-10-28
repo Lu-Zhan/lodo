@@ -36,6 +36,9 @@ struct KeyboardSettingsView: View {
     ]
 
     private static let keyHeightSection = "keyHeight"
+    #if DEBUG
+    @State private var demoFrequentWords = false
+    #endif
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -148,6 +151,7 @@ struct KeyboardSettingsView: View {
             }
 
             Section {
+                NavigationLink("常用词") { KeyboardFrequentWordsView() }
                 NavigationLink("自定义短语与读音") { KeyboardPersonalWordsView() }
                 Button("导入通讯录姓名") {
                     Task {
@@ -198,8 +202,10 @@ struct KeyboardSettingsView: View {
         .formStyle(.grouped)
         #if DEBUG
         // 截图核对按键高度示意图:`--demo-key-height <倍数>` 设好值并滚到那一组。
+        .navigationDestination(isPresented: $demoFrequentWords) { KeyboardFrequentWordsView() }
         .onAppear {
             let args = ProcessInfo.processInfo.arguments
+            if args.contains("--demo-frequent-words") { demoFrequentWords = true } // 直接推到「常用词」
             guard let i = args.firstIndex(of: "--demo-key-height"), args.indices.contains(i + 1),
                   let value = Double(args[i + 1]) else { return }
             keyHeightScale = value

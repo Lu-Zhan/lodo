@@ -445,3 +445,77 @@ extension KeyboardModelTests {
         PinyinEngine(lexicon: EngineTests.lexicon).candidates(for: input).candidates.first!.text
     }
 }
+
+// MARK: - 2026-10 codex 评估后修的几条
+
+extension KeyboardModelTests {
+    /// 换了输入框:上一框的拼音作废,不能带进新框。
+    func testAbandonCompositionDropsPinyin() {
+        type("nihao")
+        session.abandonComposition()
+        XCTAssertFalse(session.isComposing)
+        session.handle(.space)
+        XCTAssertFalse(doc.text.contains("你好"))
+    }
+
+    /// 按着「原样字母」时又打了字母:松手对不上就不上屏。
+    func testRawLettersRejectsStaleDisplay() {
+        type("ni")
+        let shown = session.rawLetters
+        type("hao")
+        session.commitRawLetters(expected: shown)
+        XCTAssertEqual(doc.text, "")
+        XCTAssertTrue(session.isComposing)
+        session.commitRawLetters(expected: session.rawLetters)
+        XCTAssertEqual(doc.text, "nihao")
+    }
+
+    /// 学了用户词就通知键盘去存(不靠按键前后的组合状态推断)。
+    func testLearningNotifies() {
+        var learned = 0
+        session.onLearn = { learned += 1 }
+        type("nihao")
+        session.handle(.space)
+        XCTAssertEqual(learned, 1)
+    }
+
+    /// 九宫格左栏的拼音已经不适用于当前数字时不选。
+    func testFixSpellingIgnoresStaleSyllable() {
+        "64".forEach { session.handle(.letter($0)) }
+        session.fixSpelling("hao", length: 3)
+        XCTAssertEqual(session.composition.remaining, "64")
+    }
+}
+
+// MARK: - 常用词整理
+
+extension KeyboardModelTests {
+    func testFrequentWordsPinForgetAndClear() {
+        let now = Date()
+        var dict = UserDictionary()
+        dict.learn("你好", ids: [1, 2], now: now)
+        dict.learn("你好", ids: [1, 2], now: now)
+        dict.learn("西安", ids: [7, 8], now: now)
+        XCTAssertEqual(dict.entries(now: now).map(\.word), ["你好", "西安"])
+        // 固定的排第一,也拿最常用那一档的加成。
+        dict.setPinned("西安", ids: [7, 8], true)
+        XCTAssertEqual(dict.entries(now: now).first?.word, "西安")
+        XCTAssertEqual(dict.words(for: [7, 8], now: now.addingTimeInterval(365 * 24 * 3600)).first?.cost, 150)
+        // 固定状态能存能读回来。
+        let decoded = try! JSONDecoder().decode(UserDictionary.self, from: JSONEncoder().encode(dict))
+        XCTAssertTrue(decoded.entries(now: now).first { $0.word == "西安" }!.pinned)
+        dict.forget("你好", ids: [1, 2])
+        XCTAssertEqual(dict.entries(now: now).map(\.word), ["西安"])
+        dict.removeAll()
+        XCTAssertTrue(dict.isEmpty)
+    }
+
+    /// 「记住常用词」关掉:照常上屏,不学。
+    func testLearningCanBeTurnedOff() {
+        session.engine.learnsWords = false
+        type("nihao")
+        session.handle(.space)
+        XCTAssertFalse(doc.text.isEmpty)
+        XCTAssertTrue(session.engine.userDictionary.isEmpty)
+    }
+}

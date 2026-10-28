@@ -1,6 +1,294 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "常用词" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequent Words"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用词"
+          }
+        }
+      }
+    },
+    "记住常用词" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remember Frequent Words"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记住常用词"
+          }
+        }
+      }
+    },
+    "打字时选过的词和整句会记下来,下次排在前面;一个月不用,分量减半。关掉后不再记新的,已经记下的照常参与排序。只存在本机。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Words and sentences you pick while typing are remembered and ranked higher next time; their weight halves after a month without use. Turning this off stops learning new ones; what's already remembered still counts. Stored only on this device."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打字时选过的词和整句会记下来,下次排在前面;一个月不用,分量减半。关掉后不再记新的,已经记下的照常参与排序。只存在本机。"
+          }
+        }
+      }
+    },
+    "在系统设置里给 lodo 键盘打开「允许完全访问」,再用它打几个字,记下的常用词就会出现在这里,可以删除或固定。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Allow Full Access for the lodo keyboard in Settings and type a little; the words it remembers will show up here so you can delete or pin them."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在系统设置里给 lodo 键盘打开「允许完全访问」,再用它打几个字,记下的常用词就会出现在这里,可以删除或固定。"
+          }
+        }
+      }
+    },
+    "已清空。下次弹出键盘时生效。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cleared. Takes effect the next time the keyboard appears."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已清空。下次弹出键盘时生效。"
+          }
+        }
+      }
+    },
+    "还没有记下常用词。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No frequent words yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有记下常用词。"
+          }
+        }
+      }
+    },
+    "固定" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定"
+          }
+        }
+      }
+    },
+    "固定的词不会随时间变淡,也不会因为词太多被清掉,一直排在最前面。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinned words don't fade over time or get dropped when the list is full, and always rank first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定的词不会随时间变淡,也不会因为词太多被清掉,一直排在最前面。"
+          }
+        }
+      }
+    },
+    "常用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frequent"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "常用"
+          }
+        }
+      }
+    },
+    "清空全部常用词" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear All Frequent Words"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清空全部常用词"
+          }
+        }
+      }
+    },
+    "搜索词或拼音" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search words or pinyin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索词或拼音"
+          }
+        }
+      }
+    },
+    "清空全部常用词?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear all frequent words?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清空全部常用词?"
+          }
+        }
+      }
+    },
+    "清空" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清空"
+          }
+        }
+      }
+    },
+    "键盘记下的词和整句(包括固定的)都会删掉,不能撤销。自定义短语和通讯录姓名不受影响。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All words and sentences the keyboard remembered, including pinned ones, will be deleted. This can't be undone. Custom phrases and contact names aren't affected."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "键盘记下的词和整句(包括固定的)都会删掉,不能撤销。自定义短语和通讯录姓名不受影响。"
+          }
+        }
+      }
+    },
+    "左滑删除或固定。整理后下次弹出键盘时生效。键盘上次同步:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe left to delete or pin. Changes take effect the next time the keyboard appears. Last synced: "
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左滑删除或固定。整理后下次弹出键盘时生效。键盘上次同步:"
+          }
+        }
+      }
+    },
+    "已固定" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinned"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已固定"
+          }
+        }
+      }
+    },
+    "约 %lld 次" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About %lld times"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "约 %lld 次"
+          }
+        }
+      }
+    },
+    "取消固定" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消固定"
+          }
+        }
+      }
+    },
     "" : {
       "localizations" : {
         "en" : {

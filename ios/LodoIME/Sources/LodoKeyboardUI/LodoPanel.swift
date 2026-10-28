@@ -201,9 +201,12 @@ final class LodoReplyView: UIView {
         text.isEditable = false
         text.isSelectable = false
         text.backgroundColor = .clear
-        text.font = .systemFont(ofSize: 17)
+        // 跟随系统字号(辅助功能大字体),上限压住:回答盖在键区那一块里,再大一屏就只剩几个字。正文本来能滚。
+        text.font = UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 17), maximumPointSize: 30)
+        text.adjustsFontForContentSizeCategory = true
         text.textContainerInset = UIEdgeInsets(top: 10, left: 12, bottom: 6, right: 12)
-        note.font = .systemFont(ofSize: 13)
+        note.font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .systemFont(ofSize: 13), maximumPointSize: 20)
+        note.adjustsFontForContentSizeCategory = true
         note.textColor = .secondaryLabel
         note.numberOfLines = 2
         buttons.axis = .horizontal
@@ -213,6 +216,9 @@ final class LodoReplyView: UIView {
         options.plainForKeyboard()
         text.plainForKeyboard()
         [text, note, buttons, options].forEach(addSubview)
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (self: LodoReplyView, _) in
+            self.setNeedsLayout() // 说明那行随字号变高
+        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -248,7 +254,7 @@ final class LodoReplyView: UIView {
             bottom = options.frame.minY - 4
         }
         if !note.isHidden {
-            let nh = note.sizeThatFits(CGSize(width: w - 24, height: 40)).height
+            let nh = min(note.sizeThatFits(CGSize(width: w - 24, height: .greatestFiniteMagnitude)).height, 56)
             note.frame = CGRect(x: 12, y: bottom - nh, width: w - 24, height: nh)
             bottom = note.frame.minY - 2
         }

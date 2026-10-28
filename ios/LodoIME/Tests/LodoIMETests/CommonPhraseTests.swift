@@ -7,7 +7,7 @@ final class CommonPhraseTests: XCTestCase {
             .appendingPathComponent("common-phrases.tsv")
         let engine = PinyinEngine(lexicon: EngineTests.lexicon)
         let lines = try String(contentsOf: url).split(separator: "\n").filter { !$0.hasPrefix("#") }
-        XCTAssertEqual(lines.count, 246)
+        XCTAssertEqual(lines.count, 408)
         for line in lines {
             let fields = line.split(separator: "\t")
             let word = String(fields[1])

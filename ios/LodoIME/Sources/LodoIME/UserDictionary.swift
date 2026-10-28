@@ -5,6 +5,18 @@ public struct UserDictionary: Codable, Sendable {
     struct Item: Codable, Sendable {
         var count: Double
         var lastUsed: Date
+        /// 用户在主 app「常用词」里固定的:不衰减、不被淘汰,永远按最常用的那一档排。老数据没有这个字段。
+        var pinned: Bool?
+    }
+
+    /// 给「常用词」整理页看的一条(主 app 那边没有音节编号表,所以 ids 和拼音一起给)。
+    public struct Entry: Sendable, Equatable {
+        public let word: String
+        public let ids: [UInt16]
+        /// 按半衰期折算后的使用次数。
+        public let weight: Double
+        public let lastUsed: Date
+        public let pinned: Bool
     }
 
     /// 音节编号序列(逗号连接)→ 词 → 记录。
@@ -45,13 +57,40 @@ public struct UserDictionary: Codable, Sendable {
 
     public var isEmpty: Bool { items.isEmpty }
 
+    /// 学过的词,固定的在前,其余按折算后的次数从高到低。
+    public func entries(now: Date = Date(), limit: Int = .max) -> [Entry] {
+        let all = items.flatMap { k, bucket in
+            bucket.map { word, item in
+                Entry(word: word, ids: k.split(separator: ",").compactMap { UInt16($0) },
+                      weight: Self.decayed(item, now: now), lastUsed: item.lastUsed, pinned: item.pinned == true)
+            }
+        }
+        return Array(all.sorted {
+            if $0.pinned != $1.pinned { return $0.pinned }
+            if $0.weight != $1.weight { return $0.weight > $1.weight }
+            return $0.word < $1.word
+        }.prefix(limit))
+    }
+
+    /// 固定 / 取消固定一条学过的词。没学过的不管(整理页上列的都是学过的)。
+    public mutating func setPinned(_ word: String, ids: [UInt16], _ pinned: Bool) {
+        let k = Self.key(ids)
+        guard items[k]?[word] != nil else { return }
+        items[k]?[word]?.pinned = pinned ? true : nil
+    }
+
+    public mutating func removeAll() {
+        items = [:]
+        rebuildIndex()
+    }
+
     public mutating func learn(_ word: String, ids: [UInt16], now: Date = Date()) {
         guard !word.isEmpty, !ids.isEmpty else { return }
         let k = Self.key(ids)
         if items[k] == nil { addPrefixes(of: k) }
         let existing = items[k]?[word]
         if existing == nil { entryCount += 1 }
-        var item = existing ?? Item(count: 0, lastUsed: now)
+        var item = existing ?? Item(count: 0, lastUsed: now, pinned: nil)
         item.count = Self.decayed(item, now: now) + 1
         item.lastUsed = now
         items[k, default: [:]][word] = item
@@ -70,6 +109,7 @@ public struct UserDictionary: Codable, Sendable {
     func words(for ids: [UInt16], now: Date) -> [(word: String, cost: Int)] {
         guard let bucket = items[Self.key(ids)] else { return [] }
         return bucket.map { word, item in
+            if item.pinned == true { return (word, 150) } // 固定的:最常用那一档
             let weight = Self.decayed(item, now: now)
             // 用过一次 ≈ 一个中频词;用得越多越靠前,但封顶,免得永远压住词典首选。
             return (word, max(150, 900 - Int(250 * log2(1 + weight))))
@@ -81,7 +121,9 @@ public struct UserDictionary: Codable, Sendable {
     }
 
     private mutating func prune(now: Date) {
-        let flat = items.flatMap { k, bucket in bucket.map { (k, $0.key, Self.decayed($0.value, now: now)) } }
+        let flat = items.flatMap { k, bucket in
+            bucket.map { (k, $0.key, $0.value.pinned == true ? .infinity : Self.decayed($0.value, now: now)) }
+        }
             .sorted { $0.2 > $1.2 }
         var kept: [String: [String: Item]] = [:]
         for (k, w, _) in flat.prefix(Self.capacity / 2) { kept[k, default: [:]][w] = items[k]?[w] }

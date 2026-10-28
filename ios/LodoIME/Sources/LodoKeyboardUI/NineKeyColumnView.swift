@@ -19,6 +19,11 @@ final class NineKeyColumnView: UIView {
     private let scroll = CandidateScrollView()
     private var buttons: [UIButton] = []
     private var items: [Item] = []
+    /// 手指按在某一项上 / 正在拖动时来的新列表:先不换(松手就选错了),停下来再补上。同候选栏。
+    private var deferred: [Item]?
+    private var isInteracting: Bool {
+        scroll.isInteracting || buttons.contains { !$0.isHidden && $0.isTracking }
+    }
     static let rowHeight: CGFloat = 40
 
     /// 没在拼时的标点(中文全角)。
@@ -32,11 +37,17 @@ final class NineKeyColumnView: UIView {
         scroll.alwaysBounceVertical = true
         scroll.plainForKeyboard()
         addSubview(scroll)
+        scroll.onInteractionEnded = { [weak self] in self?.applyDeferred() }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     func show(_ items: [Item]) {
+        if isInteracting {
+            deferred = items
+            return
+        }
+        deferred = nil
         guard items != self.items else { return }
         let changed = items.map(\.title) != self.items.map(\.title)
         self.items = items
@@ -45,10 +56,14 @@ final class NineKeyColumnView: UIView {
             var config = UIButton.Configuration.plain()
             config.baseForegroundColor = .label
             config.contentInsets = .zero
+            // 选的是按钮上正写着的那一项(列表冻结着,就是手指按下时看到的);session 那边再核对它是否仍然适用。
             let b = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
                 guard let self, self.items.indices.contains(i) else { return }
                 self.onSelect?(self.items[i])
             })
+            b.addAction(UIAction { [weak self] _ in
+                DispatchQueue.main.async { self?.applyDeferred() } // 选词事件处理完再换
+            }, for: [.touchUpInside, .touchUpOutside, .touchCancel])
             buttons.append(b)
             scroll.addSubview(b)
         }
@@ -63,6 +78,11 @@ final class NineKeyColumnView: UIView {
         }
         if changed { scroll.contentOffset = .zero }
         setNeedsLayout()
+    }
+
+    private func applyDeferred() {
+        guard let d = deferred, !isInteracting else { return }
+        show(d)
     }
 
     override func layoutSubviews() {

@@ -47,4 +47,10 @@ final class KeyboardExchangeTests: XCTestCase {
         XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: 3.0), 1.0)
         XCTAssertEqual(KeyboardExchange.hapticsIntensity(from: 0.35), 0.35, accuracy: 1e-9)
     }
+
+    /// ü 要写成 v:直接去声调会把「吕」变成 lu,和 lu 那组字混在一起。
+    func testPersonalWordKeepsUmlautAsV() {
+        XCTAssertEqual(KeyboardExchange.PersonalWord(text: "吕女")?.pinyin, "lv nv")
+        XCTAssertEqual(KeyboardExchange.PersonalWord(text: "绿色", pinyin: "l\u{FC} se")?.pinyin, "lv se")
+    }
 }

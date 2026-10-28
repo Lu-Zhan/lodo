@@ -120,5 +120,51 @@ final class CandidateScrollingTests: XCTestCase {
         buttons(scroll)[2].sendActions(for: .primaryActionTriggered)
         XCTAssertEqual(selected, .suggestion("新词2"))
     }
+
+    /// 甩出去还在滑时打了新字母:不等滑完,当场换上新候选并回到开头。
+    func testNewInputInterruptsCoasting() {
+        let (bar, scroll) = bar()
+        scroll.contentOffset.x = 300
+        scroll.scrollViewWillBeginDragging(scroll)
+        scroll.scrollViewDidEndDragging(scroll, willDecelerate: true)
+        XCTAssertTrue(scroll.isCoasting)
+        bar.show(preedit: nil, composing: true, choices: choices("新输入"), resetScrollOnChange: true)
+        bar.layoutIfNeeded()
+        XCTAssertFalse(scroll.isCoasting)
+        XCTAssertEqual(buttons(scroll).first?.accessibilityLabel, "新输入0")
+        XCTAssertEqual(scroll.contentOffset.x, 0)
+    }
+
+    /// 同一串拼音的重排不打断惯性:照旧等滑完再换,免得看着的词跳走。
+    func testRerankStillWaitsForCoasting() {
+        let (bar, scroll) = bar()
+        scroll.scrollViewWillBeginDragging(scroll)
+        scroll.scrollViewDidEndDragging(scroll, willDecelerate: true)
+        bar.show(preedit: nil, composing: true, choices: choices("重排"), resetScrollOnChange: false)
+        bar.layoutIfNeeded()
+        XCTAssertEqual(buttons(scroll).first?.accessibilityLabel, "候选0")
+    }
+
+    private final class Recorder: CandidateBarDelegate {
+        var selected: [CandidateChoice] = []
+        func candidateBar(select choice: CandidateChoice) { selected.append(choice) }
+        func candidateBarToggleExpanded() {}
+        func candidateBarAsk() {}
+    }
+
+    /// 惯性快停时点到的词:按钮自己没收到这一下就替它选;按钮已经选过就不再选一遍。
+    func testCoastingTapSelectsOnce() async {
+        let (bar, scroll) = bar()
+        let recorder = Recorder()
+        bar.delegate = recorder
+        let target = buttons(scroll)[3]
+        scroll.onCoastingTap?(target)
+        await nextMainTurn()
+        XCTAssertEqual(recorder.selected, [.suggestion("候选3")])
+        target.sendActions(for: .primaryActionTriggered) // 按钮自己也选了一次
+        scroll.onCoastingTap?(target)
+        await nextMainTurn()
+        XCTAssertEqual(recorder.selected, [.suggestion("候选3"), .suggestion("候选3")])
+    }
 }
 #endif

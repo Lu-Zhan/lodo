@@ -21,18 +21,40 @@ public final class BackgroundDecoder: @unchecked Sendable {
         commitEngine = PinyinEngine(lexicon: lexicon, userDictionary: userDictionary, fuzzy: fuzzy)
     }
 
+    /// 最新一次 `decode` 的编号。重排比打字慢时,排在模型队列里的旧请求开算前对一下编号,
+    /// 不是最新的就跳过——只在算完后丢结果省不下计算,连续打长句时会越积越多。
+    private let latestLock = NSLock()
+    private var latest = 0
+
+    private func isLatest(_ id: Int) -> Bool {
+        latestLock.lock(); defer { latestLock.unlock() }
+        return latest == id
+    }
+
     /// 后台解一次,结果回到主线程。
     public func decode(_ input: String, context: String,
                        completion: @escaping (PinyinEngine.Result, Bool) -> Void) {
-        fastQueue.async { [fastEngine, queue, engine] in
+        latestLock.lock()
+        latest += 1
+        let id = latest
+        latestLock.unlock()
+        fastQueue.async { [weak self, fastEngine, queue, engine] in
             let base = fastEngine.candidates(for: input, context: context, rerank: false)
             DispatchQueue.main.async { completion(base, false) }
             guard base.candidates.count > 1, base.candidates.first?.trustedDictionaryHit != true else { return }
             queue.async {
+                guard self?.isLatest(id) == true else { return }
                 let improved = engine.candidates(for: input, context: context)
                 DispatchQueue.main.async { completion(improved, true) }
             }
         }
+    }
+
+    /// 键盘收起:还排着没开算的重排都不要了。
+    public func cancelPending() {
+        latestLock.lock()
+        latest += 1
+        latestLock.unlock()
     }
 
     /// 候选尚未跟上输入时,异步求上屏用的基础候选。与模型队列隔离。

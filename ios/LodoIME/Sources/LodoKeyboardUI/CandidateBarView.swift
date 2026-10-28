@@ -28,10 +28,24 @@ protocol CandidateBarDelegate: AnyObject {
 
 /// 候选栏的滚动视图。UIScrollView 默认先扣住触摸 150ms 看是不是要滚,快点候选时这一下会被吞掉、
 /// 要再点一次(真机反馈)。这里不扣:手指落下立刻交给候选按钮;真横着拖起来了再把按钮那一下取消、改成滚动。
-final class CandidateScrollView: UIScrollView, UIScrollViewDelegate {
+final class CandidateScrollView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
     var onInteractionEnded: (() -> Void)?
+    /// 惯性滑动中、速度已经慢下来时点了一下:点的是哪颗候选按钮(见 `coastTap`)。
+    var onCoastingTap: ((CandidateButton) -> Void)?
     private var gestureInFlight = false
+    /// 手已经离开、只是在惯性滑动(用自己的标记而不是 isDecelerating:单测里摆不出真的减速)。
+    private(set) var isCoasting = false
     var isInteracting: Bool { gestureInFlight || isTracking || isDragging || isDecelerating }
+
+    /// 惯性比系统默认(0.998)短一截:候选栏只有一排、二三十个词,甩一下滑太远反而找不着(真机反馈手感飘)。
+    static let deceleration = UIScrollView.DecelerationRate(rawValue: 0.994)
+    /// 惯性滑到比这还慢(pt/s)时,点一下直接选中手指下那个词;更快时那一下只是停住(同系统)。
+    static let selectableCoastingSpeed: CGFloat = 450
+
+    private var lastSample: (offset: CGPoint, time: CFTimeInterval)?
+    private(set) var speed: CGFloat = 0
+    private let coastTap = UITapGestureRecognizer()
+    private var tapStartedWhileCoasting = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -39,6 +53,52 @@ final class CandidateScrollView: UIScrollView, UIScrollViewDelegate {
         canCancelContentTouches = true
         delegate = self
         isDirectionalLockEnabled = true
+        decelerationRate = Self.deceleration
+        // 惯性滑动时手指落下,系统只让滚动停住、按钮收不到这一下;这里另挂一个不拦触摸的点按手势补上。
+        coastTap.cancelsTouchesInView = false
+        coastTap.delaysTouchesEnded = false
+        coastTap.delegate = self
+        coastTap.addTarget(self, action: #selector(coastTapped(_:)))
+        addGestureRecognizer(coastTap)
+    }
+
+    /// 新的输入来了:把还在滑的惯性停住,好马上换上新候选(手指还按着时不动)。
+    func stopCoasting() {
+        guard isCoasting, !isTracking, !isDragging else { return }
+        // 停在当前位置(回弹区里停住的话夹回内容范围,不然会卡在边外)。
+        let maxX = max(0, contentSize.width - bounds.width), maxY = max(0, contentSize.height - bounds.height)
+        setContentOffset(CGPoint(x: min(max(contentOffset.x, 0), maxX), y: min(max(contentOffset.y, 0), maxY)), animated: false)
+        isCoasting = false
+        gestureInFlight = false
+        speed = 0
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if gestureRecognizer === coastTap {
+            tapStartedWhileCoasting = (isCoasting || isDecelerating) && speed < Self.selectableCoastingSpeed
+        }
+        return true
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+
+    @objc private func coastTapped(_ tap: UITapGestureRecognizer) {
+        guard tapStartedWhileCoasting else { return }
+        tapStartedWhileCoasting = false
+        let point = tap.location(in: self)
+        guard let button = subviews.lazy.compactMap({ $0 as? CandidateButton })
+            .first(where: { !$0.isHidden && $0.frame.contains(point) }) else { return }
+        onCoastingTap?(button)
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let now = CACurrentMediaTime()
+        if let last = lastSample, now > last.time {
+            let dx = contentOffset.x - last.offset.x, dy = contentOffset.y - last.offset.y
+            speed = (dx * dx + dy * dy).squareRoot() / CGFloat(now - last.time)
+        }
+        lastSample = (contentOffset, now)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -46,16 +106,21 @@ final class CandidateScrollView: UIScrollView, UIScrollViewDelegate {
     /// UIControl 默认不让滚动视图取消,那样按在候选上就拖不动整排了。
     override func touchesShouldCancel(in view: UIView) -> Bool { true }
 
-    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { gestureInFlight = true }
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        gestureInFlight = true
+        isCoasting = false
+    }
 
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate { finishInteraction() }
+        if decelerate { isCoasting = true } else { finishInteraction() }
     }
 
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { finishInteraction() }
 
     private func finishInteraction() {
         gestureInFlight = false
+        isCoasting = false
+        speed = 0
         // 等触摸取消/选词事件处理完再更新,不会在手指抬起的同一回调里换掉按钮。
         DispatchQueue.main.async { [weak self] in
             guard let self, !self.isInteracting else { return }
@@ -108,6 +173,8 @@ final class CandidateButton: UIButton {
 final class CandidateButtons {
     private var pool: [CandidateButton] = []
     private let action: (Int) -> Void
+    /// 最近一次按钮自己触发选词的时刻:惯性滑动中的点按补选之前看一眼,按钮已经选过就不再选一遍。
+    private(set) var lastFired: CFTimeInterval = 0
     /// 手指离开候选(选中、拖走、取消)时调:按着的时候候选栏不换内容,松手后补上。
     var onTrackingEnded: (() -> Void)?
 
@@ -116,13 +183,27 @@ final class CandidateButtons {
     /// 有没有手指正按在某个候选上。
     var isTracking: Bool { pool.contains { !$0.isHidden && $0.isTracking } }
 
+    /// 惯性滑动中点到的那颗按钮:按钮自己这一下没触发(系统把触摸让给了滚动)时替它选。
+    func coastingTap(on button: CandidateButton) {
+        let tapped = CACurrentMediaTime()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.lastFired < tapped - 0.3, let i = self.pool.firstIndex(of: button) else { return }
+            self.lastFired = CACurrentMediaTime()
+            self.action(i)
+            self.onTrackingEnded?()
+        }
+    }
+
     func buttons(count: Int, in container: UIView) -> [CandidateButton] {
         while pool.count < count {
             let i = pool.count
             var config = UIButton.Configuration.plain()
             config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 11.5, bottom: 0, trailing: 11.5) // 候选之间约 23pt,同系统
             config.baseForegroundColor = .label
-            let b = CandidateButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.action(i) })
+            let b = CandidateButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+                self?.lastFired = CACurrentMediaTime()
+                self?.action(i)
+            })
             b.addAction(UIAction { [weak self] _ in
                 // 放到下一轮:先让这次选词(primaryAction)跑完,再补上按着时攒下的候选。
                 DispatchQueue.main.async { self?.onTrackingEnded?() }
@@ -192,6 +273,7 @@ final class CandidateBarView: UIView {
         scroll.alwaysBounceHorizontal = true
         scroll.plainForKeyboard()
         scroll.onInteractionEnded = { [weak self] in self?.flushDeferred() }
+        scroll.onCoastingTap = { [weak self] button in self?.buttons.coastingTap(on: button) }
         highlight.isUserInteractionEnabled = false
         highlight.layer.cornerRadius = 9
         highlight.layer.cornerCurve = .continuous
@@ -222,6 +304,8 @@ final class CandidateBarView: UIView {
 
     func show(preedit text: String?, composing: Bool, choices: [CandidateChoice], secondaryIndex: Int? = nil,
               resetScrollOnChange: Bool = true) {
+        // 新打了字母:不等上一次甩出去的惯性滑完,当场停住换成新候选(手指还按着时照旧等松手)。
+        if resetScrollOnChange, !buttons.isTracking { scroll.stopCoasting() }
         if buttons.isTracking || scroll.isInteracting {
             deferred = (text, composing, choices, secondaryIndex, resetScrollOnChange || deferred?.reset == true)
             return
@@ -341,6 +425,7 @@ final class CandidateGridView: UIView {
         scroll.alwaysBounceVertical = true
         scroll.plainForKeyboard()
         scroll.onInteractionEnded = { [weak self] in self?.flushDeferred() }
+        scroll.onCoastingTap = { [weak self] button in self?.buttons.coastingTap(on: button) }
         addSubview(scroll)
     }
 
@@ -348,6 +433,7 @@ final class CandidateGridView: UIView {
 
     /// `resetScroll`:刚展开时回到顶上;之后的刷新保留滚动位置。
     func show(_ choices: [CandidateChoice], resetScroll: Bool = false) {
+        if resetScroll, !buttons.isTracking { scroll.stopCoasting() }
         if buttons.isTracking || scroll.isInteracting {
             deferred = (choices, resetScroll || deferred?.reset == true)
             return

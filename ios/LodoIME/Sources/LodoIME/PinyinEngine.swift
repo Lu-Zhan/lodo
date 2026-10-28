@@ -44,6 +44,8 @@ struct Edge {
 public final class PinyinEngine: @unchecked Sendable {
     public let lexicon: Lexicon
     public var userDictionary: UserDictionary
+    /// 上屏时学不学用户词(「记住常用词」开关)。关了只是不再学,学过的照常参与排序。
+    public var learnsWords = true
     public var personalDictionary: PersonalDictionary?
     public var reranker: Reranker?
     public var fuzzy: FuzzyOptions { didSet { rebuildSyllabifier() } }

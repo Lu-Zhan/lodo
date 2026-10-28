@@ -56,6 +56,8 @@ public final class TypingSession {
 
     /// 状态变了(候选、页、shift),视图据此重画。
     public var onChange: (() -> Void)?
+    /// 学进了用户词(整段选完上屏):键盘据此安排落盘。上屏可能发生在后台结果回来时,不能靠按键前后的组合状态推断。
+    public var onLearn: (() -> Void)?
 
     private var lastShiftTap: Date?
     private var lastSpace: Date?
@@ -87,7 +89,8 @@ public final class TypingSession {
     private enum QueuedInput {
         case action(KeyAction)
         case candidate(Candidate, String)
-        case rawLetters
+        case rawLetters(String?)
+        case fixSpelling(String, Int)
     }
     /// 等基础候选时仍收按键;结果到达后按原顺序处理,不在触摸回调里同步等词图。
     private var commitKey: String?
@@ -136,19 +139,13 @@ public final class TypingSession {
                 self.commitKey = nil
                 let queued = self.queuedInputs
                 self.queuedInputs = []
-                guard self.composition.remaining == key else { return }
-                if !self.candidatesAreCurrent {
+                if self.composition.remaining == key, !self.candidatesAreCurrent {
                     self.candidates = result.candidates
                     self.segmented = result.segmented
                     self.candidatesKey = key
                 }
-                for input in queued {
-                    switch input {
-                    case .action(let action): self.handle(action)
-                    case .candidate(let candidate, let decodedFor): self.select(candidate, decodedFor: decodedFor)
-                    case .rawLetters: self.commitRawLetters()
-                    }
-                }
+                // 拼音在等的时候变了(九宫格选了拼音)也照样按顺序重放:排着的空格、标点会再等一次最新的候选,不能丢。
+                self.replay(queued)
             }
             return
         }
@@ -268,6 +265,20 @@ public final class TypingSession {
         refresh()
     }
 
+    /// 宿主换了输入框(`documentIdentifier` 变了):上一框没上屏的拼音作废,不能带进新框——
+    /// 新框光标前的文字可能碰巧和开始拼音时一样(都是空的),`documentChanged` 的回声判断分不出来。
+    public func abandonComposition() {
+        commitKey = nil
+        queuedInputs = []
+        composition.clear()
+        compositionAnchor = nil
+        expectedEcho = nil
+        marked = ""
+        markedHistory = []
+        cachedContext = nil
+        refresh()
+    }
+
     /// 换写字的对象(打开/关掉 lodo 面板时):先把正在拼的字母原样留在原来那边。
     public func switchDocument(to document: TextDocument) {
         commitRaw()
@@ -282,14 +293,16 @@ public final class TypingSession {
         composition.pieces.map(\.text).joined() + composition.remaining.replacingOccurrences(of: "'", with: "")
     }
 
-    /// 点了「原样字母」:按显示的那样上屏。
-    public func commitRawLetters() {
+    /// 点了「原样字母」:按显示的那样上屏。`expected` 是那颗按钮上写的字——按着它时另一指又打了字母、
+    /// 候选栏没换,松手时对不上就不上屏(只刷新),免得上屏的和看到的不一样。
+    public func commitRawLetters(expected: String? = nil) {
         if commitKey != nil {
-            queuedInputs.append(.rawLetters)
+            queuedInputs.append(.rawLetters(expected))
             return
         }
         guard isComposing else { return }
         cachedContext = nil
+        if let expected, expected != rawLetters { return refresh() }
         let text = rawLetters
         composition.clear()
         insert(text)
@@ -319,14 +332,19 @@ public final class TypingSession {
         queuedInputs = []
         let background = decoder
         decoder = nil
+        replay(queued)
+        decoder = background
+    }
+
+    private func replay(_ queued: [QueuedInput]) {
         for input in queued {
             switch input {
             case .action(let action): handle(action)
             case .candidate(let candidate, let key): select(candidate, decodedFor: key)
-            case .rawLetters: commitRawLetters()
+            case .rawLetters(let expected): commitRawLetters(expected: expected)
+            case .fixSpelling(let syllable, let length): fixSpelling(syllable, length: length)
             }
         }
-        decoder = background
     }
 
     /// 九宫格左边那列:剩下的数字开头能读成哪些拼音。
@@ -337,8 +355,14 @@ public final class TypingSession {
 
     /// 在左边那列选了一个拼音:开头那几个数字定成它。
     public func fixSpelling(_ syllable: String, length: Int) {
+        if commitKey != nil {
+            queuedInputs.append(.fixSpelling(syllable, length))
+            return
+        }
         guard isComposing else { return }
         cachedContext = nil
+        // 按着左栏时列表可能已经换了:只认对当前开头那几个数字仍然成立的拼音。
+        guard nineKeySyllables.contains(where: { $0.syllable == syllable && $0.length == length }) else { return refresh() }
         composition.fixSpelling(syllable, consuming: length)
         refresh()
     }
@@ -544,7 +568,10 @@ public final class TypingSession {
     private func select(_ candidate: Candidate) -> String? {
         let text = composition.select(candidate, engine: engine)
         compositionGeneration += 1
-        if text != nil { decoder?.setUserDictionary(engine.userDictionary) }
+        if text != nil {
+            decoder?.setUserDictionary(engine.userDictionary)
+            onLearn?()
+        }
         return text
     }
 
@@ -574,10 +601,12 @@ public final class TypingSession {
             if !enriched, self.decodingKey == key { self.decodingKey = nil }
             guard self.isComposing, !self.composition.remaining.isEmpty else { return }
             if self.composition.remaining == key, self.compositionGeneration == generation {
-                guard self.candidates != result.candidates || self.segmented != result.segmented else { return }
+                // 结果和屏幕上一样时也要把候选标回「是最新的」(换个人词库后会先作废),否则空格还会再等一次。
+                let wasCurrent = self.candidatesAreCurrent
+                self.candidatesKey = key
+                guard !wasCurrent || self.candidates != result.candidates || self.segmented != result.segmented else { return }
                 self.candidates = result.candidates
                 self.segmented = result.segmented
-                self.candidatesKey = key
                 self.cachedContext = nil
                 self.syncMarkedText() // 切分出来了:输入框里的「nihao」换成「ni hao」
                 self.onChange?()

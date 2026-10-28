@@ -168,6 +168,7 @@ public final class KeyboardController: NSObject {
         session.document = host.document
         session.completer = TextCheckerCompleter()
         session.onChange = { [weak self] in self?.render() }
+        session.onLearn = { [weak self] in self?.didCommit() }
         // 模型 5 MB,读进来要几十毫秒,别挡键盘出现;载入前照样能打字,只是没有重排。
         Task.detached(priority: .userInitiated) {
             let model = ModelReranker.bundled()
@@ -211,7 +212,8 @@ public final class KeyboardController: NSObject {
     // MARK: - 宿主转来的事件
 
     /// 宿主输入框换了属性(回车键类型、键盘类型):扩展里在 `textDidChange` 调。
-    public func textDidChange() {
+    /// `newDocument`:宿主换了输入框(扩展比对 `documentIdentifier`),上一框没上屏的拼音作废。
+    public func textDidChange(newDocument: Bool = false) {
         session.autocapitalization = switch host?.autocapitalizationType {
         case .none?: .none
         case .words?: .words
@@ -219,7 +221,10 @@ public final class KeyboardController: NSObject {
         default: .sentences
         }
         // 面板在输入时打的字不在宿主里,宿主那边的变化(含迟到的回调)和面板里的组合无关。
-        if !panelEditing { session.documentChanged() }
+        if !panelEditing {
+            if newDocument, session.isComposing { session.abandonComposition() }
+            session.documentChanged()
+        }
     }
 
     /// 键盘出现时:邮箱、网址这类输入框直接从英文开始。
@@ -236,6 +241,7 @@ public final class KeyboardController: NSObject {
     public func willDisappear() {
         closePanel()
         session.commitRaw()
+        decoder.cancelPending() // 排着的重排算完也没人要
         saveUserDictionary()
     }
 
@@ -428,7 +434,13 @@ public final class KeyboardController: NSObject {
             return text(t, KeyboardAppearance.symbolFont)
         case .shift:
             let symbol = switch session.shift { case .off: "shift"; case .once: "shift.fill"; case .locked: "capslock.fill" }
-            return KeyFace(symbol: symbol, font: KeyboardAppearance.functionFont, accessibility: String(localized: "大写"))
+            let state = switch session.shift {
+            case .off: String(localized: "关")
+            case .once: String(localized: "下一个字母大写")
+            case .locked: String(localized: "大写锁定")
+            }
+            return KeyFace(symbol: symbol, font: KeyboardAppearance.functionFont, accessibility: String(localized: "大写"),
+                           accessibilityValue: state)
         case .deleteWord, .separator:
             return text("") // 只作长按/连删的动作,不会画成键帽
         case .delete:
@@ -628,18 +640,16 @@ public final class KeyboardController: NSObject {
 
     private func selectCandidate(_ choice: CandidateChoice) {
         resumeEditingIfThinking() // 等回答时选词也是在改问题
-        let wasComposing = session.isComposing
         switch choice {
         case .candidate(let c, let key): session.select(c, decodedFor: key)
-        case .raw: session.commitRawLetters()
+        case .raw(let shown): session.commitRawLetters(expected: shown)
         case .suggestion(let word): session.selectSuggestion(word)
         }
-        if wasComposing && !session.isComposing { didCommit() }
         haptics.play(.candidate)
         setExpanded(false) // 选词时 session 已经刷新过一遍了,这里不用再 render
     }
 
-    /// 上屏学了词:扩展随时可能被系统杀掉,停手 3 秒就存一次(键盘收起时立刻存)。
+    /// 学了用户词(`TypingSession.onLearn`,含后台结果回来时才上屏的那种):扩展随时可能被系统杀掉,停手 3 秒就存一次(键盘收起时立刻存)。
     private func didCommit() {
         dictionaryVersion += 1
         saveTimer?.invalidate()
@@ -655,8 +665,49 @@ public final class KeyboardController: NSObject {
         let dict = session.engine.userDictionary
         Task { [weak self, saver] in
             let ok = await saver.save(dict, version: version, to: url)
-            if ok, let self { self.savedVersion = max(self.savedVersion, version) }
+            if ok, let self {
+                self.savedVersion = max(self.savedVersion, version)
+                self.onUserDictionarySaved?()
+            }
         }
+    }
+
+    // MARK: - 常用词(主 app「常用词」页的整理,经扩展转过来)
+
+    /// 用户词落盘之后(扩展据此把最常用的那些导出给主 app 看)。
+    public var onUserDictionarySaved: (() -> Void)?
+
+    /// 当前的用户词(值拷贝,扩展拿去后台整理成导出清单)。
+    public var userDictionary: UserDictionary { session.engine.userDictionary }
+    /// 音节编号 → 拼音。
+    public var syllableNames: [String] { session.engine.lexicon.syllables }
+
+    /// 「记住常用词」开关:关了照常打字,只是不再学。
+    public var learnsWords: Bool {
+        get { session.engine.learnsWords }
+        set { session.engine.learnsWords = newValue }
+    }
+
+    public enum UserWordEdit {
+        case forget(String, ids: [UInt16])
+        case pin(String, ids: [UInt16], Bool)
+        case clearAll
+    }
+
+    /// 应用主 app 里的整理:改主线程那份,同步给后台解码,作废屏幕上的候选,马上落盘(落盘后会再导出一次)。
+    public func apply(_ edits: [UserWordEdit]) {
+        guard !edits.isEmpty else { return }
+        for edit in edits {
+            switch edit {
+            case .forget(let word, let ids): session.engine.userDictionary.forget(word, ids: ids)
+            case .pin(let word, let ids, let on): session.engine.userDictionary.setPinned(word, ids: ids, on)
+            case .clearAll: session.engine.userDictionary.removeAll()
+            }
+        }
+        decoder.setUserDictionary(session.engine.userDictionary)
+        session.personalDictionaryChanged()
+        dictionaryVersion += 1
+        saveUserDictionary()
     }
 
     @objc private func accessibilityChanged() {
@@ -704,9 +755,7 @@ extension KeyboardController: KeyAreaDelegate {
             submitAsk()
             return
         }
-        let wasComposing = session.isComposing
         session.handle(action)
-        if wasComposing && !session.isComposing { didCommit() }
     }
 
     /// 拼到一半不挪光标(挪走了组合就对不上);面板里的输入框没有光标可挪。

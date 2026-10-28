@@ -73,8 +73,10 @@ public enum KeyboardExchange {
         public let pinyin: String
         public init?(text: String) {
             let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // ü 先换成引擎用的 v 再去声调:直接 stripDiacritics 会把「吕 lǚ」变成 lu,和「路」混在一起、打 lv 也搜不到。
             guard !value.isEmpty, value.count <= 24,
-                  let latin = value.applyingTransform(.toLatin, reverse: false)?
+                  let latin = value.applyingTransform(.toLatin, reverse: false)
+                    .map(Self.umlautToV)?
                     .applyingTransform(.stripDiacritics, reverse: false) else { return nil }
             let sounds = latin.lowercased().split(whereSeparator: { !$0.isASCII || !$0.isLetter })
             guard !sounds.isEmpty, sounds.count <= 8 else { return nil }
@@ -83,11 +85,16 @@ public enum KeyboardExchange {
         }
         public init?(text: String, pinyin: String) {
             let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let sounds = pinyin.lowercased().split(whereSeparator: { $0 == " " || $0 == "'" })
+            let sounds = Self.umlautToV(pinyin.lowercased()).split(whereSeparator: { $0 == " " || $0 == "'" })
             guard !value.isEmpty, value.count <= 24, !sounds.isEmpty, sounds.count <= 8,
                   sounds.allSatisfy({ $0.allSatisfy { $0.isASCII && $0.isLetter } }) else { return nil }
             self.text = value
             self.pinyin = sounds.joined(separator: " ")
+        }
+
+        /// ü 和带声调的 ǖǘǚǜ(含大写)→ v。
+        static func umlautToV(_ s: String) -> String {
+            String(s.map { "üǖǘǚǜÜǕǗǙǛ".contains($0) ? "v" : $0 })
         }
     }
 
@@ -217,6 +224,88 @@ public enum KeyboardExchange {
     public static func keyHeightScale(from raw: Any?) -> Double {
         guard let value = (raw as? NSNumber)?.doubleValue, value.isFinite else { return defaultKeyHeightScale }
         return min(max(value, keyHeightScaleRange.lowerBound), keyHeightScaleRange.upperBound)
+    }
+
+    // MARK: - 常用词记忆(键盘学到的用户词,主 app「常用词」页整理)
+
+    /// 上屏时学不学用户词(默认开)。存储值别改。
+    public static let learnWordsKey = "keyboardLearnWords"
+
+    /// 键盘学到的一条词。`ids` 是词库里的音节编号:主 app 没有词库,改动时原样带回去让键盘认。
+    public struct FrequentWord: Codable, Hashable, Sendable, Identifiable {
+        public let word: String
+        public let pinyin: String
+        public let ids: [Int]
+        /// 按一个月半衰期折算后的使用次数。
+        public let weight: Double
+        public let lastUsed: Date
+        public var pinned: Bool
+        public var id: String { word + "|" + ids.map(String.init).joined(separator: ",") }
+        public init(word: String, pinyin: String, ids: [Int], weight: Double, lastUsed: Date, pinned: Bool) {
+            self.word = word; self.pinyin = pinyin; self.ids = ids
+            self.weight = weight; self.lastUsed = lastUsed; self.pinned = pinned
+        }
+    }
+
+    public struct FrequentWordsSnapshot: Codable, Sendable {
+        public var exportedAt: Date
+        public var words: [FrequentWord]
+        /// 键盘已经处理到哪一条整理(见 `FrequentWordEdit.serial`)。
+        public var appliedSerial: Int
+        public init(exportedAt: Date, words: [FrequentWord], appliedSerial: Int) {
+            self.exportedAt = exportedAt; self.words = words; self.appliedSerial = appliedSerial
+        }
+    }
+
+    /// 主 app 里的一次整理。键盘写不了 App Group 时(没开完全访问)删不掉这份清单,
+    /// 所以按递增编号只处理没处理过的——「清空」不能每次弹出都再清一遍。
+    public struct FrequentWordEdit: Codable, Hashable, Sendable {
+        public enum Kind: String, Codable, Sendable { case forget, pin, unpin, clearAll }
+        public let serial: Int
+        public let kind: Kind
+        public let word: String
+        public let ids: [Int]
+        public init(serial: Int, kind: Kind, word: String = "", ids: [Int] = []) {
+            self.serial = serial; self.kind = kind; self.word = word; self.ids = ids
+        }
+    }
+
+    /// 键盘导出的常用词(要开完全访问才写得进来),整理页只显示最常用的这么多条。
+    public static let frequentWordsLimit = 1000
+    private static var frequentWordsURL: URL? { root?.appending(path: "keyboard-frequent-words.json") }
+    private static var frequentWordEditsURL: URL? { root?.appending(path: "keyboard-frequent-word-edits.json") }
+
+    public static func loadFrequentWords() -> FrequentWordsSnapshot? {
+        guard let url = frequentWordsURL, let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(FrequentWordsSnapshot.self, from: data)
+    }
+
+    @discardableResult
+    public static func writeFrequentWords(_ snapshot: FrequentWordsSnapshot) -> Bool {
+        guard let url = frequentWordsURL, let data = try? JSONEncoder().encode(snapshot) else { return false }
+        return (try? data.write(to: url, options: .atomic)) != nil
+    }
+
+    public static func loadFrequentWordEdits() -> [FrequentWordEdit] {
+        guard let url = frequentWordEditsURL, let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([FrequentWordEdit].self, from: data)) ?? []
+    }
+
+    /// 追加一次整理(主 app 调)。键盘已经处理过的(编号不超过 `applied`)顺手丢掉,清单不会越攒越长。
+    @discardableResult
+    public static func appendFrequentWordEdit(_ kind: FrequentWordEdit.Kind, word: String = "", ids: [Int] = [],
+                                              applied: Int) -> Bool {
+        var edits = loadFrequentWordEdits().filter { $0.serial > applied }
+        let serial = max(applied, loadFrequentWordEdits().map(\.serial).max() ?? 0) + 1
+        if kind == .clearAll { edits = [] } // 清空之前的那些不用再做了
+        edits.append(FrequentWordEdit(serial: serial, kind: kind, word: word, ids: ids))
+        guard let url = frequentWordEditsURL, let data = try? JSONEncoder().encode(edits) else { return false }
+        return (try? data.write(to: url, options: .atomic)) != nil
+    }
+
+    /// 键盘侧:还没处理过的整理,按先后。
+    public static func pendingFrequentWordEdits(after applied: Int) -> [FrequentWordEdit] {
+        loadFrequentWordEdits().filter { $0.serial > applied }.sorted { $0.serial < $1.serial }
     }
 
     // MARK: - 设置镜像

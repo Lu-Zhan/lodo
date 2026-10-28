@@ -9,6 +9,8 @@ struct KeyFace {
     var font: UIFont
     var prominent = false
     var accessibility: String
+    /// 读屏念的状态(shift 的关 / 下一个字母大写 / 大写锁定)。
+    var accessibilityValue: String? = nil
     /// 右下角的小字(中文时空格上的「拼」,同系统)。
     var corner: String? = nil
 }
@@ -87,7 +89,8 @@ final class KeyAreaView: UIView {
             v.layer.cornerRadius = metrics.cornerRadius
             let f = face(p.key)
             v.configure(title: f.title, symbol: f.symbol, font: f.font, prominent: f.prominent,
-                        hint: p.key.holdHint, corner: f.corner, accessibility: f.accessibility)
+                        hint: p.key.holdHint, corner: f.corner, accessibility: f.accessibility,
+                        accessibilityValue: f.accessibilityValue)
             let action = p.key.action
             v.onActivate = { [weak self] in self?.delegate?.keyArea(trigger: action) }
             if action == .nextKeyboard {

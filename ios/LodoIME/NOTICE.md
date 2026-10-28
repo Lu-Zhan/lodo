@@ -13,7 +13,7 @@
 | mozillazg/phrase-pinyin-data | MIT | 词语注音 |
 | mozillazg/pinyin-data | MIT | 单字读音 |
 
-另含项目人工整理的 246 条古典诗句、成语及日常短语,拼音见
+另含项目人工整理的 408 条古典诗句、成语及日常短语,拼音见
 `Tests/LodoIMETests/Fixtures/common-phrases.tsv`。古诗采用古典原文,不含现代译注。
 完整生成脚本会自动合入这些条目;已有基础词库可增量更新:
 

@@ -82,6 +82,8 @@ public struct Composition: Sendable {
         // 拼出来的整句和分几次选的组合都学成一个整体,下次整串直接出。
         // 单独一段的词典词也学:用户选了它就是比当时排前面的更想要它。
         let ids = pieces.flatMap(\.ids)
+        // 主 app 里关了「记住常用词」:照常上屏,不学。
+        guard engine.learnsWords else { pieces = []; return text }
         if !ids.isEmpty, pieces.allSatisfy({ !$0.ids.isEmpty }) {
             engine.userDictionary.learn(text, ids: ids)
         }

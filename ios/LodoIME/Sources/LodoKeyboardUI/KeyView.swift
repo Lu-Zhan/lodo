@@ -48,7 +48,8 @@ final class KeyView: UIView {
 
     /// 文字或符号图标二选一。`prominent` = 蓝底白字(回车在搜索/发送时)。
     func configure(title: NSAttributedString?, symbol: String?, font: UIFont, prominent: Bool,
-                   hint: String? = nil, corner: String? = nil, accessibility: String) {
+                   hint: String? = nil, corner: String? = nil, accessibility: String,
+                   accessibilityValue: String? = nil) {
         self.prominent = prominent
         hintLabel.text = hint
         hintLabel.isHidden = hint == nil
@@ -67,6 +68,7 @@ final class KeyView: UIView {
         } ?? nil
         imageView.tintColor = prominent ? .white : .label
         accessibilityLabel = accessibility
+        self.accessibilityValue = accessibilityValue
         applyColors()
     }
 
